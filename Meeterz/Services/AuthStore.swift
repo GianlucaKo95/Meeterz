@@ -49,16 +49,25 @@ final class AuthStore {
         }
     }
 
-    // MARK: Login per E-Mail-Code
+    // MARK: Mit Apple anmelden
 
-    func sendCode(to email: String) async -> Bool {
-        await run { try await self.client.auth.signInWithOTP(email: email) }
+    /// Apple liefert den Namen nur beim allerersten Login – für das Onboarding merken
+    var suggestedDisplayName: String?
+
+    func signInWithApple(idToken: String, rawNonce: String, fullName: PersonNameComponents?) async {
+        if let fullName {
+            let name = PersonNameComponentsFormatter().string(from: fullName)
+            if !name.isEmpty { suggestedDisplayName = name }
+        }
+        await run {
+            try await self.client.auth.signInWithIdToken(
+                credentials: .init(provider: .apple, idToken: idToken, nonce: rawNonce)
+            )
+        }
     }
 
-    func verify(email: String, code: String) async -> Bool {
-        await run {
-            try await self.client.auth.verifyOTP(email: email, token: code, type: .email)
-        }
+    func report(_ message: String) {
+        errorMessage = message
     }
 
     func createProfile(userId: UUID, handle: String, displayName: String) async {

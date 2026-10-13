@@ -35,6 +35,10 @@ targets:
         SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "1"
         CODE_SIGN_STYLE: Automatic
+    entitlements:
+      path: Meeterz/Meeterz.entitlements
+      properties:
+        com.apple.developer.applesignin: [Default]
     info:
       path: Meeterz/Info.plist
       properties:

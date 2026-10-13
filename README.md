@@ -5,7 +5,7 @@ Live-Standorte von Freunden, Navigation mit Live-Traffic, geteilte Routen und Tr
 
 ## Stand: Phase 1
 
-- Login per E-Mail-Code (Supabase Auth)
+- Login mit „Mit Apple anmelden" (Supabase Auth, nativer ID-Token-Flow)
 - Profil mit Benutzername, Freundschaftsanfragen per @handle
 - Eigener Standort (auch im Hintergrund), adaptiv gesendet: in Fahrt ~5 s, im Stand ≤ 1/min
 - Live-Positionen der Freunde über private Supabase-Realtime-Kanäle (`loc:<user_id>`), abgesichert per RLS
@@ -27,7 +27,7 @@ Live-Standorte von Freunden, Navigation mit Live-Traffic, geteilte Routen und Tr
 ### 1. Supabase
 1. Neues Projekt anlegen (Region Frankfurt).
 2. `supabase/migrations/20261013000000_phase1.sql` im SQL Editor ausführen.
-3. **Authentication → Email Templates → Magic Link**: `{{ .Token }}` in die Vorlage aufnehmen, damit ein 6-stelliger Code verschickt wird.
+3. **Authentication → Sign In / Providers → Apple**: aktivieren und unter *Client IDs* die Bundle-ID `de.koeven.meeterz` eintragen. Für den nativen iOS-Login ist kein Secret Key nötig.
 4. **Realtime → Settings**: „Allow public access" deaktivieren, damit nur private Kanäle erlaubt sind.
 5. URL und Publishable Key unter *Project Settings → API* kopieren.
 
@@ -41,10 +41,10 @@ cp Config.example.xcconfig Config.xcconfig   # Werte eintragen
 xcodegen generate
 open Meeterz.xcodeproj
 ```
-Danach auf einem echten iPhone starten. Im Simulator kann man unter *Features → Location → Freeway Drive* eine Fahrt simulieren.
+„Mit Apple anmelden" braucht einen bezahlten Apple-Developer-Account; die Capability legt Xcode beim automatischen Signieren selbst an. Danach auf einem echten iPhone starten. Im Simulator kann man unter *Features → Location → Freeway Drive* eine Fahrt simulieren.
 
 ### Testen mit zwei Geräten
-Zweites Gerät (oder Simulator) mit anderer E-Mail anmelden, gegenseitig per Benutzername hinzufügen, annehmen – die Marker erscheinen sofort.
+Zweites Gerät mit einer anderen Apple-ID anmelden, gegenseitig per Benutzername hinzufügen, annehmen – die Marker erscheinen sofort.
 
 ## Architektur
 

@@ -1,4 +1,6 @@
 import SwiftUI
+import AuthenticationServices
+import CryptoKit
 
 struct RootView: View {
     @Environment(AuthStore.self) private var auth
@@ -20,54 +22,64 @@ struct RootView: View {
 
 struct SignInView: View {
     @Environment(AuthStore.self) private var auth
-    @State private var email = ""
-    @State private var code = ""
-    @State private var codeSent = false
-    @State private var busy = false
+    @Environment(\.colorScheme) private var colorScheme
+    /// Roh-Nonce geht an Supabase, der SHA-256-Hash an Apple – so ist das Token an diesen Login gebunden
+    @State private var nonce = ""
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    TextField("E-Mail", text: $email)
-                        .textContentType(.emailAddress)
-                        .keyboardType(.emailAddress)
-                        .textInputAutocapitalization(.never)
-                        .disabled(codeSent)
-                    if codeSent {
-                        TextField("Code aus der E-Mail", text: $code)
-                            .textContentType(.oneTimeCode)
-                            .keyboardType(.numberPad)
-                    }
-                } footer: {
-                    Text(codeSent ? "Wir haben dir einen Code geschickt." : "Kein Passwort nötig – du bekommst einen Code per E-Mail.")
-                }
+        VStack(spacing: 24) {
+            Spacer()
+            VStack(spacing: 8) {
+                Text("Meeterz")
+                    .font(.system(size: 44, weight: .heavy, design: .rounded))
+                Text("Sieh, wo deine Freunde unterwegs sind –\nund triff sie auf dem Weg.")
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
 
-                Section {
-                    Button(codeSent ? "Anmelden" : "Code senden") {
-                        Task {
-                            busy = true
-                            if codeSent {
-                                _ = await auth.verify(email: email, code: code)
-                            } else {
-                                codeSent = await auth.sendCode(to: email)
-                            }
-                            busy = false
-                        }
+            SignInWithAppleButton(.signIn) { request in
+                nonce = Self.randomNonce()
+                request.requestedScopes = [.fullName, .email]
+                request.nonce = Self.sha256(nonce)
+            } onCompletion: { result in
+                switch result {
+                case .success(let authorization):
+                    guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+                          let tokenData = credential.identityToken,
+                          let idToken = String(data: tokenData, encoding: .utf8)
+                    else {
+                        auth.report("Apple hat kein gültiges Token geliefert.")
+                        return
                     }
-                    .disabled(busy || email.isEmpty || (codeSent && code.count < 6))
-
-                    if codeSent {
-                        Button("Andere E-Mail", role: .cancel) { codeSent = false; code = "" }
+                    Task {
+                        await auth.signInWithApple(idToken: idToken, rawNonce: nonce, fullName: credential.fullName)
                     }
-                }
-
-                if let msg = auth.errorMessage {
-                    Text(msg).foregroundStyle(.red).font(.footnote)
+                case .failure(let error):
+                    // Abbrechen durch den Nutzer ist kein Fehler
+                    if (error as? ASAuthorizationError)?.code != .canceled {
+                        auth.report(error.localizedDescription)
+                    }
                 }
             }
-            .navigationTitle("Meeterz")
+            .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
+            .frame(height: 54)
+
+            if let msg = auth.errorMessage {
+                Text(msg).foregroundStyle(.red).font(.footnote)
+            }
         }
+        .padding(24)
+    }
+
+    private static func randomNonce(length: Int = 32) -> String {
+        let charset = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-._")
+        var generator = SystemRandomNumberGenerator()
+        return String((0..<length).map { _ in charset.randomElement(using: &generator)! })
+    }
+
+    private static func sha256(_ input: String) -> String {
+        SHA256.hash(data: Data(input.utf8)).map { String(format: "%02x", $0) }.joined()
     }
 }
 
@@ -102,6 +114,9 @@ struct OnboardingView: View {
                 }
             }
             .navigationTitle("Profil anlegen")
+            .onAppear {
+                if displayName.isEmpty, let name = auth.suggestedDisplayName { displayName = name }
+            }
         }
     }
 }

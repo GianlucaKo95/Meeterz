@@ -24,6 +24,31 @@ struct MainView: View {
         ZStack(alignment: .top) {
             Map(viewport: $viewport) {
                 Puck2D(bearing: threeD ? .course : .heading)
+
+                // 3D-Landschaft: Höhenmodell, leicht überhöht damit Hügel sichtbar werden
+                if threeD {
+                    RasterDemSource(id: "mapbox-dem")
+                        .url("mapbox://mapbox.mapbox-terrain-dem-v1")
+                        .tileSize(514)
+                        .maxzoom(14)
+                    Terrain(sourceId: "mapbox-dem")
+                        .exaggeration(1.3)
+                }
+
+                // 3D-Gebäude auf dem Satellitenbild. Die klassische Karte (Standard) bringt sie schon mit.
+                if threeD && satellite {
+                    VectorSource(id: "mapbox-streets")
+                        .url("mapbox://mapbox.mapbox-streets-v8")
+                    FillExtrusionLayer(id: "satellite-3d-buildings", source: "mapbox-streets")
+                        .sourceLayer("building")
+                        .filter(Exp(.eq) { Exp(.get) { "extrude" }; "true" })
+                        .minZoom(14.5)
+                        .fillExtrusionColor(UIColor(red: 0.82, green: 0.80, blue: 0.76, alpha: 1))
+                        .fillExtrusionOpacity(0.75)
+                        .fillExtrusionHeight(Exp(.get) { "height" })
+                        .fillExtrusionBase(Exp(.get) { "min_height" })
+                        .slot(.middle)
+                }
                 ForEvery(markers) { m in
                     MapViewAnnotation(coordinate: m.position.coordinate) {
                         FriendMarker(marker: m)

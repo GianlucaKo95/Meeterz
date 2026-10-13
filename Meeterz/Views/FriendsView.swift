@@ -7,6 +7,14 @@ struct FriendsView: View {
     @State private var newHandle = ""
     @State private var sharingMode = SharingMode.current
     @State private var confirmDelete = false
+    @State private var inviteFriend: FriendRow?
+    @State private var invite: InviteTarget?
+
+    private struct InviteTarget: Identifiable {
+        let id = UUID()
+        let place: Place
+        let friendId: UUID
+    }
     @AppStorage("carplay.satellite") private var carPlaySatellite = true
     #if DEBUG
     @State private var simulate = NavigationCoordinator.simulate
@@ -35,6 +43,18 @@ struct FriendsView: View {
             .navigationTitle("Freunde")
             .toolbar { Button("Fertig") { dismiss() } }
             .refreshable { await app.refreshSocial() }
+            .sheet(item: $inviteFriend) { friend in
+                SearchView { place in
+                    // erst das Such-Sheet schließen lassen, dann die Einladung öffnen
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(400))
+                        invite = InviteTarget(place: place, friendId: friend.friendId)
+                    }
+                }
+            }
+            .sheet(item: $invite) { target in
+                InviteFriendsView(place: target.place, preselected: target.friendId)
+            }
             .confirmationDialog(
                 "Konto wirklich löschen?",
                 isPresented: $confirmDelete,
@@ -110,6 +130,11 @@ struct FriendsView: View {
                 }
                 .swipeActions {
                     Button("Entfernen", role: .destructive) { Task { await friends.remove(row) } }
+                    Button("Einladen") { inviteFriend = row }
+                        .tint(Theme.accent)
+                }
+                .contextMenu {
+                    Button("Zu einem Ort einladen", systemImage: "mappin.and.ellipse") { inviteFriend = row }
                 }
             }
         }

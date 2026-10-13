@@ -267,3 +267,78 @@ struct PlaceRow: View {
         }
     }
 }
+
+
+// MARK: - Zu einem Ort einladen
+
+/// Freunde zu einem beliebigen Ziel einladen (mehrere auf einmal).
+struct InviteFriendsView: View {
+    @Environment(AppModel.self) private var app
+    @Environment(\.dismiss) private var dismiss
+    let place: Place
+    /// Vorausgewählter Freund (Einstieg über die Freundesliste)
+    var preselected: UUID?
+
+    @State private var selected: Set<UUID> = []
+    @State private var sending = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Einladen nach").font(.caption.weight(.bold)).foregroundStyle(Theme.accent).textCase(.uppercase)
+                Text(place.name).font(Theme.display(24))
+                if let address = place.address { Text(address).foregroundStyle(Theme.muted) }
+            }
+
+            ScrollView {
+                VStack(spacing: 8) {
+                    ForEach(app.friends.accepted) { row in
+                        let on = selected.contains(row.friendId)
+                        Button {
+                            if on { selected.remove(row.friendId) } else { selected.insert(row.friendId) }
+                        } label: {
+                            HStack(spacing: 12) {
+                                Avatar(initials: row.initials, color: FriendPalette.color(for: row.friendId))
+                                Text(row.displayName).font(Theme.title(16)).foregroundStyle(Theme.text)
+                                Spacer()
+                                Image(systemName: on ? "checkmark.circle.fill" : "circle")
+                                    .font(.title3)
+                                    .foregroundStyle(on ? Theme.accent : Theme.muted)
+                            }
+                            .padding(12)
+                            .background(RoundedRectangle(cornerRadius: 16).fill(on ? Theme.panelRaised : Theme.panel))
+                            .overlay(RoundedRectangle(cornerRadius: 16).stroke(on ? Theme.accent : Theme.stroke))
+                        }
+                    }
+                }
+            }
+
+            Text("Die Eingeladenen können zusagen oder ablehnen. Bei einer Zusage wird der Ort bei ihnen als Ziel vorgeschlagen.")
+                .font(.footnote).foregroundStyle(Theme.muted)
+
+            Button(sending ? "Wird gesendet …" : "Einladung senden") {
+                Task {
+                    sending = true
+                    var sent = 0
+                    for id in selected where await app.meetups.propose(to: id, place: place, silent: true) {
+                        sent += 1
+                    }
+                    sending = false
+                    if sent > 0 {
+                        app.show(sent == 1 ? "Einladung gesendet." : "\(sent) Einladungen gesendet.", isError: false)
+                        dismiss()
+                    } else {
+                        app.show("Einladung konnte nicht gesendet werden.")
+                    }
+                }
+            }
+            .buttonStyle(PrimaryButtonStyle())
+            .disabled(selected.isEmpty || sending)
+            .opacity(selected.isEmpty ? 0.5 : 1)
+        }
+        .padding(20)
+        .background(Theme.ink)
+        .presentationDetents([.medium, .large])
+        .onAppear { if let preselected { selected = [preselected] } }
+    }
+}

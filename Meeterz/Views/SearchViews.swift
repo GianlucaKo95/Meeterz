@@ -6,6 +6,8 @@ import CoreLocation
 struct SearchView: View {
     @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
+    /// Gesetzt = Ort nur auswählen (z. B. zum Einladen), statt die Route zu planen
+    var onPick: ((Place) -> Void)?
     @State private var query = ""
     @State private var results: [Place] = []
     @State private var loading = false
@@ -84,7 +86,11 @@ struct SearchView: View {
 
     private func choose(_ place: Place) {
         dismiss()
-        Task { await app.navigation.planRoute(to: place) }
+        if let onPick {
+            onPick(place)
+        } else {
+            Task { await app.navigation.planRoute(to: place) }
+        }
     }
 }
 
@@ -94,6 +100,8 @@ struct RoutePreviewView: View {
     @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
     let preview: NavigationCoordinator.Preview
+
+    @State private var showInvite = false
 
     #if DEBUG
     @State private var simulate = NavigationCoordinator.simulate
@@ -127,12 +135,19 @@ struct RoutePreviewView: View {
             Spacer()
             Button("Losfahren") { app.navigation.start(preview) }
                 .buttonStyle(PrimaryButtonStyle())
+            if !app.friends.accepted.isEmpty {
+                Button { showInvite = true } label: {
+                    Label("Freunde einladen", systemImage: "person.2.fill")
+                }
+                .buttonStyle(SecondaryButtonStyle())
+            }
             Button("Abbrechen") { dismiss() }
                 .buttonStyle(SecondaryButtonStyle())
         }
         .padding(20)
         .background(Theme.ink)
         .presentationDetents([.medium, .large])
+        .sheet(isPresented: $showInvite) { InviteFriendsView(place: preview.destination) }
     }
 
     private func stat(_ title: String, _ value: String, highlight: Bool = false) -> some View {

@@ -76,7 +76,7 @@ final class MeetupsStore {
 
     // MARK: Aktionen
 
-    func propose(to friendId: UUID, place: Place) async -> Bool {
+    func propose(to friendId: UUID, place: Place, silent: Bool = false) async -> Bool {
         struct Params: Encodable { let to_user_id: UUID; let place_name: String; let lat: Double; let lng: Double }
         do {
             let id: UUID = try await client.rpc("propose_meetup", params: Params(
@@ -87,7 +87,7 @@ final class MeetupsStore {
             await refreshMeetups()
             return true
         } catch {
-            AppModel.shared.show("Vorschlag konnte nicht gesendet werden.")
+            if !silent { AppModel.shared.show("Vorschlag konnte nicht gesendet werden.") }
             return false
         }
     }

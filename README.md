@@ -27,6 +27,7 @@ Sieh, wo deine Freunde unterwegs sind – und triff sie auf dem Weg. iPhone + Ca
 **Treffen**
 - Automatische Erkennung: Wo seid ihr innerhalb von 1,5 km und ±20 Min. zur gleichen Zeit? Ohne eigene Route: Freund fährt an dir vorbei
 - Treffen planen: Raststätte, Café, Essen, Tanken in der Nähe oder genau am Kreuzungspunkt
+- Einladen ohne Überschneidung: beliebiges Ziel suchen → „Freunde einladen" (auch mehrere) oder in der Freundesliste wischen → „Einladen"
 - Vorschlag senden → annehmen/ablehnen → als Zwischenstopp in die laufende Navigation
 - Live-Aktualisierung der Vorschläge (Realtime) und Push-Benachrichtigungen
 
@@ -102,9 +103,10 @@ Zwei Geräte (oder iPhone + Simulator), zwei Konten **A** und **B**.
 6. **Navigation:** „Wohin?" → Ziel suchen → Vorschau → *Fahrt simulieren* (nur Debug) → Losfahren. Ansagen, Satellit, Freunde in der Navigation prüfen.
 7. **Route teilen:** Gerät B sieht A's Route als Linie und im Panel „Nach … · an HH:MM".
 8. **Treffpunkt:** Beide navigieren auf sich kreuzenden Strecken (oder B steht an A's Route) → Karte „… kreuzt deinen Weg" → Treffen planen → Ort wählen → vorschlagen.
-9. **Vorschlag:** B sieht ihn sofort → Annehmen → wird Zwischenstopp. A sieht „Treffen mit B".
-10. **CarPlay (Simulator):** Karte mit Freunden, Zentrieren, Freunde ein/aus, „Ziele" → Freund → Route → Navigation. Auf dem iPhone gestartete Navigation erscheint in CarPlay.
-11. **Konto löschen:** in den Einstellungen → Konto ist weg, Freund sieht dich nicht mehr.
+9. **Einladung:** A sucht ein Ziel → Vorschau → „Freunde einladen" → B (und ggf. C) sehen die Einladung → Annehmen → Zwischenstopp/Ziel. Alternativ Freundesliste → wischen → „Einladen".
+10. **Vorschlag:** B sieht ihn sofort → Annehmen → wird Zwischenstopp. A sieht „Treffen mit B".
+11. **CarPlay (Simulator):** Karte mit Freunden, Zentrieren, Freunde ein/aus, „Ziele" → Freund → Route → Navigation. Auf dem iPhone gestartete Navigation erscheint in CarPlay.
+12. **Konto löschen:** in den Einstellungen → Konto ist weg, Freund sieht dich nicht mehr.
 
 ## Architektur
 

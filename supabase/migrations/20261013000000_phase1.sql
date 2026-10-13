@@ -230,6 +230,7 @@ begin
 end;
 $$;
 
+revoke execute on function public.can_receive_location(text) from public, anon;
 grant execute on function public.can_receive_location(text) to authenticated;
 
 create policy "loc: Freunde empfangen" on realtime.messages

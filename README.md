@@ -38,6 +38,22 @@ Sieh, wo deine Freunde unterwegs sind – und triff sie auf dem Weg. iPhone + Ca
 **Konto**
 - Konto löschen (inkl. aller Daten), Datenschutzerklärung (`docs/datenschutz.md`, Entwurf)
 
+## Als Nächstes: Sound-Pack (nach dem ersten erfolgreichen Test)
+
+Jeder nimmt kurze Sprachschnipsel (max. 5 s) auf; Freunde hören sie im passenden Moment – auch während der Navigation und auf CarPlay:
+
+| Moment | Beispiel |
+|---|---|
+| Freund fährt an dir vorbei (< 300 m, beide unterwegs) | „Hup mal, ich bin's!" |
+| Freund ist noch 5 Min. vom Treffpunkt entfernt | „Bin gleich da, bestell schon mal!" |
+| Freund ist am Treffpunkt angekommen | „Wo bleibst du denn?" |
+| Freund nimmt deinen Treffen-Vorschlag an | „Deal, wir sehen uns!" |
+
+- Speicherung in Supabase Storage, nur für angenommene Freunde abrufbar; lokal zwischengespeichert
+- Musik wird kurz leiser, Navigationsansagen haben Vorrang
+- Ohne Aufnahme: normale Apple-Ansage als Ersatz
+- Einstellungen: „Stimmen von Freunden abspielen" und einzelne Freunde stummschalten
+
 ## Setup
 
 ### 1. Supabase

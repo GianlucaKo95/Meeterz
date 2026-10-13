@@ -100,7 +100,7 @@ struct SignInView: View {
 }
 
 enum Legal {
-    static let privacyURL = URL(string: "https://github.com/GianlucaKo95/Meeterz/blob/main/docs/datenschutz.md")!
+    static let privacyURL = URL(string: "https://gianlucako95.github.io/Meeterz/datenschutz")!
 }
 
 #if DEV_LOGIN

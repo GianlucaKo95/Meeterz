@@ -1,0 +1,5 @@
+title: Meeterz
+description: Sieh, wo deine Freunde unterwegs sind – und triff sie auf dem Weg.
+theme: jekyll-theme-midnight
+exclude:
+  - carplay-entitlement-request.md

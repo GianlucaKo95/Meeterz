@@ -36,7 +36,7 @@ Sieh, wo deine Freunde unterwegs sind – und triff sie auf dem Weg. iPhone + Ca
 - Übernimmt eine auf dem iPhone gestartete Navigation; Kartenstil (Satellit/Klassisch) in den iPhone-Einstellungen
 
 **Konto**
-- Konto löschen (inkl. aller Daten), Datenschutzerklärung (`docs/datenschutz.md`, Entwurf)
+- Konto löschen (inkl. aller Daten), Support- und Datenschutz-Seite über GitHub Pages (`docs/`, Entwurf)
 
 ## Als Nächstes: Sound-Pack (nach dem ersten erfolgreichen Test)
 

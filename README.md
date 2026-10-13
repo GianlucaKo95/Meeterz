@@ -20,7 +20,7 @@ Sieh, wo deine Freunde unterwegs sind – und triff sie auf dem Weg. iPhone + Ca
 **Navigation (Mapbox Navigation SDK 3.32.1)**
 - Zielsuche (Mapbox Search Box), Schnellziele: Freunde und Treffpunkte
 - Routenvorschau mit Ankunft, Dauer, Strecke – inkl. Live-Traffic
-- Turn-by-Turn mit Sprachansagen, Umleitung bei Stau, Satellitenstil
+- Turn-by-Turn mit Sprachansagen (Apple-Stimmen, offline; Stimme unter Bedienungshilfen → Gesprochene Inhalte), Umleitung bei Stau, Satellitenstil
 - Freunde und ihre Routen auch in der Navigationsansicht
 - Eigene Route wird geteilt (Stützpunkte alle ~300 m mit Ankunftszeit, minütlich und bei Umleitung aktualisiert)
 

@@ -9,7 +9,16 @@ import MapboxNavigationUIKit
 
 /// Ein Navigationskern für iPhone und CarPlay (Vorgabe von Mapbox).
 @MainActor
-let navigationProvider = MapboxNavigationProvider(coreConfig: .init(locationSource: .live))
+let navigationProvider = MapboxNavigationProvider(coreConfig: meeterzCoreConfig(simulate: false))
+
+/// Sprachansagen nur mit Apple-Stimmen (offline, ohne Mapbox Speech API).
+/// Die Stimme folgt der Systemeinstellung unter Bedienungshilfen → Gesprochene Inhalte.
+func meeterzCoreConfig(simulate: Bool, initialLocation: CLLocation? = nil) -> CoreConfig {
+    CoreConfig(
+        locationSource: simulate ? .simulation(initialLocation: initialLocation) : .live,
+        ttsConfig: .localOnly
+    )
+}
 
 /// Routenplanung, Turn-by-Turn auf dem iPhone, Teilen der Route und Zwischenstopps.
 @MainActor @Observable
@@ -75,10 +84,9 @@ final class NavigationCoordinator: NSObject {
         self.preview = nil
         destination = preview.destination
 
-        navigationProvider.apply(coreConfig: .init(
-            locationSource: Self.simulate
-                ? .simulation(initialLocation: AppModel.shared.location.lastLocation)
-                : .live
+        navigationProvider.apply(coreConfig: meeterzCoreConfig(
+            simulate: Self.simulate,
+            initialLocation: AppModel.shared.location.lastLocation
         ))
 
         let options = NavigationOptions(

@@ -1,14 +1,13 @@
 # Datenschutzerklärung Meeterz
-
-> **Entwurf** – vor der Veröffentlichung im App Store rechtlich prüfen lassen und die Angaben in eckigen Klammern ergänzen.
-
 Stand: Oktober 2026
 
 ## 1. Verantwortlicher
 
-[Vor- und Nachname]
-[Anschrift]
-E-Mail: [Kontaktadresse]
+Gianluca Köhni
+Waldstrasse 1c
+47199 Duisburg
+Deutschland
+E-Mail: gk@koeven.de
 
 ## 2. Welche Daten Meeterz verarbeitet
 

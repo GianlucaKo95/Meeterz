@@ -5,3 +5,13 @@ SUPABASE_URL = https:/$()/DEIN-PROJEKT.supabase.co
 SUPABASE_ANON_KEY = DEIN_PUBLISHABLE_KEY
 MAPBOX_ACCESS_TOKEN = pk.DEIN_MAPBOX_PUBLIC_TOKEN
 DEVELOPMENT_TEAM = DEINE_TEAM_ID
+
+// ── Login-Modus ──────────────────────────────────────────────
+// A) Kostenlose Apple-ID (Personal Team): Test-Login mit E-Mail + Passwort,
+//    ohne "Mit Apple anmelden" (diese Berechtigung gibt es im Personal Team nicht).
+MEETERZ_FLAGS = DEV_LOGIN
+MEETERZ_ENTITLEMENTS =
+
+// B) Bezahlter Developer Account: obere zwei Zeilen auskommentieren, diese aktivieren.
+// MEETERZ_FLAGS =
+// MEETERZ_ENTITLEMENTS = Meeterz/Meeterz.entitlements

@@ -41,10 +41,18 @@ cp Config.example.xcconfig Config.xcconfig   # Werte eintragen
 xcodegen generate
 open Meeterz.xcodeproj
 ```
-„Mit Apple anmelden" braucht einen bezahlten Apple-Developer-Account; die Capability legt Xcode beim automatischen Signieren selbst an. Danach auf einem echten iPhone starten. Im Simulator kann man unter *Features → Location → Freeway Drive* eine Fahrt simulieren.
+Danach auf einem echten iPhone starten.
+
+### Login-Modus (in `Config.xcconfig`)
+| Account | Einstellung | Login in der App |
+|---|---|---|
+| Kostenlose Apple-ID (Personal Team) | `MEETERZ_FLAGS = DEV_LOGIN`, `MEETERZ_ENTITLEMENTS =` | Test-Login mit E-Mail + Passwort. In Supabase: Email-Provider an, „Confirm email" aus. App läuft 7 Tage, dann neu installieren. |
+| Bezahlter Developer Account | `MEETERZ_FLAGS =`, `MEETERZ_ENTITLEMENTS = Meeterz/Meeterz.entitlements` | „Mit Apple anmelden" |
+
+Nach dem Umstellen `xcodegen generate` erneut ausführen. Ein Release-Build mit `DEV_LOGIN` bricht absichtlich ab. Vor der Veröffentlichung in Supabase den Email-Provider wieder ausschalten. Im Simulator kann man unter *Features → Location → Freeway Drive* eine Fahrt simulieren.
 
 ### Testen mit zwei Geräten
-Zweites Gerät mit einer anderen Apple-ID anmelden, gegenseitig per Benutzername hinzufügen, annehmen – die Marker erscheinen sofort.
+Zweites Gerät mit einem anderen Konto anmelden, gegenseitig per Benutzername hinzufügen, annehmen – die Marker erscheinen sofort.
 
 ## Architektur
 

@@ -35,10 +35,9 @@ targets:
         SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "1"
         CODE_SIGN_STYLE: Automatic
-    entitlements:
-      path: Meeterz/Meeterz.entitlements
-      properties:
-        com.apple.developer.applesignin: [Default]
+        # Beides kommt aus Config.xcconfig (Personal Team vs. bezahlter Account)
+        CODE_SIGN_ENTITLEMENTS: $(MEETERZ_ENTITLEMENTS)
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) $(MEETERZ_FLAGS)
     info:
       path: Meeterz/Info.plist
       properties:

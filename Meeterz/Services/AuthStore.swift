@@ -66,6 +66,20 @@ final class AuthStore {
         }
     }
 
+    #if DEV_LOGIN
+    // MARK: Test-Login (nur Personal Team / Debug)
+
+    func devSignIn(email: String, password: String, register: Bool) async {
+        await run {
+            if register {
+                _ = try await self.client.auth.signUp(email: email, password: password)
+            } else {
+                _ = try await self.client.auth.signIn(email: email, password: password)
+            }
+        }
+    }
+    #endif
+
     func report(_ message: String) {
         errorMessage = message
     }

@@ -38,6 +38,9 @@ struct SignInView: View {
             }
             Spacer()
 
+            #if DEV_LOGIN
+            DevLoginForm()
+            #else
             SignInWithAppleButton(.signIn) { request in
                 nonce = Self.randomNonce()
                 request.requestedScopes = [.fullName, .email]
@@ -64,6 +67,7 @@ struct SignInView: View {
             }
             .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
             .frame(height: 54)
+            #endif
 
             if let msg = auth.errorMessage {
                 Text(msg).foregroundStyle(.red).font(.footnote)
@@ -82,6 +86,51 @@ struct SignInView: View {
         SHA256.hash(data: Data(input.utf8)).map { String(format: "%02x", $0) }.joined()
     }
 }
+
+#if DEV_LOGIN
+#if !DEBUG
+#error("DEV_LOGIN darf nicht in Release-Builds landen – MEETERZ_FLAGS in Config.xcconfig leeren.")
+#endif
+
+/// Test-Login für die kostenlose Apple-ID. Voraussetzung in Supabase:
+/// Email-Provider an, "Confirm email" aus.
+private struct DevLoginForm: View {
+    @Environment(AuthStore.self) private var auth
+    @State private var email = ""
+    @State private var password = ""
+    @State private var busy = false
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Text("TEST-LOGIN").font(.caption.bold()).foregroundStyle(.orange)
+            TextField("E-Mail", text: $email)
+                .textContentType(.username)
+                .keyboardType(.emailAddress)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .textFieldStyle(.roundedBorder)
+            SecureField("Passwort (mind. 6 Zeichen)", text: $password)
+                .textContentType(.password)
+                .textFieldStyle(.roundedBorder)
+            HStack {
+                Button("Registrieren") { submit(register: true) }
+                    .buttonStyle(.bordered)
+                Button("Anmelden") { submit(register: false) }
+                    .buttonStyle(.borderedProminent)
+            }
+            .disabled(busy || email.isEmpty || password.count < 6)
+        }
+    }
+
+    private func submit(register: Bool) {
+        Task {
+            busy = true
+            await auth.devSignIn(email: email, password: password, register: register)
+            busy = false
+        }
+    }
+}
+#endif
 
 struct OnboardingView: View {
     @Environment(AuthStore.self) private var auth

@@ -6,35 +6,42 @@ struct RootView: View {
     @Environment(AuthStore.self) private var auth
 
     var body: some View {
-        switch auth.state {
-        case .loading:
-            ProgressView()
-        case .signedOut:
-            SignInView()
-        case .needsProfile(let userId):
-            OnboardingView(userId: userId)
-        case .ready(let profile):
-            MainView(profile: profile)
-                .id(profile.id)
+        ZStack {
+            Theme.ink.ignoresSafeArea()
+            switch auth.state {
+            case .loading:
+                ProgressView().tint(Theme.accent)
+            case .signedOut:
+                SignInView()
+            case .needsProfile(let userId):
+                OnboardingView(userId: userId)
+            case .ready(let profile):
+                MainView()
+                    .id(profile.id)
+            }
         }
+        .foregroundStyle(Theme.text)
     }
 }
 
 struct SignInView: View {
     @Environment(AuthStore.self) private var auth
-    @Environment(\.colorScheme) private var colorScheme
     /// Roh-Nonce geht an Supabase, der SHA-256-Hash an Apple – so ist das Token an diesen Login gebunden
     @State private var nonce = ""
 
     var body: some View {
         VStack(spacing: 24) {
             Spacer()
-            VStack(spacing: 8) {
+            VStack(spacing: 12) {
+                Image(systemName: "point.topleft.down.to.point.bottomright.curvepath.fill")
+                    .font(.system(size: 54, weight: .bold))
+                    .foregroundStyle(Theme.accent)
+                    .accessibilityHidden(true)
                 Text("Meeterz")
-                    .font(.system(size: 44, weight: .heavy, design: .rounded))
+                    .font(Theme.display(44))
                 Text("Sieh, wo deine Freunde unterwegs sind –\nund triff sie auf dem Weg.")
                     .multilineTextAlignment(.center)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.muted)
             }
             Spacer()
 
@@ -65,13 +72,18 @@ struct SignInView: View {
                     }
                 }
             }
-            .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
+            .signInWithAppleButtonStyle(.white)
             .frame(height: 54)
+            .clipShape(Capsule())
             #endif
 
             if let msg = auth.errorMessage {
-                Text(msg).foregroundStyle(.red).font(.footnote)
+                Text(msg).foregroundStyle(Theme.danger).font(.footnote)
             }
+
+            Link("Datenschutz", destination: Legal.privacyURL)
+                .font(.footnote)
+                .foregroundStyle(Theme.muted)
         }
         .padding(24)
     }
@@ -85,6 +97,10 @@ struct SignInView: View {
     private static func sha256(_ input: String) -> String {
         SHA256.hash(data: Data(input.utf8)).map { String(format: "%02x", $0) }.joined()
     }
+}
+
+enum Legal {
+    static let privacyURL = URL(string: "https://github.com/GianlucaKo95/Meeterz/blob/main/docs/datenschutz.md")!
 }
 
 #if DEV_LOGIN
@@ -108,15 +124,17 @@ private struct DevLoginForm: View {
                 .keyboardType(.emailAddress)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
-                .textFieldStyle(.roundedBorder)
+                .padding(14)
+                .background(RoundedRectangle(cornerRadius: 14).fill(Theme.panel))
             SecureField("Passwort (mind. 6 Zeichen)", text: $password)
                 .textContentType(.password)
-                .textFieldStyle(.roundedBorder)
-            HStack {
+                .padding(14)
+                .background(RoundedRectangle(cornerRadius: 14).fill(Theme.panel))
+            HStack(spacing: 10) {
                 Button("Registrieren") { submit(register: true) }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(SecondaryButtonStyle())
                 Button("Anmelden") { submit(register: false) }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(PrimaryButtonStyle())
             }
             .disabled(busy || email.isEmpty || password.count < 6)
         }
@@ -143,29 +161,44 @@ struct OnboardingView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    TextField("Anzeigename", text: $displayName)
-                    TextField("Benutzername", text: $handle)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                } footer: {
-                    Text("Über deinen Benutzernamen finden dich Freunde. 3–20 Zeichen: a–z, 0–9, _")
-                }
-                Button("Los geht's") {
-                    Task { await auth.createProfile(userId: userId, handle: handle, displayName: displayName) }
-                }
-                .disabled(!handleValid || displayName.isEmpty)
+        VStack(alignment: .leading, spacing: 20) {
+            Text("Wie sollen dich\ndeine Freunde sehen?")
+                .font(Theme.display(30))
+                .padding(.top, 40)
 
-                if let msg = auth.errorMessage {
-                    Text(msg).foregroundStyle(.red).font(.footnote)
-                }
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Anzeigename").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                TextField("z. B. Luca", text: $displayName)
+                    .padding(14)
+                    .background(RoundedRectangle(cornerRadius: 14).fill(Theme.panel))
             }
-            .navigationTitle("Profil anlegen")
-            .onAppear {
-                if displayName.isEmpty, let name = auth.suggestedDisplayName { displayName = name }
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Benutzername").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                TextField("@benutzername", text: $handle)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .padding(14)
+                    .background(RoundedRectangle(cornerRadius: 14).fill(Theme.panel))
+                Text("Darüber finden dich Freunde. 3–20 Zeichen: a–z, 0–9, _")
+                    .font(.caption).foregroundStyle(Theme.muted)
             }
+
+            if let msg = auth.errorMessage {
+                Text(msg.contains("duplicate") ? "Dieser Benutzername ist schon vergeben." : msg)
+                    .foregroundStyle(Theme.danger).font(.footnote)
+            }
+
+            Spacer()
+            Button("Los geht's") {
+                Task { await auth.createProfile(userId: userId, handle: handle, displayName: displayName) }
+            }
+            .buttonStyle(PrimaryButtonStyle())
+            .disabled(!handleValid || displayName.isEmpty)
+            .opacity(!handleValid || displayName.isEmpty ? 0.5 : 1)
+        }
+        .padding(24)
+        .onAppear {
+            if displayName.isEmpty, let name = auth.suggestedDisplayName { displayName = name }
         }
     }
 }

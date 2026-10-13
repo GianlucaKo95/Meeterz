@@ -9,9 +9,13 @@ packages:
   Supabase:
     url: https://github.com/supabase/supabase-swift
     from: 2.20.0
+  # Navigation SDK legt die Maps-Version fest – beide müssen zusammenpassen
+  MapboxNavigation:
+    url: https://github.com/mapbox/mapbox-navigation-ios.git
+    exactVersion: 3.32.1
   MapboxMaps:
     url: https://github.com/mapbox/mapbox-maps-ios
-    from: 11.8.0
+    exactVersion: 11.32.1
 
 targets:
   Meeterz:
@@ -27,26 +31,44 @@ targets:
         product: Supabase
       - package: MapboxMaps
         product: MapboxMaps
+      - package: MapboxNavigation
+        product: MapboxNavigationCore
+      - package: MapboxNavigation
+        product: MapboxNavigationUIKit
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: de.koeven.meeterz
-        MARKETING_VERSION: "0.1.0"
+        MARKETING_VERSION: "0.2.0"
         CURRENT_PROJECT_VERSION: "1"
         SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "1"
         CODE_SIGN_STYLE: Automatic
-        # Beides kommt aus Config.xcconfig (Personal Team vs. bezahlter Account)
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # Beides kommt aus Config.xcconfig (Personal Team / bezahlter Account / Simulator)
         CODE_SIGN_ENTITLEMENTS: $(MEETERZ_ENTITLEMENTS)
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) $(MEETERZ_FLAGS)
     info:
       path: Meeterz/Info.plist
       properties:
         CFBundleDisplayName: Meeterz
-        UILaunchScreen: {}
+        UILaunchScreen:
+          UIColorName: LaunchBackground
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
-        UIBackgroundModes: [location]
-        NSLocationWhenInUseUsageDescription: "Meeterz zeigt deinen Standort auf der Karte und teilt ihn mit Freunden, die du freigegeben hast."
+        UIUserInterfaceStyle: Dark
+        UIBackgroundModes: [location, audio, remote-notification]
+        NSLocationWhenInUseUsageDescription: "Meeterz zeigt deinen Standort auf der Karte, navigiert dich und teilt deinen Standort mit Freunden, die du freigegeben hast."
         NSLocationAlwaysAndWhenInUseUsageDescription: "Damit Freunde dich auch sehen, wenn Meeterz im Hintergrund läuft (z. B. während der Fahrt)."
+        NSLocationTemporaryUsageDescriptionDictionary:
+          LocationAccuracyAuthorizationDescription: "Für die Navigation braucht Meeterz deinen genauen Standort."
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: true
+          CPSupportsDashboardNavigationScene: false
+          UISceneConfigurations:
+            CPTemplateApplicationSceneSessionRoleApplication:
+              - UISceneClassName: CPTemplateApplicationScene
+                UISceneConfigurationName: CarPlay
+                UISceneDelegateClassName: $(PRODUCT_MODULE_NAME).CarPlaySceneDelegate
         SUPABASE_URL: $(SUPABASE_URL)
         SUPABASE_ANON_KEY: $(SUPABASE_ANON_KEY)
         MBXAccessToken: $(MAPBOX_ACCESS_TOKEN)
+        MEETERZ_PUSH_ENV: $(MEETERZ_PUSH_ENV)

@@ -39,7 +39,7 @@ final class AuthStore {
         }
         do {
             let rows: [Profile] = try await client.from("profiles")
-                .select("id, handle, display_name, sharing_enabled")
+                .select("id, handle, display_name, sharing_enabled, sharing_until")
                 .eq("id", value: session.user.id)
                 .execute().value
             state = rows.first.map(State.ready) ?? .needsProfile(session.user.id)
@@ -84,32 +84,60 @@ final class AuthStore {
         errorMessage = message
     }
 
+    // MARK: Profil
+
     func createProfile(userId: UUID, handle: String, displayName: String) async {
         let p = Profile(id: userId,
                         handle: handle.lowercased().trimmingCharacters(in: .whitespaces),
                         displayName: displayName.trimmingCharacters(in: .whitespaces),
-                        sharingEnabled: true)
+                        sharingEnabled: true,
+                        sharingUntil: nil)
         if await run({ try await self.client.from("profiles").insert(p).execute() }) {
             state = .ready(p)
         }
     }
 
-    func setSharing(_ enabled: Bool) async {
+    /// Teilen an/aus, optional mit Ablaufzeit (nil = unbegrenzt)
+    func setSharing(_ enabled: Bool, until: Date? = nil) async {
         guard var p = profile else { return }
+        struct Update: Encodable {
+            let enabled: Bool
+            let until: Date?
+            enum CodingKeys: String, CodingKey {
+                case enabled = "sharing_enabled"
+                case until = "sharing_until"
+            }
+            func encode(to encoder: Encoder) throws {
+                var c = encoder.container(keyedBy: CodingKeys.self)
+                try c.encode(enabled, forKey: .enabled)
+                try c.encode(until, forKey: .until)   // nil wird bewusst als null geschrieben
+            }
+        }
+        let id = p.id
         let ok = await run {
             try await self.client.from("profiles")
-                .update(["sharing_enabled": enabled])
-                .eq("id", value: p.id)
+                .update(Update(enabled: enabled, until: until))
+                .eq("id", value: id)
                 .execute()
         }
         if ok {
             p.sharingEnabled = enabled
+            p.sharingUntil = until
             state = .ready(p)
         }
     }
 
     func signOut() async {
         _ = await run { try await self.client.auth.signOut() }
+        state = .signedOut
+    }
+
+    /// Löscht das Konto samt aller Daten (App-Store-Pflicht)
+    func deleteAccount() async {
+        let ok = await run { try await self.client.rpc("delete_account").execute() }
+        guard ok else { return }
+        try? await client.auth.signOut(scope: .local)
+        state = .signedOut
     }
 
     @discardableResult

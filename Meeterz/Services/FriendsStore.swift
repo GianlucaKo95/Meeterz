@@ -22,17 +22,25 @@ final class FriendsStore {
     }
 
     func sendRequest(handle: String) async -> Bool {
-        await mutate {
+        let ok = await mutate {
             try await self.client.rpc("send_friend_request",
                                       params: ["target_handle": handle]).execute()
         }
+        if ok, let target = rows.first(where: { $0.handle == handle.lowercased().trimmingCharacters(in: .whitespaces) }) {
+            AppModel.shared.push.notify(.friendRequest, to: target.friendId)
+        }
+        return ok
     }
 
     func respond(to row: FriendRow, accept: Bool) async {
         struct Params: Encodable { let request_id: UUID; let accept: Bool }
-        _ = await mutate {
+        let ok = await mutate {
             try await self.client.rpc("respond_friend_request",
                                       params: Params(request_id: row.friendshipId, accept: accept)).execute()
+        }
+        if ok && accept {
+            AppModel.shared.push.notify(.friendAccepted, to: row.friendId)
+            await AppModel.shared.hub.sync(with: rows)
         }
     }
 
@@ -41,6 +49,7 @@ final class FriendsStore {
             try await self.client.rpc("remove_friend",
                                       params: ["friend_id": row.friendId]).execute()
         }
+        await AppModel.shared.hub.sync(with: rows)
     }
 
     private func mutate(_ op: @escaping () async throws -> Void) async -> Bool {
@@ -50,8 +59,15 @@ final class FriendsStore {
             await refresh()
             return true
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = Self.friendly(error)
             return false
         }
+    }
+
+    private static func friendly(_ error: Error) -> String {
+        let text = error.localizedDescription
+        if text.contains("Nutzer nicht gefunden") { return "Diesen Benutzernamen gibt es nicht." }
+        if text.contains("selbst hinzufügen") { return "Du kannst dich nicht selbst hinzufügen." }
+        return text
     }
 }

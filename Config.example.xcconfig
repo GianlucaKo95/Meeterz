@@ -5,13 +5,20 @@ SUPABASE_URL = https:/$()/DEIN-PROJEKT.supabase.co
 SUPABASE_ANON_KEY = DEIN_PUBLISHABLE_KEY
 MAPBOX_ACCESS_TOKEN = pk.DEIN_MAPBOX_PUBLIC_TOKEN
 DEVELOPMENT_TEAM = DEINE_TEAM_ID
+MEETERZ_PUSH_ENV = development
 
-// ── Login-Modus ──────────────────────────────────────────────
-// A) Kostenlose Apple-ID (Personal Team): Test-Login mit E-Mail + Passwort,
-//    ohne "Mit Apple anmelden" (diese Berechtigung gibt es im Personal Team nicht).
+// ── Modus ────────────────────────────────────────────────────
+// A) Kostenlose Apple-ID (Personal Team)
+//    iPhone: Test-Login mit E-Mail + Passwort, keine Apple-Anmeldung, kein Push, kein CarPlay im Auto.
+//    Simulator: zusätzlich CarPlay-Simulator nutzbar.
 MEETERZ_FLAGS = DEV_LOGIN
 MEETERZ_ENTITLEMENTS =
+MEETERZ_ENTITLEMENTS[sdk=iphonesimulator*] = Meeterz/Meeterz-Simulator.entitlements
 
-// B) Bezahlter Developer Account: obere zwei Zeilen auskommentieren, diese aktivieren.
+// B) Bezahlter Developer Account (oberen Block auskommentieren, diesen aktivieren)
 // MEETERZ_FLAGS =
 // MEETERZ_ENTITLEMENTS = Meeterz/Meeterz.entitlements
+
+// C) Wie B, sobald Apple das CarPlay-Entitlement freigegeben hat
+// MEETERZ_FLAGS =
+// MEETERZ_ENTITLEMENTS = Meeterz/Meeterz-CarPlay.entitlements

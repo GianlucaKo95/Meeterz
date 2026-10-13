@@ -1,0 +1,7 @@
+Config.xcconfig
+*.xcodeproj/
+Meeterz/Info.plist
+DerivedData/
+.build/
+xcuserdata/
+.DS_Store

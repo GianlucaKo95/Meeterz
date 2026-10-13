@@ -1,0 +1,49 @@
+name: Meeterz
+options:
+  bundleIdPrefix: de.koeven
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+
+packages:
+  Supabase:
+    url: https://github.com/supabase/supabase-swift
+    from: 2.20.0
+  MapboxMaps:
+    url: https://github.com/mapbox/mapbox-maps-ios
+    from: 11.8.0
+
+targets:
+  Meeterz:
+    type: application
+    platform: iOS
+    sources:
+      - path: Meeterz
+    configFiles:
+      Debug: Config.xcconfig
+      Release: Config.xcconfig
+    dependencies:
+      - package: Supabase
+        product: Supabase
+      - package: MapboxMaps
+        product: MapboxMaps
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: de.koeven.meeterz
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_STYLE: Automatic
+    info:
+      path: Meeterz/Info.plist
+      properties:
+        CFBundleDisplayName: Meeterz
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIBackgroundModes: [location]
+        NSLocationWhenInUseUsageDescription: "Meeterz zeigt deinen Standort auf der Karte und teilt ihn mit Freunden, die du freigegeben hast."
+        NSLocationAlwaysAndWhenInUseUsageDescription: "Damit Freunde dich auch sehen, wenn Meeterz im Hintergrund läuft (z. B. während der Fahrt)."
+        SUPABASE_URL: $(SUPABASE_URL)
+        SUPABASE_ANON_KEY: $(SUPABASE_ANON_KEY)
+        MBXAccessToken: $(MAPBOX_ACCESS_TOKEN)

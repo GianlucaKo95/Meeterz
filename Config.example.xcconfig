@@ -1,0 +1,7 @@
+// Kopieren nach Config.xcconfig (wird nicht eingecheckt) und Werte eintragen.
+// Achtung: In .xcconfig startet "//" einen Kommentar – daher der $()-Trick in der URL.
+
+SUPABASE_URL = https:/$()/DEIN-PROJEKT.supabase.co
+SUPABASE_ANON_KEY = DEIN_PUBLISHABLE_KEY
+MAPBOX_ACCESS_TOKEN = pk.DEIN_MAPBOX_PUBLIC_TOKEN
+DEVELOPMENT_TEAM = DEINE_TEAM_ID

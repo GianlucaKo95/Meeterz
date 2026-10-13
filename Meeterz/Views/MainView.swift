@@ -1,0 +1,146 @@
+import SwiftUI
+import MapboxMaps
+
+struct MainView: View {
+    @Environment(AuthStore.self) private var auth
+    let profile: Profile
+
+    @State private var location = LocationService()
+    @State private var friends = FriendsStore()
+    @State private var hub = LiveLocationHub()
+    @State private var showFriends = false
+    @State private var viewport: Viewport = .followPuck(zoom: 13)
+
+    var body: some View {
+        ZStack(alignment: .top) {
+            Map(viewport: $viewport) {
+                Puck2D(bearing: .heading)
+                ForEvery(markers) { m in
+                    MapViewAnnotation(coordinate: m.position.coordinate) {
+                        FriendMarker(marker: m)
+                    }
+                    .allowOverlap(true)
+                }
+            }
+            .mapStyle(.standard)
+            .ignoresSafeArea()
+
+            HStack {
+                SharingPill(enabled: profile.sharingEnabled) {
+                    Task { await auth.setSharing(!profile.sharingEnabled) }
+                }
+                Spacer()
+                Button { viewport = .followPuck(zoom: 13) } label: {
+                    Image(systemName: "location.fill").padding(12)
+                }
+                .background(.regularMaterial, in: Circle())
+                Button { showFriends = true } label: {
+                    Image(systemName: "person.2.fill").padding(12)
+                }
+                .background(.regularMaterial, in: Circle())
+                .overlay(alignment: .topTrailing) {
+                    if !friends.incoming.isEmpty {
+                        Circle().fill(.red).frame(width: 10, height: 10)
+                    }
+                }
+            }
+            .padding(.horizontal)
+        }
+        .sheet(isPresented: $showFriends) {
+            FriendsView(profile: profile, store: friends, location: location)
+        }
+        .task { await bootstrap() }
+        .task(id: friends.rows) { await hub.sync(with: friends.rows) }
+        .onChange(of: profile.sharingEnabled) { _, _ in wireLocation() }
+    }
+
+    private var markers: [FriendMarkerModel] {
+        friends.accepted.compactMap { f in
+            hub.positions[f.friendId].map { FriendMarkerModel(friend: f, position: $0) }
+        }
+    }
+
+    private func bootstrap() async {
+        wireLocation()
+        location.requestPermission()
+        await hub.startPublishing(userId: profile.id)
+        // Freundesliste regelmäßig aktualisieren (neue Anfragen, Freigaben)
+        while !Task.isCancelled {
+            await friends.refresh()
+            try? await Task.sleep(for: .seconds(60))
+        }
+    }
+
+    private func wireLocation() {
+        let userId = profile.id
+        let sharing = profile.sharingEnabled
+        location.onUpdate = { loc in
+            Task { await hub.publish(loc, userId: userId, sharingEnabled: sharing) }
+        }
+    }
+}
+
+struct FriendMarkerModel: Identifiable {
+    let friend: FriendRow
+    let position: LivePosition
+    var id: UUID { friend.friendId }
+}
+
+struct FriendMarker: View {
+    let marker: FriendMarkerModel
+
+    var body: some View {
+        // TimelineView sorgt dafür, dass "vor X Min." mitläuft
+        TimelineView(.periodic(from: .now, by: 30)) { _ in
+            let age = marker.position.age
+            let stale = age > 5 * 60
+            VStack(spacing: 2) {
+                Text(initials)
+                    .font(.caption.bold())
+                    .foregroundStyle(.white)
+                    .frame(width: 34, height: 34)
+                    .background(Circle().fill(color))
+                    .overlay(Circle().stroke(.white, lineWidth: 2))
+                    .shadow(radius: 2)
+                Text("\(marker.friend.displayName) · \(ageText(age))")
+                    .font(.caption2)
+                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .background(.regularMaterial, in: Capsule())
+            }
+            .opacity(stale ? 0.5 : 1)
+        }
+    }
+
+    private var initials: String {
+        marker.friend.displayName.split(separator: " ").prefix(2)
+            .compactMap(\.first).map(String.init).joined().uppercased()
+    }
+
+    private var color: Color {
+        let hues: [Color] = [.blue, .orange, .green, .purple, .pink, .teal, .indigo]
+        // Stabil über App-Starts hinweg (hashValue wäre pro Start zufällig)
+        return hues[Int(marker.friend.friendId.uuid.0) % hues.count]
+    }
+
+    private func ageText(_ age: TimeInterval) -> String {
+        if age < 60 { return "live" }
+        if age < 3600 { return "vor \(Int(age / 60)) Min." }
+        return "vor \(Int(age / 3600)) Std."
+    }
+}
+
+struct SharingPill: View {
+    let enabled: Bool
+    let toggle: () -> Void
+
+    var body: some View {
+        Button(action: toggle) {
+            Label(enabled ? "Teilt Standort" : "Teilen pausiert",
+                  systemImage: enabled ? "dot.radiowaves.left.and.right" : "pause.circle")
+                .font(.footnote.bold())
+                .padding(.horizontal, 12).padding(.vertical, 8)
+        }
+        .tint(enabled ? .green : .secondary)
+        .background(.regularMaterial, in: Capsule())
+    }
+}

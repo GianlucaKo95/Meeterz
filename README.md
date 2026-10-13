@@ -10,7 +10,7 @@ Live-Standorte von Freunden, Navigation mit Live-Traffic, geteilte Routen und Tr
 - Eigener Standort (auch im Hintergrund), adaptiv gesendet: in Fahrt ~5 s, im Stand ≤ 1/min
 - Live-Positionen der Freunde über private Supabase-Realtime-Kanäle (`loc:<user_id>`), abgesichert per RLS
 - Letzte bekannte Position (alle 2 Min. gespeichert) für den App-Start
-- Mapbox-Karte mit Freunde-Markern und Aktualitätsanzeige („live", „vor 3 Min.", ab 5 Min. ausgegraut)
+- Mapbox-Karte (Standard: Satellit + 3D-Verfolgerkamera, umschaltbar) mit Freunde-Markern und Aktualitätsanzeige („live", „vor 3 Min.", ab 5 Min. ausgegraut)
 - Teilen pausieren/fortsetzen
 
 ## Roadmap

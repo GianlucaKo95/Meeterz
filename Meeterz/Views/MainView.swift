@@ -9,12 +9,21 @@ struct MainView: View {
     @State private var friends = FriendsStore()
     @State private var hub = LiveLocationHub()
     @State private var showFriends = false
-    @State private var viewport: Viewport = .followPuck(zoom: 13)
+    @State private var viewport: Viewport = .idle
+    @AppStorage("map.satellite") private var satellite = true
+    @AppStorage("map.3d") private var threeD = true
+
+    /// Kamera folgt dem eigenen Standort – in 3D schräg von hinten, in Fahrtrichtung gedreht
+    private var followViewport: Viewport {
+        threeD
+            ? .followPuck(zoom: 16.5, bearing: .course, pitch: 60)
+            : .followPuck(zoom: 13)
+    }
 
     var body: some View {
         ZStack(alignment: .top) {
             Map(viewport: $viewport) {
-                Puck2D(bearing: .heading)
+                Puck2D(bearing: threeD ? .course : .heading)
                 ForEvery(markers) { m in
                     MapViewAnnotation(coordinate: m.position.coordinate) {
                         FriendMarker(marker: m)
@@ -22,7 +31,7 @@ struct MainView: View {
                     .allowOverlap(true)
                 }
             }
-            .mapStyle(.standard)
+            .mapStyle(satellite ? .standardSatellite : .standard)
             .ignoresSafeArea()
 
             HStack {
@@ -30,7 +39,14 @@ struct MainView: View {
                     Task { await auth.setSharing(!profile.sharingEnabled) }
                 }
                 Spacer()
-                Button { viewport = .followPuck(zoom: 13) } label: {
+                Menu {
+                    Toggle("Satellit", isOn: $satellite)
+                    Toggle("3D-Ansicht", isOn: $threeD)
+                } label: {
+                    Image(systemName: satellite ? "globe.europe.africa.fill" : "map.fill").padding(12)
+                }
+                .background(.regularMaterial, in: Circle())
+                Button { viewport = followViewport } label: {
                     Image(systemName: "location.fill").padding(12)
                 }
                 .background(.regularMaterial, in: Circle())
@@ -52,6 +68,10 @@ struct MainView: View {
         .task { await bootstrap() }
         .task(id: friends.rows) { await hub.sync(with: friends.rows) }
         .onChange(of: profile.sharingEnabled) { _, _ in wireLocation() }
+        .onChange(of: threeD) { _, _ in
+            withViewportAnimation(.easeOut(duration: 0.6)) { viewport = followViewport }
+        }
+        .onAppear { viewport = followViewport }
     }
 
     private var markers: [FriendMarkerModel] {

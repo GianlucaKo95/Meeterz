@@ -204,45 +204,75 @@ final class CarPlayController: NSObject {
         }
     }
 
-    // MARK: Freunde einladen
+    // MARK: Fahrt-Panel (iOS 27): Ankunft unten angeheftet, Freunde zum Einladen darüber
 
     private var inviteDestination: Place? {
         AppModel.shared.navigation.destination ?? pendingDestination
     }
 
-    private func showInviteList() {
-        guard let place = inviteDestination, let controller = manager.interfaceController else { return }
-        let friends = AppModel.shared.friends.accepted
-        guard !friends.isEmpty else {
-            showNotice("Du hast noch keine Freunde.")
-            return
+    /// Legt das Panel auf die Karten-Vorlage der laufenden Navigation
+    private func showTripPanel(on template: CPMapTemplate) {
+        let model = AppModel.shared
+        guard model.navigation.isNavigating, let place = inviteDestination else { return }
+        let friends = model.friends.accepted
+        guard !friends.isEmpty else { return }
+
+        let items: [CPMapPanelItem] = friends.prefix(CPPanel.maximumPanelItemsCount).map { friend in
+            CPMapPanelItem(
+                routeDetails: [
+                    CPRouteDetail(symbolName: "person.crop.circle.fill", value: friend.displayName),
+                    CPRouteDetail(info: "Einladen"),
+                ],
+                handler: { [weak self] _, done in
+                    self?.sendInvites(to: [friend.friendId], place: place)
+                    done()
+                }
+            )
         }
 
-        var items: [CPListItem] = friends.map { friend in
-            let item = CPListItem(text: friend.displayName, detailText: "Einladen nach \(place.name)")
-            item.handler = { [weak self] _, completion in
-                self?.sendInvites(to: [friend.friendId], place: place)
-                completion()
-            }
-            return item
-        }
-        if friends.count > 1 {
-            let all = CPListItem(text: "Alle Freunde", detailText: nil)
-            all.handler = { [weak self] _, completion in
+        var buttons: CPMapPanelButtonConfiguration?
+        if let remaining = model.navigation.remaining {
+            let estimates = CPTravelEstimates(
+                distanceRemaining: Measurement(value: remaining.distance, unit: .meters),
+                timeRemaining: remaining.duration
+            )
+            let primary = CPTextButton(
+                title: friends.count > 1 ? "Alle einladen" : "Einladen",
+                textStyle: .confirm
+            ) { [weak self] _ in
                 self?.sendInvites(to: friends.map(\.friendId), place: place)
-                completion()
             }
-            items.insert(all, at: 0)
+            let toggle = CPButton(image: friendsToggleImage()) { [weak self] _ in
+                guard let self else { return }
+                friendsVisible.toggle()
+                browseOverlay?.refresh()
+                navigationOverlay?.refresh()
+                if let current = manager.interfaceController?.topTemplate as? CPMapTemplate {
+                    showTripPanel(on: current)   // Symbol aktualisieren
+                }
+            }
+            buttons = CPMapPanelButtonConfiguration(primaryAction: primary, secondaryButton: toggle, travelEstimates: estimates)
         }
-        let template = CPListTemplate(title: "Einladen", sections: [CPListSection(items: items)])
-        controller.pushTemplate(template, animated: true, completion: nil)
+
+        let panel = CPMapPanel(
+            title: "Einladen nach \(place.name)",
+            sections: [CPMapPanelSection(title: "Freunde", items: items)],
+            buttonConfiguration: buttons
+        )
+        panel.showsCloseButton = true
+        template.showPanel(panel, completion: nil)
+    }
+
+    private func friendsToggleImage() -> UIImage {
+        let symbol = friendsVisible ? "person.2.fill" : "person.2.slash"
+        return UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold))
+            ?? UIImage()
     }
 
     private func sendInvites(to ids: [UUID], place: Place) {
         Task { @MainActor in
             var sent = 0
             for id in ids where await AppModel.shared.meetups.propose(to: id, place: place, silent: true) { sent += 1 }
-            manager.interfaceController?.popTemplate(animated: true, completion: nil)
             showNotice(sent == 0 ? "Einladung fehlgeschlagen."
                                  : sent == 1 ? "Einladung gesendet." : "\(sent) Einladungen gesendet.")
         }
@@ -370,14 +400,21 @@ extension CarPlayController: CarPlayManagerDelegate {
                     manager.interfaceController?.pushTemplate(destinationsTemplate(), animated: true, completion: nil)
                 }
                 return [search, goals]
-            case .previewing, .navigating:
-                // Einladen nur, wenn es ein Ziel und Freunde gibt
-                guard inviteDestination != nil, !AppModel.shared.friends.accepted.isEmpty else { return nil }
-                let invite = CPBarButton(title: "Einladen") { [weak self] _ in self?.showInviteList() }
-                return [invite]
-            case .panningInBrowsingMode, .panningInNavigationMode:
+            case .previewing, .navigating, .panningInBrowsingMode, .panningInNavigationMode:
+                // Während der Fahrt bleibt die Leiste leer; Einladen liegt im Fahrt-Panel
                 return nil
             }
+        }
+    }
+
+    nonisolated func carPlayManager(
+        _ carPlayManager: CarPlayManager,
+        templateDidAppear template: CPTemplate,
+        animated: Bool
+    ) {
+        MainActor.assumeIsolated {
+            guard let map = template as? CPMapTemplate, carPlayManager.currentActivity == .navigating else { return }
+            showTripPanel(on: map)
         }
     }
 

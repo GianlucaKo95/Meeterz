@@ -35,7 +35,7 @@ Sieh, wo deine Freunde unterwegs sind – und triff sie auf dem Weg. iPhone + Ca
 - Karte mit Freunden, Buttons: auf Live-Standort zentrieren, Freunde ein/aus, Zoom
 - „Ziele": vereinbarte Treffpunkte und Freunde → Routenvorschau → Navigation
 - „Suche": Ziel suchen – mit Tastatur im Stand, per Diktat beim Fahren (das entscheidet CarPlay selbst)
-- „Einladen" (in Vorschau und Navigation): Freunde zum aktuellen Ziel einladen, einzeln oder alle
+- Fahrt-Panel (iOS 27, wie in Apple Karten): während der Navigation Ankunft/Restweg unten angeheftet, darüber die Freunde zum Einladen (einzeln oder „Alle einladen"); die obere Leiste bleibt leer
 - Eingehende Einladungen erscheinen als Hinweis mit Annehmen/Ablehnen (und unter „Ziele → Einladungen")
 - Übernimmt eine auf dem iPhone gestartete Navigation; Kartenstil (Satellit/Klassisch) in den iPhone-Einstellungen
 
@@ -57,6 +57,10 @@ Jeder nimmt kurze Sprachschnipsel (max. 5 s) auf; Freunde hören sie im passende
 - Musik wird kurz leiser, Navigationsansagen haben Vorrang
 - Ohne Aufnahme: normale Apple-Ansage als Ersatz
 - Einstellungen: „Stimmen von Freunden abspielen" und einzelne Freunde stummschalten
+
+## Voraussetzungen
+
+- Mac mit **Xcode 27** (iOS-27-SDK), Zielplattform **iOS 27** (CarPlay-Panel `CPMapPanel`)
 
 ## Setup
 
@@ -108,7 +112,7 @@ Zwei Geräte (oder iPhone + Simulator), zwei Konten **A** und **B**.
 8. **Treffpunkt:** Beide navigieren auf sich kreuzenden Strecken (oder B steht an A's Route) → Karte „… kreuzt deinen Weg" → Treffen planen → Ort wählen → vorschlagen.
 9. **Einladung:** A sucht ein Ziel → Vorschau → „Freunde einladen" → B (und ggf. C) sehen die Einladung → Annehmen → Zwischenstopp/Ziel. Alternativ Freundesliste → wischen → „Einladen".
 10. **Vorschlag:** B sieht ihn sofort → Annehmen → wird Zwischenstopp. A sieht „Treffen mit B".
-11. **CarPlay (Simulator):** Karte mit Freunden, Zentrieren, Freunde ein/aus, „Ziele" → Freund → Route → Navigation. „Suche" → Ziel → Vorschau → „Einladen" → Freund. Einladung von Gerät B erscheint als Hinweis in CarPlay. Auf dem iPhone gestartete Navigation erscheint in CarPlay.
+11. **CarPlay (Simulator):** Karte mit Freunden, Zentrieren, Freunde ein/aus, „Ziele" → Freund → Route → Navigation. „Suche" → Ziel → Losfahren → Panel mit Freunden → Einladen. Einladung von Gerät B erscheint als Hinweis in CarPlay. Auf dem iPhone gestartete Navigation erscheint in CarPlay.
 12. **Konto löschen:** in den Einstellungen → Konto ist weg, Freund sieht dich nicht mehr.
 
 ## Architektur

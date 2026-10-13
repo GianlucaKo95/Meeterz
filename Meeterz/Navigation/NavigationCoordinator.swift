@@ -35,6 +35,8 @@ final class NavigationCoordinator: NSObject {
     private(set) var isCalculating = false
     private(set) var destination: Place?
     private(set) var eta: Date?
+    /// Restweg und -zeit der laufenden Navigation (für das CarPlay-Panel)
+    private(set) var remaining: (distance: CLLocationDistance, duration: TimeInterval)?
     var preview: Preview?
 
     @ObservationIgnored private weak var phoneController: NavigationViewController?
@@ -83,6 +85,7 @@ final class NavigationCoordinator: NSObject {
     func start(_ preview: Preview) {
         self.preview = nil
         destination = preview.destination
+        remaining = (preview.distance, preview.routes.mainRoute.route.expectedTravelTime)
 
         navigationProvider.apply(coreConfig: meeterzCoreConfig(
             simulate: Self.simulate,
@@ -147,6 +150,7 @@ final class NavigationCoordinator: NSObject {
         isNavigating = false
         destination = nil
         eta = nil
+        remaining = nil
         Task { await AppModel.shared.routes.clearMine() }
     }
 
@@ -189,6 +193,7 @@ final class NavigationCoordinator: NSObject {
         )
         let arrival = Date().addingTimeInterval(progress.durationRemaining)
         eta = arrival
+        remaining = (progress.distanceRemaining, progress.durationRemaining)
         let dest = destination?.coordinate
             ?? progress.route.shape?.coordinates.last
             ?? AppModel.shared.location.lastLocation?.coordinate

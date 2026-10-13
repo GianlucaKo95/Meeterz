@@ -2,7 +2,7 @@ name: Meeterz
 options:
   bundleIdPrefix: de.koeven
   deploymentTarget:
-    iOS: "17.0"
+    iOS: "27.0"
   createIntermediateGroups: true
 
 packages:

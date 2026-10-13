@@ -33,7 +33,7 @@ Dein Standort wird **nur** an Personen übermittelt, deren Freundschaftsanfrage 
 
 ## 4. Dienstleister (Auftragsverarbeiter)
 
-- **Supabase Inc.** – Datenbank, Anmeldung und Echtzeit-Übertragung. Server in der EU ([Region]).
+- **Supabase Inc.** – Datenbank, Anmeldung und Echtzeit-Übertragung. Server in der EU (West Europe - London]).
 - **Mapbox Inc.** (USA) – Karten, Suche, Routen und Verkehrsdaten. Für Routen und Suche werden Standort- bzw. Zielkoordinaten an Mapbox übermittelt. Grundlage: EU-Standardvertragsklauseln bzw. EU-US Data Privacy Framework.
 - **Apple Inc.** – „Mit Apple anmelden" und Push-Benachrichtigungen.
 

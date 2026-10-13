@@ -6,7 +6,7 @@ Sieh, wo deine Freunde unterwegs sind – und triff sie auf dem Weg. Für iPhone
 
 Fragen, Probleme oder Wünsche? Schreib mir:
 
-**[KONTAKT-E-MAIL EINTRAGEN]**
+**gk@koeven.de**
 
 Ich antworte in der Regel innerhalb weniger Tage.
 

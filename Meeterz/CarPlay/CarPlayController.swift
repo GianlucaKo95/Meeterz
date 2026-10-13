@@ -38,6 +38,9 @@ final class CarPlayController: NSObject {
     private var friendsVisible = true
     private var browseOverlay: FriendOverlay?
     private var navigationOverlay: FriendOverlay?
+    private var shownInvites = Set<UUID>()
+    private var searchTask: Task<Void, Never>?
+    private var searchCompletion: (([CPListItem]) -> Void)?
 
     private lazy var manager: CarPlayManager = {
         let m = CarPlayManager(navigationProvider: navigationProvider, styles: NavigationStyles.carPlay())
@@ -49,6 +52,7 @@ final class CarPlayController: NSObject {
         manager.delegate = self
         manager.templateApplicationScene(scene, didConnect: interfaceController, to: window)
         isConnected = true
+        watchInvites()
         // Läuft auf dem iPhone schon eine Navigation, übernimmt CarPlay sie
         if AppModel.shared.navigation.isNavigating {
             beginNavigationIfConnected()
@@ -63,6 +67,9 @@ final class CarPlayController: NSObject {
         manager.templateApplicationScene(scene, didDisconnect: interfaceController, from: window)
         manager.delegate = nil
         isConnected = false
+        searchTask?.cancel()
+        searchTask = nil
+        searchCompletion = nil
     }
 
     func beginNavigationIfConnected() {
@@ -116,7 +123,17 @@ final class CarPlayController: NSObject {
             return listItem
         }
 
+        let inviteItems: [CPListItem] = model.meetups.incomingPending.map { meetup in
+            let item = CPListItem(text: meetup.placeName, detailText: "Einladung von \(meetup.otherName)")
+            item.handler = { [weak self] _, completion in
+                self?.presentInvite(meetup)
+                completion()
+            }
+            return item
+        }
+
         var sections: [CPListSection] = []
+        if !inviteItems.isEmpty { sections.append(CPListSection(items: inviteItems, header: "Einladungen", sectionIndexTitle: nil)) }
         if !meetupItems.isEmpty { sections.append(CPListSection(items: meetupItems, header: "Treffpunkte", sectionIndexTitle: nil)) }
         sections.append(CPListSection(items: friendItems.isEmpty
             ? [CPListItem(text: "Gerade ist niemand unterwegs", detailText: nil)]
@@ -132,6 +149,168 @@ final class CarPlayController: NSObject {
     }
 
     private var pendingDestination: Place?
+
+    // MARK: Einladungen empfangen
+
+    /// Neue Einladungen als Hinweis mit Annehmen/Ablehnen anzeigen
+    private func watchInvites() {
+        guard isConnected else { return }
+        withObservationTracking {
+            _ = AppModel.shared.meetups.incomingPending
+        } onChange: { [weak self] in
+            Task { @MainActor in
+                guard let self, self.isConnected else { return }
+                self.presentNewInvites()
+                self.watchInvites()
+            }
+        }
+        presentNewInvites()
+    }
+
+    private func presentNewInvites() {
+        guard let controller = manager.interfaceController, controller.presentedTemplate == nil else { return }
+        guard let meetup = AppModel.shared.meetups.incomingPending.first(where: { !shownInvites.contains($0.id) }) else { return }
+        shownInvites.insert(meetup.id)
+        presentInvite(meetup)
+    }
+
+    private func presentInvite(_ meetup: Meetup) {
+        guard let controller = manager.interfaceController else { return }
+        let alert = CPAlertTemplate(
+            titleVariants: ["\(meetup.otherName) lädt dich ein: \(meetup.placeName)", "\(meetup.otherName) lädt dich ein"],
+            actions: [
+                CPAlertAction(title: "Annehmen", style: .default) { [weak self] _ in
+                    self?.manager.interfaceController?.dismissTemplate(animated: true, completion: nil)
+                    Task { @MainActor in
+                        await AppModel.shared.meetups.respond(meetup, accept: true)
+                        self?.go(to: meetup.place)
+                    }
+                },
+                CPAlertAction(title: "Ablehnen", style: .cancel) { [weak self] _ in
+                    self?.manager.interfaceController?.dismissTemplate(animated: true, completion: nil)
+                    Task { @MainActor in await AppModel.shared.meetups.respond(meetup, accept: false) }
+                },
+            ]
+        )
+        controller.presentTemplate(alert, animated: true, completion: nil)
+    }
+
+    /// Läuft schon eine Navigation, wird der Ort Zwischenstopp, sonst Routenvorschau
+    private func go(to place: Place) {
+        if AppModel.shared.navigation.isNavigating {
+            Task { await AppModel.shared.navigation.addStop(place) }
+        } else {
+            preview(to: place.coordinate, name: place.name) {}
+        }
+    }
+
+    // MARK: Freunde einladen
+
+    private var inviteDestination: Place? {
+        AppModel.shared.navigation.destination ?? pendingDestination
+    }
+
+    private func showInviteList() {
+        guard let place = inviteDestination, let controller = manager.interfaceController else { return }
+        let friends = AppModel.shared.friends.accepted
+        guard !friends.isEmpty else {
+            showNotice("Du hast noch keine Freunde.")
+            return
+        }
+
+        var items: [CPListItem] = friends.map { friend in
+            let item = CPListItem(text: friend.displayName, detailText: "Einladen nach \(place.name)")
+            item.handler = { [weak self] _, completion in
+                self?.sendInvites(to: [friend.friendId], place: place)
+                completion()
+            }
+            return item
+        }
+        if friends.count > 1 {
+            let all = CPListItem(text: "Alle Freunde", detailText: nil)
+            all.handler = { [weak self] _, completion in
+                self?.sendInvites(to: friends.map(\.friendId), place: place)
+                completion()
+            }
+            items.insert(all, at: 0)
+        }
+        let template = CPListTemplate(title: "Einladen", sections: [CPListSection(items: items)])
+        controller.pushTemplate(template, animated: true, completion: nil)
+    }
+
+    private func sendInvites(to ids: [UUID], place: Place) {
+        Task { @MainActor in
+            var sent = 0
+            for id in ids where await AppModel.shared.meetups.propose(to: id, place: place, silent: true) { sent += 1 }
+            manager.interfaceController?.popTemplate(animated: true, completion: nil)
+            showNotice(sent == 0 ? "Einladung fehlgeschlagen."
+                                 : sent == 1 ? "Einladung gesendet." : "\(sent) Einladungen gesendet.")
+        }
+    }
+
+    private func showNotice(_ text: String) {
+        guard let controller = manager.interfaceController, controller.presentedTemplate == nil else { return }
+        let alert = CPAlertTemplate(titleVariants: [text], actions: [
+            CPAlertAction(title: "OK", style: .default) { [weak self] _ in
+                self?.manager.interfaceController?.dismissTemplate(animated: true, completion: nil)
+            }
+        ])
+        controller.presentTemplate(alert, animated: true, completion: nil)
+    }
+
+    // MARK: Suche (Tastatur im Stand, Diktat beim Fahren – das entscheidet CarPlay selbst)
+
+    private func showSearch() {
+        let template = CPSearchTemplate()
+        template.delegate = self
+        manager.interfaceController?.pushTemplate(template, animated: true, completion: nil)
+    }
+}
+
+extension CarPlayController: CPSearchTemplateDelegate {
+    nonisolated func searchTemplate(
+        _ searchTemplate: CPSearchTemplate,
+        updatedSearchText searchText: String,
+        completionHandler: @escaping ([CPListItem]) -> Void
+    ) {
+        MainActor.assumeIsolated {
+            searchCompletion?([])
+            searchTask?.cancel()
+            searchCompletion = completionHandler
+            let query = searchText.trimmingCharacters(in: .whitespaces)
+            guard query.count >= 3 else {
+                completionHandler([])
+                searchCompletion = nil
+                return
+            }
+            searchTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .milliseconds(350))   // Tippen bzw. Diktat abwarten
+                guard !Task.isCancelled else { return }
+                let near = AppModel.shared.location.lastLocation?.coordinate
+                let places = (try? await SearchService.search(query, near: near)) ?? []
+                guard !Task.isCancelled, let self else { return }
+                let items: [CPListItem] = places.prefix(CPListTemplate.maximumItemCount).map { place in
+                    let item = CPListItem(text: place.name, detailText: place.address)
+                    item.userInfo = place
+                    return item
+                }
+                self.searchCompletion?(items)
+                self.searchCompletion = nil
+            }
+        }
+    }
+
+    nonisolated func searchTemplate(
+        _ searchTemplate: CPSearchTemplate,
+        selectedResult item: CPListItem,
+        completionHandler: @escaping () -> Void
+    ) {
+        MainActor.assumeIsolated {
+            guard let place = item.userInfo as? Place else { completionHandler(); return }
+            manager.interfaceController?.popToRootTemplate(animated: true, completion: nil)
+            preview(to: place.coordinate, name: place.name, completion: completionHandler)
+        }
+    }
 }
 
 extension CarPlayController: CarPlayManagerDelegate {
@@ -183,12 +362,22 @@ extension CarPlayController: CarPlayManagerDelegate {
         for activity: CarPlayActivity
     ) -> [CPBarButton]? {
         MainActor.assumeIsolated {
-            guard activity == .browsing else { return nil }
-            let button = CPBarButton(title: "Ziele") { [weak self] _ in
-                guard let self else { return }
-                manager.interfaceController?.pushTemplate(destinationsTemplate(), animated: true, completion: nil)
+            switch activity {
+            case .browsing:
+                let search = CPBarButton(title: "Suche") { [weak self] _ in self?.showSearch() }
+                let goals = CPBarButton(title: "Ziele") { [weak self] _ in
+                    guard let self else { return }
+                    manager.interfaceController?.pushTemplate(destinationsTemplate(), animated: true, completion: nil)
+                }
+                return [search, goals]
+            case .previewing, .navigating:
+                // Einladen nur, wenn es ein Ziel und Freunde gibt
+                guard inviteDestination != nil, !AppModel.shared.friends.accepted.isEmpty else { return nil }
+                let invite = CPBarButton(title: "Einladen") { [weak self] _ in self?.showInviteList() }
+                return [invite]
+            case .panningInBrowsingMode, .panningInNavigationMode:
+                return nil
             }
-            return [button]
         }
     }
 

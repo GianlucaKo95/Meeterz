@@ -39,12 +39,16 @@ struct MainView: View {
                     Task { await auth.setSharing(!profile.sharingEnabled) }
                 }
                 Spacer()
-                Menu {
-                    Toggle("Satellit", isOn: $satellite)
-                    Toggle("3D-Ansicht", isOn: $threeD)
-                } label: {
-                    Image(systemName: satellite ? "globe.europe.africa.fill" : "map.fill").padding(12)
+                // Ein Tipp: Satellit ↔ klassische Karte
+                Button { satellite.toggle() } label: {
+                    Image(systemName: satellite ? "map.fill" : "globe.europe.africa.fill").padding(12)
                 }
+                .accessibilityLabel(satellite ? "Zur klassischen Karte wechseln" : "Zur Satellitenansicht wechseln")
+                .background(.regularMaterial, in: Circle())
+                Button { threeD.toggle() } label: {
+                    Text(threeD ? "2D" : "3D").font(.footnote.bold()).frame(width: 20).padding(12)
+                }
+                .accessibilityLabel(threeD ? "Zur 2D-Ansicht wechseln" : "Zur 3D-Ansicht wechseln")
                 .background(.regularMaterial, in: Circle())
                 Button { viewport = followViewport } label: {
                     Image(systemName: "location.fill").padding(12)

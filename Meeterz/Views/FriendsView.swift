@@ -8,6 +8,8 @@ struct FriendsView: View {
     let location: LocationService
 
     @State private var newHandle = ""
+    /// Wird in Phase 3 von der CarPlay-Szene gelesen (dort kein Umschalter)
+    @AppStorage("carplay.satellite") private var carPlaySatellite = true
 
     var body: some View {
         NavigationStack {
@@ -78,6 +80,10 @@ struct FriendsView: View {
                     ))
                     if !location.canShareInBackground {
                         Button("Auch im Hintergrund teilen") { location.requestAlways() }
+                    }
+                    Picker("Karte in CarPlay", selection: $carPlaySatellite) {
+                        Text("Satellit").tag(true)
+                        Text("Klassisch").tag(false)
                     }
                     Button("Abmelden", role: .destructive) { Task { await auth.signOut() } }
                 }

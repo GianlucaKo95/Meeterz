@@ -33,7 +33,7 @@ private struct CandidateCard: View {
     var body: some View {
         Card {
             HStack(alignment: .top, spacing: 12) {
-                Avatar(initials: friend.initials, color: FriendPalette.color(for: friend.friendId))
+                Avatar(initials: friend.initials, color: FriendPalette.color(for: friend.friendId), userId: friend.friendId)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(friend.displayName) kreuzt deinen Weg").font(Theme.title(16))
                     Text("In \(Format.minutes(until: max(candidate.myEta, candidate.friendEta))) seid ihr nah beieinander")
@@ -147,7 +147,7 @@ struct MeetupPlannerView: View {
             VStack(alignment: .leading, spacing: 18) {
                 HStack(spacing: 12) {
                     if let friend {
-                        Avatar(initials: friend.initials, color: FriendPalette.color(for: friend.friendId), size: 48)
+                        Avatar(initials: friend.initials, color: FriendPalette.color(for: friend.friendId), size: 48, userId: friend.friendId)
                     }
                     VStack(alignment: .leading) {
                         Text("Treffen mit \(friend?.displayName ?? "Freund")").font(Theme.display(24))
@@ -298,7 +298,7 @@ struct InviteFriendsView: View {
                             if on { selected.remove(row.friendId) } else { selected.insert(row.friendId) }
                         } label: {
                             HStack(spacing: 12) {
-                                Avatar(initials: row.initials, color: FriendPalette.color(for: row.friendId))
+                                Avatar(initials: row.initials, color: FriendPalette.color(for: row.friendId), userId: row.friendId)
                                 Text(row.displayName).font(Theme.title(16)).foregroundStyle(Theme.text)
                                 Spacer()
                                 Image(systemName: on ? "checkmark.circle.fill" : "circle")

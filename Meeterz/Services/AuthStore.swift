@@ -133,6 +133,13 @@ final class AuthStore {
     }
 
     /// Löscht das Konto samt aller Daten (App-Store-Pflicht)
+    /// Bildversion lokal übernehmen, nachdem das Profilbild hochgeladen oder entfernt wurde
+    func updateAvatarVersion(_ version: Int?) {
+        guard var p = profile else { return }
+        p.avatarVersion = version
+        state = .ready(p)
+    }
+
     func deleteAccount() async {
         let ok = await run { try await self.client.rpc("delete_account").execute() }
         guard ok else { return }

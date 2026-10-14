@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 struct FriendsView: View {
     @Environment(AppModel.self) private var app
@@ -7,6 +8,7 @@ struct FriendsView: View {
     @State private var newHandle = ""
     @State private var sharingMode = SharingMode.current
     @State private var confirmDelete = false
+    @State private var pickedPhoto: PhotosPickerItem?
     @State private var inviteFriend: FriendRow?
     @State private var invite: InviteTarget?
 
@@ -25,6 +27,7 @@ struct FriendsView: View {
     var body: some View {
         NavigationStack {
             List {
+                profileSection
                 addSection
                 if !friends.incoming.isEmpty { incomingSection }
                 friendsSection
@@ -73,6 +76,59 @@ struct FriendsView: View {
     }
 
     // MARK: Abschnitte
+
+    private var profileSection: some View {
+        let hasPhoto = (app.profile?.avatarVersion ?? 0) > 0
+        return Section {
+            HStack(spacing: 16) {
+                Avatar(initials: myInitials, color: Theme.accent, size: 64, userId: app.profile?.id)
+                VStack(alignment: .leading, spacing: 10) {
+                    PhotosPicker(selection: $pickedPhoto, matching: .images) {
+                        Text(hasPhoto ? "Foto ändern" : "Foto auswählen")
+                    }
+                    if hasPhoto {
+                        Button("Foto entfernen", role: .destructive) { Task { await removePhoto() } }
+                    }
+                }
+                Spacer()
+                if app.avatars.isBusy { ProgressView() }
+            }
+            .onChange(of: pickedPhoto) { _, item in
+                guard let item else { return }
+                Task { await applyPhoto(item) }
+            }
+        } header: {
+            Text("Profilbild")
+        } footer: {
+            Text("Dein Foto sehen nur Freunde, deren Anfrage du angenommen hast. Ohne Foto erscheinen deine Initialen.")
+        }
+        .listRowBackground(Theme.panel)
+    }
+
+    private var myInitials: String {
+        (app.profile?.displayName ?? "").split(separator: " ").prefix(2)
+            .compactMap(\.first).map(String.init).joined().uppercased()
+    }
+
+    private func applyPhoto(_ item: PhotosPickerItem) async {
+        defer { pickedPhoto = nil }
+        guard let id = app.profile?.id,
+              let data = try? await item.loadTransferable(type: Data.self),
+              let image = UIImage(data: data) else {
+            app.show("Das Foto konnte nicht geladen werden.")
+            return
+        }
+        if let version = await app.avatars.setMine(image, userId: id) {
+            app.auth.updateAvatarVersion(version)
+        }
+    }
+
+    private func removePhoto() async {
+        guard let id = app.profile?.id else { return }
+        if await app.avatars.removeMine(userId: id) {
+            app.auth.updateAvatarVersion(0)
+        }
+    }
 
     private var addSection: some View {
         Section {
@@ -248,7 +304,7 @@ private struct FriendLabel: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Avatar(initials: row.initials, color: FriendPalette.color(for: row.friendId), size: 36)
+            Avatar(initials: row.initials, color: FriendPalette.color(for: row.friendId), size: 36, userId: row.friendId)
             VStack(alignment: .leading) {
                 Text(row.displayName).font(Theme.title(15))
                 Text("@\(row.handle)").font(.caption).foregroundStyle(Theme.muted)

@@ -51,11 +51,13 @@ final class FriendOverlay {
         var points: [PointAnnotation] = model.friendsOnMap.map { item in
             var p = PointAnnotation(id: "friend-\(item.friend.friendId)", coordinate: item.position.coordinate)
             let stale = item.position.age > 5 * 60
+            let photo = model.avatars.image(for: item.friend.friendId)
             p.image = .init(
                 image: AvatarRenderer.image(initials: item.friend.initials,
                                             color: FriendPalette.uiColor(for: item.friend.friendId),
-                                            faded: stale),
-                name: "avatar-\(item.friend.friendId)-\(stale)"
+                                            faded: stale,
+                                            photo: photo),
+                name: "avatar-\(item.friend.friendId)-\(stale)-\(item.friend.avatarVersion ?? 0)-\(photo != nil)"
             )
             p.textField = item.friend.displayName
             p.textOffset = [0, 2.2]
@@ -98,12 +100,24 @@ enum FriendPalette {
 }
 
 enum AvatarRenderer {
-    static func image(initials: String, color: UIColor, faded: Bool) -> UIImage {
+    static func image(initials: String, color: UIColor, faded: Bool, photo: UIImage? = nil) -> UIImage {
         let size = CGSize(width: 44, height: 44)
         return UIGraphicsImageRenderer(size: size).image { ctx in
             let rect = CGRect(origin: .zero, size: size).insetBy(dx: 2, dy: 2)
             UIColor(red: 0.05, green: 0.07, blue: 0.09, alpha: 1).setFill()
             ctx.cgContext.fillEllipse(in: rect)
+            if let photo {
+                // Foto im Kreis, farbiger Rand wie beim Initialen-Marker
+                let inner = rect.insetBy(dx: 3, dy: 3)
+                color.withAlphaComponent(faded ? 0.5 : 1).setFill()
+                ctx.cgContext.fillEllipse(in: rect.insetBy(dx: 1, dy: 1))
+                ctx.cgContext.saveGState()
+                ctx.cgContext.addEllipse(in: inner)
+                ctx.cgContext.clip()
+                photo.draw(in: inner, blendMode: .normal, alpha: faded ? 0.5 : 1)
+                ctx.cgContext.restoreGState()
+                return
+            }
             color.withAlphaComponent(faded ? 0.5 : 1).setFill()
             ctx.cgContext.fillEllipse(in: rect.insetBy(dx: 3, dy: 3))
             let attrs: [NSAttributedString.Key: Any] = [

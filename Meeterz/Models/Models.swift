@@ -8,9 +8,12 @@ struct Profile: Codable, Equatable {
     var sharingEnabled: Bool
     /// nil = unbegrenzt
     var sharingUntil: Date?
+    /// 0/nil = kein Profilbild; wird bei jedem neuen Bild erhöht
+    var avatarVersion: Int?
 
     enum CodingKeys: String, CodingKey {
         case id, handle
+        case avatarVersion = "avatar_version"
         case displayName = "display_name"
         case sharingEnabled = "sharing_enabled"
         case sharingUntil = "sharing_until"
@@ -34,6 +37,7 @@ struct FriendRow: Codable, Identifiable, Equatable {
     let heading: Double?
     let speed: Double?
     let locationUpdatedAt: Date?
+    let avatarVersion: Int?
 
     var id: UUID { friendId }
     var isAccepted: Bool { status == "accepted" }
@@ -45,6 +49,7 @@ struct FriendRow: Codable, Identifiable, Equatable {
         case displayName = "display_name"
         case status, incoming, lat, lng, heading, speed
         case locationUpdatedAt = "location_updated_at"
+        case avatarVersion = "avatar_version"
     }
 
     var lastKnown: LivePosition? {

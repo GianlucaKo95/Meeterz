@@ -15,6 +15,7 @@ final class AppModel {
     let meetups = MeetupsStore()
     let navigation = NavigationCoordinator()
     let push = PushService()
+    let avatars = AvatarStore()
 
     struct Banner: Identifiable, Equatable {
         let id = UUID()
@@ -54,6 +55,7 @@ final class AppModel {
     }
 
     func endSession() async {
+        avatars.reset()
         refreshLoop?.cancel()
         refreshLoop = nil
         sessionUser = nil
@@ -67,6 +69,7 @@ final class AppModel {
     func refreshSocial() async {
         guard sessionUser != nil else { return }
         await friends.refresh()
+        await avatars.sync(friends: friends.rows, me: auth.profile)
         await hub.sync(with: friends.rows)
         await routes.refresh()
         await meetups.refresh()
@@ -83,6 +86,7 @@ final class AppModel {
     }
 
     func deleteAccount() async {
+        if let id = auth.profile?.id { await avatars.deleteFile(userId: id) }
         await endSession()
         await auth.deleteAccount()
     }

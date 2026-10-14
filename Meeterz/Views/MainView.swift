@@ -207,7 +207,7 @@ struct FriendMarker: View {
         TimelineView(.periodic(from: .now, by: 30)) { _ in
             let stale = position.age > 5 * 60
             VStack(spacing: 3) {
-                Avatar(initials: friend.initials, color: FriendPalette.color(for: friend.friendId), size: 40, faded: stale)
+                Avatar(initials: friend.initials, color: FriendPalette.color(for: friend.friendId), size: 40, faded: stale, userId: friend.friendId)
                     .overlay(Circle().stroke(FriendPalette.color(for: friend.friendId), lineWidth: 2).padding(-2))
                 Text("\(friend.displayName) · \(Format.age(position.age))")
                     .font(.system(size: 11, weight: .semibold, design: .rounded))
@@ -339,7 +339,7 @@ private struct FriendRowView: View {
             }
         } label: {
             HStack(spacing: 12) {
-                Avatar(initials: item.friend.initials, color: FriendPalette.color(for: item.friend.friendId))
+                Avatar(initials: item.friend.initials, color: FriendPalette.color(for: item.friend.friendId), userId: item.friend.friendId)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.friend.displayName).font(Theme.title(15))
                     Text(statusText(route: route))

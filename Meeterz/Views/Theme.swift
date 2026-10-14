@@ -34,20 +34,33 @@ extension FriendPalette {
 
 // MARK: Bausteine
 
+/// Profilbild des Nutzers (`userId`), sonst Initialen auf Farbe
 struct Avatar: View {
+    @Environment(AppModel.self) private var app
     let initials: String
     let color: Color
     var size: CGFloat = 40
     var faded = false
+    var userId: UUID?
 
     var body: some View {
-        Text(initials)
-            .font(.system(size: size * 0.36, weight: .heavy, design: .rounded))
-            .foregroundStyle(Theme.ink)
-            .frame(width: size, height: size)
-            .background(Circle().fill(color.opacity(faded ? 0.5 : 1)))
-            .overlay(Circle().stroke(Theme.ink, lineWidth: 3))
-            .accessibilityHidden(true)
+        Group {
+            if let userId, let photo = app.avatars.image(for: userId) {
+                Image(uiImage: photo)
+                    .resizable().scaledToFill()
+                    .frame(width: size, height: size)
+                    .clipShape(Circle())
+                    .opacity(faded ? 0.5 : 1)
+            } else {
+                Text(initials)
+                    .font(.system(size: size * 0.36, weight: .heavy, design: .rounded))
+                    .foregroundStyle(Theme.ink)
+                    .frame(width: size, height: size)
+                    .background(Circle().fill(color.opacity(faded ? 0.5 : 1)))
+            }
+        }
+        .overlay(Circle().stroke(Theme.ink, lineWidth: 3))
+        .accessibilityHidden(true)
     }
 }
 

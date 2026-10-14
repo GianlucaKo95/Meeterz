@@ -11,6 +11,10 @@ Sieh, wo deine Freunde unterwegs sind – und triff sie auf dem Weg. iPhone + Ca
 - Teilen pausieren oder begrenzen: Immer / 1 Std. / Bis Ankunft (+15 Min.)
 - Sparsames Senden: in Fahrt ~5 s, im Stand ≤ 1/min; letzte Position alle 2 Min. gespeichert
 
+**Profilbild**
+- Eigenes Foto in den Einstellungen wählen; nur angenommene Freunde sehen es (privater Storage mit Zugriffsregel), sonst Initialen
+- Freunde erscheinen mit Foto auf der Karte (iPhone, Navigation, CarPlay), in Listen und Einladungen
+
 **Karte (Nachtfahrt-Design)**
 - Satellit oder klassisch, 3D oder 2D – je ein Tipp; 3D-Gelände und 3D-Gebäude
 - Freunde live mit Aktualität („live", „vor 3 Min.", ab 5 Min. ausgegraut)
@@ -65,7 +69,7 @@ Jeder nimmt kurze Sprachschnipsel (max. 5 s) auf; Freunde hören sie im passende
 ## Setup
 
 ### 1. Supabase
-1. Migrationen aus `supabase/migrations/` der Reihe nach im SQL Editor ausführen (bzw. `supabase db push`).
+1. Migrationen aus `supabase/migrations/` der Reihe nach (zuletzt `20261014120000_avatars.sql` für Profilbilder) im SQL Editor ausführen (bzw. `supabase db push`).
 2. **Authentication → Sign In / Providers → Apple**: aktivieren, Client ID `de.koeven.meeterz`.
 3. Für den Test-Login: **Email**-Provider an, „Confirm email" aus. *Vor der Veröffentlichung wieder ausschalten.*
 4. **Realtime → Settings**: „Allow public access" aus.
@@ -104,16 +108,17 @@ Zwei Geräte (oder iPhone + Simulator), zwei Konten **A** und **B**.
 
 1. **Login & Profil:** beide registrieren, Benutzernamen wählen.
 2. **Freunde:** A fügt @B hinzu → B sieht die Anfrage (Badge) → annehmen. Beide erscheinen in „Deine Freunde".
-3. **Live-Standort:** Simulator → *Features → Location → Freeway Drive*. Der Marker bewegt sich beim anderen Gerät (≈5 s). Teilen pausieren → Marker veraltet/verschwindet beim Freund.
-4. **Teilen begrenzen:** „1 Std." wählen → Pill zeigt „bis HH:MM".
-5. **Karte:** Satellit/Karte, 3D/2D, Zentrieren durchschalten.
-6. **Navigation:** „Wohin?" → Ziel suchen → Vorschau → *Fahrt simulieren* (nur Debug) → Losfahren. Ansagen, Satellit, Freunde in der Navigation prüfen.
-7. **Route teilen:** Gerät B sieht A's Route als Linie und im Panel „Nach … · an HH:MM".
-8. **Treffpunkt:** Beide navigieren auf sich kreuzenden Strecken (oder B steht an A's Route) → Karte „… kreuzt deinen Weg" → Treffen planen → Ort wählen → vorschlagen.
-9. **Einladung:** A sucht ein Ziel → Vorschau → „Freunde einladen" → B (und ggf. C) sehen die Einladung → Annehmen → Zwischenstopp/Ziel. Alternativ Freundesliste → wischen → „Einladen".
-10. **Vorschlag:** B sieht ihn sofort → Annehmen → wird Zwischenstopp. A sieht „Treffen mit B".
-11. **CarPlay (Simulator):** Karte mit Freunden, Zentrieren, Freunde ein/aus, „Ziele" → Freund → Route → Navigation. „Suche" → Ziel → Losfahren → Panel mit Freunden → Einladen. Einladung von Gerät B erscheint als Hinweis in CarPlay. Auf dem iPhone gestartete Navigation erscheint in CarPlay.
-12. **Konto löschen:** in den Einstellungen → Konto ist weg, Freund sieht dich nicht mehr.
+3. **Profilbild:** A wählt ein Foto (Einstellungen → Profilbild) → B (Freund) sieht es auf der Karte und in Listen; Foto entfernen → wieder Initialen. Ein Nicht-Freund sieht es nicht.
+4. **Live-Standort:** Simulator → *Features → Location → Freeway Drive*. Der Marker bewegt sich beim anderen Gerät (≈5 s). Teilen pausieren → Marker veraltet/verschwindet beim Freund.
+5. **Teilen begrenzen:** „1 Std." wählen → Pill zeigt „bis HH:MM".
+6. **Karte:** Satellit/Karte, 3D/2D, Zentrieren durchschalten.
+7. **Navigation:** „Wohin?" → Ziel suchen → Vorschau → *Fahrt simulieren* (nur Debug) → Losfahren. Ansagen, Satellit, Freunde in der Navigation prüfen.
+8. **Route teilen:** Gerät B sieht A's Route als Linie und im Panel „Nach … · an HH:MM".
+9. **Treffpunkt:** Beide navigieren auf sich kreuzenden Strecken (oder B steht an A's Route) → Karte „… kreuzt deinen Weg" → Treffen planen → Ort wählen → vorschlagen.
+10. **Einladung:** A sucht ein Ziel → Vorschau → „Freunde einladen" → B (und ggf. C) sehen die Einladung → Annehmen → Zwischenstopp/Ziel. Alternativ Freundesliste → wischen → „Einladen".
+11. **Vorschlag:** B sieht ihn sofort → Annehmen → wird Zwischenstopp. A sieht „Treffen mit B".
+12. **CarPlay (Simulator):** Karte mit Freunden, Zentrieren, Freunde ein/aus, „Ziele" → Freund → Route → Navigation. „Suche" → Ziel → Losfahren → Panel mit Freunden → Einladen. Einladung von Gerät B erscheint als Hinweis in CarPlay. Auf dem iPhone gestartete Navigation erscheint in CarPlay.
+13. **Konto löschen:** in den Einstellungen → Konto ist weg, Freund sieht dich nicht mehr.
 
 ## Architektur
 

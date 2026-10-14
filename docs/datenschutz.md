@@ -19,6 +19,7 @@ E-Mail: gk@koeven.de
 | Letzte bekannte Position | Freunden beim Öffnen der App sofort anzeigen | Art. 6 Abs. 1 lit. a DSGVO |
 | Aktive Route (Ziel, Strecke, Ankunftszeiten) | Freunden anzeigen und Treffpunkte finden | Art. 6 Abs. 1 lit. a DSGVO |
 | Treffen-Vorschläge | Verabreden mit Freunden | Art. 6 Abs. 1 lit. b DSGVO |
+| Profilbild (optional, auf 256 × 256 px verkleinert) | Freunden auf der Karte und in Listen anzeigen; nur angenommene Freunde können es abrufen | Art. 6 Abs. 1 lit. a DSGVO |
 | Push-Token des Geräts | Benachrichtigungen über Anfragen und Treffen | Art. 6 Abs. 1 lit. a DSGVO |
 
 Dein Standort wird **nur** an Personen übermittelt, deren Freundschaftsanfrage du angenommen hast (oder die deine angenommen haben), und nur solange das Teilen eingeschaltet ist. Du kannst das Teilen jederzeit pausieren oder zeitlich begrenzen („1 Std.", „Bis Ankunft").
@@ -27,6 +28,7 @@ Dein Standort wird **nur** an Personen übermittelt, deren Freundschaftsanfrage 
 
 - Live-Positionen werden nicht gespeichert, sondern direkt an Freunde weitergeleitet.
 - Die letzte bekannte Position wird bei jedem Update überschrieben.
+- Dein Profilbild liegt in einem privaten Speicher und wird beim Entfernen des Bildes oder beim Löschen des Kontos gelöscht. Freunde speichern es zur schnelleren Anzeige zwischen; der Zwischenspeicher wird bei einem neuen Bild ersetzt.
 - Aktive Routen werden beim Beenden der Navigation gelöscht und nach spätestens 3 Stunden nicht mehr angezeigt.
 - Treffen-Vorschläge werden nach 12 Stunden nicht mehr angezeigt.
 - Mit **„Konto löschen"** in der App werden alle Daten sofort und endgültig gelöscht.

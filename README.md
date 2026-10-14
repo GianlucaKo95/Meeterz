@@ -12,7 +12,7 @@ Sieh, wo deine Freunde unterwegs sind – und triff sie auf dem Weg. iPhone + Ca
 - Sparsames Senden: in Fahrt ~5 s, im Stand ≤ 1/min; letzte Position alle 2 Min. gespeichert
 
 **Profilbild**
-- Eigenes Foto in den Einstellungen aufnehmen (Kamera mit Zuschneiden) oder aus der Mediathek wählen; nur angenommene Freunde sehen es (privater Storage mit Zugriffsregel), sonst Initialen
+- Eigenes Foto in den Einstellungen aufnehmen oder aus der Mediathek wählen, Ausschnitt per Finger zuschneiden (rund, Zoom); nur angenommene Freunde sehen es (privater Storage mit Zugriffsregel), sonst Initialen
 - Freunde erscheinen mit Foto auf der Karte (iPhone, Navigation, CarPlay), in Listen und Einladungen
 
 **Karte (Nachtfahrt-Design)**

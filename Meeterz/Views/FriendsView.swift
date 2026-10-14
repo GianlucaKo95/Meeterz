@@ -9,6 +9,7 @@ struct FriendsView: View {
     @State private var sharingMode = SharingMode.current
     @State private var confirmDelete = false
     @State private var pickedPhoto: PhotosPickerItem?
+    @State private var cropItem: AvatarCropItem?
     @State private var showCamera = false
     @State private var showLibrary = false
     @State private var inviteFriend: FriendRow?
@@ -104,8 +105,17 @@ struct FriendsView: View {
                 Task { await applyPhoto(item) }
             }
             .fullScreenCover(isPresented: $showCamera) {
-                CameraPicker { image in Task { await save(image) } }
-                    .ignoresSafeArea()
+                CameraPicker { image in
+                    // erst die Kamera schließen lassen, dann den Zuschnitt öffnen
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(500))
+                        cropItem = AvatarCropItem(image: image)
+                    }
+                }
+                .ignoresSafeArea()
+            }
+            .fullScreenCover(item: $cropItem) { item in
+                AvatarCropView(image: item.image) { cropped in Task { await save(cropped) } }
             }
         } header: {
             Text("Profilbild")
@@ -127,7 +137,7 @@ struct FriendsView: View {
             app.show("Das Foto konnte nicht geladen werden.")
             return
         }
-        await save(image)
+        cropItem = AvatarCropItem(image: image)
     }
 
     private func save(_ image: UIImage) async {

@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-/// Kamera für das Profilfoto. `allowsEditing` blendet das iOS-Zuschneiden ein (Ausschnitt per Finger).
+/// Kamera für das Profilfoto. Zugeschnitten wird danach in `AvatarCropView`.
 struct CameraPicker: UIViewControllerRepresentable {
     let onPick: (UIImage) -> Void
     @Environment(\.dismiss) private var dismiss
@@ -12,7 +12,7 @@ struct CameraPicker: UIViewControllerRepresentable {
         let picker = UIImagePickerController()
         picker.sourceType = .camera
         if UIImagePickerController.isCameraDeviceAvailable(.front) { picker.cameraDevice = .front }
-        picker.allowsEditing = true
+        picker.allowsEditing = false
         picker.delegate = context.coordinator
         return picker
     }
@@ -27,7 +27,7 @@ struct CameraPicker: UIViewControllerRepresentable {
 
         func imagePickerController(_ picker: UIImagePickerController,
                                    didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
-            let image = (info[.editedImage] ?? info[.originalImage]) as? UIImage
+            let image = info[.originalImage] as? UIImage
             parent.dismiss()
             if let image { parent.onPick(image) }
         }

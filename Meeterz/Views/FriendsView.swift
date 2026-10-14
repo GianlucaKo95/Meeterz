@@ -9,6 +9,8 @@ struct FriendsView: View {
     @State private var sharingMode = SharingMode.current
     @State private var confirmDelete = false
     @State private var pickedPhoto: PhotosPickerItem?
+    @State private var showCamera = false
+    @State private var showLibrary = false
     @State private var inviteFriend: FriendRow?
     @State private var invite: InviteTarget?
 
@@ -83,8 +85,11 @@ struct FriendsView: View {
             HStack(spacing: 16) {
                 Avatar(initials: myInitials, color: Theme.accent, size: 64, userId: app.profile?.id)
                 VStack(alignment: .leading, spacing: 10) {
-                    PhotosPicker(selection: $pickedPhoto, matching: .images) {
-                        Text(hasPhoto ? "Foto ändern" : "Foto auswählen")
+                    Menu(hasPhoto ? "Foto ändern" : "Foto hinzufügen") {
+                        if CameraPicker.isAvailable {
+                            Button("Foto aufnehmen", systemImage: "camera") { showCamera = true }
+                        }
+                        Button("Aus Mediathek wählen", systemImage: "photo.on.rectangle") { showLibrary = true }
                     }
                     if hasPhoto {
                         Button("Foto entfernen", role: .destructive) { Task { await removePhoto() } }
@@ -93,9 +98,14 @@ struct FriendsView: View {
                 Spacer()
                 if app.avatars.isBusy { ProgressView() }
             }
+            .photosPicker(isPresented: $showLibrary, selection: $pickedPhoto, matching: .images)
             .onChange(of: pickedPhoto) { _, item in
                 guard let item else { return }
                 Task { await applyPhoto(item) }
+            }
+            .fullScreenCover(isPresented: $showCamera) {
+                CameraPicker { image in Task { await save(image) } }
+                    .ignoresSafeArea()
             }
         } header: {
             Text("Profilbild")
@@ -112,12 +122,16 @@ struct FriendsView: View {
 
     private func applyPhoto(_ item: PhotosPickerItem) async {
         defer { pickedPhoto = nil }
-        guard let id = app.profile?.id,
-              let data = try? await item.loadTransferable(type: Data.self),
+        guard let data = try? await item.loadTransferable(type: Data.self),
               let image = UIImage(data: data) else {
             app.show("Das Foto konnte nicht geladen werden.")
             return
         }
+        await save(image)
+    }
+
+    private func save(_ image: UIImage) async {
+        guard let id = app.profile?.id else { return }
         if let version = await app.avatars.setMine(image, userId: id) {
             app.auth.updateAvatarVersion(version)
         }

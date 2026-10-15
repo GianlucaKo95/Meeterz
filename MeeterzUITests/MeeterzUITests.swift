@@ -47,10 +47,23 @@ final class MeeterzUITests: XCTestCase {
         return element
     }
 
+    /// iOS blendet nach der Registrierung "Passwort sichern?" ein – wegtippen.
+    private func dismissSystemDialogs() {
+        let spring = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        for label in ["Not Now", "Nicht jetzt", "Don’t Allow", "Allow While Using App", "Nur beim Verwenden der App"] {
+            let b = spring.buttons[label]
+            if b.exists { b.tap(); pause(1) }
+            let a = app.buttons[label]
+            if a.exists { a.tap(); pause(1) }
+        }
+    }
+
     private func type(_ text: String, into field: XCUIElement) {
+        dismissSystemDialogs()
         // Fokus abwarten und bei Bedarf erneut tippen (Übergänge/Tastatur sind in CI träge)
         let focused = NSPredicate(format: "hasKeyboardFocus == true")
         for attempt in 0..<5 {
+            dismissSystemDialogs()
             _ = field.waitForExistence(timeout: 10)
             if attempt % 2 == 0 { field.tap() }
             else { field.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap() }

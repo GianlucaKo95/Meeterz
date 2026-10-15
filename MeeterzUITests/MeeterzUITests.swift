@@ -68,6 +68,18 @@ class MeeterzTestBase: XCTestCase {
             shot("kein-fokus")
         }
         field.typeText(text)
+        // Prüfen, ob der Text wirklich im Feld steht (Systemdialoge können Eingaben verschlucken)
+        for _ in 0..<2 {
+            let current = (field.value as? String) ?? ""
+            if current == text || field.value as? String == nil { break }
+            pause(1)
+            dismissSystemDialogs()
+            field.tap()
+            if !current.isEmpty && current != field.placeholderValue {
+                field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: current.count))
+            }
+            field.typeText(text)
+        }
     }
 
     func pause(_ seconds: TimeInterval) {

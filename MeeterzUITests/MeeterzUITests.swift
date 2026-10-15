@@ -69,7 +69,7 @@ class MeeterzTestBase: XCTestCase {
         }
         field.typeText(text)
         // Prüfen, ob der Text wirklich im Feld steht (Systemdialoge können Eingaben verschlucken)
-        for _ in 0..<2 {
+        for _ in 0..<(field.elementType == .secureTextField ? 0 : 2) {
             let current = (field.value as? String) ?? ""
             if current == text || field.value as? String == nil { break }
             pause(1)

@@ -387,6 +387,17 @@ extension CarPlayController: CarPlayManagerDelegate {
 
     nonisolated func carPlayManager(
         _ carPlayManager: CarPlayManager,
+        leadingNavigationBarButtonsCompatibleWith traitCollection: UITraitCollection,
+        in carPlayTemplate: CPMapTemplate,
+        for activity: CarPlayActivity,
+        cameraState: NavigationCameraState
+    ) -> [CPBarButton]? {
+        // Mapbox-Standard (z. B. Pan-Modus, Stummschalten); eigene Buttons liegen rechts bzw. im Fahrt-Panel
+        nil
+    }
+
+    nonisolated func carPlayManager(
+        _ carPlayManager: CarPlayManager,
         trailingNavigationBarButtonsCompatibleWith traitCollection: UITraitCollection,
         in template: CPMapTemplate,
         for activity: CarPlayActivity

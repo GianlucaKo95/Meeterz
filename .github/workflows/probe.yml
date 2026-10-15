@@ -1,0 +1,20 @@
+name: Probe
+on: workflow_dispatch
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    env:
+      KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      URL: https://jgtkyxlzroajtxboqgcn.supabase.co
+    steps:
+      - name: Profil-Anlage per REST prüfen
+        run: |
+          E="probe-$RANDOM$RANDOM@example.com"
+          S=$(curl -s "$URL/auth/v1/signup" -H "apikey: $KEY" -H "Content-Type: application/json" -d "{\"email\":\"$E\",\"password\":\"Probe-pw-123456\"}")
+          TOKEN=$(echo "$S" | python3 -c 'import sys,json;d=json.load(sys.stdin);print(d.get("access_token",""))')
+          UID_=$(echo "$S" | python3 -c 'import sys,json;d=json.load(sys.stdin);print((d.get("user") or d).get("id",""))')
+          H=$(echo "$S" | cut -c1-300 | tr -d '\n')
+          R=$(curl -s -w ' HTTP %{http_code}' "$URL/rest/v1/profiles" -H "apikey: $KEY" -H "Authorization: Bearer ${TOKEN:-$KEY}" -H "Content-Type: application/json" -H "Prefer: return=minimal" -d "{\"id\":\"$UID_\",\"handle\":\"pr_$RANDOM\",\"display_name\":\"Probe\",\"sharing_enabled\":true}")
+          echo "::notice title=signup::token=${TOKEN:+ja}${TOKEN:-nein} uid=$UID_ resp=${H}"
+          echo "::notice title=insert::$R"
+          if [ -n "$TOKEN" ]; then curl -s -X POST "$URL/auth/v1/logout" -H "apikey: $KEY" -H "Authorization: Bearer $TOKEN" >/dev/null; fi

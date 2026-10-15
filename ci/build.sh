@@ -59,7 +59,7 @@ RC=$?
 log "xcodebuild Rückgabewert: $RC"
 if [ $RC -ne 0 ]; then
   log "== Fehler =="
-  grep -E "error:" build.log | sed 's#/Users/runner/work/[^/]*/[^/]*/##' | awk '!seen[$0]++' | head -120 | tee -a "$REPORT"
+  grep -E -A10 "error:" build.log | sed 's#/Users/runner/work/[^/]*/[^/]*/##' | awk '!seen[$0]++' | head -250 | tee -a "$REPORT"
   log "== Letzte Zeilen =="
   tail -15 build.log | tee -a "$REPORT"
 fi

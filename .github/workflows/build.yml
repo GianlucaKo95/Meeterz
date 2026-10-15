@@ -29,6 +29,10 @@ jobs:
         continue-on-error: true
         env:
           MAPBOX_DOWNLOADS_TOKEN: ${{ secrets.MAPBOX_DOWNLOADS_TOKEN }}
+          # Öffentliche Werte (stecken in jeder App-Datei); optional, ohne sie wird der UI-Test übersprungen
+          CI_SUPABASE_REF: jgtkyxlzroajtxboqgcn
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          MAPBOX_PUBLIC_TOKEN: ${{ secrets.MAPBOX_PUBLIC_TOKEN }}
         run: ./ci/build.sh
 
       - name: Bericht veröffentlichen

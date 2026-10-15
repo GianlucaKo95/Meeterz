@@ -73,3 +73,29 @@ targets:
         SUPABASE_ANON_KEY: $(SUPABASE_ANON_KEY)
         MBXAccessToken: $(MAPBOX_ACCESS_TOKEN)
         MEETERZ_PUSH_ENV: $(MEETERZ_PUSH_ENV)
+
+  MeeterzUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: MeeterzUITests
+    dependencies:
+      - target: Meeterz
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: de.koeven.meeterz.uitests
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  Meeterz:
+    build:
+      targets:
+        Meeterz: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - MeeterzUITests

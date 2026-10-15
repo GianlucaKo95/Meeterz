@@ -37,7 +37,12 @@ log ""
 log "== Projekt erzeugen =="
 brew list xcodegen >/dev/null 2>&1 || brew install xcodegen 2>&1 | tail -3 | tee -a "$REPORT"
 cp Config.example.xcconfig Config.xcconfig
-sed -i '' 's#DEIN-PROJEKT#ci-platzhalter#; s#DEIN_PUBLISHABLE_KEY#ci-platzhalter#; s#pk.DEIN_MAPBOX_PUBLIC_TOKEN#pk.ci-platzhalter#; s#DEINE_TEAM_ID##' Config.xcconfig
+# Echte öffentliche Werte, wenn vorhanden (für den UI-Test), sonst Platzhalter
+SB_REF="${CI_SUPABASE_REF:-ci-platzhalter}"
+SB_KEY="${SUPABASE_ANON_KEY:-ci-platzhalter}"
+MB_PK="${MAPBOX_PUBLIC_TOKEN:-pk.ci-platzhalter}"
+sed -i '' "s#DEIN-PROJEKT#${SB_REF}#; s#DEIN_PUBLISHABLE_KEY#${SB_KEY}#; s#pk.DEIN_MAPBOX_PUBLIC_TOKEN#${MB_PK}#; s#DEINE_TEAM_ID##" Config.xcconfig
+log "Konfiguration: Supabase=${SB_REF}, Schlüssel gesetzt=$([ -n "$SUPABASE_ANON_KEY" ] && echo ja || echo nein), Mapbox-Token gesetzt=$([ -n "$MAPBOX_PUBLIC_TOKEN" ] && echo ja || echo nein)"
 xcodegen generate 2>&1 | tee -a "$REPORT"
 [ -d Meeterz.xcodeproj ] || { log "!! xcodegen hat kein Projekt erzeugt"; exit 12; }
 
@@ -70,7 +75,10 @@ grep -E "warning:" build.log | sed 's#/Users/runner/work/[^/]*/[^/]*/##' | awk '
 if [ $RC -eq 0 ]; then
   ./ci/smoke.sh
   SMOKE=$?
+  ./ci/uitest.sh
+  UI=$?
   [ $SMOKE -eq 0 ] || exit 20
+  [ $UI -eq 0 ] || exit 21
 fi
 exit $RC
 # Lauf 10:38

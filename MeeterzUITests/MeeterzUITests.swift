@@ -51,8 +51,7 @@ final class MeeterzUITests: XCTestCase {
         // Fokus abwarten und bei Bedarf erneut tippen (Übergänge/Tastatur sind in CI träge)
         for _ in 0..<4 {
             if field.waitForExistence(timeout: 10), field.isHittable { field.tap() }
-            if app.keyboards.firstMatch.waitForExistence(timeout: 3),
-               (field.value(forKey: "hasKeyboardFocus") as? Bool) ?? true { break }
+            if app.keyboards.firstMatch.waitForExistence(timeout: 3) { pause(0.5); break }
             pause(1)
         }
         field.typeText(text)

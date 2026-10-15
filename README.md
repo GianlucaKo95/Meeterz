@@ -46,7 +46,9 @@ Sieh, wo deine Freunde unterwegs sind – und triff sie auf dem Weg. iPhone + Ca
 **Konto**
 - Konto löschen (inkl. aller Daten), Support- und Datenschutz-Seite über GitHub Pages (`docs/`, Entwurf)
 
-## Als Nächstes: Sound-Pack (nach dem ersten erfolgreichen Test)
+## Sound-Pack
+
+*SQL: `supabase/migrations/20261015120000_sounds.sql` im Supabase-SQL-Editor ausführen. Aufnehmen unter Freunde → Sound-Pack.*
 
 Jeder nimmt kurze Sprachschnipsel (max. 5 s) auf; Freunde hören sie im passenden Moment – auch während der Navigation und auf CarPlay:
 
@@ -60,6 +62,7 @@ Jeder nimmt kurze Sprachschnipsel (max. 5 s) auf; Freunde hören sie im passende
 - Speicherung in Supabase Storage, nur für angenommene Freunde abrufbar; lokal zwischengespeichert
 - Musik wird kurz leiser, Navigationsansagen haben Vorrang
 - Ohne Aufnahme: normale Apple-Ansage als Ersatz
+- Mikrofon-Berechtigung wird beim ersten Aufnehmen abgefragt
 - Einstellungen: „Stimmen von Freunden abspielen" und einzelne Freunde stummschalten
 
 ## Voraussetzungen

@@ -16,6 +16,7 @@ final class AppModel {
     let navigation = NavigationCoordinator()
     let push = PushService()
     let avatars = AvatarStore()
+    let sounds = SoundStore()
 
     struct Banner: Identifiable, Equatable {
         let id = UUID()
@@ -56,6 +57,7 @@ final class AppModel {
 
     func endSession() async {
         avatars.reset()
+        sounds.reset()
         refreshLoop?.cancel()
         refreshLoop = nil
         sessionUser = nil
@@ -70,6 +72,7 @@ final class AppModel {
         guard sessionUser != nil else { return }
         await friends.refresh()
         await avatars.sync(friends: friends.rows, me: auth.profile)
+        await sounds.sync()
         await hub.sync(with: friends.rows)
         await routes.refresh()
         await meetups.refresh()
@@ -78,6 +81,46 @@ final class AppModel {
     private func onLocation(_ loc: CLLocation) async {
         guard let profile else { return }
         await hub.publish(loc, userId: profile.id, sharingEnabled: profile.isSharingNow)
+        await checkSoundMoments(me: loc)
+    }
+
+    // MARK: Sound-Pack-Momente
+
+    @ObservationIgnored private var announced = Set<String>()
+
+    /// Prüft bei jeder eigenen Positionsmeldung, ob ein Schnipsel fällig ist.
+    private func checkSoundMoments(me loc: CLLocation) async {
+        guard sounds.enabled else { return }
+        let myMoving = loc.speed > 3          // > ~11 km/h
+
+        for f in friendsOnMap where f.position.age < 45 {
+            let friendPos = CLLocation(latitude: f.position.lat, longitude: f.position.lng)
+            let dist = loc.distance(from: friendPos)
+            let friendSpeed = f.position.speed ?? 0
+
+            // 1. Freund fährt an mir vorbei: beide unterwegs, < 300 m, höchstens alle 15 Min.
+            if myMoving, friendSpeed > 3, dist < 300 {
+                await sounds.trigger(.pass, friend: f.friend, cooldown: 15 * 60)
+            }
+
+            // 2./3. Treffpunkt: Freund etwa 5 Min. entfernt bzw. angekommen (je Treffen einmal)
+            for m in meetups.accepted where m.otherId == f.friend.friendId {
+                let d = f.position.coordinate.distance(to: m.coordinate)
+                let arrivedKey = "arrived-\(m.id)"
+                let soonKey = "soon-\(m.id)"
+                if d < 100, !announced.contains(arrivedKey) {
+                    announced.insert(arrivedKey)
+                    announced.insert(soonKey)
+                    await sounds.trigger(.arrived, friend: f.friend, key: m.id.uuidString)
+                } else if d > 150, !announced.contains(soonKey) {
+                    let eta = d / max(friendSpeed, 8)       // mind. ~29 km/h als Annahme
+                    if eta < 300 {
+                        announced.insert(soonKey)
+                        await sounds.trigger(.soon, friend: f.friend, key: m.id.uuidString)
+                    }
+                }
+            }
+        }
     }
 
     func signOut() async {
@@ -86,7 +129,10 @@ final class AppModel {
     }
 
     func deleteAccount() async {
-        if let id = auth.profile?.id { await avatars.deleteFile(userId: id) }
+        if let id = auth.profile?.id {
+            await avatars.deleteFile(userId: id)
+            await sounds.deleteFiles(userId: id)
+        }
         await endSession()
         await auth.deleteAccount()
     }

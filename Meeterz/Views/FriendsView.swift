@@ -36,6 +36,7 @@ struct FriendsView: View {
                 friendsSection
                 if !friends.outgoing.isEmpty { outgoingSection }
                 sharingSection
+                soundSection
                 appSection
                 accountSection
 
@@ -257,6 +258,68 @@ struct FriendsView: View {
             Text("Teilen")
         } footer: {
             Text(sharingFooter)
+        }
+        .listRowBackground(Theme.panel)
+    }
+
+    // MARK: Sound-Pack
+
+    private var soundSection: some View {
+        let sounds = app.sounds
+        let me = app.profile?.id
+        return Section {
+            Toggle("Stimmen von Freunden abspielen", isOn: Binding(get: { sounds.enabled }, set: { sounds.enabled = $0 }))
+                .tint(Theme.accent)
+
+            ForEach(SoundMoment.allCases) { moment in
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(moment.title)
+                        Text(moment.example).font(.footnote).foregroundStyle(Theme.muted)
+                    }
+                    Spacer()
+                    if let me {
+                        if sounds.isRecording && sounds.recordingMoment == moment {
+                            Button { Task { await sounds.stopRecording() } } label: {
+                                Label("Stopp", systemImage: "stop.circle.fill").foregroundStyle(Theme.danger)
+                            }
+                            .buttonStyle(.borderless)
+                        } else {
+                            if sounds.hasClip(me, moment) {
+                                Button { Task { await sounds.preview(user: me, moment) } } label: {
+                                    Image(systemName: "play.circle.fill")
+                                }
+                                .buttonStyle(.borderless)
+                                .accessibilityLabel("Abspielen: \(moment.title)")
+                            }
+                            Button { Task { await sounds.startRecording(moment) } } label: {
+                                Image(systemName: "mic.circle.fill")
+                            }
+                            .buttonStyle(.borderless)
+                            .disabled(sounds.isRecording || sounds.isBusy)
+                            .accessibilityLabel("Aufnehmen: \(moment.title)")
+                        }
+                    }
+                }
+                .swipeActions {
+                    if let me, sounds.hasClip(me, moment) {
+                        Button("Löschen", role: .destructive) { Task { await sounds.removeMine(moment, userId: me) } }
+                    }
+                }
+            }
+
+            if !friends.accepted.isEmpty {
+                ForEach(friends.accepted) { f in
+                    Toggle(isOn: Binding(get: { !sounds.isMuted(f.friendId) }, set: { sounds.setMuted(f.friendId, !$0) })) {
+                        Text("\(f.displayName) abspielen")
+                    }
+                    .tint(Theme.accent)
+                }
+            }
+        } header: {
+            Text("Sound-Pack")
+        } footer: {
+            Text("Nimm bis zu 5 Sekunden auf. Nur Freunde, deren Anfrage du angenommen hast, hören sie – zum passenden Moment, auch im Auto. Ohne Aufnahme sagt Apples Stimme Bescheid.")
         }
         .listRowBackground(Theme.panel)
     }

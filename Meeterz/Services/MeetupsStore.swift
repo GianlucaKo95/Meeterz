@@ -12,6 +12,7 @@ final class MeetupsStore {
     private(set) var meetups: [Meetup] = []
     /// Vom Nutzer weggeklickte Gelegenheiten (pro Freund, bis sich die Situation ändert)
     private var dismissed: [UUID: Date] = [:]
+    @ObservationIgnored private var wasFetched = false
 
     var incomingPending: [Meetup] { meetups.filter { $0.incoming && $0.isPending } }
     var outgoingPending: [Meetup] { meetups.filter { !$0.incoming && $0.isPending } }
@@ -66,6 +67,17 @@ final class MeetupsStore {
 
     private func refreshMeetups() async {
         if let rows: [Meetup] = try? await client.rpc("my_meetups").execute().value {
+            // 4. Freund nimmt meinen Vorschlag an → sein Schnipsel abspielen
+            let wasPending = Set(meetups.filter { !$0.incoming && $0.isPending }.map(\.id))
+            let hadBefore = !meetups.isEmpty || wasFetched
+            wasFetched = true
+            if hadBefore {
+                for m in rows where !m.incoming && m.isAccepted && wasPending.contains(m.id) {
+                    if let f = AppModel.shared.friend(m.otherId) {
+                        Task { await AppModel.shared.sounds.trigger(.accepted, friend: f, key: m.id.uuidString) }
+                    }
+                }
+            }
             meetups = rows
         }
     }

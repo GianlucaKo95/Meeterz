@@ -36,7 +36,7 @@ xcodebuild test \
   -destination "platform=iOS Simulator,id=$UDID" \
   -derivedDataPath build/dd -resultBundlePath build/ui.xcresult \
   -only-testing:MeeterzUITests \
-  CODE_SIGNING_ALLOWED=NO > uitest.log 2>&1
+  CODE_SIGN_IDENTITY=- CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=YES > uitest.log 2>&1
 RC=$?
 log "xcodebuild test Rückgabewert: $RC"
 grep -E "Test Case|error:|failed|XCTAssert|Executed|passed|Element nicht" uitest.log | sed 's#/Users/runner/work/[^/]*/[^/]*/##' | head -40 | tee -a "$REPORT"

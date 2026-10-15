@@ -158,6 +158,24 @@ final class MeeterzTwoAccountTests: MeeterzTestBase {
         need(app.staticTexts[nameB], "freund-in-liste", timeout: 75)
         shot("a-freund-in-liste")
 
+        // Sound-Pack (Backend): B lädt ein Schnipsel hoch; A (Freund) sieht und lädt es, C (fremd) nicht
+        let clip = Data(repeating: 0x41, count: 4096)
+        let (su, _) = b.request("POST", "/storage/v1/object/sounds/\(b.id)/pass.m4a", raw: clip,
+                                headers: ["Content-Type": "audio/mp4", "x-upsert": "true"])
+        XCTAssertLessThan(su, 300, "Schnipsel von B hochladen (Status \(su))")
+        XCTAssertLessThan(b.rpc("set_sound", ["p_moment": "pass"]).0, 300, "Schnipsel-Version von B")
+        if let aRemote = Remote.signIn(base: base, key: key, email: email, password: password) {
+            let sounds = aRemote.rpc("friend_sounds").1 as? [[String: Any]]
+            XCTAssertTrue(sounds?.contains { ($0["user_id"] as? String) == b.id && ($0["moment"] as? String) == "pass" } ?? false,
+                          "A sieht das Schnipsel von B")
+            let (ad, _) = aRemote.request("GET", "/storage/v1/object/authenticated/sounds/\(b.id)/pass.m4a")
+            XCTAssertEqual(ad, 200, "A darf das Schnipsel von B laden")
+        } else { XCTFail("A per Backend anmelden") }
+        let cSounds = c.rpc("friend_sounds").1 as? [[String: Any]]
+        XCTAssertFalse(cSounds?.contains { ($0["user_id"] as? String) == b.id } ?? false, "C sieht keine Schnipsel von B")
+        let (cd, _) = c.request("GET", "/storage/v1/object/authenticated/sounds/\(b.id)/pass.m4a")
+        XCTAssertGreaterThanOrEqual(cd, 400, "C darf das Schnipsel von B nicht laden (Status \(cd))")
+
         // Zurück zur Karte: Marker mit Foto von B
         app.buttons["Fertig"].tap()
         dismissSystemDialogs()

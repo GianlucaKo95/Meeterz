@@ -44,7 +44,8 @@ class MeeterzTestBase: XCTestCase {
     /// iOS blendet nach der Registrierung "Passwort sichern?" ein – wegtippen.
     func dismissSystemDialogs() {
         let spring = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-        for label in ["Not Now", "Nicht jetzt", "Don’t Allow", "Allow While Using App", "Nur beim Verwenden der App"] {
+        // Reihenfolge wichtig: Standort-Dialog („Allow While Using App“) vor „Don’t Allow“
+        for label in ["Allow While Using App", "Beim Verwenden der App erlauben", "Allow Once", "Not Now", "Nicht jetzt", "Allow", "Don’t Allow"] {
             let b = spring.buttons[label]
             if b.exists { b.tap(); pause(1) }
             let a = app.buttons[label]

@@ -48,7 +48,13 @@ final class MeeterzUITests: XCTestCase {
     }
 
     private func type(_ text: String, into field: XCUIElement) {
-        field.tap()
+        // Fokus abwarten und bei Bedarf erneut tippen (Übergänge/Tastatur sind in CI träge)
+        for _ in 0..<4 {
+            if field.waitForExistence(timeout: 10), field.isHittable { field.tap() }
+            if app.keyboards.firstMatch.waitForExistence(timeout: 3),
+               (field.value(forKey: "hasKeyboardFocus") as? Bool) ?? true { break }
+            pause(1)
+        }
         field.typeText(text)
     }
 

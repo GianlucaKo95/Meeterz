@@ -110,7 +110,9 @@ final class MeeterzUITests: XCTestCase {
         // 4. Karte
         need(app.buttons["Ziel suchen"], "karte", timeout: 40)
         app.tap()                       // löst ggf. Systemdialoge aus
-        pause(10)                       // Karte und Kacheln laden
+        pause(8)
+        dismissSystemDialogs()
+        pause(4)                       // Karte und Kacheln laden
         shot("karte")
 
         let toClassic = app.buttons["Zur klassischen Karte wechseln"]
@@ -144,9 +146,16 @@ final class MeeterzUITests: XCTestCase {
             photoMenu.tap()
             pause(1)
             shot("profilbild-menue")
-            // Menü schließen
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.05)).tap()
-            pause(1)
+            // Menü bzw. Fotoauswahl schließen (die Auswahl öffnet im Simulator direkt)
+            pause(6)
+            shot("profilbild-auswahl")
+            var closed = false
+            for label in ["Cancel", "Abbrechen", "Close", "Schließen"] {
+                let b = app.buttons[label]
+                if b.exists { b.tap(); closed = true; break }
+            }
+            if !closed { app.coordinate(withNormalizedOffset: CGVector(dx: 0.094, dy: 0.125)).tap() }
+            pause(2)
         }
 
         let list = app.tables.firstMatch.exists ? app.tables.firstMatch : app.collectionViews.firstMatch

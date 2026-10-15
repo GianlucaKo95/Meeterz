@@ -157,8 +157,7 @@ final class MeeterzTwoAccountTests: MeeterzTestBase {
         let myId = try XCTUnwrap((b.rpc("my_friends").1 as? [[String: Any]])?.first?["friend_id"] as? String, "A-ID")
         let (pm, meetId) = b.rpc("propose_meetup", ["to_user_id": myId, "place_name": "Café Test", "lat": 51.4360, "lng": 6.7650])
         XCTAssertLessThan(pm, 300, "B schlägt Treffen vor")
-        let invite = app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'möchte sich treffen'")).firstMatch
-        need(invite, "einladung-sichtbar", timeout: 60)
+        need(app.buttons["Annehmen"], "einladung-sichtbar", timeout: 60)
         shot("a-einladung")
         app.buttons["Annehmen"].tap()
         pause(4)

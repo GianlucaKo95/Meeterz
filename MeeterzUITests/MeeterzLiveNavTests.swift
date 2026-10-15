@@ -58,9 +58,10 @@ final class MeeterzLiveNavTests: MeeterzTestBase {
         app.tap()
         pause(5)
         dismissSystemDialogs()
+        shot("karte-nach-login")
 
         // Freund erscheint (Liste lädt alle 30 s)
-        need(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'von 1 sichtbar'")).firstMatch, "freund-sichtbar", timeout: 75)
+        needPolling(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'von 1 sichtbar'")).firstMatch, "freund-sichtbar", timeout: 90)
         dismissSystemDialogs()
         pause(3)
         shot("freund-start")

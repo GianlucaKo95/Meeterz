@@ -82,6 +82,18 @@ class MeeterzTestBase: XCTestCase {
         }
     }
 
+    /// Wartet auf ein Element und tippt dabei zwischendurch Systemdialoge weg (kommen oft verspätet).
+    @discardableResult
+    func needPolling(_ element: XCUIElement, _ name: String, timeout: TimeInterval = 75) -> XCUIElement {
+        let end = Date().addingTimeInterval(timeout)
+        while Date() < end {
+            if element.exists { return element }
+            dismissSystemDialogs()
+            _ = element.waitForExistence(timeout: 4)
+        }
+        return need(element, name, timeout: 1)
+    }
+
     func pause(_ seconds: TimeInterval) {
         Thread.sleep(forTimeInterval: seconds)
     }

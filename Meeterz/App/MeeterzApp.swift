@@ -67,8 +67,6 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     }
 
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
-        await MainActor.run {
-            Task { await AppModel.shared.refreshSocial() }
-        }
+        await AppModel.shared.refreshSocial()
     }
 }

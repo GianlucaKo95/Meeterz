@@ -36,7 +36,7 @@ final class MeetupsStore {
         let ch = client.channel("meetups-\(userId.uuidString.lowercased())")
         let changes = ch.postgresChange(AnyAction.self, schema: "public", table: "meetups")
         channel = ch
-        await ch.subscribe()
+        try? await ch.subscribeWithError()
         listener = Task { [weak self] in
             for await _ in changes {
                 await self?.refreshMeetups()

@@ -53,7 +53,7 @@ log "== Bauen =="
 xcodebuild build \
   -project Meeterz.xcodeproj -scheme Meeterz \
   -destination 'generic/platform=iOS Simulator' \
-  -configuration Debug \
+  -configuration Debug -derivedDataPath build/dd \
   CODE_SIGNING_ALLOWED=NO > build.log 2>&1
 RC=$?
 log "xcodebuild Rückgabewert: $RC"
@@ -66,5 +66,11 @@ fi
 log ""
 log "== Warnungen (Auswahl) =="
 grep -E "warning:" build.log | sed 's#/Users/runner/work/[^/]*/[^/]*/##' | awk '!seen[$0]++' | head -30 >> "$REPORT"
+
+if [ $RC -eq 0 ]; then
+  ./ci/smoke.sh
+  SMOKE=$?
+  [ $SMOKE -eq 0 ] || exit 20
+fi
 exit $RC
 # Lauf 10:38

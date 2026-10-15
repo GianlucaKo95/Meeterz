@@ -29,7 +29,7 @@ final class LiveLocationHub {
             $0.isPrivate = true
             $0.broadcast.receiveOwnBroadcasts = false
         }
-        await ch.subscribe()
+        try? await ch.subscribeWithError()
         ownChannel = ch
     }
 
@@ -98,7 +98,7 @@ final class LiveLocationHub {
         let ch = client.channel(Self.topic(friendId)) { $0.isPrivate = true }
         let stream = ch.broadcastStream(event: "pos")
         friendChannels[friendId] = ch
-        await ch.subscribe()
+        try? await ch.subscribeWithError()
 
         listeners[friendId] = Task { [weak self] in
             let decoder = JSONDecoder()

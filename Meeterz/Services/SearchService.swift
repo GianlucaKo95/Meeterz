@@ -75,7 +75,7 @@ enum SearchService {
             URLQueryItem(name: "language", value: "de"),
             URLQueryItem(name: "access_token", value: AppConfig.mapboxToken),
         ]
-        let (data, response) = try await URLSession.shared.data(from: comps.url!)
+        let (data, response) = try await URLSession.shared.data(for: URLRequest(url: comps.url!))
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         if status == 402 || status == 429 { throw SearchError.quotaExceeded }
         guard status == 200 else { throw SearchError.failed }

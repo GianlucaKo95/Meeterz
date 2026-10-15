@@ -17,9 +17,32 @@ enum AppConfig {
 }
 
 enum Backend {
+    /// Postgres liefert Zeitstempel mit Mikrosekunden („…33.308854+00:00“); das Standard-Dekodieren
+    /// verträgt das nicht überall – deshalb eine tolerante Variante.
+    static let decoder: JSONDecoder = {
+        let d = JSONDecoder()
+        d.dateDecodingStrategy = .custom { decoder in
+            let raw = try decoder.singleValueContainer().decode(String.self)
+            if let date = parseDate(raw) { return date }
+            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Datum nicht lesbar: \(raw)"))
+        }
+        return d
+    }()
+
+    static func parseDate(_ raw: String) -> Date? {
+        let f = ISO8601DateFormatter()
+        // Nachkommastellen auf 3 Ziffern kürzen
+        let trimmed = raw.replacingOccurrences(of: #"(\.\d{3})\d+"#, with: "$1", options: .regularExpression)
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let d = f.date(from: trimmed) { return d }
+        f.formatOptions = [.withInternetDateTime]
+        return f.date(from: trimmed)
+    }
+
     static let client = SupabaseClient(
         supabaseURL: URL(string: AppConfig.value("SUPABASE_URL"))!,
-        supabaseKey: AppConfig.value("SUPABASE_ANON_KEY")
+        supabaseKey: AppConfig.value("SUPABASE_ANON_KEY"),
+        options: SupabaseClientOptions(db: .init(decoder: decoder))
     )
 }
 

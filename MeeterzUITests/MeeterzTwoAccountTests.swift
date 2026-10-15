@@ -145,7 +145,12 @@ final class MeeterzTwoAccountTests: MeeterzTestBase {
 
         // Zurück zur Karte: Marker mit Foto von B
         app.buttons["Fertig"].tap()
-        pause(8)
+        dismissSystemDialogs()
+        // Der Freund zählt erst als angenommen und sichtbar, wenn die Karte ihn geladen hat
+        need(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'von 1 sichtbar'")).firstMatch,
+             "freund-sichtbar", timeout: 75)
+        pause(5)
+        dismissSystemDialogs()
         shot("a-karte-mit-freund")
 
         // B lädt A zu einem Treffen ein

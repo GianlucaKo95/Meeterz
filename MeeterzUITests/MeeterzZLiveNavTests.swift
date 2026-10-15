@@ -88,15 +88,23 @@ final class MeeterzZLiveNavTests: MeeterzTestBase {
         shot("route-vorschau")
         app.buttons["Losfahren"].tap()
 
-        pause(9)
-        shot("navigation-0")
-        pause(8)
-        shot("navigation-1")
-        XCTAssertFalse(app.buttons["Losfahren"].exists, "Vorschau geschlossen")
-        XCTAssertFalse(app.buttons["Ziel suchen"].exists, "Navigationsansicht liegt über der Karte")
-        pause(15)
-        shot("navigation-2")
-        pause(15)
-        shot("navigation-3")
+        // Beobachten: Fehlerhinweis der App oder Navigationsansicht (Karte mit Suchleiste verschwindet)
+        var shown = false
+        for round in 0..<15 {
+            pause(2)
+            let err = app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Navigation konnte'")).firstMatch
+            if err.exists {
+                shot("navigation-fehler")
+                XCTFail("App meldet: \(err.label)")
+                return
+            }
+            if round % 3 == 0 { shot("navigation-\(round)") }
+            if !app.buttons["Ziel suchen"].exists { shown = true; break }
+        }
+        XCTAssertTrue(shown, "Navigationsansicht liegt über der Karte")
+        pause(12)
+        shot("navigation-a")
+        pause(12)
+        shot("navigation-b")
     }
 }

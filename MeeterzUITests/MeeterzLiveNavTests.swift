@@ -55,9 +55,7 @@ final class MeeterzLiveNavTests: MeeterzTestBase {
         type(passA, into: need(app.secureTextFields["Passwort (mind. 6 Zeichen)"], "passwort-feld"))
         app.buttons["Anmelden"].tap()
         need(app.buttons["Ziel suchen"], "karte", timeout: 60)
-        app.tap()
-        pause(5)
-        dismissSystemDialogs()
+        for _ in 0..<4 { app.tap(); pause(3); dismissSystemDialogs() }
         shot("karte-nach-login")
 
         // Freund erscheint (Liste lädt alle 30 s)

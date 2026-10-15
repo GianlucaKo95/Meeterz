@@ -28,6 +28,8 @@ print(best)
 xcrun simctl boot "$UDID" > /dev/null 2>&1
 xcrun simctl bootstatus "$UDID" -b > /dev/null 2>&1
 xcrun simctl location "$UDID" set 51.4344,6.7623 > /dev/null 2>&1   # Duisburg
+xcrun simctl privacy "$UDID" grant location de.koeven.meeterz > /dev/null 2>&1 || true
+xcrun simctl privacy "$UDID" grant microphone de.koeven.meeterz > /dev/null 2>&1 || true
 
 export TEST_RUNNER_SHOT_DIR="$PWD/screenshots"
 export TEST_RUNNER_SB_URL="https://${CI_SUPABASE_REF}.supabase.co"

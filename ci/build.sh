@@ -12,6 +12,9 @@ log "Installierte Xcode-Versionen:"
 ls -d /Applications/Xcode* 2>&1 | tee -a "$REPORT"
 
 XCODE=$(ls -d /Applications/Xcode_27* 2>/dev/null | sort -V | tail -1)
+if [ -z "$XCODE" ] && /usr/bin/xcodebuild -version 2>/dev/null | grep -q "^Xcode 27"; then
+  XCODE=$(dirname "$(dirname "$(xcode-select -p)")")
+fi
 if [ -z "$XCODE" ]; then
   log "!! Kein Xcode 27 gefunden"
   exit 10

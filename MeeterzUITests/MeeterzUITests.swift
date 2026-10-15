@@ -49,10 +49,13 @@ final class MeeterzUITests: XCTestCase {
 
     private func type(_ text: String, into field: XCUIElement) {
         // Fokus abwarten und bei Bedarf erneut tippen (Übergänge/Tastatur sind in CI träge)
-        for _ in 0..<4 {
-            if field.waitForExistence(timeout: 10), field.isHittable { field.tap() }
-            if app.keyboards.firstMatch.waitForExistence(timeout: 3) { pause(0.5); break }
-            pause(1)
+        let focused = NSPredicate(format: "hasKeyboardFocus == true")
+        for attempt in 0..<5 {
+            _ = field.waitForExistence(timeout: 10)
+            if attempt % 2 == 0 { field.tap() }
+            else { field.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap() }
+            let exp = XCTNSPredicateExpectation(predicate: focused, object: field)
+            if XCTWaiter().wait(for: [exp], timeout: 4) == .completed { break }
         }
         field.typeText(text)
     }

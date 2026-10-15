@@ -116,7 +116,6 @@ final class NavigationCoordinator: NSObject {
                 try? await Task.sleep(for: .milliseconds(attempt == 0 ? 450 : 300))
                 guard let top = UIApplication.topViewController(),
                       !top.isBeingDismissed, !top.isBeingPresented,
-                      !(top.presentationController is UISheetPresentationController),
                       top !== controller else { continue }
                 top.present(controller, animated: true) {
                     if let mapView = controller.navigationMapView?.mapView {

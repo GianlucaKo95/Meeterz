@@ -4,7 +4,7 @@ import XCTest
 /// A und B sind über das Backend bereits befreundet; A meldet sich in der App an.
 /// B sendet Positionen über den Realtime-Broadcast (wie die App) – A muss den Marker wandern sehen.
 /// Danach plant A eine Route (Düsseldorf Hbf) und fährt los (simulierte Fahrt, Live-Verkehr über Mapbox).
-final class MeeterzLiveNavTests: MeeterzTestBase {
+final class MeeterzZLiveNavTests: MeeterzTestBase {
     override var shotPrefix: String { "nav" }
 
     override func setUpWithError() throws {
@@ -90,7 +90,8 @@ final class MeeterzLiveNavTests: MeeterzTestBase {
 
         pause(15)
         shot("navigation-1")
-        XCTAssertFalse(app.buttons["Losfahren"].exists, "Navigation gestartet")
+        XCTAssertFalse(app.buttons["Losfahren"].exists, "Vorschau geschlossen")
+        XCTAssertFalse(app.buttons["Ziel suchen"].exists, "Navigationsansicht liegt über der Karte")
         pause(15)
         shot("navigation-2")
         pause(15)

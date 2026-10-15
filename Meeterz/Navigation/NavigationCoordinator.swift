@@ -108,17 +108,30 @@ final class NavigationCoordinator: NSObject {
 
         beginTracking()
 
-        // Erst das Vorschau-Sheet schließen lassen, dann die Navigation darüber legen
+        // Erst das Vorschau-Sheet schließen lassen, dann die Navigation darüber legen.
+        // Das Schließen dauert unterschiedlich lang; ein Present auf ein noch schließendes Sheet
+        // schlägt stillschweigend fehl – deshalb warten und notfalls erneut versuchen.
         Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .milliseconds(450))
-            UIApplication.topViewController()?.present(controller, animated: true) {
-                if let mapView = controller.navigationMapView?.mapView {
-                    let o = FriendOverlay(mapView: mapView) { true }
-                    o.start()
-                    self?.overlay = o
+            for attempt in 0..<30 {
+                try? await Task.sleep(for: .milliseconds(attempt == 0 ? 450 : 300))
+                guard let top = UIApplication.topViewController(),
+                      !top.isBeingDismissed, !top.isBeingPresented,
+                      !(top.presentationController is UISheetPresentationController),
+                      top !== controller else { continue }
+                top.present(controller, animated: true) {
+                    if let mapView = controller.navigationMapView?.mapView {
+                        let o = FriendOverlay(mapView: mapView) { true }
+                        o.start()
+                        self?.overlay = o
+                    }
+                    CarPlayController.shared.beginNavigationIfConnected()
                 }
-                CarPlayController.shared.beginNavigationIfConnected()
+                try? await Task.sleep(for: .milliseconds(600))
+                if controller.presentingViewController != nil { return }
             }
+            // Gar nicht anzeigbar: Zustand zurücksetzen, damit die Karte nicht „navigiert“
+            self?.stop()
+            AppModel.shared.show("Navigation konnte nicht gestartet werden.")
         }
     }
 

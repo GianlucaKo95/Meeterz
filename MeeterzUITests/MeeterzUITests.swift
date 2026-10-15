@@ -57,6 +57,9 @@ final class MeeterzUITests: XCTestCase {
             let exp = XCTNSPredicateExpectation(predicate: focused, object: field)
             if XCTWaiter().wait(for: [exp], timeout: 4) == .completed { break }
         }
+        if !focused.evaluate(with: field) {
+            shot("kein-fokus")
+        }
         field.typeText(text)
     }
 

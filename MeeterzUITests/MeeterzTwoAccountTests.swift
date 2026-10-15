@@ -187,7 +187,10 @@ final class MeeterzTwoAccountTests: MeeterzTestBase {
         XCTAssertTrue(accepted, "B sieht das Treffen als angenommen (\(String(describing: meetId)))")
 
         // Aufräumen: A über die App, B und C über das Backend
-        need(app.buttons["Freunde"], "freunde-knopf-2").tap()
+        for _ in 0..<3 where !app.navigationBars["Freunde"].exists {
+            need(app.buttons["Freunde"], "freunde-knopf-2").tap()
+            _ = app.navigationBars["Freunde"].waitForExistence(timeout: 6)
+        }
         need(app.navigationBars["Freunde"], "freunde-ansicht-2")
         pause(2)
         let list = app.tables.firstMatch.exists ? app.tables.firstMatch : app.collectionViews.firstMatch

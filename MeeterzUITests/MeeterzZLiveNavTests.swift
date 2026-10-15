@@ -88,7 +88,9 @@ final class MeeterzZLiveNavTests: MeeterzTestBase {
         shot("route-vorschau")
         app.buttons["Losfahren"].tap()
 
-        pause(15)
+        pause(9)
+        shot("navigation-0")
+        pause(8)
         shot("navigation-1")
         XCTAssertFalse(app.buttons["Losfahren"].exists, "Vorschau geschlossen")
         XCTAssertFalse(app.buttons["Ziel suchen"].exists, "Navigationsansicht liegt über der Karte")

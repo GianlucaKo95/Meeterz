@@ -130,8 +130,10 @@ final class NavigationCoordinator: NSObject {
                 if controller.presentingViewController != nil { return }
             }
             // Gar nicht anzeigbar: Zustand zurücksetzen, damit die Karte nicht „navigiert“
+            let top = UIApplication.topViewController()
+            let info = top.map { "\(type(of: $0)), Sheet: \($0.presentationController is UISheetPresentationController), schließt: \($0.isBeingDismissed)" } ?? "kein Controller"
             self?.stop()
-            AppModel.shared.show("Navigation konnte nicht gestartet werden.")
+            AppModel.shared.show("Navigation konnte nicht gestartet werden (\(info)).")
         }
     }
 

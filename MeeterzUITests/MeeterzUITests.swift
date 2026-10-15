@@ -11,14 +11,7 @@ class MeeterzTestBase: XCTestCase {
         continueAfterFailure = false
         app = XCUIApplication()
 
-        // Systemdialoge (Ortung, Mitteilungen) wegklicken
-        addUIInterruptionMonitor(withDescription: "Systemdialog") { alert in
-            for label in ["Allow While Using App", "Allow Once", "Allow", "OK", "Beim Verwenden der App erlauben", "Erlauben"] {
-                let button = alert.buttons[label]
-                if button.exists { button.tap(); return true }
-            }
-            return false
-        }
+        // Systemdialoge (Ortung, Mitteilungen) werden gezielt über dismissSystemDialogs() weggetippt
         app.launch()
     }
 

@@ -7,14 +7,33 @@ jobs:
       KEY: ${{ secrets.SUPABASE_ANON_KEY }}
       URL: https://jgtkyxlzroajtxboqgcn.supabase.co
     steps:
-      - name: Profil-Anlage per REST prüfen
+      - name: Freundschaft und my_friends prüfen
         run: |
-          E="probe-$RANDOM$RANDOM@example.com"
-          S=$(curl -s "$URL/auth/v1/signup" -H "apikey: $KEY" -H "Content-Type: application/json" -d "{\"email\":\"$E\",\"password\":\"Probe-pw-123456\"}")
-          TOKEN=$(echo "$S" | python3 -c 'import sys,json;d=json.load(sys.stdin);print(d.get("access_token",""))')
-          UID_=$(echo "$S" | python3 -c 'import sys,json;d=json.load(sys.stdin);print((d.get("user") or d).get("id",""))')
-          H=$(echo "$S" | cut -c1-300 | tr -d '\n')
-          R=$(curl -s -w ' HTTP %{http_code}' "$URL/rest/v1/profiles" -H "apikey: $KEY" -H "Authorization: Bearer ${TOKEN:-$KEY}" -H "Content-Type: application/json" -H "Prefer: return=minimal" -d "{\"id\":\"$UID_\",\"handle\":\"pr_$RANDOM\",\"display_name\":\"Probe\",\"sharing_enabled\":true}")
-          echo "::notice title=signup::token=${TOKEN:+ja}${TOKEN:-nein} uid=$UID_ resp=${H}"
-          echo "::notice title=insert::$R"
-          if [ -n "$TOKEN" ]; then curl -s -X POST "$URL/auth/v1/logout" -H "apikey: $KEY" -H "Authorization: Bearer $TOKEN" >/dev/null; fi
+          python3 - <<'PY'
+          import json, os, random, urllib.request
+          URL, KEY = os.environ["URL"], os.environ["KEY"]
+          def call(method, path, body=None, token=None, extra=None):
+              h = {"apikey": KEY, "Authorization": "Bearer " + (token or KEY), "Content-Type": "application/json"}
+              h.update(extra or {})
+              req = urllib.request.Request(URL + path, data=json.dumps(body).encode() if body is not None else None, headers=h, method=method)
+              try:
+                  with urllib.request.urlopen(req) as r:
+                      t = r.read().decode(); return r.status, (json.loads(t) if t else None)
+              except urllib.error.HTTPError as e:
+                  return e.code, e.read().decode()
+          def user(tag):
+              n = random.randint(10**6, 10**7)
+              s, d = call("POST", "/auth/v1/signup", {"email": f"probe-{tag}-{n}@example.com", "password": "Probe-pw-123456"})
+              return d["access_token"], d["user"]["id"], n
+          ta, ia, na = user("a"); tb, ib, nb = user("b")
+          call("POST", "/rest/v1/profiles", {"id": ia, "handle": f"pa_{na}", "display_name": "Pa"}, ta, {"Prefer": "return=minimal"})
+          call("POST", "/rest/v1/profiles", {"id": ib, "handle": f"pb_{nb}", "display_name": "Pb"}, tb, {"Prefer": "return=minimal"})
+          print("::notice title=loc::", call("POST", "/rest/v1/rpc/update_last_location", {"lat": 51.43, "lng": 6.76, "heading": 90.0, "speed": 0.0}, tb))
+          print("::notice title=req::", call("POST", "/rest/v1/rpc/send_friend_request", {"target_handle": f"pb_{nb}"}, ta))
+          s, rows = call("POST", "/rest/v1/rpc/my_friends", {}, tb)
+          rid = [r for r in rows if r["incoming"]][0]["friendship_id"]
+          print("::notice title=accept::", call("POST", "/rest/v1/rpc/respond_friend_request", {"request_id": rid, "accept": True}, tb))
+          s, rows = call("POST", "/rest/v1/rpc/my_friends", {}, ta)
+          print("::notice title=my_friends_A::", s, json.dumps(rows))
+          for t in (ta, tb): call("POST", "/rest/v1/rpc/delete_account", {}, t)
+          PY

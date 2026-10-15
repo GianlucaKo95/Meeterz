@@ -2,9 +2,10 @@ import XCTest
 
 /// Durchlauf für die CI: neues Testkonto registrieren, Onboarding, Karte, Suche, Freunde/Einstellungen,
 /// Konto wieder löschen – mit Screenshots (SHOT_DIR). Die Zugangsdaten werden pro Lauf zufällig erzeugt.
-final class MeeterzUITests: XCTestCase {
-    private var app: XCUIApplication!
-    private var counter = 0
+class MeeterzTestBase: XCTestCase {
+    var app: XCUIApplication!
+    var counter = 0
+    var shotPrefix: String { "ui" }
 
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -23,7 +24,7 @@ final class MeeterzUITests: XCTestCase {
 
     // MARK: Hilfen
 
-    private func shot(_ name: String) {
+    func shot(_ name: String) {
         counter += 1
         let screenshot = XCUIScreen.main.screenshot()
         let attachment = XCTAttachment(screenshot: screenshot)
@@ -32,14 +33,14 @@ final class MeeterzUITests: XCTestCase {
         add(attachment)
         if let dir = ProcessInfo.processInfo.environment["SHOT_DIR"] {
             try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
-            let path = String(format: "%@/ui-%02d-%@.png", dir, counter, name)
+            let path = String(format: "%@/%@-%02d-%@.png", dir, shotPrefix, counter, name)
             try? screenshot.pngRepresentation.write(to: URL(fileURLWithPath: path))
         }
     }
 
     /// Wartet auf ein Element; fehlt es, gibt es einen Screenshot und der Test bricht ab.
     @discardableResult
-    private func need(_ element: XCUIElement, _ name: String, timeout: TimeInterval = 20) -> XCUIElement {
+    func need(_ element: XCUIElement, _ name: String, timeout: TimeInterval = 20) -> XCUIElement {
         if !element.waitForExistence(timeout: timeout) {
             shot("FEHLT-\(name)")
             XCTFail("Element nicht gefunden: \(name)")
@@ -48,7 +49,7 @@ final class MeeterzUITests: XCTestCase {
     }
 
     /// iOS blendet nach der Registrierung "Passwort sichern?" ein – wegtippen.
-    private func dismissSystemDialogs() {
+    func dismissSystemDialogs() {
         let spring = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         for label in ["Not Now", "Nicht jetzt", "Don’t Allow", "Allow While Using App", "Nur beim Verwenden der App"] {
             let b = spring.buttons[label]
@@ -58,7 +59,7 @@ final class MeeterzUITests: XCTestCase {
         }
     }
 
-    private func type(_ text: String, into field: XCUIElement) {
+    func type(_ text: String, into field: XCUIElement) {
         dismissSystemDialogs()
         // Fokus abwarten und bei Bedarf erneut tippen (Übergänge/Tastatur sind in CI träge)
         let focused = NSPredicate(format: "hasKeyboardFocus == true")
@@ -76,10 +77,12 @@ final class MeeterzUITests: XCTestCase {
         field.typeText(text)
     }
 
-    private func pause(_ seconds: TimeInterval) {
+    func pause(_ seconds: TimeInterval) {
         Thread.sleep(forTimeInterval: seconds)
     }
+}
 
+final class MeeterzUITests: MeeterzTestBase {
     // MARK: Ablauf
 
     func testGesamtablauf() throws {

@@ -30,6 +30,8 @@ xcrun simctl bootstatus "$UDID" -b > /dev/null 2>&1
 xcrun simctl location "$UDID" set 51.4344,6.7623 > /dev/null 2>&1   # Duisburg
 
 export TEST_RUNNER_SHOT_DIR="$PWD/screenshots"
+export TEST_RUNNER_SB_URL="https://${CI_SUPABASE_REF}.supabase.co"
+export TEST_RUNNER_SB_KEY="$SUPABASE_ANON_KEY"
 rm -rf build/ui.xcresult
 xcodebuild test \
   -project Meeterz.xcodeproj -scheme Meeterz \

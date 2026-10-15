@@ -26,6 +26,15 @@ final class MeeterzTwoAccountTests: MeeterzTestBase {
             return r
         }
 
+        static func signIn(base: String, key: String, email: String, password: String) -> Remote? {
+            var r = Remote(base: base, key: key)
+            let (status, data) = r.request("POST", "/auth/v1/token?grant_type=password", body: ["email": email, "password": password], auth: false)
+            guard status < 300, let j = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let t = j["access_token"] as? String else { return nil }
+            r.token = t
+            return r
+        }
+
         @discardableResult
         func request(_ method: String, _ path: String, body: Any? = nil, raw: Data? = nil,
                      headers: [String: String] = [:], auth: Bool = true) -> (Int, Data) {
@@ -98,9 +107,15 @@ final class MeeterzTwoAccountTests: MeeterzTestBase {
         let (bs, _) = b.request("GET", "/storage/v1/object/authenticated/avatars/\(b.id)/avatar.jpg")
         XCTAssertEqual(bs, 200, "Besitzer lädt eigenes Foto")
 
-        // Konto A in der App
+        // Konto A in der App (wird am Ende in jedem Fall auch über das Backend entfernt)
         let email = "ci-a-\(suffix)@example.com"
         let password = "Ci-a-\(suffix)-pw"
+        defer {
+            // falls die App-Löschung nicht lief: A, B, C über das Backend aufräumen (Fehler egal)
+            if let a = Remote.signIn(base: base, key: key, email: email, password: password) { a.rpc("delete_account") }
+            b.rpc("delete_account")
+            c.rpc("delete_account")
+        }
         need(app.buttons["Registrieren"], "login")
         type(email, into: need(app.textFields["E-Mail"], "email-feld"))
         type(password, into: need(app.secureTextFields["Passwort (mind. 6 Zeichen)"], "passwort-feld"))
@@ -173,6 +188,8 @@ final class MeeterzTwoAccountTests: MeeterzTestBase {
 
         // Aufräumen: A über die App, B und C über das Backend
         need(app.buttons["Freunde"], "freunde-knopf-2").tap()
+        need(app.navigationBars["Freunde"], "freunde-ansicht-2")
+        pause(2)
         let list = app.tables.firstMatch.exists ? app.tables.firstMatch : app.collectionViews.firstMatch
         for _ in 0..<6 where !app.buttons["Konto löschen"].exists { list.swipeUp() }
         need(app.buttons["Konto löschen"], "konto-loeschen").tap()

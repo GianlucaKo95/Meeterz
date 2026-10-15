@@ -50,6 +50,15 @@ enum Backend {
 struct MeeterzApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
+    init() {
+        #if DEBUG
+        // UI-Tests starten immer abgemeldet, auch wenn ein früherer Lauf eine Sitzung hinterlassen hat
+        if CommandLine.arguments.contains("-ui.reset") {
+            Task { try? await Backend.client.auth.signOut(scope: .local) }
+        }
+        #endif
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView()

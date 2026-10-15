@@ -10,6 +10,7 @@ class MeeterzTestBase: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         app = XCUIApplication()
+        app.launchArguments += ["-ui.reset"]
 
         // Systemdialoge (Ortung, Mitteilungen) werden gezielt über dismissSystemDialogs() weggetippt
         app.launch()

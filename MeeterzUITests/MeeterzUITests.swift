@@ -85,6 +85,8 @@ final class MeeterzUITests: XCTestCase {
         // 3. Onboarding
         let nameField = need(app.textFields["z. B. Luca"], "onboarding-name", timeout: 30)
         type("CI Test", into: nameField)
+        nameField.typeText("\n")        // Tastatur schließen, damit der nächste Fokus sauber wechselt
+        pause(2)
         type(handle, into: need(app.textFields["@benutzername"], "onboarding-handle"))
         shot("onboarding")
         app.buttons["Los geht's"].tap()

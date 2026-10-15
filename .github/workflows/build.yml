@@ -2,7 +2,7 @@ name: Build
 
 # Baut Meeterz für den iOS-Simulator (ohne Signierung), um Compile-Fehler ohne lokalen Mac zu finden.
 # Benötigt nur das Repo-Secret MAPBOX_DOWNLOADS_TOKEN (Mapbox Secret Token mit Scope "Downloads:Read").
-# Die übrigen Werte sind Platzhalter – für das Kompilieren spielen sie keine Rolle.
+# Der Bericht wird auf den Branch "ci-report" geschrieben (Datei report.txt).
 
 on:
   push:
@@ -14,6 +14,9 @@ concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: macos-26
@@ -21,52 +24,32 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Xcode 27 wählen
-        run: |
-          XCODE=$(ls -d /Applications/Xcode_27* 2>/dev/null | sort -V | tail -1)
-          if [ -z "$XCODE" ]; then echo "Kein Xcode 27 gefunden:"; ls /Applications | grep -i xcode; exit 1; fi
-          sudo xcode-select -s "$XCODE"
-          xcodebuild -version
-          xcrun --sdk iphonesimulator --show-sdk-version
-
-      - name: Mapbox-Zugang
+      - name: Bauen
+        id: build
+        continue-on-error: true
         env:
           MAPBOX_DOWNLOADS_TOKEN: ${{ secrets.MAPBOX_DOWNLOADS_TOKEN }}
-        run: |
-          if [ -z "$MAPBOX_DOWNLOADS_TOKEN" ]; then echo "Secret MAPBOX_DOWNLOADS_TOKEN fehlt"; exit 1; fi
-          printf "machine api.mapbox.com\n  login mapbox\n  password %s\n" "$MAPBOX_DOWNLOADS_TOKEN" > ~/.netrc
-          chmod 0600 ~/.netrc
+        run: ./ci/build.sh
 
-      - name: Projekt erzeugen
-        run: |
-          brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
-          cp Config.example.xcconfig Config.xcconfig
-          sed -i '' 's#DEIN-PROJEKT#ci-platzhalter#; s#DEIN_PUBLISHABLE_KEY#ci-platzhalter#; s#pk.DEIN_MAPBOX_PUBLIC_TOKEN#pk.ci-platzhalter#; s#DEINE_TEAM_ID##' Config.xcconfig
-          xcodegen generate
-
-      - name: Pakete laden
-        run: xcodebuild -resolvePackageDependencies -project Meeterz.xcodeproj -scheme Meeterz 2>&1 | tail -30
-
-      - name: Bauen
-        run: |
-          set -o pipefail
-          xcodebuild build \
-            -project Meeterz.xcodeproj -scheme Meeterz \
-            -destination 'generic/platform=iOS Simulator' \
-            -configuration Debug \
-            CODE_SIGNING_ALLOWED=NO \
-            2>&1 | tee build.log | tail -5
-
-      - name: Fehler zusammenfassen
-        if: failure()
-        run: |
-          echo "=== FEHLER ==="
-          grep -E "error:" build.log | sed 's#/Users/runner/work/[^/]*/[^/]*/##' | sort -u | head -80
-          echo "=== Ende ==="
-
-      - uses: actions/upload-artifact@v4
+      - name: Bericht veröffentlichen
         if: always()
-        with:
-          name: build-log
-          path: build.log
-          if-no-files-found: ignore
+        run: |
+          {
+            echo "Commit: ${GITHUB_SHA}"
+            echo "Zeit:   $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "Ergebnis: ${{ steps.build.outcome }}"
+            echo
+            cat report.txt 2>/dev/null || echo "(kein Bericht)"
+          } > /tmp/report.txt
+          git config user.name "meeterz-ci"
+          git config user.email "ci@users.noreply.github.com"
+          git checkout --orphan ci-report
+          git rm -rf . >/dev/null 2>&1 || true
+          cp /tmp/report.txt report.txt
+          git add report.txt
+          git commit -q -m "CI-Bericht ${GITHUB_SHA}"
+          git push -f origin ci-report
+
+      - name: Ergebnis
+        if: steps.build.outcome == 'failure'
+        run: exit 1

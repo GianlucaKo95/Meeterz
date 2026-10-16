@@ -11,6 +11,7 @@ struct MainView: View {
     @State private var showFriends = false
     @State private var showSearch = false
     @State private var plannedMeetup: MeetupCandidate?
+    @State private var recenterTick = 0
 
     /// Kamera folgt dem eigenen Standort – in 3D schräg von hinten, in Fahrtrichtung gedreht
     private var followViewport: Viewport {
@@ -23,7 +24,12 @@ struct MainView: View {
         @Bindable var navigation = app.navigation
 
         ZStack(alignment: .top) {
-            map
+            if satellite {
+                // Satellit: Apples Flyover (fotorealistische 3D-Gebäude)
+                FlyoverMapView(plannedMeetup: $plannedMeetup, threeD: threeD, recenterTick: recenterTick)
+            } else {
+                map
+            }
 
             VStack(spacing: 10) {
                 topBar
@@ -79,24 +85,6 @@ struct MainView: View {
                     .exaggeration(1.3)
             }
 
-            // 3D-Gebäude auf dem Satellitenbild. Die klassische Karte (Standard) bringt sie schon mit.
-            if threeD && satellite {
-                VectorSource(id: "mapbox-streets")
-                    .url("mapbox://mapbox.mapbox-streets-v8")
-                FillExtrusionLayer(id: "satellite-3d-buildings", source: "mapbox-streets")
-                    .sourceLayer("building")
-                    .filter(Exp(.eq) { Exp(.get) { "extrude" }; "true" })
-                    .minZoom(14.5)
-                    .fillExtrusionColor(UIColor(red: 0.93, green: 0.91, blue: 0.87, alpha: 1))
-                    .fillExtrusionOpacity(0.94)
-                    .fillExtrusionEmissiveStrength(0.65)
-                    .fillExtrusionVerticalGradient(true)
-                    .fillExtrusionAmbientOcclusionIntensity(0.25)
-                    .fillExtrusionHeight(Exp(.get) { "height" })
-                    .fillExtrusionBase(Exp(.get) { "min_height" })
-                    .slot(.middle)
-            }
-
             // Routen der Freunde
             ForEvery(Array(app.routes.friendRoutes.values)) { route in
                 PolylineAnnotation(id: "route-\(route.friendId)", lineCoordinates: route.coordinates)
@@ -143,7 +131,7 @@ struct MainView: View {
                 .allowOverlap(true)
             }
         }
-        .mapStyle(satellite ? .standardSatellite : .standard(lightPreset: .night))
+        .mapStyle(.standard(lightPreset: .night))
         .ignoresSafeArea()
     }
 
@@ -193,6 +181,7 @@ struct MainView: View {
             .accessibilityLabel(threeD ? "Zur 2D-Ansicht wechseln" : "Zur 3D-Ansicht wechseln")
 
             CircleIconButton(systemName: "location.north.line.fill", label: "Auf meinen Standort zentrieren", tint: Theme.accent) {
+                recenterTick += 1
                 withViewportAnimation(.easeOut(duration: 0.5)) { viewport = followViewport }
             }
         }

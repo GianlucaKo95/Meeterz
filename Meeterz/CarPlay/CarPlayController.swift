@@ -347,6 +347,10 @@ extension CarPlayController: CarPlayManagerDelegate {
     nonisolated func carPlayManager(_ carPlayManager: CarPlayManager, didSetup navigationMapView: NavigationMapView) {
         MainActor.assumeIsolated {
             browseOverlay?.stop()
+            Satellite3DBuildings.install(
+                on: navigationMapView.mapView,
+                satellite: UserDefaults.standard.object(forKey: "carplay.satellite") as? Bool ?? true
+            )
             let overlay = FriendOverlay(mapView: navigationMapView.mapView) { [weak self] in self?.friendsVisible ?? true }
             overlay.start()
             browseOverlay = overlay
@@ -361,6 +365,10 @@ extension CarPlayController: CarPlayManagerDelegate {
             navigationViewController.routeLineTracksTraversal = true
             guard let mapView = navigationViewController.navigationMapView?.mapView else { return }
             navigationOverlay?.stop()
+            Satellite3DBuildings.install(
+                on: mapView,
+                satellite: UserDefaults.standard.object(forKey: "carplay.satellite") as? Bool ?? true
+            )
             let overlay = FriendOverlay(mapView: mapView) { [weak self] in self?.friendsVisible ?? true }
             overlay.start()
             navigationOverlay = overlay

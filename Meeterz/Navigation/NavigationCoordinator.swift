@@ -119,6 +119,10 @@ final class NavigationCoordinator: NSObject {
                       top !== controller else { continue }
                 top.present(controller, animated: true) {
                     if let mapView = controller.navigationMapView?.mapView {
+                        Satellite3DBuildings.install(
+                            on: mapView,
+                            satellite: UserDefaults.standard.object(forKey: "map.satellite") as? Bool ?? true
+                        )
                         let o = FriendOverlay(mapView: mapView) { true }
                         o.start()
                         self?.overlay = o

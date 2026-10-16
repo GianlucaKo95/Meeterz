@@ -1,0 +1,109 @@
+Commit: d3b98bb97a67755a1ae3b8b059a82fbf5cf16c7a
+Zeit:   2026-10-16T16:34:54Z
+Ergebnis: success
+
+== Umgebung ==
+ProductName:		macOS
+ProductVersion:		27.0.1
+BuildVersion:		26A434
+Installierte Xcode-Versionen:
+/Applications/Xcode_27.0.0.app
+/Applications/Xcode_27.0.app
+/Applications/Xcode_27.1_Release_Candidate.app
+/Applications/Xcode_27.1.0.app
+/Applications/Xcode_27.1.app
+/Applications/Xcode_27.2_beta_2.app
+/Applications/Xcode_27.2.0.app
+/Applications/Xcode_27.2.app
+/Applications/Xcode_27.app
+/Applications/Xcode.app
+Xcode 27.2
+Build version 27B5028f
+iOS-Simulator-SDK: 27.2
+
+== Mapbox-Zugang ==
+ok
+
+== Projekt erzeugen ==
+✔︎ Bottle xcodegen (2.46.0)
+[34m==>[0m [1mPouring xcodegen--2.46.0.arm64_golden_gate.bottle.1.tar.gz[0m
+🍺  /opt/homebrew/Cellar/xcodegen/2.46.0: 38 files, 7.5MB
+Konfiguration: Supabase=jgtkyxlzroajtxboqgcn, Schlüssel gesetzt=ja, Mapbox-Token gesetzt=ja
+⚙️  Generating plists...
+⚙️  Generating project...
+⚙️  Writing project...
+Created project at /Users/runner/work/Meeterz/Meeterz/Meeterz.xcodeproj
+
+== Pakete laden ==
+Downloading package prebuilt https://download.swift.org/prebuilts/swift-syntax/604.0.0/swiftlang-6.4.0.34.1-macosx27.2-MacroSupport.zip
+
+
+Resolved source packages:
+  MapboxNavigationCpp: https://github.com/mapbox/mapbox-navigation-cpp-ios.git @ 0.32.1
+  swift-asn1: https://github.com/apple/swift-asn1.git @ 1.7.3
+  swift-argument-parser: https://github.com/apple/swift-argument-parser @ 1.8.2
+  swift-snapshot-testing: https://github.com/pointfreeco/swift-snapshot-testing.git @ 1.19.6
+  Turf: https://github.com/mapbox/turf-swift.git @ 4.0.0
+  swift-syntax: https://github.com/swiftlang/swift-syntax @ 604.0.0
+  swift-crypto: https://github.com/apple/swift-crypto.git @ 4.5.2
+  Supabase: https://github.com/supabase/supabase-swift @ 2.55.4
+  swift-http-types: https://github.com/apple/swift-http-types.git @ 1.8.0
+  MapboxCommon: https://github.com/mapbox/mapbox-common-ios.git @ 24.32.1
+  MapboxCoreMaps: https://github.com/mapbox/mapbox-core-maps-ios.git @ 11.32.1
+  swift-issue-reporting: https://github.com/pointfreeco/swift-issue-reporting @ 2.1.2
+  MapboxNavigation: https://github.com/mapbox/mapbox-navigation-ios.git @ 3.32.1
+  swift-clocks: https://github.com/pointfreeco/swift-clocks @ 1.1.1
+  swift-concurrency-extras: https://github.com/pointfreeco/swift-concurrency-extras @ 1.4.3
+  xctest-dynamic-overlay: https://github.com/pointfreeco/xctest-dynamic-overlay @ 1.13.1
+  MapboxNavigationNative: https://github.com/mapbox/mapbox-navigation-native-ios.git @ 324.32.1
+  swift-custom-dump: https://github.com/pointfreeco/swift-custom-dump @ 1.7.3
+  MapboxMaps: https://github.com/mapbox/mapbox-maps-ios @ 11.32.1
+
+resolved source packages: MapboxNavigationCpp, swift-asn1, swift-argument-parser, swift-snapshot-testing, Turf, swift-syntax, swift-crypto, Supabase, swift-http-types, MapboxCommon, MapboxCoreMaps, swift-issue-reporting, MapboxNavigation, swift-clocks, swift-concurrency-extras, xctest-dynamic-overlay, MapboxNavigationNative, swift-custom-dump, MapboxMaps
+
+== Bauen ==
+xcodebuild Rückgabewert: 0
+
+== Warnungen (Auswahl) ==
+build/dd/Build/Products/Debug-iphonesimulator/MapboxNavigationNative.framework/PrivateHeaders/MBNNTilesManagerHandle_Internal.h:33:66: warning: 'MBNNTilesConfig' is deprecated
+    |                                                                  `- warning: 'MBNNTilesConfig' is deprecated
+build/dd/Build/Products/Debug-iphonesimulator/MapboxNavigationNative.framework/PrivateHeaders/MBNNTilesManagerHandle_Internal.h:53:48: warning: 'MBNNTilesConfig' is deprecated
+    |                                                `- warning: 'MBNNTilesConfig' is deprecated
+build/dd/Build/Products/Debug-iphonesimulator/MapboxNavigationNative.framework/PrivateHeaders/MBNNNavigator_Internal.h:269:16: warning: 'MBNNRerouteDetectorInterface' is deprecated
+    |                `- warning: 'MBNNRerouteDetectorInterface' is deprecated
+Meeterz/Services/SearchService.swift:78:60: warning: 'data(for:)' was deprecated in iOS 15.0: Use iOS 15 API instead. [#DeprecatedDeclaration]
+   |                                                            `- warning: 'data(for:)' was deprecated in iOS 15.0: Use iOS 15 API instead. [#DeprecatedDeclaration]
+Meeterz.xcodeproj: Meeterz: ld: warning: address=0x2FE773 points before section(32) start and the target atom is ambiguous
+Meeterz.xcodeproj: Meeterz: ld: warning: address=0x724C7B points before section(33) start and the target atom is ambiguous
+2026-10-16 16:08:21.544 appintentsmetadataprocessor[30955:83477] warning: Metadata extraction skipped, no AppIntents.framework dependency found
+
+== Rauchtest ==
+Simulator:     iPhone 18 Pro (873E667A-0545-43A3-8E8C-4E0AF64A7F5F) (Shutdown) 
+Starte App …
+de.koeven.meeterz: 33462
+Detected file type from extension: PNG
+Note: No display specified. Defaulting to display: E003AC0D-1EBC-43C8-AB5F-F7D709A2B32D (screenID: 1, name: LCD)
+Wrote screenshot to: /Users/runner/work/Meeterz/Meeterz/screenshots/01-start.png
+App läuft nach 10 s: ja
+
+== UI-Test ==
+xcodebuild test Rückgabewert: 0
+Test Case '-[MeeterzUITests.MeeterzTwoAccountTests testZweiKonten]' started.
+2026-10-16 16:26:35.392 xcodebuild[35470:101868] [MT] IDELaunchParametersSnapshot: debugger version lookup failed for path '<nil>': noURL
+Test Case '-[MeeterzUITests.MeeterzTwoAccountTests testZweiKonten]' passed (203.564 seconds).
+Test Suite 'MeeterzTwoAccountTests' passed at 2026-10-16 16:29:42.160.
+	 Executed 1 test, with 0 failures (0 unexpected) in 203.564 (203.597) seconds
+Test Case '-[MeeterzUITests.MeeterzUITests testGesamtablauf]' started.
+2026-10-16 16:29:43.367 xcodebuild[35470:101868] [MT] IDELaunchParametersSnapshot: debugger version lookup failed for path '<nil>': noURL
+Test Case '-[MeeterzUITests.MeeterzUITests testGesamtablauf]' passed (151.186 seconds).
+Test Suite 'MeeterzUITests' passed at 2026-10-16 16:32:13.348.
+	 Executed 1 test, with 0 failures (0 unexpected) in 151.186 (151.188) seconds
+Test Case '-[MeeterzUITests.MeeterzZLiveNavTests testLiveUndNavigation]' started.
+2026-10-16 16:32:14.578 xcodebuild[35470:101868] [MT] IDELaunchParametersSnapshot: debugger version lookup failed for path '<nil>': noURL
+Test Case '-[MeeterzUITests.MeeterzZLiveNavTests testLiveUndNavigation]' passed (142.075 seconds).
+Test Suite 'MeeterzZLiveNavTests' passed at 2026-10-16 16:34:35.426.
+	 Executed 1 test, with 0 failures (0 unexpected) in 142.075 (142.076) seconds
+Test Suite 'MeeterzUITests.xctest' passed at 2026-10-16 16:34:35.428.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 496.825 (496.865) seconds
+Test Suite 'All tests' passed at 2026-10-16 16:34:35.428.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 496.825 (496.869) seconds

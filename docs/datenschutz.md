@@ -35,7 +35,7 @@ Dein Standort wird **nur** an Personen übermittelt, deren Freundschaftsanfrage 
 
 ## 4. Dienstleister (Auftragsverarbeiter)
 
-- **Supabase Inc.** – Datenbank, Anmeldung und Echtzeit-Übertragung. Server in der EU (Region London, AWS eu-west-2).
+- **Supabase Inc.** – Datenbank, Anmeldung und Echtzeit-Übertragung. Server in London, Vereinigtes Königreich (AWS eu-west-2). Für das Vereinigte Königreich besteht ein Angemessenheitsbeschluss der EU-Kommission.
 - **Mapbox Inc.** (USA) – Karten, Suche, Routen und Verkehrsdaten. Für Routen und Suche werden Standort- bzw. Zielkoordinaten an Mapbox übermittelt. Grundlage: EU-Standardvertragsklauseln bzw. EU-US Data Privacy Framework.
 - **Apple Inc.** – „Mit Apple anmelden" und Push-Benachrichtigungen.
 

@@ -12,12 +12,14 @@ struct MainView: View {
     @State private var showSearch = false
     @State private var plannedMeetup: MeetupCandidate?
     @State private var recenterTick = 0
+    /// Zoomstufen über die Plus/Minus-Knöpfe (0 = Standard)
+    @State private var zoomSteps = 0
 
     /// Kamera folgt dem eigenen Standort – in 3D schräg von hinten, in Fahrtrichtung gedreht
     private var followViewport: Viewport {
         threeD
-            ? .followPuck(zoom: 16.5, bearing: .course, pitch: 60)
-            : .followPuck(zoom: 13)
+            ? .followPuck(zoom: 16.5 + Double(zoomSteps), bearing: .course, pitch: 60)
+            : .followPuck(zoom: 13 + Double(zoomSteps))
     }
 
     var body: some View {
@@ -26,7 +28,7 @@ struct MainView: View {
         ZStack(alignment: .top) {
             if satellite {
                 // Satellit: Apples Flyover (fotorealistische 3D-Gebäude)
-                FlyoverMapView(plannedMeetup: $plannedMeetup, threeD: threeD, recenterTick: recenterTick)
+                FlyoverMapView(plannedMeetup: $plannedMeetup, threeD: threeD, recenterTick: recenterTick, zoomSteps: zoomSteps)
             } else {
                 map
             }
@@ -65,6 +67,9 @@ struct MainView: View {
         }
         .task { await app.startSession() }
         .onAppear { viewport = followViewport }
+        .onChange(of: zoomSteps) { _, _ in
+            withViewportAnimation(.easeOut(duration: 0.35)) { viewport = followViewport }
+        }
         .onChange(of: threeD) { _, _ in
             withViewportAnimation(.easeOut(duration: 0.6)) { viewport = followViewport }
         }
@@ -179,6 +184,9 @@ struct MainView: View {
                     .overlay(Circle().stroke(Theme.stroke, lineWidth: 1))
             }
             .accessibilityLabel(threeD ? "Zur 2D-Ansicht wechseln" : "Zur 3D-Ansicht wechseln")
+
+            CircleIconButton(systemName: "plus", label: "Hineinzoomen") { zoomSteps = min(zoomSteps + 1, 4) }
+            CircleIconButton(systemName: "minus", label: "Herauszoomen") { zoomSteps = max(zoomSteps - 1, -6) }
 
             CircleIconButton(systemName: "location.north.line.fill", label: "Auf meinen Standort zentrieren", tint: Theme.accent) {
                 recenterTick += 1

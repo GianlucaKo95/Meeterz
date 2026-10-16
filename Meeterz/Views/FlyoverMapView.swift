@@ -9,8 +9,11 @@ struct FlyoverMapView: View {
     let threeD: Bool
     /// Zählt hoch, wenn „Auf meinen Standort zentrieren“ getippt wurde
     let recenterTick: Int
+    /// Zoomstufen der Plus/Minus-Knöpfe; jede Stufe halbiert bzw. verdoppelt den Abstand
+    let zoomSteps: Int
 
     @State private var position: MapCameraPosition = .automatic
+    @State private var lastCamera: MapCamera?
 
     var body: some View {
         Map(position: $position) {
@@ -60,7 +63,9 @@ struct FlyoverMapView: View {
         .mapStyle(.hybrid(elevation: .realistic, pointsOfInterest: .including([.publicTransport, .restaurant, .cafe, .parking, .hospital])))
         .mapControls { }
         .ignoresSafeArea()
+        .onMapCameraChange(frequency: .continuous) { context in lastCamera = context.camera }
         .onAppear { follow(force: true) }
+        .onChange(of: zoomSteps) { old, new in zoom(by: new - old) }
         .onChange(of: recenterTick) { _, _ in follow(force: true) }
         .onChange(of: threeD) { _, _ in follow(force: true) }
         .onChange(of: app.location.lastLocation) { _, _ in follow(force: false) }
@@ -72,10 +77,18 @@ struct FlyoverMapView: View {
         guard force || !position.positionedByUser else { return }
         let camera = MapCamera(
             centerCoordinate: loc.coordinate,
-            distance: threeD ? 650 : 5000,
+            distance: (threeD ? 650 : 5000) * pow(2, -Double(zoomSteps)),
             heading: threeD && loc.course >= 0 ? loc.course : 0,
             pitch: threeD ? 65 : 0
         )
         withAnimation(.easeOut(duration: 0.8)) { position = .camera(camera) }
+    }
+
+    /// Zoomt die aktuelle Kamera (auch nach Verschieben/Pinch), Blickrichtung und Neigung bleiben.
+    private func zoom(by delta: Int) {
+        guard delta != 0, let cam = lastCamera else { return }
+        let distance = min(max(cam.distance * pow(2, -Double(delta)), 120), 60_000)
+        let next = MapCamera(centerCoordinate: cam.centerCoordinate, distance: distance, heading: cam.heading, pitch: cam.pitch)
+        withAnimation(.easeOut(duration: 0.4)) { position = .camera(next) }
     }
 }

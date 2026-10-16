@@ -39,8 +39,12 @@ final class Satellite3DBuildings {
                 layer.sourceLayer = "building"
                 layer.filter = Exp(.eq) { Exp(.get) { "extrude" }; "true" }
                 layer.minZoom = 14.5
-                layer.fillExtrusionColor = .constant(StyleColor(UIColor(red: 0.82, green: 0.80, blue: 0.76, alpha: 1)))
-                layer.fillExtrusionOpacity = .constant(0.75)
+                layer.fillExtrusionColor = .constant(StyleColor(UIColor(red: 0.93, green: 0.91, blue: 0.87, alpha: 1)))
+                layer.fillExtrusionOpacity = .constant(0.94)
+                // Helle, eigenleuchtende Fassaden mit weichem Verlauf statt dunkler Lichtstimmung des Nachtstils
+                layer.fillExtrusionEmissiveStrength = .constant(0.65)
+                layer.fillExtrusionVerticalGradient = .constant(true)
+                layer.fillExtrusionAmbientOcclusionIntensity = .constant(0.25)
                 layer.fillExtrusionHeight = .expression(Exp(.get) { "height" })
                 layer.fillExtrusionBase = .expression(Exp(.get) { "min_height" })
                 layer.slot = .middle

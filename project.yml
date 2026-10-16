@@ -51,6 +51,7 @@ targets:
       path: Meeterz/Info.plist
       properties:
         CFBundleDisplayName: Meeterz
+        ITSAppUsesNonExemptEncryption: false
         UILaunchScreen:
           UIColorName: LaunchBackground
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]

@@ -47,7 +47,13 @@ final class NavigationCoordinator: NSObject {
 
     /// Nur im Debug-Build: Fahrt simulieren statt echtem GPS (für Tests am Schreibtisch)
     static var simulate: Bool {
-        get { UserDefaults.standard.bool(forKey: "dev.simulate") }
+        get {
+            #if DEBUG
+            UserDefaults.standard.bool(forKey: "dev.simulate")
+            #else
+            false
+            #endif
+        }
         set { UserDefaults.standard.set(newValue, forKey: "dev.simulate") }
     }
 

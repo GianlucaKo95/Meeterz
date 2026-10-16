@@ -25,6 +25,10 @@ On top of navigation, Meeterz adds a social layer: users can share their live lo
 - Meeting-point suggestions presented as a CPAlertTemplate/route option; no free-text input or messaging while driving
 - Dashboard scene support (CPTemplateApplicationDashboardScene) and voice prompts via AVSpeechSynthesizer with audio session ducking
 
+**Audio in the car**
+
+Friends can record short (max. 5 seconds) voice clips that are played at defined moments, e.g. when a friend drives past or when the meeting point is reached. Clips are played through the app's audio session with ducking of other audio, like a spoken navigation prompt. They are short, friend-only, and can be muted per friend or switched off completely.
+
 **Why CarPlay**
 
 The core use case happens while driving: following guidance and seeing whether a friend's route crosses yours so you can meet on the way without picking up the phone.
@@ -35,4 +39,4 @@ All interactions in CarPlay use system templates. Location sharing settings, fri
 
 ---
 
-**Tipp:** Nicht auf eine fertige Version warten – je früher eingereicht, desto besser, da die Bearbeitung lange dauern kann. Screenshots aus dem CarPlay-Simulator kann man später nachreichen.
+**Ablauf:** Direkt nach der Freigabe des Developer-Accounts einreichen (Bundle ID `de.koeven.meeterz` muss dazu in dem Account existieren). Die Bearbeitung kann dauern; währenddessen TestFlight ohne CarPlay nutzen. Nach der Freigabe das Entitlement-Profil neu erzeugen lassen und den Workflow „TestFlight“ mit „carplay“ = an starten (siehe `ci/TESTFLIGHT.md`). Screenshots aus dem CarPlay-Simulator kann man bei Rückfragen nachreichen.

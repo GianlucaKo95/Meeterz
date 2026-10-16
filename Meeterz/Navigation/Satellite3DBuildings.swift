@@ -17,9 +17,9 @@ final class Satellite3DBuildings {
     static func install(on mapView: MapView, satellite: Bool) {
         guard satellite else { return }
         if objc_getAssociatedObject(mapView, &key) != nil { return }
+        guard let map = mapView.mapboxMap else { return }
         let helper = Satellite3DBuildings()
         objc_setAssociatedObject(mapView, &key, helper, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
-        let map = mapView.mapboxMap
         helper.cancelables.append(map.onStyleLoaded.observe { [weak map] _ in
             guard let map else { return }
             Satellite3DBuildings.addLayer(to: map)

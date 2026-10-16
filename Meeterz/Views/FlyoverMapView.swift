@@ -24,6 +24,7 @@ struct FlyoverMapView: View {
             ForEach(app.friendsOnMap) { item in
                 Annotation(item.friend.displayName, coordinate: item.position.coordinate, anchor: .bottom) {
                     FriendMarker(friend: item.friend, position: item.position)
+                        .environment(app)
                 }
                 .annotationTitles(.hidden)
             }

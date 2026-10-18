@@ -39,7 +39,7 @@ final class LiveLocationHub {
     /// Inkognito startet: Freunde lassen mich sofort von ihrer Karte verschwinden.
     /// Muss VOR dem Setzen des Inkognito-Flags in der Datenbank aufgerufen werden.
     func announceGone(userId: UUID) async {
-        struct Gone: Encodable { let userId: UUID }
+        struct Gone: Codable { let userId: UUID }
         try? await ownChannel?.broadcast(event: "gone", message: Gone(userId: userId))
         lastSent = nil                      // nach dem Inkognito sofort wieder senden
         lastPersisted = .distantPast

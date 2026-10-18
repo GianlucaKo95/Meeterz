@@ -14,6 +14,9 @@ final class LiveLocationHub {
     @ObservationIgnored private var ownChannel: RealtimeChannelV2?
     @ObservationIgnored private var friendChannels: [UUID: RealtimeChannelV2] = [:]
     @ObservationIgnored private var listeners: [UUID: Task<Void, Never>] = [:]
+    @ObservationIgnored private var goneListeners: [UUID: Task<Void, Never>] = [:]
+    /// Freunde, die ich zuletzt unsichtbar gesehen habe (Kanal-Beitritt war dann evtl. verwehrt)
+    @ObservationIgnored private var seenHidden = Set<UUID>()
     @ObservationIgnored private var lastSent: LivePosition?
     @ObservationIgnored private var lastPersisted = Date.distantPast
 
@@ -31,6 +34,15 @@ final class LiveLocationHub {
         }
         try? await ch.subscribeWithError()
         ownChannel = ch
+    }
+
+    /// Inkognito startet: Freunde lassen mich sofort von ihrer Karte verschwinden.
+    /// Muss VOR dem Setzen des Inkognito-Flags in der Datenbank aufgerufen werden.
+    func announceGone(userId: UUID) async {
+        struct Gone: Encodable { let userId: UUID }
+        try? await ownChannel?.broadcast(event: "gone", message: Gone(userId: userId))
+        lastSent = nil                      // nach dem Inkognito sofort wieder senden
+        lastPersisted = .distantPast
     }
 
     func publish(_ loc: CLLocation, userId: UUID, sharingEnabled: Bool) async {
@@ -81,8 +93,16 @@ final class LiveLocationHub {
         let ids = Set(accepted.map(\.friendId))
 
         for f in accepted {
-            if let seed = f.lastKnown, (positions[f.friendId]?.ts ?? 0) < seed.ts {
-                positions[f.friendId] = seed
+            if let seed = f.lastKnown {
+                if (positions[f.friendId]?.ts ?? 0) < seed.ts { positions[f.friendId] = seed }
+                // Wieder sichtbar nach Unsichtbarkeit: Kanal neu betreten, falls der Beitritt verwehrt war
+                if seenHidden.remove(f.friendId) != nil, friendChannels[f.friendId] != nil {
+                    await resubscribe(f.friendId)
+                }
+            } else {
+                // Nicht (mehr) sichtbar: veraltete Live-Position entfernen
+                seenHidden.insert(f.friendId)
+                if let p = positions[f.friendId], p.age > 150 { positions.removeValue(forKey: f.friendId) }
             }
         }
 
@@ -97,8 +117,23 @@ final class LiveLocationHub {
     private func subscribe(_ friendId: UUID) async {
         let ch = client.channel(Self.topic(friendId)) { $0.isPrivate = true }
         let stream = ch.broadcastStream(event: "pos")
+        let goneStream = ch.broadcastStream(event: "gone")
         friendChannels[friendId] = ch
-        try? await ch.subscribeWithError()
+        do { try await ch.subscribeWithError() } catch { seenHidden.insert(friendId) }
+
+        goneListeners[friendId] = Task { [weak self] in
+            let decoder = JSONDecoder()
+            let encoder = JSONEncoder()
+            struct Gone: Decodable { let userId: UUID }
+            for await message in goneStream {
+                guard let payload = message["payload"],
+                      let data = try? encoder.encode(payload),
+                      let gone = try? decoder.decode(Gone.self, from: data),
+                      gone.userId == friendId
+                else { continue }
+                self?.positions.removeValue(forKey: friendId)
+            }
+        }
 
         listeners[friendId] = Task { [weak self] in
             let decoder = JSONDecoder()
@@ -115,11 +150,22 @@ final class LiveLocationHub {
     }
 
     private func unsubscribe(_ friendId: UUID) async {
+        await closeChannel(friendId)
+        positions.removeValue(forKey: friendId)
+        seenHidden.remove(friendId)
+    }
+
+    private func closeChannel(_ friendId: UUID) async {
         listeners.removeValue(forKey: friendId)?.cancel()
+        goneListeners.removeValue(forKey: friendId)?.cancel()
         if let ch = friendChannels.removeValue(forKey: friendId) {
             await client.removeChannel(ch)
         }
-        positions.removeValue(forKey: friendId)
+    }
+
+    private func resubscribe(_ friendId: UUID) async {
+        await closeChannel(friendId)
+        await subscribe(friendId)
     }
 
     func stopAll() async {

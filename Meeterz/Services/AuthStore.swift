@@ -39,7 +39,7 @@ final class AuthStore {
         }
         do {
             let rows: [Profile] = try await client.from("profiles")
-                .select("id, handle, display_name, sharing_enabled, sharing_until")
+                .select("id, handle, display_name, sharing_enabled, sharing_until, incognito_until, hide_routes")
                 .eq("id", value: session.user.id)
                 .execute().value
             state = rows.first.map(State.ready) ?? .needsProfile(session.user.id)
@@ -123,6 +123,44 @@ final class AuthStore {
         if ok {
             p.sharingEnabled = enabled
             p.sharingUntil = until
+            state = .ready(p)
+        }
+    }
+
+    /// Inkognito: nil = aus, sonst bis zu diesem Zeitpunkt
+    func setIncognito(until: Date?) async {
+        guard var p = profile else { return }
+        struct Update: Encodable {
+            let until: Date?
+            enum CodingKeys: String, CodingKey { case until = "incognito_until" }
+            func encode(to encoder: Encoder) throws {
+                var c = encoder.container(keyedBy: CodingKeys.self)
+                try c.encode(until, forKey: .until)   // nil wird bewusst als null geschrieben
+            }
+        }
+        let id = p.id
+        let ok = await run {
+            try await self.client.from("profiles").update(Update(until: until)).eq("id", value: id).execute()
+        }
+        if ok {
+            p.incognitoUntil = until
+            state = .ready(p)
+        }
+    }
+
+    /// Eigene Routen dauerhaft für Freunde verbergen
+    func setHideRoutes(_ hide: Bool) async {
+        guard var p = profile else { return }
+        struct Update: Encodable {
+            let hide: Bool
+            enum CodingKeys: String, CodingKey { case hide = "hide_routes" }
+        }
+        let id = p.id
+        let ok = await run {
+            try await self.client.from("profiles").update(Update(hide: hide)).eq("id", value: id).execute()
+        }
+        if ok {
+            p.hideRoutes = hide
             state = .ready(p)
         }
     }

@@ -78,6 +78,29 @@ final class AppModel {
         await meetups.refresh()
     }
 
+    // MARK: Inkognito
+
+    /// Für Freunde unsichtbar: Standort und Route. `duration` nil = bis zum Ausschalten.
+    func startIncognito(for duration: TimeInterval?) async {
+        guard let profile else { return }
+        await hub.announceGone(userId: profile.id)
+        let until = Date().addingTimeInterval(duration ?? 50 * 365 * 86400)
+        await auth.setIncognito(until: until)
+        guard self.profile?.isIncognito == true else { return }
+        await routes.clearMine()
+        show("Inkognito aktiv – Freunde sehen weder deinen Standort noch deine Route.", isError: false)
+    }
+
+    func stopIncognito() async {
+        await auth.setIncognito(until: nil)
+        show("Inkognito beendet – du bist für Freunde wieder sichtbar.", isError: false)
+    }
+
+    func setHideRoutes(_ hide: Bool) async {
+        await auth.setHideRoutes(hide)
+        if hide { await routes.clearMine() }
+    }
+
     private func onLocation(_ loc: CLLocation) async {
         guard let profile else { return }
         await hub.publish(loc, userId: profile.id, sharingEnabled: profile.isSharingNow)

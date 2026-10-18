@@ -222,6 +222,8 @@ final class NavigationCoordinator: NSObject {
             ?? progress.route.shape?.coordinates.last
             ?? AppModel.shared.location.lastLocation?.coordinate
         guard let dest else { return }
+        // Inkognito oder „Routen verbergen“: Route gar nicht erst hochladen
+        if let me = AppModel.shared.profile, me.isIncognito || me.routesHidden { return }
         await AppModel.shared.routes.shareMine(
             destinationName: destination?.name,
             destination: dest,

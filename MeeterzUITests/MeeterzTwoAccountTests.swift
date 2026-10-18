@@ -186,6 +186,44 @@ final class MeeterzTwoAccountTests: MeeterzTestBase {
         dismissSystemDialogs()
         shot("a-karte-mit-freund")
 
+        // ── Inkognito: A wird für B unsichtbar (Standort + Route), B-Routen lassen sich verbergen ──
+        let aRemote = try XCTUnwrap(Remote.signIn(base: base, key: key, email: email, password: password), "A per Backend anmelden")
+        XCTAssertLessThan(aRemote.rpc("update_last_location", ["lat": 51.4356, "lng": 6.7645, "heading": 0.0, "speed": 0.0]).0, 300, "Standort A")
+        func locationOfA(seenBy r: Remote) -> Bool {
+            ((r.rpc("my_friends").1 as? [[String: Any]])?.first?["lat"] as? Double) != nil
+        }
+        func waitFor(_ expected: Bool, _ what: String, _ check: () -> Bool) {
+            for _ in 0..<10 where check() != expected { pause(1.5) }
+            XCTAssertEqual(check(), expected, what)
+        }
+        waitFor(true, "B sieht A vor Inkognito") { locationOfA(seenBy: b) }
+
+        need(app.buttons["Inkognito-Modus aktivieren"], "inkognito-knopf").tap()
+        need(app.buttons["1 Stunde"], "inkognito-dauer").tap()
+        pause(3)
+        shot("a-inkognito")
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH 'Inkognito'")).firstMatch.waitForExistence(timeout: 10),
+                      "Inkognito-Hinweis auf der Karte")
+        waitFor(false, "B sieht A im Inkognito nicht") { locationOfA(seenBy: b) }
+
+        need(app.buttons["Inkognito-Modus beenden"], "inkognito-beenden").tap()
+        pause(3)
+        waitFor(true, "B sieht A nach Inkognito wieder") { locationOfA(seenBy: b) }
+
+        // Routen verbergen: B teilt eine Route, A sieht sie; mit hide_routes nicht mehr
+        let t = Date().timeIntervalSince1970
+        let routeBody: [String: Any] = [
+            "destination_name": "Ziel", "dest_lat": 51.45, "dest_lng": 6.78, "eta_unix": t + 1800,
+            "points": [[6.7641, 51.4352, t], [6.77, 51.44, t + 300], [6.78, 51.45, t + 900]],
+        ]
+        XCTAssertLessThan(b.rpc("set_active_route", routeBody).0, 300, "B teilt Route")
+        func routesSeenByA() -> Int { (aRemote.rpc("friends_routes").1 as? [[String: Any]])?.count ?? -1 }
+        waitFor(true, "A sieht Route von B") { routesSeenByA() == 1 }
+        XCTAssertLessThan(b.request("PATCH", "/rest/v1/profiles?id=eq.\(b.id)", body: ["hide_routes": true], headers: ["Prefer": "return=minimal"]).0, 300, "B verbirgt Routen")
+        waitFor(true, "A sieht Route von B nicht mehr") { routesSeenByA() == 0 }
+        _ = b.request("PATCH", "/rest/v1/profiles?id=eq.\(b.id)", body: ["hide_routes": false], headers: ["Prefer": "return=minimal"])
+        _ = b.rpc("clear_active_route")
+
         // B lädt A zu einem Treffen ein
         let myId = try XCTUnwrap((b.rpc("my_friends").1 as? [[String: Any]])?.first?["friend_id"] as? String, "A-ID")
         let (pm, meetId) = b.rpc("propose_meetup", ["to_user_id": myId, "place_name": "Café Test", "lat": 51.4360, "lng": 6.7650])

@@ -10,17 +10,32 @@ struct Profile: Codable, Equatable {
     var sharingUntil: Date?
     /// 0/nil = kein Profilbild; wird bei jedem neuen Bild erhöht
     var avatarVersion: Int?
+    /// Inkognito bis zu diesem Zeitpunkt (nil = aus). Sehr weit in der Zukunft = bis zum Ausschalten.
+    var incognitoUntil: Date?
+    /// Eigene Routen für Freunde dauerhaft verbergen
+    var hideRoutes: Bool?
 
     enum CodingKeys: String, CodingKey {
         case id, handle
+        case incognitoUntil = "incognito_until"
+        case hideRoutes = "hide_routes"
         case avatarVersion = "avatar_version"
         case displayName = "display_name"
         case sharingEnabled = "sharing_enabled"
         case sharingUntil = "sharing_until"
     }
 
+    var isIncognito: Bool { incognitoUntil.map { $0 > Date() } ?? false }
+
+    /// Inkognito ohne Ende (bis der Nutzer es ausschaltet)
+    var isIncognitoIndefinitely: Bool {
+        incognitoUntil.map { $0 > Date().addingTimeInterval(10 * 365 * 86400) } ?? false
+    }
+
+    var routesHidden: Bool { hideRoutes ?? false }
+
     var isSharingNow: Bool {
-        sharingEnabled && (sharingUntil.map { $0 > Date() } ?? true)
+        sharingEnabled && (sharingUntil.map { $0 > Date() } ?? true) && !isIncognito
     }
 }
 

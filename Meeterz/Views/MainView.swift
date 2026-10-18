@@ -12,6 +12,7 @@ struct MainView: View {
     @State private var showSearch = false
     @State private var plannedMeetup: MeetupCandidate?
     @State private var recenterTick = 0
+    @State private var showIncognito = false
     /// Zoomstufen über die Plus/Minus-Knöpfe (0 = Standard)
     @State private var zoomSteps = 0
 
@@ -53,6 +54,15 @@ struct MainView: View {
             }
             .padding(.horizontal, 12)
             .padding(.bottom, 8)
+        }
+        .confirmationDialog("Inkognito", isPresented: $showIncognito, titleVisibility: .visible) {
+            Button("15 Minuten") { Task { await app.startIncognito(for: 15 * 60) } }
+            Button("1 Stunde") { Task { await app.startIncognito(for: 60 * 60) } }
+            Button("3 Stunden") { Task { await app.startIncognito(for: 3 * 60 * 60) } }
+            Button("Bis ich es ausschalte") { Task { await app.startIncognito(for: nil) } }
+            Button("Abbrechen", role: .cancel) {}
+        } message: {
+            Text("Freunde sehen weder deinen Standort noch deine Route – und erfahren nicht, dass du inkognito bist.")
         }
         .sheet(isPresented: $showFriends) { FriendsView() }
         .sheet(isPresented: $showSearch) { SearchView() }
@@ -175,6 +185,15 @@ struct MainView: View {
                 label: satellite ? "Zur klassischen Karte wechseln" : "Zur Satellitenansicht wechseln"
             ) { satellite.toggle() }
 
+            let incognito = app.profile?.isIncognito ?? false
+            CircleIconButton(
+                systemName: incognito ? "eye.slash.fill" : "eye.slash",
+                label: incognito ? "Inkognito-Modus beenden" : "Inkognito-Modus aktivieren",
+                tint: incognito ? Theme.accent : Theme.text
+            ) {
+                if incognito { Task { await app.stopIncognito() } } else { showIncognito = true }
+            }
+
             Button { threeD.toggle() } label: {
                 Text(threeD ? "2D" : "3D")
                     .font(.system(size: 15, weight: .heavy, design: .rounded))
@@ -226,11 +245,21 @@ struct SharingPill: View {
     @Environment(AppModel.self) private var app
 
     var body: some View {
-        let profile = app.profile
+        // Minütlich neu auswerten, damit das Ende von Inkognito/Teilen von selbst sichtbar wird
+        TimelineView(.periodic(from: .now, by: 20)) { _ in
+            pill(app.profile)
+        }
+    }
+
+    @ViewBuilder
+    private func pill(_ profile: Profile?) -> some View {
+        let incognito = profile?.isIncognito ?? false
         let sharing = profile?.isSharingNow ?? false
         Button {
             Task {
-                if sharing {
+                if incognito {
+                    await app.stopIncognito()
+                } else if sharing {
                     await app.auth.setSharing(false)
                 } else {
                     let until: Date? = SharingMode.current == .oneHour ? Date().addingTimeInterval(3600) : nil
@@ -239,18 +268,26 @@ struct SharingPill: View {
             }
         } label: {
             HStack(spacing: 8) {
-                Circle().fill(sharing ? Theme.accent : Theme.muted).frame(width: 8, height: 8)
+                if incognito {
+                    Image(systemName: "eye.slash.fill").font(.system(size: 11, weight: .bold))
+                } else {
+                    Circle().fill(sharing ? Theme.accent : Theme.muted).frame(width: 8, height: 8)
+                }
                 Text(label(profile))
                     .font(.system(size: 13, weight: .semibold, design: .rounded))
             }
-            .foregroundStyle(sharing ? Theme.accent : Theme.muted)
+            .foregroundStyle(incognito || sharing ? Theme.accent : Theme.muted)
             .padding(.horizontal, 12).padding(.vertical, 8)
             .background(Capsule().fill(Theme.panel.opacity(0.92)))
         }
-        .accessibilityHint(sharing ? "Tippen pausiert das Teilen" : "Tippen teilt deinen Standort wieder")
+        .accessibilityHint(incognito ? "Tippen beendet Inkognito" : sharing ? "Tippen pausiert das Teilen" : "Tippen teilt deinen Standort wieder")
     }
 
     private func label(_ profile: Profile?) -> String {
+        if let profile, profile.isIncognito {
+            if profile.isIncognitoIndefinitely { return "Inkognito" }
+            if let until = profile.incognitoUntil { return "Inkognito bis \(Format.time.string(from: until))" }
+        }
         guard let profile, profile.isSharingNow else { return "Teilen pausiert" }
         if let until = profile.sharingUntil { return "Teilst live bis \(Format.time.string(from: until))" }
         return "Teilst live"

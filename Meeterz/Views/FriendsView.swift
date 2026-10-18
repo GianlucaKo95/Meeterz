@@ -242,6 +242,12 @@ struct FriendsView: View {
             ))
             .tint(Theme.accent)
 
+            Toggle("Meine Routen für Freunde verbergen", isOn: Binding(
+                get: { app.profile?.routesHidden ?? false },
+                set: { on in Task { await app.setHideRoutes(on) } }
+            ))
+            .tint(Theme.accent)
+
             Picker("Dauer", selection: $sharingMode) {
                 ForEach(SharingMode.allCases) { Text($0.title).tag($0) }
             }
@@ -372,6 +378,11 @@ struct FriendsView: View {
     }
 
     private var sharingFooter: String {
+        let routes = " Mit „Routen verbergen“ sehen Freunde nie, wohin du fährst."
+        return sharingBase + routes
+    }
+
+    private var sharingBase: String {
         switch sharingMode {
         case .always: "Freunde sehen dich, bis du das Teilen pausierst."
         case .oneHour: "Das Teilen endet automatisch nach einer Stunde."

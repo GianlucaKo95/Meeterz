@@ -159,12 +159,28 @@ struct MainView: View {
             }
 
             // Freunde live
-            ForEvery(app.friendsOnMap) { item in
-                MapViewAnnotation(coordinate: item.position.coordinate) {
-                    FriendMarker(friend: item.friend, position: item.position)
-                }
-                .allowOverlap(true)
+            // Als Symbolebene statt View-Annotation: auch Freunde direkt neben mir bleiben sichtbar
+            PointAnnotationGroup(app.friendsOnMap, id: \.id) { item in
+                let stale = item.position.age > 5 * 60
+                let photo = app.avatars.image(for: item.friend.friendId)
+                PointAnnotation(coordinate: item.position.coordinate)
+                    .image(.init(
+                        image: AvatarRenderer.image(initials: item.friend.initials,
+                                                    color: FriendPalette.uiColor(for: item.friend.friendId),
+                                                    faded: stale, photo: photo),
+                        name: "avatar-\(item.friend.friendId)-\(stale)-\(item.friend.avatarVersion ?? 0)-\(photo != nil)"))
+                    .iconAnchor(.bottom)
+                    .textField("\(item.friend.displayName) · \(Format.age(item.position.age))")
+                    .textOffset(x: 0, y: 0.8)
+                    .textSize(13)
+                    .textColor(StyleColor(.white))
+                    .textHaloColor(StyleColor(.black))
+                    .textHaloWidth(1.5)
             }
+            .iconAllowOverlap(true)
+            .iconIgnorePlacement(true)
+            .textAllowOverlap(true)
+            .textIgnorePlacement(true)
 
             // Mögliche Treffpunkte
             ForEvery(app.meetups.visibleCandidates) { candidate in

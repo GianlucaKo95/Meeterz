@@ -46,8 +46,13 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing, AVSpeechSynt
     private let subject = PassthroughSubject<VoiceInstructionEvent, Never>()
     var voiceInstructions: AnyPublisher<VoiceInstructionEvent, Never> { subject.eraseToAnyPublisher() }
 
-    var muted = false {
-        didSet { if muted, isSpeaking { interruptSpeaking() } }
+    /// Stumm geschaltet – bleibt über Fahrten und Neustarts erhalten
+    static let mutedKey = "nav.muted"
+    var muted = UserDefaults.standard.bool(forKey: MeeterzSpeechSynthesizer.mutedKey) {
+        didSet {
+            UserDefaults.standard.set(muted, forKey: Self.mutedKey)
+            if muted, isSpeaking { interruptSpeaking() }
+        }
     }
     var volume: VolumeMode = .system
     var isSpeaking: Bool { synthesizer.isSpeaking }

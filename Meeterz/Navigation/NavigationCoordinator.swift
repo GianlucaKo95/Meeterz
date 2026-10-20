@@ -30,6 +30,10 @@ final class NavigationCoordinator: NSObject {
         let routes: NavigationRoutes
         var eta: Date { Date().addingTimeInterval(routes.mainRoute.route.expectedTravelTime) }
         var distance: CLLocationDistance { routes.mainRoute.route.distance }
+        /// Linien für die Vorschaukarte: zuerst die Hauptroute, danach Alternativen
+        var lines: [[CLLocationCoordinate2D]] {
+            ([routes.mainRoute.route] + routes.alternativeRoutes.map(\.route)).compactMap { $0.shape?.coordinates }
+        }
     }
 
     private(set) var isNavigating = false
@@ -125,6 +129,7 @@ final class NavigationCoordinator: NSObject {
                       !top.isBeingDismissed, !top.isBeingPresented,
                       top !== controller else { continue }
                 top.present(controller, animated: true) {
+                    Self.installMuteButton(on: controller)
                     if let mapView = controller.navigationMapView?.mapView {
                         Satellite3DBuildings.install(
                             on: mapView,
@@ -145,6 +150,34 @@ final class NavigationCoordinator: NSObject {
             self?.stop()
             AppModel.shared.show("Navigation konnte nicht gestartet werden (\(info)).")
         }
+    }
+
+    /// Eigener, gut sichtbarer Stumm-Knopf anstelle des kleinen Mapbox-Knopfs
+    private static func installMuteButton(on controller: NavigationViewController) {
+        guard var buttons = controller.floatingButtons, buttons.count >= 2 else { return }
+        let button = UIButton(type: .system)
+        button.setImage(UIImage(systemName: "speaker.wave.2.fill"), for: .normal)
+        button.setImage(UIImage(systemName: "speaker.slash.fill"), for: .selected)
+        button.tintColor = .label
+        button.backgroundColor = .systemBackground
+        button.layer.cornerRadius = 25
+        button.layer.shadowOpacity = 0.25
+        button.layer.shadowRadius = 4
+        button.layer.shadowOffset = CGSize(width: 0, height: 2)
+        button.isSelected = MeeterzSpeechSynthesizer.shared.muted
+        button.accessibilityLabel = "Sprachansagen"
+        button.accessibilityValue = button.isSelected ? "aus" : "an"
+        button.widthAnchor.constraint(equalToConstant: 50).isActive = true
+        button.heightAnchor.constraint(equalToConstant: 50).isActive = true
+        button.addAction(UIAction { [weak button] _ in
+            guard let button else { return }
+            let muted = !MeeterzSpeechSynthesizer.shared.muted
+            MeeterzSpeechSynthesizer.shared.muted = muted
+            button.isSelected = muted
+            button.accessibilityValue = muted ? "aus" : "an"
+        }, for: .touchUpInside)
+        buttons[1] = button
+        controller.floatingButtons = buttons
     }
 
     /// Navigation wurde auf CarPlay gestartet (ohne iPhone-Oberfläche)

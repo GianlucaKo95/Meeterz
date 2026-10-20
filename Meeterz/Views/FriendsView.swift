@@ -22,6 +22,7 @@ struct FriendsView: View {
         let friendId: UUID
     }
     @AppStorage("carplay.satellite") private var carPlaySatellite = true
+    @State private var voiceOn = !MeeterzSpeechSynthesizer.shared.muted
     #if DEBUG
     @State private var simulate = NavigationCoordinator.simulate
     #endif
@@ -352,6 +353,9 @@ struct FriendsView: View {
                 .tint(Theme.accent)
                 .onChange(of: simulate) { _, v in NavigationCoordinator.simulate = v }
             #endif
+            Toggle("Sprachansagen", isOn: $voiceOn)
+                .tint(Theme.accent)
+                .onChange(of: voiceOn) { _, v in MeeterzSpeechSynthesizer.shared.muted = !v }
             NavigationLink("Navigationsstimme") { VoicePickerView() }
             Link("Datenschutzerklärung", destination: Legal.privacyURL)
             LabeledContent("Version", value: Self.versionText)

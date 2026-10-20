@@ -1,5 +1,6 @@
 import SwiftUI
 import CoreLocation
+import MapKit
 
 // MARK: - Zielsuche
 
@@ -202,6 +203,9 @@ struct RoutePreviewView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
+            RoutePreviewMap(lines: preview.lines, destination: preview.destination.coordinate)
+                .frame(height: 190)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
             VStack(alignment: .leading, spacing: 4) {
                 Text("Ziel").font(.caption.weight(.bold)).foregroundStyle(Theme.accent).textCase(.uppercase)
                 Text(preview.destination.name).font(Theme.display(26))
@@ -249,7 +253,7 @@ struct RoutePreviewView: View {
         }
         .padding(20)
         .background(Theme.ink)
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.large])
         .sheet(isPresented: $showInvite) { InviteFriendsView(place: preview.destination) }
         .alert("Favorit speichern", isPresented: $showFavoriteAlert) {
             TextField("Name, z. B. Oma", text: $favoriteName)
@@ -272,5 +276,40 @@ struct RoutePreviewView: View {
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 16).fill(Theme.panelRaised))
+    }
+}
+
+
+/// Kleine Karte in der Routenvorschau: zeigt Route(n) komplett und zoomt passend darauf.
+struct RoutePreviewMap: View {
+    let lines: [[CLLocationCoordinate2D]]
+    let destination: CLLocationCoordinate2D
+    @State private var position: MapCameraPosition = .automatic
+
+    var body: some View {
+        Map(position: $position, interactionModes: [.pan, .zoom]) {
+            UserAnnotation()
+            ForEach(Array(lines.enumerated()).reversed(), id: \.offset) { index, line in
+                MapPolyline(coordinates: line)
+                    .stroke(index == 0 ? Color.blue : Color.gray.opacity(0.7), lineWidth: index == 0 ? 6 : 4)
+            }
+            Marker("Ziel", coordinate: destination)
+        }
+        .mapStyle(.standard)
+        .onAppear { fit() }
+    }
+
+    private func fit() {
+        let all = lines.flatMap { $0 } + [destination]
+        guard let first = all.first else { return }
+        var minLat = first.latitude, maxLat = first.latitude, minLng = first.longitude, maxLng = first.longitude
+        for c in all {
+            minLat = min(minLat, c.latitude); maxLat = max(maxLat, c.latitude)
+            minLng = min(minLng, c.longitude); maxLng = max(maxLng, c.longitude)
+        }
+        let center = CLLocationCoordinate2D(latitude: (minLat + maxLat) / 2, longitude: (minLng + maxLng) / 2)
+        let span = MKCoordinateSpan(latitudeDelta: max((maxLat - minLat) * 1.4, 0.005),
+                                    longitudeDelta: max((maxLng - minLng) * 1.4, 0.005))
+        position = .region(MKCoordinateRegion(center: center, span: span))
     }
 }

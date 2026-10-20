@@ -92,7 +92,14 @@ log "IPA: $IPA"
 rm -rf build/ipa-check && mkdir -p build/ipa-check && unzip -q "$IPA" -d build/ipa-check
 codesign -dvv build/ipa-check/Payload/*.app 2>&1 | grep -E "Authority|TeamIdentifier" | tee -a "$REPORT"
 codesign -dvv build/ipa-check/Payload/*.app/Frameworks/MapboxCommon.framework 2>&1 | grep -E "Authority|TeamIdentifier" | tee -a "$REPORT"
-codesign --verify --deep --strict build/ipa-check/Payload/*.app 2>&1 | tee -a "$REPORT"
+codesign --verify --deep --strict --verbose=2 build/ipa-check/Payload/*.app 2>&1 | tail -5 | tee -a "$REPORT"
+codesign -dvvv build/ipa-check/Payload/*.app 2>&1 | grep -E "Timestamp|flags|Format|CDHash|Runtime" | tee -a "$REPORT"
+log "-- Provisioning-Profil im IPA --"
+security cms -D -i build/ipa-check/Payload/*.app/embedded.mobileprovision 2>/dev/null > build/profile.plist
+for k in Name TeamName CreationDate ExpirationDate ProvisionsAllDevices; do
+  printf "%s: " "$k" | tee -a "$REPORT"; /usr/libexec/PlistBuddy -c "Print :$k" build/profile.plist 2>&1 | tee -a "$REPORT"
+done
+/usr/libexec/PlistBuddy -c "Print :Entitlements" build/profile.plist 2>&1 | tee -a "$REPORT"
 
 log ""
 log "== Hochladen zu TestFlight (altool) =="

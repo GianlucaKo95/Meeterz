@@ -15,6 +15,8 @@ struct MainView: View {
     @State private var showIncognito = false
     /// Zoomstufen über die Plus/Minus-Knöpfe (0 = Standard)
     @State private var zoomSteps = 0
+    /// Ein Tipp auf die Karte blendet alle Bedienelemente aus, der nächste Tipp holt sie zurück
+    @State private var chromeHidden = false
 
     /// Kamera folgt dem eigenen Standort – in 3D schräg von hinten, in Fahrtrichtung gedreht
     private var followViewport: Viewport {
@@ -30,6 +32,7 @@ struct MainView: View {
             if satellite {
                 // Satellit: Apples Flyover (fotorealistische 3D-Gebäude)
                 FlyoverMapView(plannedMeetup: $plannedMeetup, threeD: threeD, recenterTick: recenterTick, zoomSteps: zoomSteps)
+                    .onTapGesture { toggleChrome() }
             } else {
                 map
             }
@@ -46,6 +49,7 @@ struct MainView: View {
                 }
             }
             .padding(.horizontal, 16)
+            .chromeVisibility(hidden: chromeHidden)
 
             VStack(spacing: 10) {
                 Spacer()
@@ -54,7 +58,12 @@ struct MainView: View {
             }
             .padding(.horizontal, 12)
             .padding(.bottom, 8)
+            .chromeVisibility(hidden: chromeHidden)
         }
+        // Neue Hinweise oder Karten sollen nie unsichtbar bleiben
+        .onChange(of: app.banner) { _, new in if new != nil { setChrome(hidden: false) } }
+        .onChange(of: plannedMeetup?.id) { _, new in if new != nil { setChrome(hidden: false) } }
+        .onChange(of: navigation.isNavigating) { _, _ in setChrome(hidden: false) }
         .confirmationDialog("Inkognito", isPresented: $showIncognito, titleVisibility: .visible) {
             Button("15 Minuten") { Task { await app.startIncognito(for: 15 * 60) } }
             Button("1 Stunde") { Task { await app.startIncognito(for: 60 * 60) } }
@@ -146,8 +155,15 @@ struct MainView: View {
                 .allowOverlap(true)
             }
         }
+        .onMapTapGesture { _ in toggleChrome() }
         .mapStyle(.standard(lightPreset: .night))
         .ignoresSafeArea()
+    }
+
+    private func toggleChrome() { setChrome(hidden: !chromeHidden) }
+
+    private func setChrome(hidden: Bool) {
+        withAnimation(.easeInOut(duration: 0.25)) { chromeHidden = hidden }
     }
 
     // MARK: Bedienelemente
@@ -399,5 +415,14 @@ private struct FriendRowView: View {
             return "\(dest) · an \(Format.time.string(from: route.eta))"
         }
         return item.position.age < 60 ? "Live" : "Zuletzt \(Format.age(item.position.age))"
+    }
+}
+
+private extension View {
+    /// Blendet Bedienelemente aus: unsichtbar, nicht antippbar, für VoiceOver und Tests nicht vorhanden.
+    func chromeVisibility(hidden: Bool) -> some View {
+        self.opacity(hidden ? 0 : 1)
+            .allowsHitTesting(!hidden)
+            .accessibilityHidden(hidden)
     }
 }

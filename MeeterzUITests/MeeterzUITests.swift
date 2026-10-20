@@ -132,6 +132,7 @@ final class MeeterzUITests: MeeterzTestBase {
         // 4. Karte
         need(app.buttons["Ziel suchen"], "karte", timeout: 40)
         app.tap()                       // löst ggf. Systemdialoge aus
+        if !app.buttons["Ziel suchen"].exists { app.tap() }   // Tipp auf die Karte blendet die Bedienelemente aus – wieder einblenden
         pause(8)
         dismissSystemDialogs()
         pause(4)                       // Karte und Kacheln laden

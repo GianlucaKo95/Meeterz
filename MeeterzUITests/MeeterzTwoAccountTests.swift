@@ -128,6 +128,7 @@ final class MeeterzTwoAccountTests: MeeterzTestBase {
         app.buttons["Los geht's"].tap()
         need(app.buttons["Ziel suchen"], "karte", timeout: 40)
         app.tap()
+        if !app.buttons["Ziel suchen"].exists { app.tap() }   // Tipp auf die Karte blendet die Bedienelemente aus – wieder einblenden
         pause(6)
         dismissSystemDialogs()
         pause(3)

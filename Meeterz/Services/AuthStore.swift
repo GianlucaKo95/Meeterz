@@ -39,7 +39,7 @@ final class AuthStore {
         }
         do {
             let rows: [Profile] = try await client.from("profiles")
-                .select("id, handle, display_name, sharing_enabled, sharing_until, incognito_until, hide_routes")
+                .select("id, handle, display_name, sharing_enabled, sharing_until, incognito_until, hide_routes, avatar_version")
                 .eq("id", value: session.user.id)
                 .execute().value
             state = rows.first.map(State.ready) ?? .needsProfile(session.user.id)

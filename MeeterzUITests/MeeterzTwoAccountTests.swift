@@ -252,6 +252,13 @@ final class MeeterzTwoAccountTests: MeeterzTestBase {
         }
         XCTAssertTrue(accepted, "B sieht das Treffen als angenommen (\(String(describing: meetId)))")
 
+        // Nach dem Annehmen öffnet sich die Routenvorschau zum Treffpunkt – schließen
+        if app.buttons["Losfahren"].waitForExistence(timeout: 10) {
+            shot("a-routenvorschau")
+            app.buttons["Abbrechen"].tap()
+            pause(2)
+        }
+
         // Aufräumen: A über die App, B und C über das Backend
         for _ in 0..<3 where !app.navigationBars["Freunde"].exists {
             showChrome()

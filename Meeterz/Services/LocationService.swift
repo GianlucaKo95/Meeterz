@@ -1,5 +1,6 @@
 import CoreLocation
 import Observation
+import UIKit
 
 /// Eigener Standort – akkuschonend:
 ///  • voll (GPS, alle 10 m): App im Vordergrund, Navigation oder CarPlay
@@ -49,9 +50,20 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
         }
     }
 
-    /// Upgrade auf "Immer" – iOS zeigt den Dialog nur einmal.
+    /// Wie oft die App schon nach „Immer“ gefragt hat. iOS zeigt den Dialog höchstens einmal;
+    /// danach hilft nur der Weg über die Einstellungen.
+    private static let askedKey = "loc.alwaysAsked"
+    var alwaysAskedBefore: Bool { UserDefaults.standard.integer(forKey: Self.askedKey) > 0 }
+
+    /// Upgrade auf "Immer": beim ersten Mal über den Systemdialog, danach direkt in die Einstellungen.
     func requestAlways() {
-        manager.requestAlwaysAuthorization()
+        let asked = UserDefaults.standard.integer(forKey: Self.askedKey)
+        UserDefaults.standard.set(asked + 1, forKey: Self.askedKey)
+        if asked == 0 {
+            manager.requestAlwaysAuthorization()
+        } else if let url = URL(string: UIApplication.openSettingsURLString) {
+            UIApplication.shared.open(url)
+        }
     }
 
     // MARK: Zustand von außen
@@ -137,6 +149,8 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
             if status == .authorizedWhenInUse || status == .authorizedAlways {
                 self.started ? self.reapply() : self.start()
             }
+            // Direkt nach der ersten Erlaubnis um „Immer“ bitten (zeigt iOS zu einem passenden Zeitpunkt)
+            if status == .authorizedWhenInUse, !self.alwaysAskedBefore { self.requestAlways() }
         }
     }
 

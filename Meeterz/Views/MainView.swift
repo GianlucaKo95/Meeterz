@@ -43,7 +43,10 @@ struct MainView: View {
             VStack(spacing: 10) {
                 topBar
                 HStack(alignment: .top) {
-                    SharingPill()
+                    VStack(alignment: .leading, spacing: 8) {
+                        SharingPill()
+                        BackgroundHint()
+                    }
                     Spacer()
                     mapControls
                 }
@@ -269,6 +272,36 @@ struct FriendMarker: View {
 }
 
 // MARK: - Teilen-Status
+
+/// Hinweis, solange der Standort nur „beim Verwenden“ freigegeben ist: Freunde sehen dich sonst nur bei offener App.
+struct BackgroundHint: View {
+    @Environment(AppModel.self) private var app
+    @AppStorage("hint.always.dismissed") private var dismissed = false
+
+    var body: some View {
+        if app.location.authorization == .authorizedWhenInUse, !dismissed {
+            HStack(spacing: 8) {
+                Button { app.location.requestAlways() } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Nur bei offener App sichtbar").font(.system(size: 13, weight: .semibold, design: .rounded))
+                        Text("Tippen: Standort „Immer“ erlauben").font(.system(size: 11, design: .rounded)).foregroundStyle(Theme.muted)
+                    }
+                    .multilineTextAlignment(.leading)
+                }
+                .accessibilityLabel("Standort Immer erlauben")
+                Button { dismissed = true } label: {
+                    Image(systemName: "xmark").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.muted)
+                }
+                .accessibilityLabel("Hinweis ausblenden")
+            }
+            .foregroundStyle(Theme.text)
+            .padding(.horizontal, 12).padding(.vertical, 8)
+            .background(RoundedRectangle(cornerRadius: 14).fill(Theme.panel))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.stroke, lineWidth: 1))
+            .frame(maxWidth: 230, alignment: .leading)
+        }
+    }
+}
 
 struct SharingPill: View {
     @Environment(AppModel.self) private var app

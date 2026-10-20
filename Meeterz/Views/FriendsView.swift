@@ -258,7 +258,9 @@ struct FriendsView: View {
             }
 
             if !app.location.canShareInBackground {
-                Button("Auch im Hintergrund teilen") { app.location.requestAlways() }
+                Button(app.location.alwaysAskedBefore ? "Standort-Einstellung öffnen („Immer“ wählen)" : "Auch im Hintergrund teilen") {
+                    app.location.requestAlways()
+                }
             }
         } header: {
             Text("Teilen")

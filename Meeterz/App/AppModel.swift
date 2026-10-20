@@ -17,6 +17,7 @@ final class AppModel {
     let push = PushService()
     let avatars = AvatarStore()
     let sounds = SoundStore()
+    let favorites = FavoritesStore()
 
     struct Banner: Identifiable, Equatable {
         let id = UUID()
@@ -36,6 +37,7 @@ final class AppModel {
     func startSession() async {
         guard let profile, sessionUser != profile.id else { return }
         sessionUser = profile.id
+        favorites.load(userId: profile.id)
 
         location.onUpdate = { [weak self] loc in
             Task { await self?.onLocation(loc) }
@@ -59,6 +61,7 @@ final class AppModel {
     func endSession() async {
         avatars.reset()
         sounds.reset()
+        favorites.reset()
         refreshLoop?.cancel()
         refreshLoop = nil
         sessionUser = nil

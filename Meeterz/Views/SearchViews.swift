@@ -13,12 +13,17 @@ struct SearchView: View {
     @State private var loading = false
     @State private var errorText: String?
     @FocusState private var focused: Bool
+    /// Gesetzt = die nächste Auswahl wird als Zuhause/Arbeit/Favorit gespeichert statt zur Route zu führen
+    @State private var assigning: Favorite.Kind?
+    @State private var namingPlace: Place?
+    @State private var favoriteName = ""
+    @State private var renaming: Favorite?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 10) {
                 Image(systemName: "magnifyingglass").foregroundStyle(Theme.muted)
-                TextField("Adresse oder Ort", text: $query)
+                TextField(assigningPrompt, text: $query)
                     .focused($focused)
                     .submitLabel(.search)
                     .autocorrectionDisabled()
@@ -33,11 +38,14 @@ struct SearchView: View {
 
             ScrollView {
                 VStack(spacing: 8) {
-                    if query.isEmpty { suggestions }
+                    if query.isEmpty && assigning == nil { favorites; suggestions }
                     if loading { ProgressView().padding() }
                     if let errorText { Text(errorText).font(.footnote).foregroundStyle(Theme.muted) }
                     ForEach(results) { place in
                         PlaceRow(place: place, distance: distance(to: place), selected: false) { choose(place) }
+                            .contextMenu {
+                                Button("Als Favorit speichern", systemImage: "star") { askName(for: place) }
+                            }
                     }
                 }
             }
@@ -47,6 +55,80 @@ struct SearchView: View {
         .presentationDetents([.large])
         .onAppear { focused = true }
         .task(id: query) { await search() }
+        .alert("Favorit speichern", isPresented: Binding(get: { namingPlace != nil }, set: { if !$0 { namingPlace = nil } })) {
+            TextField("Name, z. B. Oma", text: $favoriteName)
+            Button("Speichern") {
+                let name = favoriteName.trimmingCharacters(in: .whitespaces)
+                if let place = namingPlace, !name.isEmpty { app.favorites.save(kind: .other, label: name, place: place) }
+                finishAssigning()
+            }
+            Button("Abbrechen", role: .cancel) { finishAssigning() }
+        } message: {
+            Text(namingPlace?.address ?? namingPlace?.name ?? "")
+        }
+        .alert("Favorit umbenennen", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
+            TextField("Name", text: $favoriteName)
+            Button("Speichern") {
+                let name = favoriteName.trimmingCharacters(in: .whitespaces)
+                if let fav = renaming, !name.isEmpty { app.favorites.rename(fav.id, to: name) }
+            }
+            Button("Abbrechen", role: .cancel) {}
+        }
+    }
+
+    private var assigningPrompt: String {
+        switch assigning {
+        case .home: "Adresse für „Zuhause“ suchen"
+        case .work: "Adresse für „Arbeit“ suchen"
+        case .other: "Ort für neuen Favoriten suchen"
+        case nil: "Adresse oder Ort"
+        }
+    }
+
+    private func askName(for place: Place) {
+        favoriteName = place.name
+        namingPlace = place
+    }
+
+    private func finishAssigning() {
+        namingPlace = nil
+        assigning = nil
+        query = ""
+        results = []
+    }
+
+    /// Favoriten ganz oben: Zuhause, Arbeit (auch wenn noch leer, dann zum Festlegen) und eigene Orte
+    @ViewBuilder private var favorites: some View {
+        Text("Favoriten").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        ForEach([Favorite.Kind.home, .work], id: \.self) { kind in
+            if let fav = (kind == .home ? app.favorites.home : app.favorites.work) {
+                favoriteRow(fav)
+            } else {
+                PlaceRow(
+                    place: Place(id: "set-\(kind.rawValue)", name: kind == .home ? "Zuhause festlegen" : "Arbeit festlegen",
+                                 address: "Adresse suchen und speichern", coordinate: .init()),
+                    distance: nil, selected: false, icon: kind == .home ? "house" : "briefcase"
+                ) { assigning = kind; focused = true }
+            }
+        }
+        ForEach(app.favorites.others) { favoriteRow($0) }
+        PlaceRow(
+            place: Place(id: "new-favorite", name: "Favorit hinzufügen", address: "Ort suchen und mit Namen speichern", coordinate: .init()),
+            distance: nil, selected: false, icon: "plus.circle"
+        ) { assigning = .other; focused = true }
+    }
+
+    private func favoriteRow(_ fav: Favorite) -> some View {
+        PlaceRow(place: fav.place, distance: distance(to: fav.place), selected: false, icon: fav.symbol) { choose(fav.place) }
+            .contextMenu {
+                if fav.kind == .other {
+                    Button("Umbenennen", systemImage: "pencil") { favoriteName = fav.label; renaming = fav }
+                } else {
+                    Button("Adresse ändern", systemImage: "pencil") { assigning = fav.kind; focused = true }
+                }
+                Button("Löschen", systemImage: "trash", role: .destructive) { app.favorites.remove(fav.id) }
+            }
     }
 
     /// Ohne Eingabe: Freunde und vereinbarte Treffpunkte als schnelle Ziele
@@ -85,6 +167,15 @@ struct SearchView: View {
     }
 
     private func choose(_ place: Place) {
+        if let kind = assigning {
+            // Auswahl speichern statt navigieren
+            switch kind {
+            case .home: app.favorites.save(kind: .home, label: "Zuhause", place: place); finishAssigning()
+            case .work: app.favorites.save(kind: .work, label: "Arbeit", place: place); finishAssigning()
+            case .other: askName(for: place)
+            }
+            return
+        }
         dismiss()
         if let onPick {
             onPick(place)
@@ -102,6 +193,8 @@ struct RoutePreviewView: View {
     let preview: NavigationCoordinator.Preview
 
     @State private var showInvite = false
+    @State private var showFavoriteAlert = false
+    @State private var favoriteName = ""
 
     #if DEBUG
     @State private var simulate = NavigationCoordinator.simulate
@@ -126,6 +219,16 @@ struct RoutePreviewView: View {
             Text("Inklusive aktueller Verkehrslage. Deine Freunde sehen deine Route, solange du teilst.")
                 .font(.footnote).foregroundStyle(Theme.muted)
 
+            let saved = app.favorites.contains(preview.destination.coordinate)
+            Button {
+                favoriteName = preview.destination.name
+                showFavoriteAlert = true
+            } label: {
+                Label(saved ? "Als Favorit gespeichert" : "Als Favorit speichern", systemImage: saved ? "star.fill" : "star")
+            }
+            .buttonStyle(SecondaryButtonStyle())
+            .disabled(saved)
+
             #if DEBUG
             Toggle("Fahrt simulieren (Test)", isOn: $simulate)
                 .onChange(of: simulate) { _, v in NavigationCoordinator.simulate = v }
@@ -148,6 +251,16 @@ struct RoutePreviewView: View {
         .background(Theme.ink)
         .presentationDetents([.medium, .large])
         .sheet(isPresented: $showInvite) { InviteFriendsView(place: preview.destination) }
+        .alert("Favorit speichern", isPresented: $showFavoriteAlert) {
+            TextField("Name, z. B. Oma", text: $favoriteName)
+            Button("Speichern") {
+                let name = favoriteName.trimmingCharacters(in: .whitespaces)
+                if !name.isEmpty { app.favorites.save(kind: .other, label: name, place: preview.destination) }
+            }
+            Button("Abbrechen", role: .cancel) {}
+        } message: {
+            Text(preview.destination.address ?? "")
+        }
     }
 
     private func stat(_ title: String, _ value: String, highlight: Bool = false) -> some View {

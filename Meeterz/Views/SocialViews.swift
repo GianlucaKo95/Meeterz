@@ -242,12 +242,14 @@ struct PlaceRow: View {
     let place: Place
     let distance: Double?
     let selected: Bool
+    /// Eigenes Symbol (z. B. Haus für Zuhause); ohne Angabe der Standard-Pin
+    var icon: String? = nil
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 12) {
-                Image(systemName: selected ? "checkmark.circle.fill" : "mappin.circle")
+                Image(systemName: selected ? "checkmark.circle.fill" : (icon ?? "mappin.circle"))
                     .font(.title3)
                     .foregroundStyle(selected ? Theme.accent : Theme.muted)
                 VStack(alignment: .leading, spacing: 2) {

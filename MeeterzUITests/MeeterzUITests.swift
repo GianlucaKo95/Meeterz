@@ -36,6 +36,9 @@ class MeeterzTestBase: XCTestCase {
     @discardableResult
     func need(_ element: XCUIElement, _ name: String, timeout: TimeInterval = 20) -> XCUIElement {
         if !element.waitForExistence(timeout: timeout) {
+            // Ein spät auftauchender Systemdialog („Passwort sichern?“) kann das Element verdecken
+            dismissSystemDialogs()
+            if element.waitForExistence(timeout: 5) { return element }
             shot("FEHLT-\(name)")
             XCTFail("Element nicht gefunden: \(name)")
         }

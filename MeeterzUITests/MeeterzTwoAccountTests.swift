@@ -135,6 +135,7 @@ final class MeeterzTwoAccountTests: MeeterzTestBase {
         shot("a-karte-ohne-freund")
 
         // A schickt B eine Anfrage
+        dismissSystemDialogs()
         showChrome()
         need(app.buttons["Freunde"], "freunde-knopf").tap()
         need(app.buttons.matching(NSPredicate(format: "label IN {'Freunde & Profil', 'Freunde hinzufügen'}")).firstMatch, "freunde-verwalten").tap()   // „Unterwegs“-Fenster → Verwaltung

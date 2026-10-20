@@ -168,7 +168,7 @@ final class MeeterzUITests: MeeterzTestBase {
 
         // 6. Freunde und Einstellungen
         need(app.buttons["Freunde"], "freunde-knopf").tap()
-        need(app.buttons["Freunde verwalten"], "freunde-verwalten").tap()   // „Unterwegs“-Fenster → Verwaltung
+        need(app.buttons.matching(NSPredicate(format: "label IN {'Freunde verwalten', 'Freunde hinzufügen'}")).firstMatch, "freunde-verwalten").tap()   // „Unterwegs“-Fenster → Verwaltung
         need(app.navigationBars["Freunde"], "freunde-ansicht")
         shot("freunde-oben")
 

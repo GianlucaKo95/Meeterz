@@ -136,7 +136,7 @@ final class MeeterzTwoAccountTests: MeeterzTestBase {
 
         // A schickt B eine Anfrage
         need(app.buttons["Freunde"], "freunde-knopf").tap()
-        need(app.buttons["Freunde verwalten"], "freunde-verwalten").tap()   // „Unterwegs“-Fenster → Verwaltung
+        need(app.buttons.matching(NSPredicate(format: "label IN {'Freunde verwalten', 'Freunde hinzufügen'}")).firstMatch, "freunde-verwalten").tap()   // „Unterwegs“-Fenster → Verwaltung
         need(app.navigationBars["Freunde"], "freunde-ansicht")
         let addField = need(app.textFields["@benutzername"], "freund-feld")
         type(handleB, into: addField)
@@ -251,7 +251,8 @@ final class MeeterzTwoAccountTests: MeeterzTestBase {
         // Aufräumen: A über die App, B und C über das Backend
         for _ in 0..<3 where !app.navigationBars["Freunde"].exists {
             need(app.buttons["Freunde"], "freunde-knopf-2").tap()
-            if app.buttons["Freunde verwalten"].waitForExistence(timeout: 6) { app.buttons["Freunde verwalten"].tap() }
+            let manage = app.buttons.matching(NSPredicate(format: "label IN {'Freunde verwalten', 'Freunde hinzufügen'}")).firstMatch
+            if manage.waitForExistence(timeout: 6) { manage.tap() }
             _ = app.navigationBars["Freunde"].waitForExistence(timeout: 6)
         }
         need(app.navigationBars["Freunde"], "freunde-ansicht-2")

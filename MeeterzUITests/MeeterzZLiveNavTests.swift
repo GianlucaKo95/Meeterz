@@ -61,6 +61,7 @@ final class MeeterzZLiveNavTests: MeeterzTestBase {
 
         // Freund erscheint (Liste lädt alle 30 s)
         need(app.buttons["Freunde"], "freunde-knopf").tap()      // „Unterwegs“-Fenster bleibt für die Messung offen
+        pause(2); shot("unterwegs-offen")
         needPolling(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'von 1 sichtbar'")).firstMatch, "freund-sichtbar", timeout: 90)
         dismissSystemDialogs()
         pause(3)

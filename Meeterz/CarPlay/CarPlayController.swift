@@ -213,6 +213,7 @@ final class CarPlayController: NSObject {
     }
 
     /// Legt das Panel auf die Karten-Vorlage der laufenden Navigation
+    @available(iOS 27.0, *)
     private func showTripPanel(on template: CPMapTemplate) {
         let model = AppModel.shared
         guard model.navigation.isNavigating, let place = inviteDestination else { return }
@@ -435,7 +436,7 @@ extension CarPlayController: CarPlayManagerDelegate {
     ) {
         MainActor.assumeIsolated {
             guard let map = template as? CPMapTemplate, carPlayManager.currentActivity == .navigating else { return }
-            showTripPanel(on: map)
+            if #available(iOS 27.0, *) { showTripPanel(on: map) }
         }
     }
 

@@ -35,7 +35,7 @@ struct MainView: View {
             if satellite {
                 // Satellit: Apples Flyover (fotorealistische 3D-Gebäude)
                 FlyoverMapView(plannedMeetup: $plannedMeetup, threeD: threeD, recenterTick: recenterTick, zoomSteps: zoomSteps)
-                    .onTapGesture { toggleChrome() }
+                    .simultaneousGesture(TapGesture().onEnded { toggleChrome() })
             } else {
                 map
             }

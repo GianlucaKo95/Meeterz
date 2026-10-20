@@ -24,7 +24,7 @@ struct RootView: View {
         .foregroundStyle(Theme.text)
         // Standortdienst sparsam: volles GPS nur bei sichtbarer App (siehe LocationService)
         .onChange(of: scenePhase, initial: true) { _, phase in
-            AppModel.shared.location.setForeground(phase == .active)
+            AppModel.shared.location.setForeground(phase != .background)
         }
     }
 }

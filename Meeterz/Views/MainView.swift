@@ -286,9 +286,6 @@ struct MainView: View {
             }
             .accessibilityLabel(threeD ? "Zur 2D-Ansicht wechseln" : "Zur 3D-Ansicht wechseln")
 
-            CircleIconButton(systemName: "plus", label: "Hineinzoomen") { zoomSteps = min(zoomSteps + 1, 4) }
-            CircleIconButton(systemName: "minus", label: "Herauszoomen") { zoomSteps = max(zoomSteps - 1, -6) }
-
             CircleIconButton(systemName: "location.north.line.fill", label: "Auf meinen Standort zentrieren", tint: Theme.accent) {
                 recenterTick += 1
                 withViewportAnimation(.easeOut(duration: 0.5)) { viewport = followViewport }

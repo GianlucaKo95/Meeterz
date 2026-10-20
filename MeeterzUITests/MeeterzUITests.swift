@@ -147,14 +147,6 @@ final class MeeterzUITests: MeeterzTestBase {
         dismissSystemDialogs()
         pause(4)                       // Karte und Kacheln laden
         shot("karte")
-        // Plus/Minus-Zoom (Flyover): zweimal heraus, Screenshot, wieder hinein
-        let zoomOut = need(app.buttons["Herauszoomen"], "Herauszoomen-Knopf")
-        zoomOut.tap(); zoomOut.tap()
-        pause(3)
-        shot("karte-herausgezoomt")
-        app.buttons["Hineinzoomen"].tap(); app.buttons["Hineinzoomen"].tap()
-        pause(2)
-
         let toClassic = app.buttons["Zur klassischen Karte wechseln"]
         if toClassic.exists {
             toClassic.tap()

@@ -36,15 +36,57 @@ log "Entitlements: $ENT"
 
 # Build-Nummer = fortlaufende Workflow-Nummer (TestFlight verlangt je Upload eine neue)
 sed -i '' "s#CURRENT_PROJECT_VERSION: \"1\"#CURRENT_PROJECT_VERSION: \"${GITHUB_RUN_NUMBER:-1}\"#" project.yml
-xcodegen generate 2>&1 | tee -a "$REPORT"
 
 KEYDIR="$HOME/.appstoreconnect/private_keys"
 mkdir -p "$KEYDIR"
 printf "%s\n" "$ASC_KEY_P8" > "$KEYDIR/AuthKey_${ASC_KEY_ID}.p8"
-AUTH=(-allowProvisioningUpdates
-  -authenticationKeyPath "$KEYDIR/AuthKey_${ASC_KEY_ID}.p8"
-  -authenticationKeyID "$ASC_KEY_ID"
-  -authenticationKeyIssuerID "$ASC_ISSUER_ID")
+export ASC_KEY_PATH="$KEYDIR/AuthKey_${ASC_KEY_ID}.p8"
+
+# Manuelle Signierung: Zertifikat und Profil über die API erzeugen (und am Ende wieder löschen)
+mkdir -p build
+WORK="$PWD/build/signing"
+PROFILE_NAME="Meeterz CI ${GITHUB_RUN_NUMBER:-0}-$(date +%s)"
+KC="$PWD/build/ci.keychain-db"
+cleanup() {
+  python3 ci/asc.py cleanup "$WORK" 2>&1 | tee -a "$REPORT"
+  security delete-keychain "$KC" >/dev/null 2>&1
+}
+trap cleanup EXIT
+
+log ""
+log "== Zertifikat und Profil erzeugen =="
+python3 ci/asc.py create "$WORK" de.koeven.meeterz "$PROFILE_NAME" 2>&1 | tee -a "$REPORT"
+[ -f "$WORK/ids.json" ] || { log "!! Zertifikat/Profil konnten nicht erzeugt werden"; exit 33; }
+PROFILE_UUID=$(python3 -c "import json;print(json.load(open('$WORK/ids.json'))['uuid'])")
+
+openssl x509 -inform DER -in "$WORK/cert.der" -out "$WORK/cert.pem"
+openssl pkcs12 -export -inkey "$WORK/key.pem" -in "$WORK/cert.pem" -out "$WORK/sign.p12" -passout pass:ci -legacy >/dev/null 2>&1 \
+  || openssl pkcs12 -export -inkey "$WORK/key.pem" -in "$WORK/cert.pem" -out "$WORK/sign.p12" -passout pass:ci
+security create-keychain -p ci "$KC"
+security set-keychain-settings -lut 21600 "$KC"
+security unlock-keychain -p ci "$KC"
+for url in https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer https://www.apple.com/certificateauthority/AppleWWDRCAG6.cer; do
+  curl -sfL "$url" -o "$WORK/ca.cer" && security import "$WORK/ca.cer" -k "$KC" -T /usr/bin/codesign >/dev/null 2>&1
+done
+security import "$WORK/sign.p12" -k "$KC" -P ci -T /usr/bin/codesign -T /usr/bin/security 2>&1 | tee -a "$REPORT"
+security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k ci "$KC" >/dev/null 2>&1
+security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
+security find-identity -v -p codesigning "$KC" 2>&1 | tee -a "$REPORT"
+
+mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
+cp "$WORK/profile.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision"
+cp "$WORK/profile.mobileprovision" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/$PROFILE_UUID.mobileprovision"
+
+# App-Target auf manuelle Signierung mit diesem Profil stellen
+python3 - "$PROFILE_NAME" <<'PY'
+import sys
+name = sys.argv[1]
+s = open("project.yml").read()
+s = s.replace("CODE_SIGN_STYLE: Automatic",
+              f'CODE_SIGN_STYLE: Manual\n        CODE_SIGN_IDENTITY: "Apple Distribution"\n        PROVISIONING_PROFILE_SPECIFIER: "{name}"', 1)
+open("project.yml", "w").write(s)
+PY
+xcodegen generate 2>&1 | tee -a "$REPORT"
 
 log ""
 log "== Archivieren =="
@@ -52,8 +94,7 @@ xcodebuild archive \
   -project Meeterz.xcodeproj -scheme Meeterz -configuration Release \
   -destination 'generic/platform=iOS' \
   -archivePath build/Meeterz.xcarchive \
-  DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-  "${AUTH[@]}" > archive.log 2>&1
+  DEVELOPMENT_TEAM="$APPLE_TEAM_ID" > archive.log 2>&1
 RES=$?
 grep -E "error:|ARCHIVE (SUCCEEDED|FAILED)" archive.log | sort -u | head -30 | tee -a "$REPORT"
 [ $RES -eq 0 ] || { tail -40 archive.log | tee -a "$REPORT"; log "!! Archivieren fehlgeschlagen ($RES)"; exit 30; }
@@ -65,7 +106,9 @@ cat > ExportOptions.plist <<PL
   <key>method</key><string>app-store-connect</string>
   <key>destination</key><string>export</string>
   <key>teamID</key><string>${APPLE_TEAM_ID}</string>
-  <key>signingStyle</key><string>automatic</string>
+  <key>signingStyle</key><string>manual</string>
+  <key>signingCertificate</key><string>Apple Distribution</string>
+  <key>provisioningProfiles</key><dict><key>de.koeven.meeterz</key><string>${PROFILE_NAME}</string></dict>
   <key>uploadSymbols</key><false/>
   <key>manageAppVersionAndBuildNumber</key><false/>
 </dict></plist>
@@ -82,8 +125,7 @@ log "== Exportieren (lokal, Verteilungs-Signatur) =="
 xcodebuild -exportArchive \
   -archivePath build/Meeterz.xcarchive \
   -exportOptionsPlist ExportOptions.plist \
-  -exportPath build/export \
-  "${AUTH[@]}" > export.log 2>&1
+  -exportPath build/export > export.log 2>&1
 RES=$?
 grep -iE "error|warning: |sign|certificate|profile|EXPORT" export.log | sort -u | head -40 | tee -a "$REPORT"
 [ $RES -eq 0 ] || { log "!! Export fehlgeschlagen ($RES)"; exit 31; }

@@ -137,8 +137,8 @@ final class MeeterzTwoAccountTests: MeeterzTestBase {
         // A schickt B eine Anfrage
         showChrome()
         need(app.buttons["Freunde"], "freunde-knopf").tap()
-        need(app.buttons.matching(NSPredicate(format: "label IN {'Freunde verwalten', 'Freunde hinzufügen'}")).firstMatch, "freunde-verwalten").tap()   // „Unterwegs“-Fenster → Verwaltung
-        need(app.navigationBars["Freunde"], "freunde-ansicht")
+        need(app.buttons.matching(NSPredicate(format: "label IN {'Freunde & Profil', 'Freunde hinzufügen'}")).firstMatch, "freunde-verwalten").tap()   // „Unterwegs“-Fenster → Verwaltung
+        need(app.navigationBars["Profil"], "freunde-ansicht")
         let addField = need(app.textFields["@benutzername"], "freund-feld")
         type(handleB, into: addField)
         addField.typeText("\n")
@@ -260,14 +260,14 @@ final class MeeterzTwoAccountTests: MeeterzTestBase {
         }
 
         // Aufräumen: A über die App, B und C über das Backend
-        for _ in 0..<3 where !app.navigationBars["Freunde"].exists {
+        for _ in 0..<3 where !app.navigationBars["Profil"].exists {
             showChrome()
             need(app.buttons["Freunde"], "freunde-knopf-2").tap()
-            let manage = app.buttons.matching(NSPredicate(format: "label IN {'Freunde verwalten', 'Freunde hinzufügen'}")).firstMatch
+            let manage = app.buttons.matching(NSPredicate(format: "label IN {'Freunde & Profil', 'Freunde hinzufügen'}")).firstMatch
             if manage.waitForExistence(timeout: 6) { manage.tap() }
-            _ = app.navigationBars["Freunde"].waitForExistence(timeout: 6)
+            _ = app.navigationBars["Profil"].waitForExistence(timeout: 6)
         }
-        need(app.navigationBars["Freunde"], "freunde-ansicht-2")
+        need(app.navigationBars["Profil"], "freunde-ansicht-2")
         pause(2)
         let list = app.tables.firstMatch.exists ? app.tables.firstMatch : app.collectionViews.firstMatch
         for _ in 0..<6 where !app.buttons["Konto löschen"].exists { list.swipeUp() }

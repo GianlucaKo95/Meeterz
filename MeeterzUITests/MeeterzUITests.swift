@@ -179,8 +179,8 @@ final class MeeterzUITests: MeeterzTestBase {
         // 6. Freunde und Einstellungen
         showChrome()
         need(app.buttons["Freunde"], "freunde-knopf").tap()
-        need(app.buttons.matching(NSPredicate(format: "label IN {'Freunde verwalten', 'Freunde hinzufügen'}")).firstMatch, "freunde-verwalten").tap()   // „Unterwegs“-Fenster → Verwaltung
-        need(app.navigationBars["Freunde"], "freunde-ansicht")
+        need(app.buttons.matching(NSPredicate(format: "label IN {'Freunde & Profil', 'Freunde hinzufügen'}")).firstMatch, "freunde-verwalten").tap()   // „Unterwegs“-Fenster → Verwaltung
+        need(app.navigationBars["Profil"], "freunde-ansicht")
         shot("freunde-oben")
 
         let photoMenu = app.buttons["Foto hinzufügen"]

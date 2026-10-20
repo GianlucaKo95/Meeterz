@@ -401,7 +401,7 @@ struct UnterwegsSheet: View {
                                 .font(.subheadline).foregroundStyle(Theme.muted)
                         }
                     }
-                    Button(app.friends.accepted.isEmpty ? "Freunde hinzufügen" : "Freunde verwalten") {
+                    Button(app.friends.accepted.isEmpty ? "Freunde hinzufügen" : "Freunde & Profil") {
                         manageFriends()
                     }
                     .buttonStyle(PrimaryButtonStyle())

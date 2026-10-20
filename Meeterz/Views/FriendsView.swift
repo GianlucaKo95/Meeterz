@@ -48,7 +48,7 @@ struct FriendsView: View {
             }
             .scrollContentBackground(.hidden)
             .background(Theme.ink)
-            .navigationTitle("Freunde")
+            .navigationTitle("Profil")
             .toolbar { Button("Fertig") { dismiss() } }
             .refreshable { await app.refreshSocial() }
             .sheet(item: $inviteFriend) { friend in

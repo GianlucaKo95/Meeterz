@@ -101,6 +101,14 @@ final class MeeterzZLiveNavTests: MeeterzTestBase {
         app.buttons["Fertig"].tap()
         pause(4)
         shot("karte-mit-nahem-freund")
+        // Dasselbe auf der klassischen (Mapbox-)Karte
+        showChrome()
+        let toClassic = app.buttons["Zur klassischen Karte wechseln"]
+        if toClassic.waitForExistence(timeout: 10) {
+            toClassic.tap()
+            pause(8)
+            shot("karte-klassisch-naher-freund")
+        }
 
         // Navigation: Route zum Düsseldorfer Hbf, Losfahren (Simulation)
         app.buttons["Ziel suchen"].tap()

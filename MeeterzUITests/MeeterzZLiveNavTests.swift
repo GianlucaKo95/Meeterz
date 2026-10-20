@@ -34,11 +34,19 @@ final class MeeterzZLiveNavTests: MeeterzTestBase {
         let hp: [String: String] = ["Prefer": "return=minimal"]
         a.request("POST", "/rest/v1/profiles", body: ["id": a.id, "handle": "na_\(suffix)", "display_name": "Al Alpha"], headers: hp)
         b.request("POST", "/rest/v1/profiles", body: ["id": b.id, "handle": "nb_\(suffix)", "display_name": "Bea Beta"], headers: hp)
-        defer { a.rpc("delete_account"); b.rpc("delete_account") }
+        // Zweiter Freund C: muss neben B ebenfalls auf der Karte erscheinen
+        let c = try XCTUnwrap(MeeterzTwoAccountTests.Remote.signUp(base: base, key: key, email: "ci-nc-\(suffix)@example.com", password: "Ci-nc-\(suffix)-pw"), "Konto C")
+        c.request("POST", "/rest/v1/profiles", body: ["id": c.id, "handle": "nc_\(suffix)", "display_name": "Cleo Gamma"], headers: hp)
+        defer { a.rpc("delete_account"); b.rpc("delete_account"); c.rpc("delete_account") }
         a.rpc("send_friend_request", ["target_handle": "nb_\(suffix)"])
         let rows = try XCTUnwrap(b.rpc("my_friends").1 as? [[String: Any]])
         let rid = try XCTUnwrap(rows.first?["friendship_id"] as? String)
         XCTAssertLessThan(b.rpc("respond_friend_request", ["request_id": rid, "accept": true]).0, 300)
+        a.rpc("send_friend_request", ["target_handle": "nc_\(suffix)"])
+        let rowsC = try XCTUnwrap(c.rpc("my_friends").1 as? [[String: Any]])
+        let ridC = try XCTUnwrap(rowsC.first?["friendship_id"] as? String)
+        XCTAssertLessThan(c.rpc("respond_friend_request", ["request_id": ridC, "accept": true]).0, 300)
+        c.rpc("update_last_location", ["lat": 51.4361, "lng": 6.7650, "heading": 90.0, "speed": 0.0])
 
         var lat = 51.4352, lng = 6.7641
         func broadcast() -> Int {
@@ -69,7 +77,9 @@ final class MeeterzZLiveNavTests: MeeterzTestBase {
             app.buttons["Freunde"].tap(); pause(2)
         }
         shot("unterwegs-offen")
-        needPolling(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'von 1 sichtbar'")).firstMatch, "freund-sichtbar", timeout: 90)
+        needPolling(app.staticTexts.containing(NSPredicate(format: "label CONTAINS '2 von 2 sichtbar'")).firstMatch, "beide-freunde-sichtbar", timeout: 90)
+        XCTAssertTrue(app.staticTexts["Bea Beta"].exists, "Freund B in der Liste")
+        XCTAssertTrue(app.staticTexts["Cleo Gamma"].exists, "Freund C in der Liste")
         dismissSystemDialogs()
         pause(3)
         shot("freund-start")

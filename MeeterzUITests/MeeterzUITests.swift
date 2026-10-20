@@ -46,7 +46,7 @@ class MeeterzTestBase: XCTestCase {
     func dismissSystemDialogs() {
         let spring = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         // Reihenfolge wichtig: Standort-Dialog („Allow While Using App“) vor „Don’t Allow“
-        for label in ["Allow While Using App", "Beim Verwenden der App erlauben", "Allow Once", "Not Now", "Nicht jetzt", "Allow", "Don’t Allow"] {
+        for label in ["Allow While Using App", "Beim Verwenden der App erlauben", "Allow Once", "Not Now", "Nicht jetzt", "Allow", "Keep Only While Using", "Nur beim Verwenden beibehalten", "Don’t Allow"] {
             let b = spring.buttons[label]
             if b.exists { b.tap(); pause(1) }
             let a = app.buttons[label]

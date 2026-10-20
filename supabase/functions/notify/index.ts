@@ -21,6 +21,7 @@ function json(body: unknown, status = 200) {
 }
 
 Deno.serve(async (req) => {
+  const started = Date.now();
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   const url = Deno.env.get("SUPABASE_URL")!;
@@ -41,6 +42,7 @@ Deno.serve(async (req) => {
   }
   const { kind, target, meetup_id } = body;
   if (!kind || !target || target === user.id) return json({ error: "invalid body" }, 400);
+  console.log(`notify: ${kind} von ${user.id} an ${target}`);
 
   const admin = createClient(url, serviceKey);
 
@@ -86,12 +88,14 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({ aps: { alert, sound: "default" }, kind }),
     });
+    console.log(`notify: APNs ${host} → ${res.status} nach ${Date.now() - started} ms (${kind})`);
     if (res.ok) sent++;
     // Gerät abgemeldet oder Token ungültig → aufräumen
     if (res.status === 410 || res.status === 400) {
       await admin.from("device_tokens").delete().eq("token", t.token);
     }
   }
+  console.log(`notify: ${sent} von ${tokens.length} gesendet, gesamt ${Date.now() - started} ms`);
   return json({ sent });
 });
 

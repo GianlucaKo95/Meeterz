@@ -77,7 +77,24 @@ def cleanup(workdir):
         except SystemExit:
             pass
 
+def status(bundle_identifier):
+    """Zeigt die letzten Builds mit Verarbeitungsstatus und – falls vorhanden – die Fehler der Uploads."""
+    def safe(path):
+        try: return api("GET", path)
+        except SystemExit: return {}
+    app = safe(f"/v1/apps?filter[bundleId]={bundle_identifier}").get("data", [])
+    if not app: print("App nicht gefunden"); return
+    app_id = app[0]["id"]
+    print(f"App {app_id}")
+    for b in safe(f"/v1/builds?filter[app]={app_id}&sort=-uploadedDate&limit=6").get("data", []):
+        a = b["attributes"]
+        print(f"Build {a.get('version')}: {a.get('processingState')}, min iOS {a.get('minOsVersion')}, hochgeladen {a.get('uploadedDate')}, abgelaufen={a.get('expired')}")
+    for u in safe(f"/v1/apps/{app_id}/buildUploads?limit=6").get("data", []):
+        a = u["attributes"]
+        print(f"Upload {a.get('cfBundleVersion')}: {json.dumps(a.get('state'), ensure_ascii=False)}")
+
 if __name__ == "__main__":
     cmd = sys.argv[1]
+    if cmd == "status": status(sys.argv[2]); raise SystemExit
     if cmd == "create": create(sys.argv[2], sys.argv[3], sys.argv[4])
     elif cmd == "cleanup": cleanup(sys.argv[2])

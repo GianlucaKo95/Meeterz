@@ -1,5 +1,6 @@
 import SwiftUI
 import MapboxMaps
+import CoreLocation
 
 struct MainView: View {
     @Environment(AppModel.self) private var app
@@ -20,6 +21,8 @@ struct MainView: View {
     @State private var zoomSteps = 0
     /// Ein Tipp auf die Karte blendet alle Bedienelemente aus, der nächste Tipp holt sie zurück
     @State private var chromeHidden = false
+    /// Per langem Druck auf die Karte gesetzter Pin
+    @State private var droppedPin: Place?
 
     /// Kamera folgt dem eigenen Standort – in 3D schräg von hinten, in Fahrtrichtung gedreht
     private var followViewport: Viewport {
@@ -34,7 +37,7 @@ struct MainView: View {
         ZStack(alignment: .top) {
             if satellite {
                 // Satellit: Apples Flyover (fotorealistische 3D-Gebäude)
-                FlyoverMapView(plannedMeetup: $plannedMeetup, threeD: threeD, recenterTick: recenterTick, zoomSteps: zoomSteps)
+                FlyoverMapView(plannedMeetup: $plannedMeetup, droppedPin: $droppedPin, onLongPress: dropPin, threeD: threeD, recenterTick: recenterTick, zoomSteps: zoomSteps)
                     .simultaneousGesture(TapGesture().onEnded { toggleChrome() })
             } else {
                 map
@@ -59,6 +62,12 @@ struct MainView: View {
 
             VStack(spacing: 10) {
                 Spacer()
+                if let pin = droppedPin {
+                    PinCard(pin: pin) {
+                        droppedPin = nil
+                        Task { await app.navigation.planRoute(to: pin) }
+                    } onRemove: { droppedPin = nil }
+                }
                 SocialCards(plannedMeetup: $plannedMeetup)
             }
             .padding(.horizontal, 12)
@@ -154,6 +163,11 @@ struct MainView: View {
                 .allowOverlap(true)
             }
 
+            if let pin = droppedPin {
+                MapViewAnnotation(coordinate: pin.coordinate) { DroppedPinMarker() }
+                    .allowOverlap(true)
+            }
+
             // Vereinbarte Treffen
             ForEvery(app.meetups.accepted) { meetup in
                 MapViewAnnotation(coordinate: meetup.coordinate) {
@@ -171,8 +185,27 @@ struct MainView: View {
             }
         }
         .onMapTapGesture { _ in toggleChrome() }
+        .onMapLongPressGesture { context in dropPin(at: context.coordinate) }
         .mapStyle(.standard(lightPreset: .night))
         .ignoresSafeArea()
+    }
+
+    /// Pin setzen und Adresse nachladen
+    private func dropPin(at coordinate: CLLocationCoordinate2D) {
+        let id = "pin-\(coordinate.latitude),\(coordinate.longitude)"
+        droppedPin = Place(id: id, name: "Gesetzter Pin", address: nil, coordinate: coordinate)
+        setChrome(hidden: false)
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        Task {
+            let marks = try? await CLGeocoder().reverseGeocodeLocation(
+                CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude))
+            guard let mark = marks?.first, droppedPin?.id == id else { return }
+            let street = [mark.thoroughfare, mark.subThoroughfare].compactMap { $0 }.joined(separator: " ")
+            let city = [mark.postalCode, mark.locality].compactMap { $0 }.joined(separator: " ")
+            let name = mark.name ?? (street.isEmpty ? "Gesetzter Pin" : street)
+            let address = [street, city].filter { !$0.isEmpty }.joined(separator: ", ")
+            droppedPin = Place(id: id, name: name, address: address.isEmpty ? nil : address, coordinate: coordinate)
+        }
     }
 
     private func toggleChrome() { setChrome(hidden: !chromeHidden) }
@@ -480,5 +513,39 @@ private extension View {
         self.opacity(hidden ? 0 : 1)
             .allowsHitTesting(!hidden)
             .accessibilityHidden(hidden)
+    }
+}
+
+
+struct DroppedPinMarker: View {
+    var body: some View {
+        Image(systemName: "mappin.circle.fill")
+            .font(.system(size: 38))
+            .foregroundStyle(.white, Theme.danger)
+            .shadow(radius: 4)
+            .accessibilityLabel("Gesetzter Pin")
+    }
+}
+
+/// Karte unten: Navigation zum gesetzten Pin oder Pin entfernen
+struct PinCard: View {
+    let pin: Place
+    let onNavigate: () -> Void
+    let onRemove: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(pin.name).font(.headline)
+                if let address = pin.address { Text(address).font(.footnote).foregroundStyle(Theme.muted) }
+            }
+            HStack(spacing: 10) {
+                Button("Entfernen", action: onRemove).buttonStyle(SecondaryButtonStyle())
+                Button("Hierhin navigieren", action: onNavigate).buttonStyle(PrimaryButtonStyle())
+            }
+        }
+        .padding(16)
+        .background(RoundedRectangle(cornerRadius: 20).fill(Theme.panel))
+        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Theme.stroke, lineWidth: 1))
     }
 }

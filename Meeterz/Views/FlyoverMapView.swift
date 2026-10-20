@@ -6,6 +6,9 @@ import MapKit
 struct FlyoverMapView: View {
     @Environment(AppModel.self) private var app
     @Binding var plannedMeetup: MeetupCandidate?
+    @Binding var droppedPin: Place?
+    /// Langer Druck auf die Karte
+    var onLongPress: (CLLocationCoordinate2D) -> Void = { _ in }
     let threeD: Bool
     /// Zählt hoch, wenn „Auf meinen Standort zentrieren“ getippt wurde
     let recenterTick: Int
@@ -16,8 +19,31 @@ struct FlyoverMapView: View {
     @State private var lastCamera: MapCamera?
 
     var body: some View {
+        MapReader { proxy in
+            mapContent
+                .simultaneousGesture(
+                    LongPressGesture(minimumDuration: 0.6)
+                        .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .local))
+                        .onEnded { value in
+                            if case .second(true, let drag?) = value,
+                               let coordinate = proxy.convert(drag.location, from: .local) {
+                                onLongPress(coordinate)
+                            }
+                        }
+                )
+        }
+    }
+
+    private var mapContent: some View {
         Map(position: $position) {
             UserAnnotation()
+
+            if let pin = droppedPin {
+                Annotation(pin.name, coordinate: pin.coordinate, anchor: .bottom) {
+                    DroppedPinMarker()
+                }
+                .annotationTitles(.hidden)
+            }
 
             ForEach(Array(app.routes.friendRoutes.values)) { route in
                 MapPolyline(coordinates: route.coordinates)

@@ -1,6 +1,7 @@
 import Foundation
 import CoreLocation
 import Observation
+import UIKit
 
 /// Zentrale Klammer um alle Stores. iPhone-UI und CarPlay greifen auf dieselbe Instanz zu.
 @MainActor @Observable
@@ -80,6 +81,41 @@ final class AppModel {
         await hub.sync(with: friends.rows)
         await routes.refresh()
         await meetups.refresh()
+        requestFreshPositions()
+    }
+
+    // MARK: Standort auf Anfrage (stiller Push)
+
+    @ObservationIgnored private var lastPoke: [UUID: Date] = [:]
+
+    /// Bei offener App Freunde mit veralteter Position bitten, kurz ihren Standort zu senden.
+    private func requestFreshPositions() {
+        guard UIApplication.shared.applicationState == .active else { return }
+        let now = Date()
+        var ids: [UUID] = []
+        for f in friends.accepted {
+            guard let known = f.lastKnown else { continue }       // nur Freunde, die gerade teilen
+            let age = hub.positions[f.friendId]?.age ?? known.age
+            if age > 120, now.timeIntervalSince(lastPoke[f.friendId] ?? .distantPast) > 240 {
+                ids.append(f.friendId)
+                lastPoke[f.friendId] = now
+            }
+        }
+        if !ids.isEmpty { push.requestLocations(of: ids) }
+    }
+
+    /// Ein Freund hat per stillem Push nach meinem Standort gefragt: Sitzung sicherstellen, Position holen, senden.
+    func answerLocateRequest() async -> Bool {
+        if profile == nil {
+            // Start im Hintergrund: Anmeldung laden (start() läuft dauerhaft, deshalb nicht abwarten)
+            Task { await auth.start() }
+            for _ in 0..<40 where profile == nil { try? await Task.sleep(for: .milliseconds(200)) }
+        }
+        await startSession()
+        guard let profile, profile.isSharingNow else { return false }
+        guard let fix = await location.currentFix(timeout: 12) else { return false }
+        await hub.publish(fix, userId: profile.id, sharingEnabled: true, force: true)
+        return true
     }
 
     // MARK: Inkognito

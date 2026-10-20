@@ -45,7 +45,7 @@ final class LiveLocationHub {
         lastPersisted = .distantPast
     }
 
-    func publish(_ loc: CLLocation, userId: UUID, sharingEnabled: Bool) async {
+    func publish(_ loc: CLLocation, userId: UUID, sharingEnabled: Bool, force: Bool = false) async {
         guard sharingEnabled, let ch = ownChannel else { return }
 
         let pos = LivePosition(
@@ -56,7 +56,7 @@ final class LiveLocationHub {
             speed: loc.speed >= 0 ? loc.speed : nil,
             ts: loc.timestamp.timeIntervalSince1970
         )
-        guard shouldSend(pos) else { return }
+        guard force || shouldSend(pos) else { return }
 
         do {
             try await ch.broadcast(event: "pos", message: pos)
@@ -66,7 +66,7 @@ final class LiveLocationHub {
         }
 
         // Letzte Position seltener dauerhaft speichern (für App-Start der Freunde)
-        if Date().timeIntervalSince(lastPersisted) > 120 {
+        if force || Date().timeIntervalSince(lastPersisted) > 120 {
             lastPersisted = Date()
             struct Params: Encodable { let lat, lng: Double; let heading, speed: Double? }
             _ = try? await client.rpc("update_last_location",

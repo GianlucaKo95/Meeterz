@@ -12,11 +12,12 @@ import MapboxNavigationUIKit
 let navigationProvider = MapboxNavigationProvider(coreConfig: meeterzCoreConfig(simulate: false))
 
 /// Sprachansagen nur mit Apple-Stimmen (offline, ohne Mapbox Speech API).
-/// Die Stimme folgt der Systemeinstellung unter Bedienungshilfen → Gesprochene Inhalte.
+/// Eigene Sprachausgabe: nimmt die in den Einstellungen gewählte oder beste installierte deutsche Stimme.
+@MainActor
 func meeterzCoreConfig(simulate: Bool, initialLocation: CLLocation? = nil) -> CoreConfig {
     CoreConfig(
         locationSource: simulate ? .simulation(initialLocation: initialLocation) : .live,
-        ttsConfig: .localOnly
+        ttsConfig: .custom(speechSynthesizer: MeeterzSpeechSynthesizer.shared)
     )
 }
 

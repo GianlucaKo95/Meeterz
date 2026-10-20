@@ -21,7 +21,12 @@ final class AuthStore {
         return nil
     }
 
+    private var running = false
+
     func start() async {
+        // Läuft schon (z. B. durch einen Start im Hintergrund)? Dann nicht ein zweites Mal abonnieren.
+        guard !running else { return }
+        running = true
         for await (event, session) in client.auth.authStateChanges {
             switch event {
             case .initialSession, .signedIn, .signedOut, .userUpdated:

@@ -31,6 +31,14 @@ final class PushService {
                                   params: Params(device_token: token, env: AppConfig.pushEnvironment)).execute()
     }
 
+    /// Bittet Freunde, kurz ihren Standort zu senden (stiller Push). Fehler sind egal – es klappt beim nächsten Mal.
+    func requestLocations(of users: [UUID]) {
+        struct Body: Encodable { let targets: [UUID] }
+        Task {
+            try? await client.functions.invoke("request_location", options: FunctionInvokeOptions(body: Body(targets: users)))
+        }
+    }
+
     /// Feuert und vergisst – eine fehlende Push-Konfiguration darf nie den eigentlichen Vorgang stören.
     func notify(_ kind: Kind, to user: UUID, meetupId: UUID? = nil) {
         struct Body: Encodable { let kind: Kind; let target: UUID; let meetup_id: UUID? }

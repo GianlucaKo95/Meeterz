@@ -21,7 +21,9 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
 
     @ObservationIgnored private let manager = CLLocationManager()
     @ObservationIgnored private var started = false
-    @ObservationIgnored private var inForeground = true
+    /// Beim Start im Hintergrund (z. B. durch einen stillen Push) zählt die App nicht als sichtbar
+    @ObservationIgnored private var inForeground = UIApplication.shared.applicationState != .background
+    @ObservationIgnored private var fixWaiters: [CheckedContinuation<CLLocation?, Never>] = []
     @ObservationIgnored private var navigating = false
     @ObservationIgnored private var carPlay = false
     @ObservationIgnored private var lastMovingAt = Date.distantPast
@@ -64,6 +66,26 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
         } else if let url = URL(string: UIApplication.openSettingsURLString) {
             UIApplication.shared.open(url)
         }
+    }
+
+    /// Einmalige aktuelle Position, z. B. wenn ein Freund per stillem Push danach fragt.
+    func currentFix(timeout: TimeInterval) async -> CLLocation? {
+        if let last = lastLocation, Date().timeIntervalSince(last.timestamp) < 20, last.horizontalAccuracy < 100 { return last }
+        guard authorization == .authorizedWhenInUse || authorization == .authorizedAlways else { return nil }
+        return await withCheckedContinuation { continuation in
+            fixWaiters.append(continuation)
+            manager.requestLocation()
+            Task { [weak self] in
+                try? await Task.sleep(for: .seconds(timeout))
+                self?.resolveWaiters(with: nil)
+            }
+        }
+    }
+
+    private func resolveWaiters(with location: CLLocation?) {
+        let waiting = fixWaiters
+        fixWaiters = []
+        waiting.forEach { $0.resume(returning: location) }
     }
 
     // MARK: Zustand von außen
@@ -164,6 +186,7 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
         guard let loc = locations.last, loc.horizontalAccuracy >= 0, loc.horizontalAccuracy < 100 else { return }
         Task { @MainActor in
             self.lastLocation = loc
+            self.resolveWaiters(with: loc)
             if loc.speed > Self.movingSpeed {
                 self.lastMovingAt = Date()
                 // Aus dem sparsamen Modus aufwachen, sobald man sich zügig bewegt

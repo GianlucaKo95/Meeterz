@@ -86,6 +86,22 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         Task { @MainActor in await AppModel.shared.push.store(token: token) }
     }
 
+    /// Stiller Push „locate“: ein Freund möchte meinen aktuellen Standort – kurz aufwachen und senden.
+    func application(
+        _ application: UIApplication,
+        didReceiveRemoteNotification userInfo: [AnyHashable: Any],
+        fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
+    ) {
+        guard (userInfo["kind"] as? String) == "locate" else {
+            completionHandler(.noData)
+            return
+        }
+        Task { @MainActor in
+            let sent = await AppModel.shared.answerLocateRequest()
+            completionHandler(sent ? .newData : .failed)
+        }
+    }
+
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
         // Ohne bezahlten Account (Personal Team) gibt es kein Push – kein Fehler für den Nutzer.
     }

@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import AVFoundation
 
 struct FriendsView: View {
     @Environment(AppModel.self) private var app
@@ -351,6 +352,7 @@ struct FriendsView: View {
                 .tint(Theme.accent)
                 .onChange(of: simulate) { _, v in NavigationCoordinator.simulate = v }
             #endif
+            NavigationLink("Navigationsstimme") { VoicePickerView() }
             Link("Datenschutzerklärung", destination: Legal.privacyURL)
             LabeledContent("Version", value: Self.versionText)
         }
@@ -417,6 +419,70 @@ private struct FriendLabel: View {
             VStack(alignment: .leading) {
                 Text(row.displayName).font(Theme.title(15))
                 Text("@\(row.handle)").font(.caption).foregroundStyle(Theme.muted)
+            }
+        }
+    }
+}
+
+// MARK: - Navigationsstimme
+
+/// Auswahl der Stimme für die Sprachansagen mit Hörprobe.
+struct VoicePickerView: View {
+    @AppStorage(VoiceCatalog.key) private var selectedId = ""
+    @State private var voices = VoiceCatalog.germanVoices
+
+    var body: some View {
+        List {
+            Section {
+                row(title: "Automatisch", detail: VoiceCatalog.best.map { "\($0.name) · \(VoiceCatalog.label(for: $0.quality))" } ?? "Systemstimme",
+                    selected: selectedId.isEmpty) {
+                    selectedId = ""
+                    VoicePreview.shared.play(VoiceCatalog.best)
+                }
+            } footer: {
+                Text("Nimmt immer die beste auf dem iPhone installierte deutsche Stimme.")
+            }
+            .listRowBackground(Theme.panel)
+
+            Section("Deutsche Stimmen") {
+                ForEach(voices, id: \.identifier) { voice in
+                    row(title: voice.name, detail: VoiceCatalog.label(for: voice.quality), selected: selectedId == voice.identifier) {
+                        selectedId = voice.identifier
+                        VoicePreview.shared.play(voice)
+                    }
+                }
+            }
+            .listRowBackground(Theme.panel)
+
+            if !VoiceCatalog.hasBetterThanDefault {
+                Section {
+                    Text("Es ist nur die einfache Standardstimme installiert. Eine natürlichere Stimme lädst du unter Einstellungen → Bedienungshilfen → Gesprochene Inhalte → Stimmen → Deutsch (Premium oder Erweitert). Danach erscheint sie hier.")
+                        .font(.footnote).foregroundStyle(Theme.muted)
+                    Button("Einstellungen öffnen") {
+                        if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+                    }
+                } header: {
+                    Text("Bessere Stimme laden")
+                }
+                .listRowBackground(Theme.panel)
+            }
+        }
+        .scrollContentBackground(.hidden)
+        .background(Theme.ink)
+        .navigationTitle("Navigationsstimme")
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear { voices = VoiceCatalog.germanVoices }   // nach dem Laden einer Stimme aktualisieren
+    }
+
+    private func row(title: String, detail: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).foregroundStyle(Theme.text)
+                    Text(detail).font(.footnote).foregroundStyle(Theme.muted)
+                }
+                Spacer()
+                if selected { Image(systemName: "checkmark").foregroundStyle(Theme.accent) }
             }
         }
     }

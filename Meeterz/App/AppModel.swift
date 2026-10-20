@@ -44,6 +44,10 @@ final class AppModel {
             Task { await self?.onLocation(loc) }
         }
         location.isSharing = { [weak self] in self?.profile?.isSharingNow ?? true }
+        location.mayResumeSharing = { [weak self] in
+            guard let p = self?.profile else { return false }
+            return p.isIncognito && !p.isIncognitoIndefinitely
+        }
         location.requestPermission()
 
         await hub.startPublishing(userId: profile.id)

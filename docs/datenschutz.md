@@ -20,7 +20,15 @@ E-Mail: gk@koeven.de
 | Aktive Route (Ziel, Strecke, Ankunftszeiten) | Freunden anzeigen und Treffpunkte finden | Art. 6 Abs. 1 lit. a DSGVO |
 | Treffen-Vorschläge | Verabreden mit Freunden | Art. 6 Abs. 1 lit. b DSGVO |
 | Profilbild (optional, auf 256 × 256 px verkleinert) | Freunden auf der Karte und in Listen anzeigen; nur angenommene Freunde können es abrufen | Art. 6 Abs. 1 lit. a DSGVO |
-| Push-Token des Geräts | Benachrichtigungen über Anfragen und Treffen | Art. 6 Abs. 1 lit. a DSGVO |
+| Push-Token des Geräts | Benachrichtigungen über Anfragen und Treffen sowie Standort-Abruf (siehe unten) | Art. 6 Abs. 1 lit. a DSGVO |
+| Inkognito-Einstellung (Zeitpunkt bis wann, „Routen verbergen“) | Dich für Freunde unsichtbar machen; Freunde erfahren nicht, dass du inkognito bist | Art. 6 Abs. 1 lit. a DSGVO |
+| Favoriten (Zuhause, Arbeit, eigene Orte mit Namen) | Schnellziele für die Navigation. **Nur auf deinem Gerät gespeichert**, nicht auf unseren Servern | Art. 6 Abs. 1 lit. b DSGVO |
+
+### Standort im Hintergrund und Abruf durch Freunde
+
+- Mit der Berechtigung „Immer“ kann Meeterz deinen Standort auch bei geschlossener App aktualisieren. Um Akku zu sparen, nutzt die App im Stand nur die grobe Überwachung großer Ortswechsel und schaltet bei Bewegung, Navigation und CarPlay auf genaue Ortung.
+- Öffnet ein Freund die Karte und deine Position ist veraltet, sendet unser Server einen **stillen Push** an dein Gerät (über Apple Push). Dein Gerät sendet dann kurz deinen aktuellen Standort. Der Push enthält keinen Standort und keine Nachricht. Das geschieht nur für angenommene Freunde und nur, solange du teilst – nie im Inkognito-Modus oder bei pausiertem Teilen.
+- Die **Sprachansagen** der Navigation werden vollständig auf deinem Gerät erzeugt (Systemstimmen von Apple). Es werden keine Sprachdaten übertragen.
 
 Dein Standort wird **nur** an Personen übermittelt, deren Freundschaftsanfrage du angenommen hast (oder die deine angenommen haben), und nur solange das Teilen eingeschaltet ist. Du kannst das Teilen jederzeit pausieren oder zeitlich begrenzen („1 Std.", „Bis Ankunft").
 
@@ -29,6 +37,7 @@ Dein Standort wird **nur** an Personen übermittelt, deren Freundschaftsanfrage 
 - Live-Positionen werden nicht gespeichert, sondern direkt an Freunde weitergeleitet.
 - Die letzte bekannte Position wird bei jedem Update überschrieben.
 - Dein Profilbild liegt in einem privaten Speicher und wird beim Entfernen des Bildes oder beim Löschen des Kontos gelöscht. Freunde speichern es zur schnelleren Anzeige zwischen; der Zwischenspeicher wird bei einem neuen Bild ersetzt.
+- Favoriten bleiben ausschließlich auf deinem Gerät und werden beim Löschen der App entfernt.
 - Aktive Routen werden beim Beenden der Navigation gelöscht und nach spätestens 3 Stunden nicht mehr angezeigt.
 - Treffen-Vorschläge werden nach 12 Stunden nicht mehr angezeigt.
 - Mit **„Konto löschen"** in der App werden alle Daten sofort und endgültig gelöscht.

@@ -19,7 +19,9 @@ best=""
 for rt,devs in d.items():
     if "iOS" not in rt: continue
     for x in devs:
-        if "iPhone" in x["name"] and "Pro" in x["name"] and "Max" not in x["name"]:
+        import os
+        want_max = os.environ.get("PREFER_MAX") == "1"   # App-Store-Screenshots (6,9 Zoll)
+        if "iPhone" in x["name"] and "Pro" in x["name"] and (("Max" in x["name"]) == want_max):
             best=x["udid"]
 print(best)
 ')

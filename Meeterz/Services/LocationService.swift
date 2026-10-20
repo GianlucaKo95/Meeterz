@@ -18,6 +18,9 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
     @ObservationIgnored var onUpdate: ((CLLocation) -> Void)?
     /// Wird beim Wechsel in den Hintergrund gefragt: Soll der Standort überhaupt geteilt werden?
     @ObservationIgnored var isSharing: () -> Bool = { true }
+    /// Wird das Teilen von selbst wieder anspringen (z. B. Inkognito mit Ablaufzeit)? Dann bleibt im Hintergrund
+    /// die sparsame Ortswechsel-Überwachung an, damit die App danach von selbst wieder sendet.
+    @ObservationIgnored var mayResumeSharing: () -> Bool = { false }
 
     @ObservationIgnored private let manager = CLLocationManager()
     @ObservationIgnored private var started = false
@@ -119,7 +122,7 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
 
     private func desiredMode() -> Mode {
         if inForeground || navigating || carPlay { return .full }
-        if !isSharing() { return .off }
+        if !isSharing() { return (mayResumeSharing() && canShareInBackground) ? .saving : .off }
         if Date().timeIntervalSince(lastMovingAt) < Self.settleAfter { return .moving }
         // Ohne „Immer“ liefert iOS im Hintergrund keine Ortswechsel-Meldungen – dann reduziert weiterlaufen
         return canShareInBackground ? .saving : .moving

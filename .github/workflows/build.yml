@@ -10,6 +10,11 @@ on:
   schedule:
     - cron: "0 2 * * *"
   workflow_dispatch:
+    inputs:
+      store_screenshots:
+        description: "Auf einem iPhone Pro Max laufen lassen (Screenshots in 6,9 Zoll für den App Store)"
+        type: boolean
+        default: false
 
 concurrency:
   group: build-${{ github.ref }}
@@ -34,6 +39,7 @@ jobs:
           CI_SUPABASE_REF: jgtkyxlzroajtxboqgcn
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           MAPBOX_PUBLIC_TOKEN: ${{ secrets.MAPBOX_PUBLIC_TOKEN }}
+          PREFER_MAX: ${{ inputs.store_screenshots && '1' || '0' }}
         run: ./ci/build.sh
 
       - name: Bericht veröffentlichen

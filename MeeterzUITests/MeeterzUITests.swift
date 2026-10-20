@@ -170,6 +170,18 @@ final class MeeterzUITests: MeeterzTestBase {
 
         // 5. Zielsuche
         app.buttons["Ziel suchen"].tap()
+
+        // Favoriten: „Zuhause“ festlegen, danach steht es oben in der Liste
+        let setHome = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Zuhause festlegen'")).firstMatch
+        need(setHome, "zuhause-festlegen").tap()
+        type("Düsseldorf Hauptbahnhof", into: need(app.textFields.firstMatch, "suchfeld-zuhause"))
+        let homeResult = app.buttons.containing(NSPredicate(format: "label CONTAINS 'Hauptbahnhof'")).firstMatch
+        need(homeResult, "zuhause-ergebnis", timeout: 30).tap()
+        let homeRow = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Zuhause' AND NOT label CONTAINS 'festlegen'")).firstMatch
+        need(homeRow, "zuhause-gespeichert")
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS 'Arbeit festlegen'")).firstMatch.exists, "Arbeit noch leer")
+        shot("favoriten")
+
         let searchField = need(app.textFields["Adresse oder Ort"], "suchfeld")
         type("Düsseldorf Hauptbahnhof", into: searchField)
         pause(6)
@@ -205,6 +217,15 @@ final class MeeterzUITests: MeeterzTestBase {
         shot("einstellungen-mitte")
         list.swipeUp()
         shot("einstellungen-unten")
+
+        // Navigationsstimme: Auswahl öffnet, „Automatisch“ ist vorgewählt
+        for _ in 0..<4 where !app.buttons["Navigationsstimme"].exists { list.swipeUp() }
+        need(app.buttons["Navigationsstimme"], "stimme-zeile").tap()
+        need(app.navigationBars["Navigationsstimme"], "stimme-ansicht")
+        need(app.staticTexts["Automatisch"], "stimme-automatisch")
+        shot("navigationsstimme")
+        app.navigationBars["Navigationsstimme"].buttons.firstMatch.tap()
+        pause(1)
 
         // 7. Konto löschen (räumt das Testkonto auf)
         let deleteButton = need(app.buttons["Konto löschen"], "konto-loeschen")

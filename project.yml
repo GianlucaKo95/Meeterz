@@ -51,6 +51,8 @@ targets:
       path: Meeterz/Info.plist
       properties:
         CFBundleDisplayName: Meeterz
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         ITSAppUsesNonExemptEncryption: false
         UILaunchScreen:
           UIColorName: LaunchBackground

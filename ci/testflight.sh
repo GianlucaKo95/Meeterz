@@ -13,7 +13,9 @@ for v in APPLE_TEAM_ID ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8 MAPBOX_DOWNLOADS_TOKE
   [ -n "${!v}" ] || { log "!! Secret/Variable $v fehlt"; exit 20; }
 done
 
-XCODE=$(ls -d /Applications/Xcode_27* 2>/dev/null | sort -V | tail -1)
+# Nur Release-Versionen: Apple lehnt Builds ab, die mit einer Beta-Xcode gebaut wurden
+XCODE=$(ls -d /Applications/Xcode_27* 2>/dev/null | grep -viE "beta|candidate|_RC" | sort -V | tail -1)
+[ -n "$XCODE" ] || XCODE=$(ls -d /Applications/Xcode_27* 2>/dev/null | sort -V | tail -1)
 [ -n "$XCODE" ] || { log "!! Kein Xcode 27 gefunden"; exit 10; }
 sudo xcode-select -s "$XCODE" 2>&1 | tee -a "$REPORT"
 xcodebuild -version 2>&1 | tee -a "$REPORT"

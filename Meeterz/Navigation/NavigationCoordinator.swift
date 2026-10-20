@@ -32,8 +32,10 @@ final class NavigationCoordinator: NSObject {
         var distance: CLLocationDistance { routes.mainRoute.route.distance }
         /// Linien für die Vorschaukarte: zuerst die Hauptroute, danach Alternativen
         var lines: [[CLLocationCoordinate2D]] {
-            ([routes.mainRoute.route] + routes.alternativeRoutes.map(\.route)).compactMap { $0.shape?.coordinates }
+            options.compactMap { $0.shape?.coordinates }
         }
+        /// Alle wählbaren Routen in fester Reihenfolge: Hauptroute, dann Alternativen
+        var options: [Route] { [routes.mainRoute.route] + routes.alternativeRoutes.map(\.route) }
     }
 
     private(set) var isNavigating = false

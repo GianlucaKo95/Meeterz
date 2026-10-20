@@ -1,6 +1,8 @@
 import SwiftUI
 import CoreLocation
 import MapKit
+import MapboxDirections
+import MapboxNavigationCore
 
 // MARK: - Zielsuche
 
@@ -193,6 +195,9 @@ struct RoutePreviewView: View {
     @Environment(\.dismiss) private var dismiss
     let preview: NavigationCoordinator.Preview
 
+    /// Gewählte Route: 0 = vorgeschlagene, danach Alternativen
+    @State private var selected = 0
+    @State private var chosen: NavigationRoutes?
     @State private var showInvite = false
     @State private var showFavoriteAlert = false
     @State private var favoriteName = ""
@@ -201,11 +206,42 @@ struct RoutePreviewView: View {
     @State private var simulate = NavigationCoordinator.simulate
     #endif
 
+    private var shown: Route { preview.options[min(selected, preview.options.count - 1)] }
+    private var eta: Date { Date().addingTimeInterval(shown.expectedTravelTime) }
+
+    /// Auswahl zwischen der vorgeschlagenen Route und Alternativen
+    private var routeChoices: some View {
+        HStack(spacing: 8) {
+            ForEach(Array(preview.options.enumerated()), id: \.offset) { index, route in
+                Button { select(index) } label: {
+                    VStack(spacing: 2) {
+                        Text(index == 0 ? "Schnellste" : "Alternative \(index)")
+                            .font(.caption.weight(.bold))
+                        Text("\(Format.minutes(until: Date().addingTimeInterval(route.expectedTravelTime))) · \(Format.distance(route.distance))")
+                            .font(.caption)
+                    }
+                    .frame(maxWidth: .infinity).padding(.vertical, 8)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(index == selected ? Theme.accent : Theme.panel))
+                    .foregroundStyle(index == selected ? Theme.ink : Theme.text)
+                }
+                .accessibilityLabel(index == 0 ? "Schnellste Route" : "Alternativroute \(index)")
+            }
+        }
+    }
+
+    private func select(_ index: Int) {
+        selected = index
+        Task {
+            chosen = index == 0 ? preview.routes : await preview.routes.selectingAlternativeRoute(at: index - 1)
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            RoutePreviewMap(lines: preview.lines, destination: preview.destination.coordinate)
+            RoutePreviewMap(lines: preview.lines, selected: selected, destination: preview.destination.coordinate)
                 .frame(height: 190)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
+            if preview.options.count > 1 { routeChoices }
             VStack(alignment: .leading, spacing: 4) {
                 Text("Ziel").font(.caption.weight(.bold)).foregroundStyle(Theme.accent).textCase(.uppercase)
                 Text(preview.destination.name).font(Theme.display(26))
@@ -215,9 +251,9 @@ struct RoutePreviewView: View {
             }
 
             HStack(spacing: 10) {
-                stat("Ankunft", Format.time.string(from: preview.eta), highlight: true)
-                stat("Dauer", Format.minutes(until: preview.eta))
-                stat("Strecke", Format.distance(preview.distance))
+                stat("Ankunft", Format.time.string(from: eta), highlight: true)
+                stat("Dauer", Format.minutes(until: eta))
+                stat("Strecke", Format.distance(shown.distance))
             }
 
             Text("Inklusive aktueller Verkehrslage. Deine Freunde sehen deine Route, solange du teilst.")
@@ -240,7 +276,9 @@ struct RoutePreviewView: View {
             #endif
 
             Spacer()
-            Button("Losfahren") { app.navigation.start(preview) }
+            Button("Losfahren") {
+                app.navigation.start(.init(destination: preview.destination, routes: chosen ?? preview.routes))
+            }
                 .buttonStyle(PrimaryButtonStyle())
             if !app.friends.accepted.isEmpty {
                 Button { showInvite = true } label: {
@@ -283,15 +321,19 @@ struct RoutePreviewView: View {
 /// Kleine Karte in der Routenvorschau: zeigt Route(n) komplett und zoomt passend darauf.
 struct RoutePreviewMap: View {
     let lines: [[CLLocationCoordinate2D]]
+    var selected = 0
     let destination: CLLocationCoordinate2D
     @State private var position: MapCameraPosition = .automatic
+    /// Gewählte Route zuletzt zeichnen, damit sie oben liegt
+    private var drawOrder: [Int] { lines.indices.filter { $0 != selected } + (lines.indices.contains(selected) ? [selected] : []) }
 
     var body: some View {
         Map(position: $position, interactionModes: [.pan, .zoom]) {
             UserAnnotation()
-            ForEach(Array(lines.enumerated()).reversed(), id: \.offset) { index, line in
+            ForEach(drawOrder, id: \.self) { index in
+                let line = lines[index]
                 MapPolyline(coordinates: line)
-                    .stroke(index == 0 ? Color.blue : Color.gray.opacity(0.7), lineWidth: index == 0 ? 6 : 4)
+                    .stroke(index == selected ? Color.blue : Color.gray.opacity(0.7), lineWidth: index == selected ? 6 : 4)
             }
             Marker("Ziel", coordinate: destination)
         }

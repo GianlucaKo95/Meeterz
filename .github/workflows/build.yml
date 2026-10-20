@@ -4,10 +4,11 @@ name: Build
 # Benötigt nur das Repo-Secret MAPBOX_DOWNLOADS_TOKEN (Mapbox Secret Token mit Scope "Downloads:Read").
 # Der Bericht wird auf den Branch "ci-report" geschrieben (Datei report.txt).
 
+# Läuft nachts und auf Knopfdruck (Actions → Build → Run workflow), nicht bei jedem Push:
+# Zum schnellen Ausprobieren dient der TestFlight-Workflow.
 on:
-  push:
-    branches: [main]
-    paths-ignore: ["docs/**", "*.md", "supabase/**"]
+  schedule:
+    - cron: "0 2 * * *"
   workflow_dispatch:
 
 concurrency:

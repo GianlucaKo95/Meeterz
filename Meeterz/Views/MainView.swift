@@ -470,6 +470,7 @@ struct UnterwegsSheet: View {
 
 private struct FriendRowView: View {
     @Environment(AppModel.self) private var app
+    @Environment(\.dismiss) private var dismiss
     let item: AppModel.FriendOnMap
 
     var body: some View {
@@ -478,19 +479,15 @@ private struct FriendRowView: View {
 
         Menu {
             Button("Route zu \(item.friend.displayName)", systemImage: "arrow.triangle.turn.up.right.diamond") {
-                Task {
-                    await app.navigation.planRoute(to: Place(
-                        id: "friend-\(item.friend.friendId)", name: item.friend.displayName,
-                        address: nil, coordinate: item.position.coordinate))
-                }
+                go(to: Place(
+                    id: "friend-\(item.friend.friendId)", name: item.friend.displayName,
+                    address: nil, coordinate: item.position.coordinate))
             }
             if let route {
                 Button("Zum Ziel von \(item.friend.displayName)", systemImage: "flag.checkered") {
-                    Task {
-                        await app.navigation.planRoute(to: Place(
-                            id: "dest-\(item.friend.friendId)", name: route.destinationName ?? "Ziel von \(item.friend.displayName)",
-                            address: nil, coordinate: route.destination))
-                    }
+                    go(to: Place(
+                        id: "dest-\(item.friend.friendId)", name: route.destinationName ?? "Ziel von \(item.friend.displayName)",
+                        address: nil, coordinate: route.destination))
                 }
             }
         } label: {
@@ -509,6 +506,15 @@ private struct FriendRowView: View {
                 }
             }
             .foregroundStyle(Theme.text)
+        }
+    }
+
+    /// „Unterwegs“-Fenster sofort schließen, dann die Route planen – die Vorschau kann erst nach dem Schließen erscheinen.
+    private func go(to place: Place) {
+        dismiss()
+        Task {
+            try? await Task.sleep(for: .milliseconds(450))
+            await app.navigation.planRoute(to: place)
         }
     }
 

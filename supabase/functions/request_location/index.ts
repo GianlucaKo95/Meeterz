@@ -37,7 +37,9 @@ Deno.serve(async (req) => {
   } catch {
     return json({ error: "invalid body" }, 400);
   }
-  const requested = Array.from(new Set(body.targets ?? [])).filter((t) => t && t !== user.id).slice(0, 20);
+  // Swift sendet UUIDs in Großbuchstaben, die Datenbank liefert sie klein – vor dem Vergleichen angleichen
+  const requested = Array.from(new Set((body.targets ?? []).map((t) => String(t).toLowerCase())))
+    .filter((t) => t && t !== user.id).slice(0, 20);
   if (!requested.length) return json({ requested: 0 });
 
   const keyId = Deno.env.get("APNS_KEY_ID");

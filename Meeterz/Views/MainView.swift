@@ -163,7 +163,7 @@ struct MainView: View {
             PointAnnotationGroup(app.friendsOnMap, id: \.id) { item in
                 let stale = item.position.age > 5 * 60
                 let photo = app.avatars.image(for: item.friend.friendId)
-                PointAnnotation(coordinate: item.position.coordinate)
+                return PointAnnotation(coordinate: item.position.coordinate)
                     .image(.init(
                         image: AvatarRenderer.image(initials: item.friend.initials,
                                                     color: FriendPalette.uiColor(for: item.friend.friendId),

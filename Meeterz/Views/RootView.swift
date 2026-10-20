@@ -4,6 +4,7 @@ import CryptoKit
 
 struct RootView: View {
     @Environment(AuthStore.self) private var auth
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         ZStack {
@@ -21,6 +22,10 @@ struct RootView: View {
             }
         }
         .foregroundStyle(Theme.text)
+        // Standortdienst sparsam: volles GPS nur bei sichtbarer App (siehe LocationService)
+        .onChange(of: scenePhase, initial: true) { _, phase in
+            AppModel.shared.location.setForeground(phase == .active)
+        }
     }
 }
 

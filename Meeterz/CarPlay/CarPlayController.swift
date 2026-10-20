@@ -52,6 +52,7 @@ final class CarPlayController: NSObject {
         manager.delegate = self
         manager.templateApplicationScene(scene, didConnect: interfaceController, to: window)
         isConnected = true
+        AppModel.shared.location.setCarPlay(true)
         watchInvites()
         // Läuft auf dem iPhone schon eine Navigation, übernimmt CarPlay sie
         if AppModel.shared.navigation.isNavigating {
@@ -67,6 +68,7 @@ final class CarPlayController: NSObject {
         manager.templateApplicationScene(scene, didDisconnect: interfaceController, from: window)
         manager.delegate = nil
         isConnected = false
+        AppModel.shared.location.setCarPlay(false)
         searchTask?.cancel()
         searchTask = nil
         searchCompletion = nil

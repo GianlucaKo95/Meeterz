@@ -40,6 +40,7 @@ final class AppModel {
         location.onUpdate = { [weak self] loc in
             Task { await self?.onLocation(loc) }
         }
+        location.isSharing = { [weak self] in self?.profile?.isSharingNow ?? true }
         location.requestPermission()
 
         await hub.startPublishing(userId: profile.id)
@@ -87,12 +88,14 @@ final class AppModel {
         let until = Date().addingTimeInterval(duration ?? 50 * 365 * 86400)
         await auth.setIncognito(until: until)
         guard self.profile?.isIncognito == true else { return }
+        location.refreshMode()
         await routes.clearMine()
         show("Inkognito aktiv – Freunde sehen weder deinen Standort noch deine Route.", isError: false)
     }
 
     func stopIncognito() async {
         await auth.setIncognito(until: nil)
+        location.refreshMode()
         show("Inkognito beendet – du bist für Freunde wieder sichtbar.", isError: false)
     }
 

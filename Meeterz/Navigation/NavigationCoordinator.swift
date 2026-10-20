@@ -172,6 +172,7 @@ final class NavigationCoordinator: NSObject {
         phoneController?.dismiss(animated: true)
         phoneController = nil
         isNavigating = false
+        AppModel.shared.location.setNavigating(false)
         destination = nil
         eta = nil
         remaining = nil
@@ -182,6 +183,7 @@ final class NavigationCoordinator: NSObject {
 
     private func beginTracking() {
         isNavigating = true
+        AppModel.shared.location.setNavigating(true)
         subscriptions.removeAll()
 
         // Fortschritt: höchstens jede Minute teilen (Verkehr ändert die Ankunftszeiten)

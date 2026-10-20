@@ -1,5 +1,4 @@
 import SwiftUI
-import CoreLocation
 import PhotosUI
 import AVFoundation
 
@@ -358,7 +357,6 @@ struct FriendsView: View {
                 .tint(Theme.accent)
                 .onChange(of: voiceOn) { _, v in MeeterzSpeechSynthesizer.shared.muted = !v }
             NavigationLink("Navigationsstimme") { VoicePickerView() }
-            NavigationLink("Standort-Diagnose") { LocationDiagnoseView() }
             Link("Datenschutzerklärung", destination: Legal.privacyURL)
             LabeledContent("Version", value: Self.versionText)
         }
@@ -490,99 +488,6 @@ struct VoicePickerView: View {
                 Spacer()
                 if selected { Image(systemName: "checkmark").foregroundStyle(Theme.accent) }
             }
-        }
-    }
-}
-
-
-// MARK: - Standort-Diagnose
-
-/// Zeigt, warum ein Freund „dunkel“ ist: Zustand dieses Geräts und Weck-Test für jeden Freund.
-struct LocationDiagnoseView: View {
-    @Environment(AppModel.self) private var app
-    @State private var results: [UUID: String] = [:]
-    @State private var busy: Set<UUID> = []
-
-    private var authText: String {
-        switch app.location.authorization {
-        case .authorizedAlways: "Immer"
-        case .authorizedWhenInUse: "Beim Verwenden (im Hintergrund eingeschränkt)"
-        case .denied: "Verweigert"
-        case .restricted: "Eingeschränkt"
-        default: "Nicht gefragt"
-        }
-    }
-
-    private var modeText: String {
-        switch app.location.mode {
-        case .full: "Genau (App offen)"
-        case .moving: "Unterwegs"
-        case .saving: "Sparsam (nur große Ortswechsel)"
-        case .off: "Aus"
-        }
-    }
-
-    private var refreshText: String {
-        switch UIApplication.shared.backgroundRefreshStatus {
-        case .available: "An"
-        case .denied: "Aus – stille Pushs kommen nicht an"
-        default: "Eingeschränkt"
-        }
-    }
-
-    private func age(_ seconds: TimeInterval) -> String {
-        let m = Int(seconds / 60)
-        if m < 1 { return "gerade eben" }
-        return m < 60 ? "vor \(m) Min." : "vor \(m / 60) Std. \(m % 60) Min."
-    }
-
-    var body: some View {
-        List {
-            Section("Dieses Gerät") {
-                LabeledContent("Standort-Erlaubnis", value: authText)
-                LabeledContent("Modus", value: modeText)
-                LabeledContent("Letzte Position", value: app.location.lastLocation.map { age(-$0.timestamp.timeIntervalSinceNow) } ?? "–")
-                LabeledContent("Hintergrundaktualisierung", value: refreshText)
-                LabeledContent("Stromsparmodus", value: ProcessInfo.processInfo.isLowPowerModeEnabled ? "An – bremst Hintergrund" : "Aus")
-            }
-            .listRowBackground(Theme.panel)
-
-            Section {
-                ForEach(app.friends.accepted, id: \.friendId) { f in
-                    VStack(alignment: .leading, spacing: 8) {
-                        let last = app.hub.positions[f.friendId] ?? f.lastKnown
-                        Text(f.displayName).font(.headline)
-                        Text(last.map { "Letztes Signal \(age($0.age))" } ?? "Kein Signal – teilt gerade nicht")
-                            .font(.footnote).foregroundStyle(Theme.muted)
-                        Button(busy.contains(f.friendId) ? "Frage …" : "Standort jetzt anfragen") { ping(f) }
-                            .disabled(busy.contains(f.friendId))
-                        if let r = results[f.friendId] {
-                            Text(r).font(.footnote).foregroundStyle(Theme.muted)
-                        }
-                    }
-                    .padding(.vertical, 4)
-                }
-            } header: {
-                Text("Freunde")
-            } footer: {
-                Text("Der Freund braucht „Immer“ als Standort-Erlaubnis, aktive Hintergrundaktualisierung, und die App darf nicht per App-Wechsler beendet sein.")
-            }
-            .listRowBackground(Theme.panel)
-        }
-        .scrollContentBackground(.hidden)
-        .background(Theme.ink)
-        .navigationTitle("Standort-Diagnose")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private func ping(_ f: FriendRow) {
-        busy.insert(f.friendId)
-        results[f.friendId] = nil
-        Task {
-            results[f.friendId] = await app.push.requestLocationsReport(of: [f.friendId])
-            try? await Task.sleep(for: .seconds(20))
-            await app.friends.refresh()
-            busy.remove(f.friendId)
         }
     }
 }

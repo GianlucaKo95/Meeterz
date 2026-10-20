@@ -39,23 +39,6 @@ final class PushService {
         }
     }
 
-    /// Wie `requestLocations`, aber mit Rückmeldung des Servers (für die Standort-Diagnose).
-    func requestLocationsReport(of users: [UUID]) async -> String {
-        struct Body: Encodable { let targets: [UUID] }
-        struct Resp: Decodable { let requested: Int?; let sent: Int?; let skipped: Bool?; let reason: String? }
-        do {
-            let r: Resp = try await client.functions.invoke("request_location", options: FunctionInvokeOptions(body: Body(targets: users)))
-            if r.skipped == true { return "Push ist serverseitig nicht eingerichtet (\(r.reason ?? "?"))." }
-            if (r.requested ?? 0) == 0 {
-                return "Nichts gesendet: Der Freund teilt gerade nicht, hat ein frisches Signal oder kein Gerät registriert."
-            }
-            if (r.sent ?? 0) == 0 { return "Apple hat den Weck-Push abgelehnt (Gerät ungültig oder nicht erreichbar)." }
-            return "Weck-Push an \(r.sent ?? 0) von \(r.requested ?? 0) Gerät(en) gesendet. Antwort folgt in Sekunden, falls das Gerät ihn zustellt."
-        } catch {
-            return "Fehler beim Aufruf: \(error.localizedDescription)"
-        }
-    }
-
     /// Feuert und vergisst – eine fehlende Push-Konfiguration darf nie den eigentlichen Vorgang stören.
     func notify(_ kind: Kind, to user: UUID, meetupId: UUID? = nil) {
         struct Body: Encodable { let kind: Kind; let target: UUID; let meetup_id: UUID? }

@@ -56,10 +56,11 @@ final class MeeterzZLiveNavTests: MeeterzTestBase {
         app.buttons["Anmelden"].tap()
         need(app.buttons["Ziel suchen"], "karte", timeout: 60)
         for _ in 0..<4 { app.tap(); pause(3); dismissSystemDialogs() }
-        if !app.buttons["Ziel suchen"].exists { app.tap() }   // Bedienelemente ggf. wieder einblenden
+        showChrome()
         shot("karte-nach-login")
 
         // Freund erscheint (Liste lädt alle 30 s)
+        showChrome()
         need(app.buttons["Freunde"], "freunde-knopf").tap()      // „Unterwegs“-Fenster bleibt für die Messung offen
         pause(2)
         if !app.buttons["Fertig"].exists {

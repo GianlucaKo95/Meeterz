@@ -96,6 +96,16 @@ class MeeterzTestBase: XCTestCase {
         return need(element, name, timeout: 1)
     }
 
+    /// Ein Tipp auf die Karte blendet die Bedienelemente aus – vor Bedienung sicherstellen, dass sie da sind.
+    func showChrome() {
+        for _ in 0..<3 {
+            let search = app.buttons["Ziel suchen"]
+            if search.exists && search.isHittable { return }
+            app.tap()
+            pause(1)
+        }
+    }
+
     func pause(_ seconds: TimeInterval) {
         Thread.sleep(forTimeInterval: seconds)
     }
@@ -132,7 +142,7 @@ final class MeeterzUITests: MeeterzTestBase {
         // 4. Karte
         need(app.buttons["Ziel suchen"], "karte", timeout: 40)
         app.tap()                       // löst ggf. Systemdialoge aus
-        if !app.buttons["Ziel suchen"].exists { app.tap() }   // Tipp auf die Karte blendet die Bedienelemente aus – wieder einblenden
+        showChrome()
         pause(8)
         dismissSystemDialogs()
         pause(4)                       // Karte und Kacheln laden
@@ -167,6 +177,7 @@ final class MeeterzUITests: MeeterzTestBase {
         app.swipeDown(velocity: .fast)
 
         // 6. Freunde und Einstellungen
+        showChrome()
         need(app.buttons["Freunde"], "freunde-knopf").tap()
         need(app.buttons.matching(NSPredicate(format: "label IN {'Freunde verwalten', 'Freunde hinzufügen'}")).firstMatch, "freunde-verwalten").tap()   // „Unterwegs“-Fenster → Verwaltung
         need(app.navigationBars["Freunde"], "freunde-ansicht")

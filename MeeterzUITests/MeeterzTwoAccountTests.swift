@@ -128,13 +128,14 @@ final class MeeterzTwoAccountTests: MeeterzTestBase {
         app.buttons["Los geht's"].tap()
         need(app.buttons["Ziel suchen"], "karte", timeout: 40)
         app.tap()
-        if !app.buttons["Ziel suchen"].exists { app.tap() }   // Tipp auf die Karte blendet die Bedienelemente aus – wieder einblenden
+        showChrome()
         pause(6)
         dismissSystemDialogs()
         pause(3)
         shot("a-karte-ohne-freund")
 
         // A schickt B eine Anfrage
+        showChrome()
         need(app.buttons["Freunde"], "freunde-knopf").tap()
         need(app.buttons.matching(NSPredicate(format: "label IN {'Freunde verwalten', 'Freunde hinzufügen'}")).firstMatch, "freunde-verwalten").tap()   // „Unterwegs“-Fenster → Verwaltung
         need(app.navigationBars["Freunde"], "freunde-ansicht")
@@ -182,7 +183,8 @@ final class MeeterzTwoAccountTests: MeeterzTestBase {
         app.buttons["Fertig"].tap()
         dismissSystemDialogs()
         // Der Freund zählt erst als angenommen und sichtbar, wenn die Karte ihn geladen hat
-        if !app.buttons["Freunde"].exists { app.tap() }      // Bedienelemente ggf. wieder einblenden
+        showChrome()
+        showChrome()
         need(app.buttons["Freunde"], "freunde-knopf-sichtbar").tap()          // „Unterwegs“-Fenster
         needPolling(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'von 1 sichtbar'")).firstMatch,
                     "freund-sichtbar", timeout: 75)
@@ -204,6 +206,7 @@ final class MeeterzTwoAccountTests: MeeterzTestBase {
         }
         waitFor(true, "B sieht A vor Inkognito") { locationOfA(seenBy: b) }
 
+        showChrome()
         need(app.buttons["Inkognito-Modus aktivieren"], "inkognito-knopf").tap()
         need(app.buttons["1 Stunde"], "inkognito-dauer").tap()
         pause(3)
@@ -212,6 +215,7 @@ final class MeeterzTwoAccountTests: MeeterzTestBase {
                       "Inkognito-Hinweis auf der Karte")
         waitFor(false, "B sieht A im Inkognito nicht") { locationOfA(seenBy: b) }
 
+        showChrome()
         need(app.buttons["Inkognito-Modus beenden"], "inkognito-beenden").tap()
         pause(3)
         waitFor(true, "B sieht A nach Inkognito wieder") { locationOfA(seenBy: b) }
@@ -250,6 +254,7 @@ final class MeeterzTwoAccountTests: MeeterzTestBase {
 
         // Aufräumen: A über die App, B und C über das Backend
         for _ in 0..<3 where !app.navigationBars["Freunde"].exists {
+            showChrome()
             need(app.buttons["Freunde"], "freunde-knopf-2").tap()
             let manage = app.buttons.matching(NSPredicate(format: "label IN {'Freunde verwalten', 'Freunde hinzufügen'}")).firstMatch
             if manage.waitForExistence(timeout: 6) { manage.tap() }

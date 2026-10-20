@@ -17,6 +17,8 @@ struct FlyoverMapView: View {
 
     @State private var position: MapCameraPosition = .automatic
     @State private var lastCamera: MapCamera?
+    @State private var idleToken = 0
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         MapReader { proxy in
@@ -90,6 +92,17 @@ struct FlyoverMapView: View {
         .mapControls { }
         .ignoresSafeArea()
         .onMapCameraChange(frequency: .continuous) { context in lastCamera = context.camera }
+        // Weggescrollt: nach 10 s ohne Eingabe zurück zum eigenen Standort
+        .onMapCameraChange(frequency: .onEnd) { _ in
+            guard position.positionedByUser else { return }
+            idleToken += 1
+            let token = idleToken
+            Task {
+                try? await Task.sleep(for: .seconds(10))
+                if token == idleToken, position.positionedByUser { follow(force: true) }
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in if phase == .active { follow(force: true) } }
         .onAppear { follow(force: true) }
         .onChange(of: zoomSteps) { old, new in zoom(by: new - old) }
         .onChange(of: recenterTick) { _, _ in follow(force: true) }

@@ -46,6 +46,7 @@ final class NavigationCoordinator: NSObject {
 
     @ObservationIgnored private weak var phoneController: NavigationViewController?
     @ObservationIgnored private var overlay: FriendOverlay?
+    @ObservationIgnored private var recenterTask: Task<Void, Never>?
     @ObservationIgnored private var subscriptions = Set<AnyCancellable>()
 
     private var core: MapboxNavigation { navigationProvider.mapboxNavigation }
@@ -130,6 +131,7 @@ final class NavigationCoordinator: NSObject {
                       top !== controller else { continue }
                 top.present(controller, animated: true) {
                     Self.installMuteButton(on: controller)
+                    self?.startAutoRecenter(controller)
                     if let mapView = controller.navigationMapView?.mapView {
                         Satellite3DBuildings.install(
                             on: mapView,
@@ -149,6 +151,27 @@ final class NavigationCoordinator: NSObject {
             let info = top.map { "\(type(of: $0)), Sheet: \($0.presentationController is UISheetPresentationController), schließt: \($0.isBeingDismissed)" } ?? "kein Controller"
             self?.stop()
             AppModel.shared.show("Navigation konnte nicht gestartet werden (\(info)).")
+        }
+    }
+
+    /// Wurde die Karte weggeschoben, springt die Kamera nach 10 s ohne Eingabe zurück zur Position.
+    private func startAutoRecenter(_ controller: NavigationViewController) {
+        recenterTask?.cancel()
+        recenterTask = Task { @MainActor [weak controller] in
+            var idleSeconds = 0
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                guard let camera = controller?.navigationMapView?.navigationCamera else { continue }
+                if camera.currentCameraState == .idle {
+                    idleSeconds += 1
+                    if idleSeconds >= 10 {
+                        camera.update(cameraState: .following)
+                        idleSeconds = 0
+                    }
+                } else {
+                    idleSeconds = 0
+                }
+            }
         }
     }
 
@@ -202,6 +225,8 @@ final class NavigationCoordinator: NSObject {
         subscriptions.removeAll()
         overlay?.stop()
         overlay = nil
+        recenterTask?.cancel()
+        recenterTask = nil
         navigationProvider.tripSession().setToIdle()
         phoneController?.dismiss(animated: true)
         phoneController = nil

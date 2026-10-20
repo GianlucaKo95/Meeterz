@@ -23,6 +23,8 @@ struct MainView: View {
     @State private var chromeHidden = false
     /// Per langem Druck auf die Karte gesetzter Pin
     @State private var droppedPin: Place?
+    @State private var idleToken = 0
+    @Environment(\.scenePhase) private var scenePhase
 
     /// Kamera folgt dem eigenen Standort – in 3D schräg von hinten, in Fahrtrichtung gedreht
     private var followViewport: Viewport {
@@ -110,6 +112,21 @@ struct MainView: View {
         }
         .task { await app.startSession() }
         .onAppear { viewport = followViewport }
+        // Weggescrollt (Mapbox-Karte): nach 10 s ohne Eingabe zurück zum Standort
+        .onChange(of: viewport) { _, new in
+            guard !satellite, new == .idle else { return }
+            idleToken += 1
+            let token = idleToken
+            Task {
+                try? await Task.sleep(for: .seconds(10))
+                if token == idleToken, viewport == .idle {
+                    withViewportAnimation(.easeOut(duration: 0.6)) { viewport = followViewport }
+                }
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active, !satellite { withViewportAnimation(.easeOut(duration: 0.6)) { viewport = followViewport } }
+        }
         .onChange(of: zoomSteps) { _, _ in
             withViewportAnimation(.easeOut(duration: 0.35)) { viewport = followViewport }
         }

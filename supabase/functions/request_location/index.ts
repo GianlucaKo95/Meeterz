@@ -49,10 +49,20 @@ Deno.serve(async (req) => {
   const admin = createClient(url, serviceKey);
 
   // 1) nur angenommene Freunde
-  const { data: ships } = await admin.from("friendships").select("requester, addressee")
-    .eq("status", "accepted").or(`requester.eq.${user.id},addressee.eq.${user.id}`);
-  const friends = new Set((ships ?? []).map((s) => (s.requester === user.id ? s.addressee : s.requester)));
+  // Zwei einfache Abfragen (wie in „notify“) statt .or(): Freunde in beide Richtungen
+  const asRequester = await admin.from("friendships").select("addressee")
+    .eq("requester", user.id).eq("status", "accepted");
+  const asAddressee = await admin.from("friendships").select("requester")
+    .eq("addressee", user.id).eq("status", "accepted");
+  if (asRequester.error || asAddressee.error) {
+    console.log(`request_location: Freundschaften-Abfrage fehlgeschlagen: ${asRequester.error?.message ?? asAddressee.error?.message}`);
+  }
+  const friends = new Set<string>([
+    ...(asRequester.data ?? []).map((r) => r.addressee as string),
+    ...(asAddressee.data ?? []).map((r) => r.requester as string),
+  ]);
   let targets = requested.filter((t) => friends.has(t));
+  console.log(`request_location: ${friends.size} angenommene Freunde insgesamt`);
   console.log(`request_location: angefragt=${requested.length}, davon Freunde=${targets.length}`);
 
   // 2) nur wer gerade teilt (nicht pausiert, nicht inkognito)

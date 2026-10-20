@@ -13,10 +13,15 @@ for v in APPLE_TEAM_ID ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8 MAPBOX_DOWNLOADS_TOKE
   [ -n "${!v}" ] || { log "!! Secret/Variable $v fehlt"; exit 20; }
 done
 
-# Nur Release-Versionen: Apple lehnt Builds ab, die mit einer Beta-Xcode gebaut wurden
-XCODE=$(ls -d /Applications/Xcode_27* 2>/dev/null | grep -viE "beta|candidate|_RC" | sort -V | tail -1)
-[ -n "$XCODE" ] || XCODE=$(ls -d /Applications/Xcode_27* 2>/dev/null | sort -V | tail -1)
-[ -n "$XCODE" ] || { log "!! Kein Xcode 27 gefunden"; exit 10; }
+# Nur Release-Versionen: Apple lehnt Builds ab, die mit einer Beta-Xcode gebaut wurden.
+# Der Ordnername verrät das nicht zuverlässig – Beta-Builds erkennt man an einem Kleinbuchstaben am Ende der Build-Nummer.
+XCODE=""
+for dir in $(ls -d /Applications/Xcode_27* 2>/dev/null | grep -viE "beta|candidate|_RC" | sort -Vr); do
+  build=$(DEVELOPER_DIR="$dir" xcodebuild -version 2>/dev/null | awk '/Build version/ {print $3}')
+  log "Xcode-Kandidat: $dir ($build)"
+  if [ -n "$build" ] && ! echo "$build" | grep -q '[a-z]$'; then XCODE="$dir"; break; fi
+done
+[ -n "$XCODE" ] || { log "!! Keine Release-Xcode gefunden (nur Betas)"; exit 10; }
 sudo xcode-select -s "$XCODE" 2>&1 | tee -a "$REPORT"
 xcodebuild -version 2>&1 | tee -a "$REPORT"
 

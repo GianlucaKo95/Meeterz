@@ -152,4 +152,4 @@ xcrun altool --upload-app -f "$IPA" -t ios \
 RES=$?
 tail -30 upload.log | tee -a "$REPORT"
 [ $RES -eq 0 ] || { log "!! Upload fehlgeschlagen ($RES)"; exit 32; }
-log "Hochgeladen: Version $(grep MARKETING_VERSION project.yml | head -1 | tr -d ' ') Build ${GITHUB_RUN_NUMBER:-1}"
+log "Hochgeladen: Version $(grep MARKETING_VERSION project.yml | head -1 | sed 's/.*: *//; s/\"//g') Build ${GITHUB_RUN_NUMBER:-1}"

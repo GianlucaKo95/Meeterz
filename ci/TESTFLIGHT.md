@@ -45,3 +45,9 @@ App Store Connect → TestFlight → Interne Tester (bis zu 100 Personen mit Rol
 - **Push-Benachrichtigungen** sind in der App vorbereitet; die Server-Funktion `notify` (APNs-Schlüssel) ist noch nicht eingerichtet.
 - **Datenschutz-Angaben** in App Store Connect: Standort (genau), Name, E-Mail, Fotos, Audio, Nutzer-ID – alle „mit der Identität verknüpft“, **nicht** zum Tracking, Zweck „App-Funktionalität“ (entspricht `PrivacyInfo.xcprivacy`). Datenschutz-URL: https://gianlucako95.github.io/Meeterz/datenschutz
 - **CarPlay:** Nach Freigabe das Entitlement-Profil neu erzeugen lassen und den Workflow mit „carplay“ = an starten.
+
+## Versionsnummern
+
+- **Version** (`MARKETING_VERSION` in `project.yml`) bleibt bei **1.0**, bis wir bewusst eine neue Version veröffentlichen.
+- **Build** (Zahl in Klammern) ist die laufende Nummer des TestFlight-Workflows und steigt bei jedem Lauf automatisch. Dadurch zeigt TestFlight immer ein normales Update an.
+- Die installierte Version steht in der App unter Freunde → App → Version.

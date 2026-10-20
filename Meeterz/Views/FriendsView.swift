@@ -332,6 +332,14 @@ struct FriendsView: View {
         .listRowBackground(Theme.panel)
     }
 
+    /// Installierte Version, z. B. „1.0 (7)“ – die Zahl in Klammern steigt mit jedem TestFlight-Build
+    private static var versionText: String {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "?"
+        let build = info?["CFBundleVersion"] as? String ?? "?"
+        return "\(version) (\(build))"
+    }
+
     private var appSection: some View {
         Section("App") {
             Picker("Karte in CarPlay", selection: $carPlaySatellite) {
@@ -344,6 +352,7 @@ struct FriendsView: View {
                 .onChange(of: simulate) { _, v in NavigationCoordinator.simulate = v }
             #endif
             Link("Datenschutzerklärung", destination: Legal.privacyURL)
+            LabeledContent("Version", value: Self.versionText)
         }
         .listRowBackground(Theme.panel)
     }

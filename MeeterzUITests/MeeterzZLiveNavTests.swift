@@ -10,7 +10,7 @@ final class MeeterzZLiveNavTests: MeeterzTestBase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         app = XCUIApplication()
-        app.launchArguments += ["-ui.reset", "-dev.simulate", "YES", "-map.satellite", "YES"]   // Satellit erzwingen       // simulierte Fahrt statt echter Ortung
+        app.launchArguments += ["-ui.reset", "-dev.simulate", "YES"]   // Satellit ist Standard; kein Argument, sonst überschreibt es den Umschalter
         app.launch()
     }
 

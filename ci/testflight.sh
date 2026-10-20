@@ -21,7 +21,11 @@ for dir in $(ls -d /Applications/Xcode_27* 2>/dev/null | grep -viE "beta|candida
   log "Xcode-Kandidat: $dir ($build)"
   if [ -n "$build" ] && ! echo "$build" | grep -q '[a-z]$'; then XCODE="$dir"; break; fi
 done
-[ -n "$XCODE" ] || { log "!! Keine Release-Xcode gefunden (nur Betas)"; exit 10; }
+if [ -z "$XCODE" ]; then
+  log "!! Keine Release-Xcode erkannt – nehme die neueste vorhandene"
+  XCODE=$(ls -d /Applications/Xcode_27* 2>/dev/null | sort -V | tail -1)
+fi
+[ -n "$XCODE" ] || { log "!! Kein Xcode 27 gefunden"; exit 10; }
 sudo xcode-select -s "$XCODE" 2>&1 | tee -a "$REPORT"
 xcodebuild -version 2>&1 | tee -a "$REPORT"
 
@@ -54,12 +58,16 @@ mkdir -p build
 WORK="$PWD/build/signing"
 PROFILE_NAME="Meeterz CI ${GITHUB_RUN_NUMBER:-0}-$(date +%s)"
 KC="$PWD/build/ci.keychain-db"
+# Zertifikat und Profil bleiben nach dem Upload bestehen, bis Apple den Build verarbeitet hat
+# (sofortiges Löschen ergab „ITMS-90035: Invalid Signature“); der nächste Lauf räumt Altes (> 2 Std.) weg.
 cleanup() {
-  python3 ci/asc.py cleanup "$WORK" 2>&1 | tee -a "$REPORT"
   security delete-keychain "$KC" >/dev/null 2>&1
 }
 trap cleanup EXIT
 
+log ""
+log "== Alte CI-Zertifikate aufräumen =="
+python3 ci/asc.py purge 2>&1 | tee -a "$REPORT"
 log ""
 log "== Zertifikat und Profil erzeugen =="
 python3 ci/asc.py create "$WORK" de.koeven.meeterz "$PROFILE_NAME" 2>&1 | tee -a "$REPORT"

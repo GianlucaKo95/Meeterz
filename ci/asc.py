@@ -77,6 +77,32 @@ def cleanup(workdir):
         except SystemExit:
             pass
 
+def purge(max_age_seconds=7200):
+    """Löscht Profile und Zertifikate früherer CI-Läufe (Name „Meeterz CI <Lauf>-<Unix-Zeit>“), die älter als 2 Stunden sind.
+    Das Zertifikat bleibt nach dem Upload bewusst bestehen: Apple prüft die Signatur erst bei der Verarbeitung,
+    ein sofort gelöschtes Zertifikat führt zu „ITMS-90035: Invalid Signature“."""
+    now = time.time()
+    for prof in api("GET", "/v1/profiles?limit=200").get("data", []):
+        name = prof["attributes"].get("name", "")
+        if not name.startswith("Meeterz CI "):
+            continue
+        try:
+            created = int(name.rsplit("-", 1)[1])
+        except (IndexError, ValueError):
+            created = 0
+        if now - created < max_age_seconds:
+            print("behalten (zu jung):", name); continue
+        try:
+            certs = api("GET", f"/v1/profiles/{prof['id']}/certificates").get("data", [])
+        except SystemExit:
+            certs = []
+        for kind, ident in [("profiles", prof["id"])] + [("certificates", c["id"]) for c in certs]:
+            try:
+                api("DELETE", f"/v1/{kind}/{ident}")
+                print("gelöscht:", kind, ident, name)
+            except SystemExit:
+                pass
+
 def status(bundle_identifier):
     """Zeigt die letzten Builds mit Verarbeitungsstatus und – falls vorhanden – die Fehler der Uploads."""
     def safe(path):
@@ -95,6 +121,7 @@ def status(bundle_identifier):
 
 if __name__ == "__main__":
     cmd = sys.argv[1]
+    if cmd == "purge": purge(); raise SystemExit
     if cmd == "status": status(sys.argv[2]); raise SystemExit
     if cmd == "create": create(sys.argv[2], sys.argv[3], sys.argv[4])
     elif cmd == "cleanup": cleanup(sys.argv[2])

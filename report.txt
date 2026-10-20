@@ -1,0 +1,9 @@
+App 6824853051
+Build 8: INVALID, min iOS 18.0, hochgeladen 2026-10-20T13:49:19-07:00, abgelaufen=False
+Build 7: VALID, min iOS 27.0, hochgeladen 2026-10-20T11:55:48-07:00, abgelaufen=True
+Build 6: VALID, min iOS 27.0, hochgeladen 2026-10-20T07:34:10-07:00, abgelaufen=False
+Build 1: VALID, min iOS 27.0, hochgeladen 2026-10-20T03:02:02-07:00, abgelaufen=False
+Upload 8: {"errors": [], "warnings": [], "infos": [], "state": "COMPLETE"}
+Upload 7: {"errors": [], "warnings": [], "infos": [], "state": "COMPLETE"}
+Upload 6: {"errors": [], "warnings": [], "infos": [], "state": "COMPLETE"}
+Upload 1: {"errors": [], "warnings": [], "infos": [], "state": "COMPLETE"}

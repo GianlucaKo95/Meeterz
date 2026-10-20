@@ -63,21 +63,42 @@ cat > ExportOptions.plist <<PL
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
   <key>method</key><string>app-store-connect</string>
-  <key>destination</key><string>upload</string>
+  <key>destination</key><string>export</string>
   <key>teamID</key><string>${APPLE_TEAM_ID}</string>
   <key>signingStyle</key><string>automatic</string>
-  <key>uploadSymbols</key><true/>
+  <key>uploadSymbols</key><false/>
+  <key>manageAppVersionAndBuildNumber</key><false/>
 </dict></plist>
 PL
 
 log ""
-log "== Hochladen zu TestFlight =="
+log "== Signatur im Archiv =="
+APP_IN_ARCHIVE=$(ls -d build/Meeterz.xcarchive/Products/Applications/*.app | head -1)
+codesign -dvv "$APP_IN_ARCHIVE" 2>&1 | grep -E "Authority|Identifier|TeamIdentifier|Signature" | tee -a "$REPORT"
+security find-identity -v -p codesigning 2>&1 | tee -a "$REPORT"
+
+log ""
+log "== Exportieren (lokal, Verteilungs-Signatur) =="
 xcodebuild -exportArchive \
   -archivePath build/Meeterz.xcarchive \
   -exportOptionsPlist ExportOptions.plist \
   -exportPath build/export \
   "${AUTH[@]}" > export.log 2>&1
 RES=$?
-tail -30 export.log | tee -a "$REPORT"
-[ $RES -eq 0 ] || { log "!! Export/Upload fehlgeschlagen ($RES)"; exit 31; }
+grep -iE "error|warning: |sign|certificate|profile|EXPORT" export.log | sort -u | head -40 | tee -a "$REPORT"
+[ $RES -eq 0 ] || { log "!! Export fehlgeschlagen ($RES)"; exit 31; }
+IPA=$(ls build/export/*.ipa | head -1)
+log "IPA: $IPA"
+rm -rf build/ipa-check && mkdir -p build/ipa-check && unzip -q "$IPA" -d build/ipa-check
+codesign -dvv build/ipa-check/Payload/*.app 2>&1 | grep -E "Authority|TeamIdentifier" | tee -a "$REPORT"
+codesign -dvv build/ipa-check/Payload/*.app/Frameworks/MapboxCommon.framework 2>&1 | grep -E "Authority|TeamIdentifier" | tee -a "$REPORT"
+codesign --verify --deep --strict build/ipa-check/Payload/*.app 2>&1 | tee -a "$REPORT"
+
+log ""
+log "== Hochladen zu TestFlight (altool) =="
+xcrun altool --upload-app -f "$IPA" -t ios \
+  --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID" > upload.log 2>&1
+RES=$?
+tail -30 upload.log | tee -a "$REPORT"
+[ $RES -eq 0 ] || { log "!! Upload fehlgeschlagen ($RES)"; exit 32; }
 log "Hochgeladen: Version $(grep MARKETING_VERSION project.yml | head -1 | tr -d ' ') Build ${GITHUB_RUN_NUMBER:-1}"

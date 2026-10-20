@@ -9,6 +9,9 @@ struct MainView: View {
 
     @State private var viewport: Viewport = .idle
     @State private var showFriends = false
+    /// „Unterwegs“-Fenster (öffnet über das Freunde-Symbol) und Folgeaktion nach dem Schließen
+    @State private var showUnterwegs = false
+    @State private var openManageAfterDismiss = false
     @State private var showSearch = false
     @State private var plannedMeetup: MeetupCandidate?
     @State private var recenterTick = 0
@@ -54,7 +57,6 @@ struct MainView: View {
             VStack(spacing: 10) {
                 Spacer()
                 SocialCards(plannedMeetup: $plannedMeetup)
-                UnterwegsPanel(showFriends: $showFriends)
             }
             .padding(.horizontal, 12)
             .padding(.bottom, 8)
@@ -72,6 +74,16 @@ struct MainView: View {
             Button("Abbrechen", role: .cancel) {}
         } message: {
             Text("Freunde sehen weder deinen Standort noch deine Route – und erfahren nicht, dass du inkognito bist.")
+        }
+        .sheet(isPresented: $showUnterwegs, onDismiss: {
+            // Erst nach dem Schließen öffnen – ein Sheet auf ein noch schließendes Sheet schlägt fehl
+            if openManageAfterDismiss { openManageAfterDismiss = false; showFriends = true }
+        }) {
+            UnterwegsSheet {
+                openManageAfterDismiss = true
+                showUnterwegs = false
+            }
+            .environment(app)
         }
         .sheet(isPresented: $showFriends) { FriendsView() }
         .sheet(isPresented: $showSearch) { SearchView() }
@@ -188,8 +200,9 @@ struct MainView: View {
             CircleIconButton(
                 systemName: "person.2.fill",
                 label: "Freunde",
-                badge: !app.friends.incoming.isEmpty
-            ) { showFriends = true }
+                badge: !app.friends.incoming.isEmpty,
+                activeDot: !app.routes.friendRoutes.isEmpty
+            ) { showUnterwegs = true }
         }
         .padding(.top, 8)
     }
@@ -331,37 +344,47 @@ struct BannerView: View {
 
 // MARK: - Unterwegs-Panel
 
-struct UnterwegsPanel: View {
+/// „Unterwegs“: wer gerade sichtbar ist, mit Entfernung und – falls vorhanden – Ziel und Ankunft.
+struct UnterwegsSheet: View {
     @Environment(AppModel.self) private var app
-    @Binding var showFriends: Bool
+    @Environment(\.dismiss) private var dismiss
+    let manageFriends: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("Unterwegs").font(Theme.display(22))
-                Spacer()
-                Text(app.friends.accepted.isEmpty ? "" : "\(app.friendsOnMap.count) von \(app.friends.accepted.count) sichtbar")
-                    .font(.footnote).foregroundStyle(Theme.muted)
-            }
-
-            if app.friends.accepted.isEmpty {
-                Text("Noch keine Freunde. Füge jemanden über den Benutzernamen hinzu.")
-                    .font(.subheadline).foregroundStyle(Theme.muted)
-                Button("Freunde hinzufügen") { showFriends = true }
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    if app.friends.accepted.isEmpty {
+                        Text("Noch keine Freunde. Füge jemanden über den Benutzernamen hinzu.")
+                            .font(.subheadline).foregroundStyle(Theme.muted)
+                    } else {
+                        Text("\(app.friendsOnMap.count) von \(app.friends.accepted.count) sichtbar")
+                            .font(.footnote).foregroundStyle(Theme.muted)
+                        ForEach(app.friendsOnMap) { item in
+                            FriendRowView(item: item)
+                        }
+                        if app.friendsOnMap.isEmpty {
+                            Text("Gerade teilt niemand seinen Standort.")
+                                .font(.subheadline).foregroundStyle(Theme.muted)
+                        }
+                    }
+                    Button(app.friends.accepted.isEmpty ? "Freunde hinzufügen" : "Freunde verwalten") {
+                        manageFriends()
+                    }
                     .buttonStyle(PrimaryButtonStyle())
-            } else {
-                ForEach(app.friendsOnMap.prefix(3)) { item in
-                    FriendRowView(item: item)
+                    .padding(.top, 8)
                 }
-                if app.friendsOnMap.isEmpty {
-                    Text("Gerade teilt niemand seinen Standort.")
-                        .font(.subheadline).foregroundStyle(Theme.muted)
-                }
+                .padding(16)
+            }
+            .background(Theme.ink)
+            .navigationTitle("Unterwegs")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } }
             }
         }
-        .padding(16)
-        .background(RoundedRectangle(cornerRadius: 26).fill(Theme.panel))
-        .overlay(RoundedRectangle(cornerRadius: 26).stroke(Theme.stroke, lineWidth: 1))
+        .presentationDetents([.medium, .large])
+        .presentationBackground(Theme.ink)
     }
 }
 

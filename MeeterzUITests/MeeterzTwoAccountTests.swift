@@ -136,6 +136,7 @@ final class MeeterzTwoAccountTests: MeeterzTestBase {
 
         // A schickt B eine Anfrage
         need(app.buttons["Freunde"], "freunde-knopf").tap()
+        need(app.buttons["Freunde verwalten"], "freunde-verwalten").tap()   // „Unterwegs“-Fenster → Verwaltung
         need(app.navigationBars["Freunde"], "freunde-ansicht")
         let addField = need(app.textFields["@benutzername"], "freund-feld")
         type(handleB, into: addField)
@@ -181,8 +182,12 @@ final class MeeterzTwoAccountTests: MeeterzTestBase {
         app.buttons["Fertig"].tap()
         dismissSystemDialogs()
         // Der Freund zählt erst als angenommen und sichtbar, wenn die Karte ihn geladen hat
+        if !app.buttons["Freunde"].exists { app.tap() }      // Bedienelemente ggf. wieder einblenden
+        need(app.buttons["Freunde"], "freunde-knopf-sichtbar").tap()          // „Unterwegs“-Fenster
         needPolling(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'von 1 sichtbar'")).firstMatch,
                     "freund-sichtbar", timeout: 75)
+        app.buttons["Fertig"].tap()
+        pause(1)
         pause(5)
         dismissSystemDialogs()
         shot("a-karte-mit-freund")
@@ -246,6 +251,7 @@ final class MeeterzTwoAccountTests: MeeterzTestBase {
         // Aufräumen: A über die App, B und C über das Backend
         for _ in 0..<3 where !app.navigationBars["Freunde"].exists {
             need(app.buttons["Freunde"], "freunde-knopf-2").tap()
+            if app.buttons["Freunde verwalten"].waitForExistence(timeout: 6) { app.buttons["Freunde verwalten"].tap() }
             _ = app.navigationBars["Freunde"].waitForExistence(timeout: 6)
         }
         need(app.navigationBars["Freunde"], "freunde-ansicht-2")

@@ -11,6 +11,8 @@ enum Theme {
     static let muted = Color(hex: 0x9AA4B2)
     static let accent = Color(hex: 0xC6F432)
     static let danger = Color(hex: 0xFF5A5F)
+    /// Klares Grün für „ist unterwegs“ (bewusst nicht das Limettengrün der Akzentfarbe)
+    static let go = Color(hex: 0x34C759)
 
     static let accentUI = UIColor(red: 0.78, green: 0.96, blue: 0.20, alpha: 1)
 
@@ -89,6 +91,8 @@ struct CircleIconButton: View {
     let label: String
     var tint: Color = Theme.text
     var badge = false
+    /// Grüner Punkt: z. B. ein Freund ist gerade per Navigation unterwegs
+    var activeDot = false
     let action: () -> Void
 
     var body: some View {
@@ -99,6 +103,13 @@ struct CircleIconButton: View {
                 .frame(width: 48, height: 48)
                 .background(Circle().fill(Theme.panel))
                 .overlay(Circle().stroke(Theme.stroke, lineWidth: 1))
+                .overlay(alignment: badge ? .bottomTrailing : .topTrailing) {
+                    if activeDot {
+                        Circle().fill(Theme.go).frame(width: 11, height: 11)
+                            .overlay(Circle().stroke(Theme.panel, lineWidth: 2))
+                            .offset(x: -6, y: badge ? -6 : 6)
+                    }
+                }
                 .overlay(alignment: .topTrailing) {
                     if badge {
                         Circle().fill(Theme.danger).frame(width: 11, height: 11)
@@ -108,6 +119,7 @@ struct CircleIconButton: View {
                 }
         }
         .accessibilityLabel(label)
+        .accessibilityValue(activeDot ? "Ein Freund ist unterwegs" : "")
     }
 }
 

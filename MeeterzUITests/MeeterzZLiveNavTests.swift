@@ -56,9 +56,11 @@ final class MeeterzZLiveNavTests: MeeterzTestBase {
         app.buttons["Anmelden"].tap()
         need(app.buttons["Ziel suchen"], "karte", timeout: 60)
         for _ in 0..<4 { app.tap(); pause(3); dismissSystemDialogs() }
+        if !app.buttons["Ziel suchen"].exists { app.tap() }   // Bedienelemente ggf. wieder einblenden
         shot("karte-nach-login")
 
         // Freund erscheint (Liste lädt alle 30 s)
+        need(app.buttons["Freunde"], "freunde-knopf").tap()      // „Unterwegs“-Fenster bleibt für die Messung offen
         needPolling(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'von 1 sichtbar'")).firstMatch, "freund-sichtbar", timeout: 90)
         dismissSystemDialogs()
         pause(3)
@@ -77,6 +79,8 @@ final class MeeterzZLiveNavTests: MeeterzTestBase {
         let after = distanceLabel()
         XCTAssertNotNil(before); XCTAssertNotNil(after)
         XCTAssertNotEqual(before, after, "Live-Position hat sich bewegt (\(before ?? "-") → \(after ?? "-"))")
+        app.buttons["Fertig"].tap()
+        pause(1)
 
         // Navigation: Route zum Düsseldorfer Hbf, Losfahren (Simulation)
         app.buttons["Ziel suchen"].tap()

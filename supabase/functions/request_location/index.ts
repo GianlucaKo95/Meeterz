@@ -53,6 +53,7 @@ Deno.serve(async (req) => {
     .eq("status", "accepted").or(`requester.eq.${user.id},addressee.eq.${user.id}`);
   const friends = new Set((ships ?? []).map((s) => (s.requester === user.id ? s.addressee : s.requester)));
   let targets = requested.filter((t) => friends.has(t));
+  console.log(`request_location: angefragt=${requested.length}, davon Freunde=${targets.length}`);
 
   // 2) nur wer gerade teilt (nicht pausiert, nicht inkognito)
   const now = Date.now();
@@ -63,11 +64,16 @@ Deno.serve(async (req) => {
     (!p.sharing_until || new Date(p.sharing_until).getTime() > now) &&
     (!p.incognito_until || new Date(p.incognito_until).getTime() <= now)
   ).map((p) => p.id));
+  const dropped = targets.filter((t) => !sharing.has(t)).length;
   targets = targets.filter((t) => sharing.has(t));
+  console.log(`request_location: teilen gerade=${targets.length}, nicht teilend=${dropped}`);
 
   // 3) nur wenn die letzte Position nicht ohnehin frisch ist
   const { data: lasts } = await admin.from("last_locations").select("user_id, updated_at").in("user_id", targets);
   const fresh = new Set((lasts ?? []).filter((l) => now - new Date(l.updated_at).getTime() < 45_000).map((l) => l.user_id));
+  for (const l of lasts ?? []) {
+    console.log(`request_location: Position von ${String(l.user_id).slice(0, 8)} ist ${Math.round((now - new Date(l.updated_at).getTime()) / 1000)} s alt`);
+  }
   targets = targets.filter((t) => !fresh.has(t));
   if (!targets.length) {
     console.log(`request_location: nichts zu tun (${requested.length} angefragt)`);
@@ -75,6 +81,7 @@ Deno.serve(async (req) => {
   }
 
   const { data: tokens } = await admin.from("device_tokens").select("token, environment").in("user_id", targets);
+  console.log(`request_location: ${tokens?.length ?? 0} Gerätetoken für ${targets.length} Freunde`);
   if (!tokens?.length) return json({ requested: 0 });
 
   const jwt = await new jose.SignJWT({})

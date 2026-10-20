@@ -46,7 +46,8 @@ final class MeeterzZLiveNavTests: MeeterzTestBase {
         let rowsC = try XCTUnwrap(c.rpc("my_friends").1 as? [[String: Any]])
         let ridC = try XCTUnwrap(rowsC.first?["friendship_id"] as? String)
         XCTAssertLessThan(c.rpc("respond_friend_request", ["request_id": ridC, "accept": true]).0, 300)
-        c.rpc("update_last_location", ["lat": 51.4361, "lng": 6.7650, "heading": 90.0, "speed": 0.0])
+        // C steht ~11 m neben A (Simulator-Standort 51.4344, 6.7623): muss trotzdem als Marker sichtbar sein
+        c.rpc("update_last_location", ["lat": 51.4345, "lng": 6.7624, "heading": 90.0, "speed": 0.0])
 
         var lat = 51.4352, lng = 6.7641
         func broadcast() -> Int {
@@ -98,7 +99,8 @@ final class MeeterzZLiveNavTests: MeeterzTestBase {
         XCTAssertNotNil(before); XCTAssertNotNil(after)
         XCTAssertNotEqual(before, after, "Live-Position hat sich bewegt (\(before ?? "-") → \(after ?? "-"))")
         app.buttons["Fertig"].tap()
-        pause(1)
+        pause(4)
+        shot("karte-mit-nahem-freund")
 
         // Navigation: Route zum Düsseldorfer Hbf, Losfahren (Simulation)
         app.buttons["Ziel suchen"].tap()

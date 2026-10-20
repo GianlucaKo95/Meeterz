@@ -266,6 +266,36 @@ final class CarPlayController: NSObject {
         template.showPanel(panel, completion: nil)
     }
 
+    /// Fallback für iOS < 27: Freundesliste zum Einladen an das Fahrtziel
+    private func showInviteList() {
+        let model = AppModel.shared
+        guard let place = inviteDestination else { return }
+        let friends = model.friends.accepted
+        guard !friends.isEmpty else { return }
+
+        var items: [CPListItem] = []
+        if friends.count > 1 {
+            let all = CPListItem(text: "Alle einladen", detailText: nil)
+            all.handler = { [weak self] _, done in
+                self?.sendInvites(to: friends.map(\.friendId), place: place)
+                self?.manager.interfaceController?.popTemplate(animated: true, completion: nil)
+                done()
+            }
+            items.append(all)
+        }
+        for friend in friends.prefix(max(0, CPListTemplate.maximumItemCount - items.count)) {
+            let item = CPListItem(text: friend.displayName, detailText: "Einladen")
+            item.handler = { [weak self] _, done in
+                self?.sendInvites(to: [friend.friendId], place: place)
+                self?.manager.interfaceController?.popTemplate(animated: true, completion: nil)
+                done()
+            }
+            items.append(item)
+        }
+        let template = CPListTemplate(title: "Einladen nach \(place.name)", sections: [CPListSection(items: items)])
+        manager.interfaceController?.pushTemplate(template, animated: true, completion: nil)
+    }
+
     private func friendsToggleImage() -> UIImage {
         let symbol = friendsVisible ? "person.2.fill" : "person.2.slash"
         return UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold))
@@ -422,8 +452,13 @@ extension CarPlayController: CarPlayManagerDelegate {
                     manager.interfaceController?.pushTemplate(destinationsTemplate(), animated: true, completion: nil)
                 }
                 return [search, goals]
-            case .previewing, .navigating, .panningInBrowsingMode, .panningInNavigationMode:
-                // Während der Fahrt bleibt die Leiste leer; Einladen liegt im Fahrt-Panel
+            case .navigating:
+                // Ab iOS 27 liegt Einladen im Fahrt-Panel; davor gibt es dafür einen Knopf in der Leiste
+                if #unavailable(iOS 27.0), !AppModel.shared.friends.accepted.isEmpty, inviteDestination != nil {
+                    return [CPBarButton(title: "Einladen") { [weak self] _ in self?.showInviteList() }]
+                }
+                return nil
+            case .previewing, .panningInBrowsingMode, .panningInNavigationMode:
                 return nil
             }
         }

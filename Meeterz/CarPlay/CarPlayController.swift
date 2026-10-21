@@ -212,7 +212,17 @@ final class CarPlayController: NSObject {
     private func preview(to coordinate: CLLocationCoordinate2D, name: String, completion: @escaping () -> Void) {
         let waypoint = Waypoint(coordinate: coordinate, name: name)
         pendingDestination = Place(id: UUID().uuidString, name: name, address: nil, coordinate: coordinate)
-        manager.previewRoutes(to: waypoint, completionHandler: completion)
+        // Eigene Routenoptionen: Deutsch (sonst gilt die Systemsprache des iPhones, z. B. Englisch) und Auto
+        guard let here = AppModel.shared.location.lastLocation else {
+            manager.previewRoutes(to: waypoint, completionHandler: completion)
+            return
+        }
+        let options = NavigationRouteOptions(
+            waypoints: [Waypoint(location: here, name: "Aktueller Standort"), waypoint],
+            profileIdentifier: .automobileAvoidingTraffic,
+            locale: Locale(identifier: "de_DE"),
+            distanceUnit: .kilometer)
+        manager.previewRoutes(for: options, completionHandler: completion)
     }
 
     private var pendingDestination: Place?

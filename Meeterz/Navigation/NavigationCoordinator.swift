@@ -17,6 +17,7 @@ let navigationProvider = MapboxNavigationProvider(coreConfig: meeterzCoreConfig(
 func meeterzCoreConfig(simulate: Bool, initialLocation: CLLocation? = nil) -> CoreConfig {
     CoreConfig(
         locationSource: simulate ? .simulation(initialLocation: initialLocation) : .live,
+        locale: Locale(identifier: "de_DE"),
         ttsConfig: .custom(speechSynthesizer: MeeterzSpeechSynthesizer.shared)
     )
 }

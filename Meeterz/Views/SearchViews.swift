@@ -281,6 +281,23 @@ struct RoutePreviewView: View {
                 .id(current.mode)
                 .frame(height: 190)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
+                .overlay(alignment: .topTrailing) {
+                    let saved = app.favorites.contains(current.destination.coordinate)
+                    Button {
+                        favoriteName = current.destination.name
+                        showFavoriteAlert = true
+                    } label: {
+                        Image(systemName: saved ? "star.fill" : "star")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(saved ? Theme.accent : Theme.text)
+                            .frame(width: 42, height: 42)
+                            .background(Circle().fill(Theme.panel))
+                            .overlay(Circle().stroke(Theme.stroke, lineWidth: 1))
+                    }
+                    .disabled(saved)
+                    .padding(8)
+                    .accessibilityLabel(saved ? "Als Favorit gespeichert" : "Als Favorit speichern")
+                }
             if current.options.count > 1 { routeChoices }
             VStack(alignment: .leading, spacing: 4) {
                 Text("Ziel").font(.caption.weight(.bold)).foregroundStyle(Theme.accent).textCase(.uppercase)
@@ -298,16 +315,6 @@ struct RoutePreviewView: View {
 
             Text(current.mode == .car ? "Inklusive aktueller Verkehrslage. Deine Freunde sehen deine Route, solange du teilst." : "Deine Freunde sehen deine Route, solange du teilst.")
                 .font(.footnote).foregroundStyle(Theme.muted)
-
-            let saved = app.favorites.contains(current.destination.coordinate)
-            Button {
-                favoriteName = current.destination.name
-                showFavoriteAlert = true
-            } label: {
-                Label(saved ? "Als Favorit gespeichert" : "Als Favorit speichern", systemImage: saved ? "star.fill" : "star")
-            }
-            .buttonStyle(SecondaryButtonStyle())
-            .disabled(saved)
 
             #if DEBUG
             Toggle("Fahrt simulieren (Test)", isOn: $simulate)

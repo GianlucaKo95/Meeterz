@@ -149,15 +149,11 @@ struct MainView: View {
             return .overview(
                 geometry: MultiPoint(route.coordinates + [friend]),
                 bearing: 0, pitch: 0,
-                geometryPadding: EdgeInsets(top: 150, leading: 50, bottom: 470, trailing: 50))
+                geometryPadding: EdgeInsets(top: 170, leading: 50, bottom: 230, trailing: 50))
         }
-        // Freund auf ~32 % der Bildhöhe: unter der oberen Leiste, über dem halb geöffneten „Unterwegs“-Fenster.
-        // Mapbox: 512-Punkt-Kacheln → Meter je Punkt = 78271,5 · cos(Breite) / 2^Zoom
+        // Fenster ist geschlossen: Freund genau in die Bildmitte
         let zoom = 15.5
-        let metersPerPoint = 78_271.517 * cos(friend.latitude * .pi / 180) / pow(2, zoom)
-        let shift = (0.5 - 0.32) * Double(UIScreen.main.bounds.height) * metersPerPoint
-        var center = friend
-        center.latitude -= shift / 111_320
+        let center = friend
         return .camera(center: center, zoom: zoom, bearing: 0, pitch: 0)
     }
 
@@ -503,9 +499,9 @@ struct UnterwegsSheet: View {
                             .font(.footnote).foregroundStyle(Theme.muted)
                         ForEach(app.friendsOnMap) { item in
                             FriendRowView(item: item) { showRoute in
-                                // Fenster auf halbe Höhe, Karte dahinter zeigt den Freund oberhalb
-                                detent = .medium
+                                // Fenster schließen: die Karte zeigt den Freund frei in der Bildmitte
                                 app.mapFocus = .init(friendId: item.friend.friendId, showRoute: showRoute)
+                                dismiss()
                             }
                         }
                         if app.friendsOnMap.isEmpty {

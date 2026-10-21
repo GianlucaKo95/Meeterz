@@ -88,7 +88,7 @@ final class CarPlayController: NSObject {
         threeDMapButton?.image = Self.textImage(threeD ? "2D" : "3D")
     }
 
-    /// Kehrt nach 10 s ohne Eingabe zum Standort zurück, wenn man die Karte weggeschoben hat
+    /// Kehrt nach 4 s ohne Eingabe zum Standort zurück, wenn man die Karte weggeschoben hat
     private func startAutoRecenter(_ navigationMapView: NavigationMapView) -> Task<Void, Never> {
         Task { @MainActor [weak navigationMapView] in
             var idle = 0
@@ -119,7 +119,7 @@ final class CarPlayController: NSObject {
                 }
                 if camera.currentCameraState == .idle {
                     idle += 1
-                    if idle >= 10 { camera.update(cameraState: .following); idle = 0 }
+                    if idle >= 4 { camera.update(cameraState: .following); idle = 0 }
                 } else {
                     idle = 0
                 }
@@ -488,6 +488,7 @@ extension CarPlayController: CarPlayManagerDelegate {
             applyPitch(to: navigationMapView)
             browseRecenter?.cancel()
             browseRecenter = startAutoRecenter(navigationMapView)
+            navigationMapView.navigationCamera.update(cameraState: .following)
             if CarPlayFlyoverMirror.isEnabled {
                 let mirror = flyover ?? CarPlayFlyoverMirror { [weak self] in self?.friendsVisible ?? true }
                 flyover = mirror

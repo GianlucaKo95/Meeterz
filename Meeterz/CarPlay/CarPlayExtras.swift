@@ -136,9 +136,9 @@ extension CarPlayController {
         speedTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self else { return }
-                updateSpeedSigns()
+                self.updateSpeedSigns()
                 // alle 30 s: Freunde mit gleichem Ziel prüfen
-                if Int(Date().timeIntervalSince1970) % 30 == 0 { announceFriendsHeadingToDestination() }
+                if Int(Date().timeIntervalSince1970) % 30 == 0 { self.announceFriendsHeadingToDestination() }
             }
         }
     }

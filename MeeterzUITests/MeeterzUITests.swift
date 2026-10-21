@@ -100,11 +100,16 @@ class MeeterzTestBase: XCTestCase {
     }
 
     /// Ein Tipp auf die Karte blendet die Bedienelemente aus – vor Bedienung sicherstellen, dass sie da sind.
+    /// Tippt auf eine freie Stelle der Karte (links, mittig) – nicht in die Mitte, wo Standort, Freunde und Orte liegen.
+    func tapMap() {
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.12, dy: 0.5)).tap()
+    }
+
     func showChrome() {
         for _ in 0..<3 {
             let search = app.buttons["Ziel suchen"]
             if search.exists && search.isHittable { return }
-            app.tap()
+            tapMap()
             pause(1)
         }
     }
@@ -144,7 +149,7 @@ final class MeeterzUITests: MeeterzTestBase {
 
         // 4. Karte
         need(app.buttons["Ziel suchen"], "karte", timeout: 40)
-        app.tap()                       // löst ggf. Systemdialoge aus
+        tapMap()                        // löst ggf. Systemdialoge aus
         showChrome()
         pause(8)
         dismissSystemDialogs()

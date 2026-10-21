@@ -127,7 +127,7 @@ final class MeeterzTwoAccountTests: MeeterzTestBase {
         type("ca_\(suffix)", into: need(app.textFields["@benutzername"], "onboarding-handle"))
         app.buttons["Los geht's"].tap()
         need(app.buttons["Ziel suchen"], "karte", timeout: 40)
-        app.tap()
+        tapMap()
         showChrome()
         pause(6)
         dismissSystemDialogs()

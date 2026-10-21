@@ -392,7 +392,7 @@ final class CarPlayController: NSObject {
             sections: sections,
             buttonConfiguration: buttons
         )
-        panel.showsCloseButton = true
+        panel.showsCloseButton = false   // sonst gäbe es ohne Fenster kein „Route beenden“
         template.showPanel(panel, completion: nil)
     }
 
@@ -627,6 +627,8 @@ extension CarPlayController: CarPlayManagerDelegate {
             case .navigating:
                 // „Beenden“ muss immer da sein (der Mapbox-Standardknopf entfällt, sobald wir die Leiste belegen).
                 // Einladen öffnet nur auf Knopfdruck (ab iOS 27 als Panel, davor als Liste).
+                // Ab iOS 27 sitzen „Route beenden“ und „Freunde einladen“ im Fahrtfenster unten
+                if #available(iOS 27.0, *) { return [] }
                 let end = CPBarButton(title: "Beenden") { [weak self] _ in self?.endNavigationIfNeeded() }
                 if !AppModel.shared.friends.accepted.isEmpty, inviteDestination != nil {
                     let invite = CPBarButton(title: "Einladen") { [weak self] _ in

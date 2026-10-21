@@ -273,7 +273,9 @@ struct RoutePreviewView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(spacing: 14) {
+          ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
             if !CarPlayController.shared.isConnected { modePicker }
             RoutePreviewMap(lines: current.lines, selected: selected, destination: current.destination.coordinate)
                 .id(current.mode)
@@ -312,8 +314,13 @@ struct RoutePreviewView: View {
                 .onChange(of: simulate) { _, v in NavigationCoordinator.simulate = v }
                 .tint(Theme.accent)
             #endif
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+          }
+          .scrollIndicators(.hidden)
 
-            Spacer()
+          // Aktionen bleiben unten sichtbar, der Rest darüber scrollt
+          VStack(spacing: 10) {
             Button("Losfahren") {
                 app.navigation.start(.init(destination: current.destination, routes: chosen ?? current.routes, mode: current.mode))
             }
@@ -326,6 +333,7 @@ struct RoutePreviewView: View {
             }
             Button("Abbrechen") { dismiss() }
                 .buttonStyle(SecondaryButtonStyle())
+          }
         }
         .padding(20)
         .background(Theme.ink)

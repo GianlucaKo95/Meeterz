@@ -170,9 +170,14 @@ final class AppModel {
 
     @ObservationIgnored private var announced = Set<String>()
 
+    /// „Fährt vorbei“ höchstens alle 15 Minuten je Freund (Schlüssel wechselt mit dem Viertelstunden-Takt)
+    private func passKey(_ id: UUID) -> String {
+        "pass-\(id)-\(Int(Date().timeIntervalSince1970 / (15 * 60)))"
+    }
+
     /// Prüft bei jeder eigenen Positionsmeldung, ob ein Schnipsel fällig ist.
+    /// Der Hinweis in CarPlay erscheint auch bei ausgeschaltetem Soundpaket (der Schnipsel prüft das selbst).
     private func checkSoundMoments(me loc: CLLocation) async {
-        guard sounds.enabled else { return }
         let myMoving = loc.speed > 3          // > ~11 km/h
 
         for f in friendsOnMap where f.position.age < 45 {
@@ -181,7 +186,9 @@ final class AppModel {
             let friendSpeed = f.position.speed ?? 0
 
             // 1. Freund fährt an mir vorbei: beide unterwegs, < 300 m, höchstens alle 15 Min.
-            if myMoving, friendSpeed > 3, dist < 300 {
+            if myMoving, friendSpeed > 3, dist < 300, !announced.contains(passKey(f.friend.friendId)) {
+                announced.insert(passKey(f.friend.friendId))
+                CarPlayController.shared.friendNotice(.pass, friend: f.friend)
                 await sounds.trigger(.pass, friend: f.friend, cooldown: 15 * 60)
             }
 
@@ -193,11 +200,13 @@ final class AppModel {
                 if d < 100, !announced.contains(arrivedKey) {
                     announced.insert(arrivedKey)
                     announced.insert(soonKey)
+                    CarPlayController.shared.friendNotice(.arrived, friend: f.friend)
                     await sounds.trigger(.arrived, friend: f.friend, key: m.id.uuidString)
                 } else if d > 150, !announced.contains(soonKey) {
                     let eta = d / max(friendSpeed, 8)       // mind. ~29 km/h als Annahme
                     if eta < 300 {
                         announced.insert(soonKey)
+                        CarPlayController.shared.friendNotice(.soon, friend: f.friend)
                         await sounds.trigger(.soon, friend: f.friend, key: m.id.uuidString)
                     }
                 }

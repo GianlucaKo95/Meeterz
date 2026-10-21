@@ -53,6 +53,12 @@ final class CarPlayController: NSObject {
     private var navZoom: Double?
     /// Fahrer hat die Routenübersicht gewählt – bleibt, auch wenn er darin die Karte verschiebt
     private var overviewChosen = false
+    /// Tempowarnung (siehe CarPlayExtras.swift)
+    var speedTimer: Timer?
+    /// Offene Frage „schnellere Route?“ – wird genau einmal beantwortet
+    var fasterRouteAnswer: (id: UUID, continuation: CheckedContinuation<Bool, Never>)?
+    /// Wann zuletzt die Ankunft eines Freundes am selben Ziel gemeldet wurde (je Freund)
+    var friendArrivalAnnounced: [UUID: (eta: Date, at: Date)] = [:]
 
     // MARK: 3D und Kamera
 
@@ -210,7 +216,7 @@ final class CarPlayController: NSObject {
         flyover?.refreshFriends()
     }
 
-    private lazy var manager: CarPlayManager = {
+    lazy var manager: CarPlayManager = {
         let m = CarPlayManager(navigationProvider: navigationProvider, styles: NavigationStyles.carPlay())
         m.delegate = self
         return m
@@ -225,6 +231,7 @@ final class CarPlayController: NSObject {
         Diag.log("CarPlay verbunden, vom Auto gesperrt: \(Self.describe(config.limitedUserInterfaces))")
         AppModel.shared.location.setCarPlay(true)
         watchInvites()
+        startSpeedWarning()
         // Läuft auf dem iPhone schon eine Navigation, übernimmt CarPlay sie
         if AppModel.shared.navigation.isNavigating {
             beginNavigationIfConnected()
@@ -242,6 +249,7 @@ final class CarPlayController: NSObject {
         manager.templateApplicationScene(scene, didDisconnect: interfaceController, from: window)
         manager.delegate = nil
         session = nil
+        stopSpeedWarning()
         isConnected = false
         AppModel.shared.location.setCarPlay(false)
         searchTask?.cancel()
@@ -420,7 +428,7 @@ final class CarPlayController: NSObject {
     }
 
     /// Läuft schon eine Navigation, wird der Ort Zwischenstopp, sonst Routenvorschau
-    private func go(to place: Place) {
+    func go(to place: Place) {
         if AppModel.shared.navigation.isNavigating {
             Task { await AppModel.shared.navigation.addStop(place) }
         } else {
@@ -428,7 +436,7 @@ final class CarPlayController: NSObject {
         }
     }
 
-    private var inviteDestination: Place? {
+    var inviteDestination: Place? {
         AppModel.shared.navigation.destination ?? pendingDestination
     }
 
@@ -443,7 +451,7 @@ final class CarPlayController: NSObject {
                               image: UIImage(systemName: "plus.circle.fill"))
         stop.handler = { [weak self] _, done in
             self?.manager.interfaceController?.popTemplate(animated: false, completion: nil)
-            self?.showSearch()
+            self?.showSearchHub()
             done()
         }
         var items: [CPListItem] = [stop]
@@ -457,7 +465,8 @@ final class CarPlayController: NSObject {
             items.append(all)
         }
         for friend in friends.prefix(max(0, CPListTemplate.maximumItemCount - items.count)) {
-            let item = CPListItem(text: friend.displayName, detailText: "Einladen")
+            let detail = friendArrival(friend.friendId, at: place).map { "Kommt auch hierher · an \(Format.time.string(from: $0))" } ?? "Einladen"
+            let item = CPListItem(text: friend.displayName, detailText: detail)
             item.handler = { [weak self] _, done in
                 self?.sendInvites(to: [friend.friendId], place: place)
                 self?.manager.interfaceController?.popTemplate(animated: true, completion: nil)
@@ -490,7 +499,7 @@ final class CarPlayController: NSObject {
 
     // MARK: Suche (Tastatur im Stand, Diktat beim Fahren – das entscheidet CarPlay selbst)
 
-    private func showSearch() {
+    func showSearch() {
         Diag.log("CarPlay-Suche geöffnet, vom Auto gesperrt: \(Self.describe(session?.limitedUserInterfaces ?? []))")
         let template = CPSearchTemplate()
         template.delegate = self
@@ -643,7 +652,7 @@ extension CarPlayController: CarPlayManagerDelegate {
         MainActor.assumeIsolated {
             switch activity {
             case .browsing:
-                let search = CPBarButton(title: "Suche") { [weak self] _ in self?.showSearch() }
+                let search = CPBarButton(title: "Suche") { [weak self] _ in self?.showSearchHub() }
                 let goals = CPBarButton(title: "Ziele") { [weak self] _ in
                     guard let self else { return }
                     manager.interfaceController?.pushTemplate(destinationsTemplate(), animated: true, completion: nil)
@@ -657,7 +666,7 @@ extension CarPlayController: CarPlayManagerDelegate {
                     let more = CPBarButton(title: "Einladen") { [weak self] _ in self?.showInviteList() }
                     return [more, end]
                 }
-                let stop = CPBarButton(title: "Stopp") { [weak self] _ in self?.showSearch() }
+                let stop = CPBarButton(title: "Stopp") { [weak self] _ in self?.showSearchHub() }
                 return [stop, end]
             case .previewing, .panningInBrowsingMode, .panningInNavigationMode:
                 return nil
@@ -690,6 +699,7 @@ extension CarPlayController: CarPlayManagerDelegate {
                 coordinator.didBeginOnCarPlay(destination: pendingDestination)
             }
             refreshFriends()
+            announceFriendsHeadingToDestination()
         }
     }
 

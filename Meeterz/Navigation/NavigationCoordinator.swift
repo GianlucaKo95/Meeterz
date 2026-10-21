@@ -16,6 +16,12 @@ let navigationProvider = MapboxNavigationProvider(coreConfig: meeterzCoreConfig(
 @MainActor
 func meeterzCoreConfig(simulate: Bool, initialLocation: CLLocation? = nil) -> CoreConfig {
     CoreConfig(
+        // Schnellere Route: mit CarPlay erst fragen (Hinweis „x Min. sparen – wechseln?“), sonst wie bisher automatisch
+        routingConfig: RoutingConfig(fasterRouteDetectionConfig: FasterRouteDetectionConfig(
+            fasterRouteApproval: .manually({ context in
+                await CarPlayController.shared.approveFasterRoute(context.1)
+            })
+        )),
         locationSource: simulate ? .simulation(initialLocation: initialLocation) : .live,
         locale: Locale.navigation,
         ttsConfig: .custom(speechSynthesizer: MeeterzSpeechSynthesizer.shared)

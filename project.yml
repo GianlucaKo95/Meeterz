@@ -72,6 +72,7 @@ targets:
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: true
           CPSupportsDashboardNavigationScene: true
+          CPSupportsInstrumentClusterNavigationScene: true
           UISceneConfigurations:
             CPTemplateApplicationSceneSessionRoleApplication:
               - UISceneClassName: CPTemplateApplicationScene
@@ -81,6 +82,10 @@ targets:
               - UISceneClassName: CPTemplateApplicationDashboardScene
                 UISceneConfigurationName: CarPlay-Dashboard
                 UISceneDelegateClassName: $(PRODUCT_MODULE_NAME).CarPlayDashboardSceneDelegate
+            CPTemplateApplicationInstrumentClusterSceneSessionRoleApplication:
+              - UISceneClassName: CPTemplateApplicationInstrumentClusterScene
+                UISceneConfigurationName: CarPlay-Cluster
+                UISceneDelegateClassName: $(PRODUCT_MODULE_NAME).CarPlayClusterSceneDelegate
         SUPABASE_URL: $(SUPABASE_URL)
         SUPABASE_ANON_KEY: $(SUPABASE_ANON_KEY)
         MBXAccessToken: $(MAPBOX_ACCESS_TOKEN)

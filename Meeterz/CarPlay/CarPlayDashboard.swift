@@ -25,20 +25,64 @@ final class CarPlayDashboardSceneDelegate: NSObject, CPTemplateApplicationDashbo
     }
 }
 
+/// Karte im Kombiinstrument (Tacho), falls das Auto das unterstützt. Abbiegehinweise blendet das Auto
+/// selbst aus der laufenden Navigation ein; wir liefern die Karte darunter.
+final class CarPlayClusterSceneDelegate: NSObject, CPTemplateApplicationInstrumentClusterSceneDelegate,
+                                          CPInstrumentClusterControllerDelegate {
+    func templateApplicationInstrumentClusterScene(
+        _ templateApplicationInstrumentClusterScene: CPTemplateApplicationInstrumentClusterScene,
+        didConnect instrumentClusterController: CPInstrumentClusterController
+    ) {
+        MainActor.assumeIsolated {
+            instrumentClusterController.delegate = self
+            instrumentClusterController.inactiveDescriptionVariants = ["Meeterz"]
+            Diag.log("CarPlay: Kombiinstrument verbunden")
+        }
+    }
+
+    func templateApplicationInstrumentClusterScene(
+        _ templateApplicationInstrumentClusterScene: CPTemplateApplicationInstrumentClusterScene,
+        didDisconnectInstrumentClusterController instrumentClusterController: CPInstrumentClusterController
+    ) {
+        MainActor.assumeIsolated { CarPlayDashboard.cluster.disconnect() }
+    }
+
+    func instrumentClusterControllerDidConnect(_ instrumentClusterWindow: UIWindow) {
+        MainActor.assumeIsolated { CarPlayDashboard.cluster.connect(window: instrumentClusterWindow, zoom: 16.5) }
+    }
+
+    func instrumentClusterControllerDidDisconnectWindow(_ instrumentClusterWindow: UIWindow) {
+        MainActor.assumeIsolated { CarPlayDashboard.cluster.disconnect() }
+    }
+
+    func instrumentClusterControllerDidZoom(in instrumentClusterController: CPInstrumentClusterController) {
+        MainActor.assumeIsolated { CarPlayDashboard.cluster.zoom(by: 1) }
+    }
+
+    func instrumentClusterControllerDidZoomOut(_ instrumentClusterController: CPInstrumentClusterController) {
+        MainActor.assumeIsolated { CarPlayDashboard.cluster.zoom(by: -1) }
+    }
+}
+
 @MainActor
 final class CarPlayDashboard {
     static let shared = CarPlayDashboard()
+    /// Dieselbe Karte im Kombiinstrument
+    static let cluster = CarPlayDashboard()
+
+    private var zoomLevel: Double = 15.5
 
     private var mapView: MapView?
     private var overlay: FriendOverlay?
     private var routeManager: PolylineAnnotationManager?
     private var subscriptions = Set<AnyCancellable>()
 
-    func connect(window: UIWindow) {
+    func connect(window: UIWindow, zoom: Double = 15.5) {
         disconnect()
+        zoomLevel = zoom
         let satellite = UserDefaults.standard.object(forKey: "carplay.satellite") as? Bool ?? true
         let options = MapInitOptions(
-            cameraOptions: CameraOptions(zoom: 15.5, pitch: 55),
+            cameraOptions: CameraOptions(zoom: zoomLevel, pitch: 55),
             styleURI: satellite ? .standardSatellite : .standard
         )
         let map = MapView(frame: window.bounds, mapInitOptions: options)
@@ -54,9 +98,7 @@ final class CarPlayDashboard {
         mapView = map
 
         // Kamera folgt dem Standort
-        let follow = map.viewport.makeFollowPuckViewportState(
-            options: FollowPuckViewportStateOptions(zoom: 15.5, bearing: .course, pitch: 55))
-        map.viewport.transition(to: follow)
+        follow()
 
         Satellite3DBuildings.install(on: map, satellite: satellite)
         let friends = FriendOverlay(mapView: map) { true }
@@ -79,6 +121,18 @@ final class CarPlayDashboard {
                 manager.annotations = [line]
             }
             .store(in: &subscriptions)
+    }
+
+    private func follow() {
+        guard let map = mapView else { return }
+        let state = map.viewport.makeFollowPuckViewportState(
+            options: FollowPuckViewportStateOptions(zoom: zoomLevel, bearing: .course, pitch: 55))
+        map.viewport.transition(to: state)
+    }
+
+    func zoom(by delta: Double) {
+        zoomLevel = min(max(zoomLevel + delta, 10), 19)
+        follow()
     }
 
     func disconnect() {

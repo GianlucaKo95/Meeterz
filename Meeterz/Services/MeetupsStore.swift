@@ -74,6 +74,7 @@ final class MeetupsStore {
             if hadBefore {
                 for m in rows where !m.incoming && m.isAccepted && wasPending.contains(m.id) {
                     if let f = AppModel.shared.friend(m.otherId) {
+                        CarPlayController.shared.friendNotice(.accepted, friend: f)
                         Task { await AppModel.shared.sounds.trigger(.accepted, friend: f, key: m.id.uuidString) }
                     }
                 }

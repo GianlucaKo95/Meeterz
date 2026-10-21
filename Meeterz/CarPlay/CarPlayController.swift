@@ -220,7 +220,7 @@ final class CarPlayController: NSObject {
         let options = NavigationRouteOptions(
             waypoints: [Waypoint(location: here, name: "Aktueller Standort"), waypoint],
             profileIdentifier: .automobileAvoidingTraffic,
-            locale: Locale(identifier: "de_DE"),
+            locale: Locale.navigation,
             distanceUnit: .kilometer)
         manager.previewRoutes(for: options, completionHandler: completion)
     }

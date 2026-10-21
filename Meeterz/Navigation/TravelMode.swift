@@ -52,3 +52,8 @@ enum TravelMode: String, CaseIterable, Identifiable, Codable {
         a == .car && (b ?? .car) == .car
     }
 }
+
+extension Locale {
+    /// Sprache der Navigationsansagen: folgt der Systemsprache des iPhones (Rückfall Deutsch).
+    static var navigation: Locale { Locale(identifier: Locale.preferredLanguages.first ?? "de_DE") }
+}

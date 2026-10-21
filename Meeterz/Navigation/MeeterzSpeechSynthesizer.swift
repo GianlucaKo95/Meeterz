@@ -56,7 +56,7 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing, AVSpeechSynt
     }
     var volume: VolumeMode = .system
     var isSpeaking: Bool { synthesizer.isSpeaking }
-    var locale: Locale? = Locale(identifier: "de_DE")
+    var locale: Locale? = Locale.navigation
     var managesAudioSession = true
 
     private let synthesizer = AVSpeechSynthesizer()

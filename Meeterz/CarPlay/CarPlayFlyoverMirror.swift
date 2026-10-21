@@ -25,6 +25,8 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
     private var subscriptions = Set<AnyCancellable>()
     private var timer: Timer?
     private var attachTask: Task<Void, Never>?
+    private var trailing: Task<Void, Never>?
+    private var syncTimer: Timer?
 
     private var activeRoutes: NavigationRoutes?
     private var previewRoutes: NavigationRoutes?
@@ -87,6 +89,14 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
             MainActor.assumeIsolated { self?.apply(event.cameraState, force: false) }
         }
         if let state = map?.cameraState { apply(state, force: true) }
+        // Sicherheitsnetz: Kamera alle 0,5 s abgleichen, falls ein Ereignis ausbleibt
+        syncTimer?.invalidate()
+        syncTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, let s = self.mapbox?.mapView.mapboxMap?.cameraState else { return }
+                self.apply(s, force: false)
+            }
+        }
         redrawRoutes()
     }
 
@@ -94,6 +104,8 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
         attachTask?.cancel()
         cameraToken?.cancel()
         cameraToken = nil
+        syncTimer?.invalidate()
+        trailing?.cancel()
         timer?.invalidate()
         timer = nil
         subscriptions.removeAll()
@@ -104,7 +116,16 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
 
     /// Übersetzt die Mapbox-Kamera (Mitte, Zoom, Drehung, Neigung, Rand) in eine MapKit-Kamera.
     private func apply(_ state: CameraState, force: Bool) {
-        guard force || Date().timeIntervalSince(lastApply) > 0.05 else { return }
+        guard force || Date().timeIntervalSince(lastApply) > 0.1 else {
+            // Gedrosselt: den letzten Stand nachholen, sonst bleibt die Karte beim Ruhigwerden der Kamera stehen
+            trailing?.cancel()
+            trailing = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .milliseconds(150))
+                guard let self, !Task.isCancelled, let s = self.mapbox?.mapView.mapboxMap?.cameraState else { return }
+                self.apply(s, force: true)
+            }
+            return
+        }
         let size = mapView.bounds.size
         guard size.height > 1 else { return }
         lastApply = Date()

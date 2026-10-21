@@ -17,7 +17,7 @@ let navigationProvider = MapboxNavigationProvider(coreConfig: meeterzCoreConfig(
 func meeterzCoreConfig(simulate: Bool, initialLocation: CLLocation? = nil) -> CoreConfig {
     CoreConfig(
         locationSource: simulate ? .simulation(initialLocation: initialLocation) : .live,
-        locale: Locale(identifier: "de_DE"),
+        locale: Locale.navigation,
         ttsConfig: .custom(speechSynthesizer: MeeterzSpeechSynthesizer.shared)
     )
 }
@@ -98,7 +98,7 @@ final class NavigationCoordinator: NSObject {
             + stops.map { Waypoint(coordinate: $0.coordinate, name: $0.name) }
             + [Waypoint(coordinate: place.coordinate, name: place.name)]
         let options = NavigationRouteOptions(waypoints: waypoints, profileIdentifier: mode.profile,
-                                             locale: Locale(identifier: "de_DE"), distanceUnit: .kilometer)
+                                             locale: Locale.navigation, distanceUnit: .kilometer)
 
         do {
             return try await core.routingProvider().calculateRoutes(options: options).value

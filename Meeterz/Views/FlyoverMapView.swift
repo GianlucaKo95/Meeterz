@@ -40,7 +40,47 @@ struct FlyoverMapView: View {
         }
     }
 
-    private var mapContent: some View {
+    @MapContentBuilder
+    private var friendAndMeetupContent: some MapContent {
+        ForEach(app.friendsOnMap) { item in
+            Annotation(item.friend.displayName, coordinate: item.position.coordinate, anchor: .bottom) {
+                FriendMarker(friend: item.friend, position: item.position)
+                    .environment(app)
+                    .onTapGesture { app.selectedFriend = item.id }
+            }
+            .annotationTitles(.hidden)
+        }
+
+        ForEach(app.meetups.visibleCandidates) { candidate in
+            Annotation("Möglicher Treffpunkt", coordinate: candidate.coordinate) {
+                Button { plannedMeetup = candidate } label: {
+                    Image(systemName: "figure.2.circle.fill")
+                        .font(.system(size: 30))
+                        .foregroundStyle(Theme.ink, Theme.accent)
+                        .shadow(radius: 4)
+                }
+                .accessibilityLabel("Möglicher Treffpunkt")
+            }
+            .annotationTitles(.hidden)
+        }
+
+        ForEach(app.meetups.accepted) { meetup in
+            Annotation(meetup.placeName, coordinate: meetup.coordinate, anchor: .bottom) {
+                VStack(spacing: 2) {
+                    Image(systemName: "mappin.circle.fill")
+                        .font(.system(size: 32))
+                        .foregroundStyle(Theme.ink, Theme.accent)
+                    Text(meetup.placeName)
+                        .font(.caption2.bold())
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(Capsule().fill(Theme.panel))
+                }
+            }
+            .annotationTitles(.hidden)
+        }
+    }
+
+    private var mapBase: some View {
         Map(position: $position, selection: $selection, scope: compassScope) {
             UserAnnotation()
 
@@ -70,42 +110,7 @@ struct FlyoverMapView: View {
                 .annotationTitles(.hidden)
             }
 
-            ForEach(app.friendsOnMap) { item in
-                Annotation(item.friend.displayName, coordinate: item.position.coordinate, anchor: .bottom) {
-                    FriendMarker(friend: item.friend, position: item.position)
-                        .environment(app)
-                        .onTapGesture { app.selectedFriend = item.id }
-                }
-                .annotationTitles(.hidden)
-            }
-
-            ForEach(app.meetups.visibleCandidates) { candidate in
-                Annotation("Möglicher Treffpunkt", coordinate: candidate.coordinate) {
-                    Button { plannedMeetup = candidate } label: {
-                        Image(systemName: "figure.2.circle.fill")
-                            .font(.system(size: 30))
-                            .foregroundStyle(Theme.ink, Theme.accent)
-                            .shadow(radius: 4)
-                    }
-                    .accessibilityLabel("Möglicher Treffpunkt")
-                }
-                .annotationTitles(.hidden)
-            }
-
-            ForEach(app.meetups.accepted) { meetup in
-                Annotation(meetup.placeName, coordinate: meetup.coordinate, anchor: .bottom) {
-                    VStack(spacing: 2) {
-                        Image(systemName: "mappin.circle.fill")
-                            .font(.system(size: 32))
-                            .foregroundStyle(Theme.ink, Theme.accent)
-                        Text(meetup.placeName)
-                            .font(.caption2.bold())
-                            .padding(.horizontal, 6).padding(.vertical, 2)
-                            .background(Capsule().fill(Theme.panel))
-                    }
-                }
-                .annotationTitles(.hidden)
-            }
+            friendAndMeetupContent
         }
         .mapStyle(.hybrid(elevation: .realistic, pointsOfInterest: .including([.publicTransport, .restaurant, .cafe, .parking, .hospital])))
         .mapControls { }
@@ -115,6 +120,11 @@ struct FlyoverMapView: View {
                 .padding(.top, 400).padding(.trailing, 22)
         }
         .mapScope(compassScope)
+    }
+
+    /// POI antippen → Apples Ortsdetails
+    private var mapDetail: some View {
+        mapBase
         .onChange(of: selection) { _, new in
             guard let feature = new?.feature else { return }
             selection = nil
@@ -131,6 +141,10 @@ struct FlyoverMapView: View {
                 }
             }
         }
+    }
+
+    private var mapContent: some View {
+        mapDetail
         .ignoresSafeArea()
         .onMapCameraChange(frequency: .continuous) { context in lastCamera = context.camera }
         // Weggescrollt: nach 10 s ohne Eingabe zurück zum eigenen Standort

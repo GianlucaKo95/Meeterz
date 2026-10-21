@@ -14,6 +14,7 @@ final class CarPlayDashboardSceneDelegate: NSObject, CPTemplateApplicationDashbo
         to window: UIWindow
     ) {
         MainActor.assumeIsolated {
+            MainThreadWatch.start(label: "Dashboard")
             Diag.log("Dashboard verbunden: Fenster \(Int(window.bounds.width))x\(Int(window.bounds.height)), Szene=\(templateApplicationDashboardScene.activationState.rawValue)")
             CarPlayDashboard.shared.connect(window: window)
         }
@@ -24,7 +25,38 @@ final class CarPlayDashboardSceneDelegate: NSObject, CPTemplateApplicationDashbo
         didDisconnect dashboardController: CPDashboardController,
         from window: UIWindow
     ) {
-        MainActor.assumeIsolated { CarPlayDashboard.shared.disconnect() }
+        MainActor.assumeIsolated {
+            Diag.log("Dashboard getrennt")
+            CarPlayDashboard.shared.disconnect()
+        }
+    }
+
+    // Diagnose: wird die Dashboard-Szene je aktiv?
+    func sceneDidBecomeActive(_ scene: UIScene) { MainActor.assumeIsolated { Diag.log("Dashboard-Szene: aktiv") } }
+    func sceneWillResignActive(_ scene: UIScene) { MainActor.assumeIsolated { Diag.log("Dashboard-Szene: wird inaktiv") } }
+    func sceneWillEnterForeground(_ scene: UIScene) { MainActor.assumeIsolated { Diag.log("Dashboard-Szene: Vordergrund") } }
+    func sceneDidEnterBackground(_ scene: UIScene) { MainActor.assumeIsolated { Diag.log("Dashboard-Szene: Hintergrund") } }
+}
+
+/// Misst nach dem Verbinden mit CarPlay 60 s lang, ob der Hauptthread hängt (Dashboard wartet sonst auf uns)
+enum MainThreadWatch {
+    static func start(label: String) {
+        let queue = DispatchQueue(label: "meeterz.mainwatch")
+        queue.async {
+            let end = Date().addingTimeInterval(60)
+            var worst: TimeInterval = 0
+            while Date() < end {
+                let sent = Date()
+                let done = DispatchSemaphore(value: 0)
+                DispatchQueue.main.async { done.signal() }
+                _ = done.wait(timeout: .now() + 5)
+                let delay = Date().timeIntervalSince(sent)
+                if delay > 0.5 { Diag.log("\(label): Hauptthread \(String(format: "%.1f", delay)) s blockiert") }
+                worst = max(worst, delay)
+                Thread.sleep(forTimeInterval: 0.25)
+            }
+            Diag.log("\(label): Hauptthread in 60 s maximal \(String(format: "%.2f", worst)) s blockiert")
+        }
     }
 }
 

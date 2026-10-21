@@ -19,6 +19,7 @@ struct SnapshotProvider: TimelineProvider {
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<SnapshotEntry>) -> Void) {
+        WidgetSnapshotStore.appendLog("Zeitplan \(context.family) \(Int(context.displaySize.width))x\(Int(context.displaySize.height)), Daten: \(WidgetSnapshotStore.loadStatus())")
         let entry = SnapshotEntry(date: Date(), snapshot: WidgetSnapshotStore.load() ?? .empty)
         completion(Timeline(entries: [entry], policy: .after(Date().addingTimeInterval(30 * 60))))
     }

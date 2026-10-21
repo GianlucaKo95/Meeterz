@@ -14,6 +14,10 @@ enum Diag {
         UserDefaults.standard.set(lines, forKey: key)
     }
 
-    static var text: String { (UserDefaults.standard.stringArray(forKey: key) ?? []).joined(separator: "\n") }
+    static var text: String {
+        let app = (UserDefaults.standard.stringArray(forKey: key) ?? []).joined(separator: "\n")
+        let widget = WidgetSnapshotStore.readLog()
+        return widget.isEmpty ? app : app + "\n--- Widget ---\n" + widget.joined(separator: "\n")
+    }
     static func clear() { UserDefaults.standard.removeObject(forKey: key) }
 }

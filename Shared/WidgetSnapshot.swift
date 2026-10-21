@@ -77,6 +77,50 @@ enum WidgetSnapshotStore {
         return try? JSONDecoder().decode(WidgetSnapshot.self, from: data)
     }
 
+    // MARK: Protokoll der Widget-Erweiterung (erscheint im Diagnoseprotokoll der App)
+
+    private static func logQuery() -> [String: Any] {
+        var q = query()
+        q[kSecAttrAccount as String] = "log"
+        return q
+    }
+
+    static func appendLog(_ line: String) {
+        let f = DateFormatter(); f.dateFormat = "dd.MM. HH:mm:ss"
+        var lines = readLog()
+        lines.append("\(f.string(from: Date())) Widget: \(line)")
+        if lines.count > 30 { lines.removeFirst(lines.count - 30) }
+        guard let data = try? JSONEncoder().encode(lines) else { return }
+        let update: [String: Any] = [kSecValueData as String: data,
+                                     kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock]
+        if SecItemUpdate(logQuery() as CFDictionary, update as CFDictionary) == errSecItemNotFound {
+            SecItemAdd(logQuery().merging(update) { $1 } as CFDictionary, nil)
+        }
+    }
+
+    static func readLog() -> [String] {
+        var q = logQuery()
+        q[kSecReturnData as String] = true
+        q[kSecMatchLimit as String] = kSecMatchLimitOne
+        var out: CFTypeRef?
+        guard SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess, let data = out as? Data else { return [] }
+        return (try? JSONDecoder().decode([String].self, from: data)) ?? []
+    }
+
+    /// Ergebnis des Lesens (für die Diagnose): „ok“, „leer“ oder der Schlüsselbund-Fehler (-25308 = Gerät gesperrt)
+    static func loadStatus() -> String {
+        var q = query()
+        q[kSecReturnData as String] = true
+        q[kSecMatchLimit as String] = kSecMatchLimitOne
+        var out: CFTypeRef?
+        let status = SecItemCopyMatching(q as CFDictionary, &out)
+        switch status {
+        case errSecSuccess: return "ok"
+        case errSecItemNotFound: return "leer"
+        default: return "Fehler \(status)"
+        }
+    }
+
     static func clear() {
         SecItemDelete(query() as CFDictionary)
     }

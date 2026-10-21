@@ -13,7 +13,10 @@ final class CarPlayDashboardSceneDelegate: NSObject, CPTemplateApplicationDashbo
         didConnect dashboardController: CPDashboardController,
         to window: UIWindow
     ) {
-        MainActor.assumeIsolated { CarPlayDashboard.shared.connect(window: window) }
+        MainActor.assumeIsolated {
+            Diag.log("Dashboard verbunden: Fenster \(Int(window.bounds.width))x\(Int(window.bounds.height)), versteckt=\(window.isHidden), Szene=\(templateApplicationDashboardScene.activationState.rawValue)")
+            CarPlayDashboard.shared.connect(window: window, name: "Dashboard")
+        }
     }
 
     func templateApplicationDashboardScene(
@@ -48,7 +51,7 @@ final class CarPlayClusterSceneDelegate: NSObject, CPTemplateApplicationInstrume
     }
 
     func instrumentClusterControllerDidConnect(_ instrumentClusterWindow: UIWindow) {
-        MainActor.assumeIsolated { CarPlayDashboard.cluster.connect(window: instrumentClusterWindow, zoom: 16.5) }
+        MainActor.assumeIsolated { CarPlayDashboard.cluster.connect(window: instrumentClusterWindow, zoom: 16.5, name: "Kombiinstrument") }
     }
 
     func instrumentClusterControllerDidDisconnectWindow(_ instrumentClusterWindow: UIWindow) {
@@ -76,8 +79,9 @@ final class CarPlayDashboard {
     private var overlay: FriendOverlay?
     private var routeManager: PolylineAnnotationManager?
     private var subscriptions = Set<AnyCancellable>()
+    private var cancelables = Set<AnyCancelable>()
 
-    func connect(window: UIWindow, zoom: Double = 15.5) {
+    func connect(window: UIWindow, zoom: Double = 15.5, name: String) {
         disconnect()
         zoomLevel = zoom
         let satellite = UserDefaults.standard.object(forKey: "carplay.satellite") as? Bool ?? true
@@ -96,6 +100,15 @@ final class CarPlayDashboard {
         controller.view = map
         window.rootViewController = controller
         mapView = map
+
+        // Diagnose: Lädt die Karte? (Dashboard zeigte nur das App-Symbol)
+        map.mapboxMap.onMapLoaded.observeNext { _ in Diag.log("\(name): Karte geladen") }.store(in: &cancelables)
+        map.mapboxMap.onMapLoadingError.observe { e in Diag.log("\(name): Kartenfehler \(e.type) \(e.message)") }.store(in: &cancelables)
+        Task { @MainActor [weak map, weak window] in
+            try? await Task.sleep(for: .seconds(5))
+            guard let map else { return }
+            Diag.log("\(name) nach 5 s: Karte \(Int(map.bounds.width))x\(Int(map.bounds.height)), im Fenster=\(map.window != nil), Fenster versteckt=\(window?.isHidden ?? true), Standort=\(map.location.latestLocation != nil)")
+        }
 
         // Kamera folgt dem Standort
         follow()
@@ -136,6 +149,7 @@ final class CarPlayDashboard {
     }
 
     func disconnect() {
+        cancelables.removeAll()
         subscriptions.removeAll()
         overlay?.stop()
         overlay = nil

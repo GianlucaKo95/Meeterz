@@ -46,8 +46,13 @@ final class CarPlayController: NSObject {
     private var flyover: CarPlayFlyoverMirror?
     private var browseRecenter: Task<Void, Never>?
     private var navRecenter: Task<Void, Never>?
-    private var threeDBarButton: CPBarButton?
     private var threeDMapButton: CPMapButton?
+    /// Meldet, ob das Auto Tastatur oder Listen gerade sperrt (Diagnose für die Suche)
+    private var session: CPSessionConfiguration?
+    /// Mit +/− gewählter Zoom während der Fahrt (nil = Mapbox rahmt automatisch); gilt bis zum Ende der Fahrt
+    private var navZoom: Double?
+    /// Fahrer hat die Routenübersicht gewählt – bleibt, auch wenn er darin die Karte verschiebt
+    private var overviewChosen = false
 
     // MARK: 3D und Kamera
 
@@ -71,53 +76,107 @@ final class CarPlayController: NSObject {
         return image.withRenderingMode(.alwaysTemplate)
     }
 
-    /// Neigung der Kamera im Folgemodus setzen (3D = 60°, 2D = 0°)
-    private func applyPitch(to navigationMapView: NavigationMapView?) {
-        guard let camera = navigationMapView?.navigationCamera else { return }
-        if let source = camera.viewportDataSource as? CarPlayViewportDataSource {
-            source.options.followingCameraOptions.defaultPitch = threeD ? 60 : 0
+    /// Neigung für 3D. MapKit (Flyover) übernimmt sie 1:1 von der Mapbox-Kamera.
+    private static let tilt3D: Double = 65
+
+    /// Zoom außerhalb der Fahrt (mit +/− gewählt, bleibt gespeichert)
+    private var browseZoom: Double {
+        get { UserDefaults.standard.object(forKey: "carplay.zoom") as? Double ?? 16.5 }
+        set { UserDefaults.standard.set(newValue, forKey: "carplay.zoom") }
+    }
+
+    private var browseMap: NavigationMapView? { manager.carPlayMapViewController?.navigationMapView }
+    private var navMap: NavigationMapView? { manager.carPlayNavigationViewController?.navigationMapView }
+
+    /// Stellt Neigung und Zoom der Folgekamera ein.
+    ///
+    /// Ursache für „3D tut nichts“ und „Zoom springt zurück“: Ohne Route rechnet Mapbox die Folgekamera bei jedem
+    /// Standort-Update neu – Neigung immer 0° und Zoom fest aus 1700 m Höhe; `defaultPitch` gilt nur mit Route.
+    /// Darum außerhalb der Fahrt Neigung und Zoom selbst vorgeben und Mapbox das Überschreiben verbieten.
+    private func configureCamera(_ navigationMapView: NavigationMapView?, navigating: Bool) {
+        guard let camera = navigationMapView?.navigationCamera,
+              let source = camera.viewportDataSource as? CarPlayViewportDataSource else { return }
+        let pitch = threeD ? Self.tilt3D : 0
+        var options = source.options
+        var current = source.currentNavigationCameraOptions
+        options.followingCameraOptions.defaultPitch = pitch
+        if navigating {
+            // Mit Route: Mapbox neigt (flacher vor Abbiegungen) und rahmt den Zoom – außer der Fahrer hat selbst gezoomt
+            options.followingCameraOptions.pitchUpdatesAllowed = true
+            options.followingCameraOptions.zoomUpdatesAllowed = navZoom == nil
+            if let navZoom { current.followingCamera.zoom = navZoom }
+        } else {
+            options.followingCameraOptions.pitchUpdatesAllowed = false
+            options.followingCameraOptions.zoomUpdatesAllowed = false
+            current.followingCamera.pitch = pitch
+            current.followingCamera.zoom = browseZoom
         }
-        if camera.currentCameraState == .following { camera.update(cameraState: .following) }
+        source.options = options
+        source.currentNavigationCameraOptions = current   // folgt die Kamera, übernimmt sie das sofort
+        if camera.currentCameraState != .following { camera.update(cameraState: .following) }
     }
 
     private func toggleThreeD() {
         threeD.toggle()
-        applyPitch(to: manager.carPlayMapViewController?.navigationMapView)
-        applyPitch(to: manager.carPlayNavigationViewController?.navigationMapView)
-        threeDBarButton?.title = threeD ? "2D" : "3D"
+        configureCamera(browseMap, navigating: false)
+        configureCamera(navMap, navigating: true)
         threeDMapButton?.image = Self.textImage(threeD ? "2D" : "3D")
     }
 
-    /// Kehrt nach 4 s ohne Eingabe zum Standort zurück, wenn man die Karte weggeschoben hat
+    /// +/−: ändert den Zoom der Folgekamera statt die Kamera anzuhalten – so springt nichts zurück
+    private func zoom(by delta: Double) {
+        if manager.currentActivity == .navigating, let map = navMap {
+            overviewChosen = false
+            refreshFriends()
+            let now = navZoom ?? map.mapView.mapboxMap?.cameraState.zoom ?? 16
+            navZoom = min(max(now + delta, 10), 19)
+            configureCamera(map, navigating: true)
+        } else {
+            browseZoom = min(max(browseZoom + delta, 10), 19)
+            configureCamera(browseMap, navigating: false)
+        }
+    }
+
+    /// Die vier Kartenknöpfe (CarPlay erlaubt höchstens vier): Freunde, 2D/3D, +, −.
+    /// Zentrieren braucht es nicht – die Karte kehrt nach 4 s von selbst zum Standort zurück.
+    private func mapButtons() -> [CPMapButton] {
+        let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold)
+        let three = CPMapButton { [weak self] _ in self?.toggleThreeD() }
+        three.image = Self.textImage(threeD ? "2D" : "3D")
+        threeDMapButton = three
+        let plus = CPMapButton { [weak self] _ in self?.zoom(by: 1) }
+        plus.image = UIImage(systemName: "plus", withConfiguration: config)
+        let minus = CPMapButton { [weak self] _ in self?.zoom(by: -1) }
+        minus.image = UIImage(systemName: "minus", withConfiguration: config)
+        return [friendsButton(), three, plus, minus]
+    }
+
+    /// Während der Fahrt: Übersicht statt Freunde-Knopf (Freunde-Einstellung gilt weiter, in der Übersicht ausgeblendet)
+    private func navigationMapButtons() -> [CPMapButton] {
+        var buttons = mapButtons()
+        let overview = CPMapButton { [weak self] _ in
+            guard let self, let camera = navMap?.navigationCamera else { return }
+            overviewChosen.toggle()
+            camera.update(cameraState: overviewChosen ? .overview : .following)
+            refreshFriends()
+        }
+        overview.image = UIImage(systemName: "point.topleft.down.to.point.bottomright.curvepath",
+                                 withConfiguration: UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold))
+        buttons[0] = overview
+        return buttons
+    }
+
+    /// Kehrt nach 4 s zum Standort zurück, wenn man die Karte von Hand weggeschoben hat.
+    /// Nur dann: In Routenvorschau und Routenübersicht bleibt die Kamera, wo sie ist.
     private func startAutoRecenter(_ navigationMapView: NavigationMapView) -> Task<Void, Never> {
-        Task { @MainActor [weak navigationMapView] in
+        Task { @MainActor [weak self, weak navigationMapView] in
             var idle = 0
-            var lost = 0
-            var token: AnyCancellable?
-            if let navigationMapView {
-                token = navigationMapView.navigationCamera.cameraStates.sink { Diag.log("CarPlay-Kamera → \($0)") }
-            }
-            defer { token?.cancel() }
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(1))
-                guard let navigationMapView, let camera = Optional(navigationMapView.navigationCamera) else { return }
-                // Wachhund: Kamera meldet „folgen“, der Standortpunkt wandert aber aus dem Bild (iOS 18) → Folgen neu anstoßen
-                if camera.currentCameraState == .following,
-                   let me = navigationMapView.mapView.location.latestLocation?.coordinate,
-                   let map = navigationMapView.mapView.mapboxMap {
-                    let p = map.point(for: me)
-                    let b = navigationMapView.bounds.insetBy(dx: 8, dy: 8)
-                    if b.width > 1, !b.contains(p) { lost += 1 } else { lost = 0 }
-                    if lost >= 3 {
-                        Diag.log("Standort außerhalb des Bildes trotz .following (Punkt \(Int(p.x)),\(Int(p.y)), Bild \(Int(navigationMapView.bounds.width))x\(Int(navigationMapView.bounds.height)), Kameramitte \(map.cameraState.center.latitude),\(map.cameraState.center.longitude), Standort \(me.latitude),\(me.longitude))")
-                        camera.stop()
-                        camera.update(cameraState: .following)
-                        lost = 0
-                    }
-                } else {
-                    lost = 0
-                }
-                if camera.currentCameraState == .idle {
+                guard let self, let camera = navigationMapView?.navigationCamera else { return }
+                let activity = manager.currentActivity
+                let returnToMe = activity == .browsing || (activity == .navigating && !overviewChosen)
+                if camera.currentCameraState == .idle, returnToMe {
                     idle += 1
                     if idle >= 4 { camera.update(cameraState: .following); idle = 0 }
                 } else {
@@ -125,6 +184,21 @@ final class CarPlayController: NSObject {
                 }
             }
         }
+    }
+
+    /// Routenvorschau oder Routenübersicht während der Fahrt: dann keine Freunde auf der Karte
+    private var showsRouteOverview: Bool {
+        manager.currentActivity == .previewing
+            || (manager.currentActivity == .navigating
+                && overviewChosen)
+    }
+
+    private var friendsShown: Bool { friendsVisible && !showsRouteOverview }
+
+    private func refreshFriends() {
+        browseOverlay?.refresh()
+        navigationOverlay?.refresh()
+        flyover?.refreshFriends()
     }
 
     private lazy var manager: CarPlayManager = {
@@ -137,6 +211,9 @@ final class CarPlayController: NSObject {
         manager.delegate = self
         manager.templateApplicationScene(scene, didConnect: interfaceController, to: window)
         isConnected = true
+        let config = CPSessionConfiguration(delegate: self)
+        session = config
+        Diag.log("CarPlay verbunden, vom Auto gesperrt: \(Self.describe(config.limitedUserInterfaces))")
         AppModel.shared.location.setCarPlay(true)
         watchInvites()
         // Läuft auf dem iPhone schon eine Navigation, übernimmt CarPlay sie
@@ -155,6 +232,7 @@ final class CarPlayController: NSObject {
         flyover?.detach(); flyover = nil
         manager.templateApplicationScene(scene, didDisconnect: interfaceController, from: window)
         manager.delegate = nil
+        session = nil
         isConnected = false
         AppModel.shared.location.setCarPlay(false)
         searchTask?.cancel()
@@ -180,10 +258,12 @@ final class CarPlayController: NSObject {
         let button = CPMapButton { [weak self] _ in
             guard let self else { return }
             friendsVisible.toggle()
-            browseOverlay?.refresh()
-            navigationOverlay?.refresh()
-            if let template = manager.interfaceController?.topTemplate as? CPMapTemplate {
-                manager.resetPanButtons(template)
+            refreshFriends()
+            // Symbol sofort umschalten. (Vorher lief das über resetPanButtons – das tut nur bei
+            // eingeblendeter Verschiebe-Ansicht etwas, darum blieb der Knopf scheinbar ohne Funktion.)
+            let controller = manager.interfaceController
+            if let template = (controller?.topTemplate as? CPMapTemplate) ?? (controller?.rootTemplate as? CPMapTemplate) {
+                template.mapButtons = manager.currentActivity == .navigating ? navigationMapButtons() : mapButtons()
             }
         }
         let symbol = friendsVisible ? "person.2.fill" : "person.2.slash"
@@ -339,123 +419,25 @@ final class CarPlayController: NSObject {
         }
     }
 
-    // MARK: Fahrt-Panel (iOS 27): Ankunft unten angeheftet, Freunde zum Einladen darüber
-
     private var inviteDestination: Place? {
         AppModel.shared.navigation.destination ?? pendingDestination
     }
 
-    /// Legt das Fahrt-Fenster (wie bei Apple Karten) auf die Karten-Vorlage der laufenden Navigation:
-    /// unten Ankunft/Zeit/Strecke und „Freunde einladen“, hochgezogen Stopp hinzufügen und Route beenden.
-    @available(iOS 27.0, *)
-    private func showTripPanel(on template: CPMapTemplate) {
-        let model = AppModel.shared
-        guard model.navigation.isNavigating, let place = inviteDestination else { return }
-        let friends = model.friends.accepted
-
-        func action(_ symbol: String, _ title: String, _ handler: @escaping () -> Void) -> CPMapPanelItem {
-            CPMapPanelItem(routeDetails: [CPRouteDetail(symbolName: symbol, value: title)], handler: { _, done in
-                handler(); done()
-            })
-        }
-        // Hochgezogen: Stopp hinzufügen und Route beenden (Einladen steht unten als Hauptknopf)
-        let actions: [CPMapPanelItem] = [
-            action("plus.circle.fill", "Stopp hinzufügen") { [weak self] in self?.showSearch() },
-            action("xmark.circle.fill", "Route beenden") { [weak self] in self?.endNavigationIfNeeded() },
-        ]
-        let sections = [CPMapPanelSection(title: "Aktionen", items: actions)]
-
-        var buttons: CPMapPanelButtonConfiguration?
-        if let remaining = model.navigation.remaining {
-            let estimates = CPTravelEstimates(
-                distanceRemaining: Measurement(value: remaining.distance, unit: .meters),
-                timeRemaining: remaining.duration
-            )
-            // Unten angeheftet (wie „Ankunftszeit teilen“ bei Apple Karten): Freunde einladen, einzeln wählbar
-            let primary = CPTextButton(title: friends.isEmpty ? "Stopp hinzufügen" : "Freunde einladen", textStyle: .confirm) { [weak self] _ in
-                if friends.isEmpty { self?.showSearch() } else { self?.showInviteList() }
-            }
-            let toggle = CPButton(image: friendsToggleImage()) { [weak self] _ in
-                guard let self else { return }
-                friendsVisible.toggle()
-                browseOverlay?.refresh()
-                navigationOverlay?.refresh()
-                if let current = manager.interfaceController?.topTemplate as? CPMapTemplate {
-                    showTripPanel(on: current)   // Symbol aktualisieren
-                }
-            }
-            buttons = CPMapPanelButtonConfiguration(primaryAction: primary, secondaryButton: toggle, travelEstimates: estimates)
-        }
-
-        let panel = CPMapPanel(
-            title: place.name,
-            sections: sections,
-            buttonConfiguration: buttons
-        )
-        panel.showsCloseButton = false   // sonst gäbe es ohne Fenster kein „Route beenden“
-        template.showPanel(panel, completion: nil)
-    }
-
-    /// Startfenster (wie Apple Karten): Suchen, Angepinnt (Zuhause, Arbeit, Favoriten mit Fahrzeit), Zuletzt, Freunde
-    @available(iOS 27.0, *)
-    private func showHomePanel(on template: CPMapTemplate) {
-        let model = AppModel.shared
-        guard !model.navigation.isNavigating else { return }
-
-        func item(_ symbol: String, _ title: String, _ info: String?, _ handler: @escaping () -> Void) -> CPMapPanelItem {
-            var details = [CPRouteDetail(symbolName: symbol, value: title)]
-            if let info, !info.isEmpty { details.append(CPRouteDetail(info: info)) }
-            return CPMapPanelItem(routeDetails: details, handler: { _, done in handler(); done() })
-        }
-
-        var sections: [CPMapPanelSection] = []
-        sections.append(CPMapPanelSection(title: "Suchen", items: [
-            item("magnifyingglass", "Ziel suchen", nil) { [weak self] in self?.showSearch() },
-        ]))
-
-        let favorites = model.favorites
-        let pinned = [favorites.home, favorites.work].compactMap { $0 } + favorites.others
-        if !pinned.isEmpty {
-            sections.append(CPMapPanelSection(title: "Angepinnt", items: pinned.prefix(6).map { fav in
-                item(fav.symbol, fav.label, fav.address) { [weak self] in
-                    self?.preview(to: fav.coordinate, name: fav.label) {}
-                }
-            }))
-        }
-
-        let recents = model.recents.items.filter { r in !pinned.contains { $0.coordinate.distance(to: r.coordinate) < 50 } }.prefix(4)
-        if !recents.isEmpty {
-            sections.append(CPMapPanelSection(title: "Zuletzt", items: recents.map { r in
-                item("clock.fill", r.name, r.address) { [weak self] in
-                    self?.preview(to: r.coordinate, name: r.name) {}
-                }
-            }))
-        }
-
-        let friends = model.friendsOnMap.prefix(4)
-        if !friends.isEmpty {
-            sections.append(CPMapPanelSection(title: "Freunde", items: friends.map { f in
-                let route = model.routes.friendRoutes[f.friend.friendId]
-                let info = route.flatMap { $0.destinationName.map { "Unterwegs nach \($0)" } } ?? "Zum Standort"
-                return item("person.crop.circle.fill", f.friend.displayName, info) { [weak self] in
-                    self?.preview(to: f.position.coordinate, name: f.friend.displayName) {}
-                }
-            }))
-        }
-
-        let panel = CPMapPanel(title: "Meeterz", sections: sections, buttonConfiguration: nil)
-        panel.showsCloseButton = true
-        template.showPanel(panel, completion: nil)
-    }
-
-    /// Fallback für iOS < 27: Freundesliste zum Einladen an das Fahrtziel
+    /// Während der Fahrt: Stopp hinzufügen und Freunde zum Fahrtziel einladen
     private func showInviteList() {
         let model = AppModel.shared
         guard let place = inviteDestination else { return }
         let friends = model.friends.accepted
         guard !friends.isEmpty else { return }
 
-        var items: [CPListItem] = []
+        let stop = CPListItem(text: "Stopp hinzufügen", detailText: nil,
+                              image: UIImage(systemName: "plus.circle.fill"))
+        stop.handler = { [weak self] _, done in
+            self?.manager.interfaceController?.popTemplate(animated: false, completion: nil)
+            self?.showSearch()
+            done()
+        }
+        var items: [CPListItem] = [stop]
         if friends.count > 1 {
             let all = CPListItem(text: "Alle einladen", detailText: nil)
             all.handler = { [weak self] _, done in
@@ -474,14 +456,8 @@ final class CarPlayController: NSObject {
             }
             items.append(item)
         }
-        let template = CPListTemplate(title: "Einladen nach \(place.name)", sections: [CPListSection(items: items)])
+        let template = CPListTemplate(title: place.name, sections: [CPListSection(items: items)])
         manager.interfaceController?.pushTemplate(template, animated: true, completion: nil)
-    }
-
-    private func friendsToggleImage() -> UIImage {
-        let symbol = friendsVisible ? "person.2.fill" : "person.2.slash"
-        return UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold))
-            ?? UIImage()
     }
 
     private func sendInvites(to ids: [UUID], place: Place) {
@@ -506,6 +482,7 @@ final class CarPlayController: NSObject {
     // MARK: Suche (Tastatur im Stand, Diktat beim Fahren – das entscheidet CarPlay selbst)
 
     private func showSearch() {
+        Diag.log("CarPlay-Suche geöffnet, vom Auto gesperrt: \(Self.describe(session?.limitedUserInterfaces ?? []))")
         let template = CPSearchTemplate()
         template.delegate = self
         manager.interfaceController?.pushTemplate(template, animated: true, completion: nil)
@@ -519,6 +496,7 @@ extension CarPlayController: CPSearchTemplateDelegate {
         completionHandler: @escaping ([CPListItem]) -> Void
     ) {
         MainActor.assumeIsolated {
+            Diag.log("CarPlay-Suche: Eingabe \(searchText.count) Zeichen")
             searchCompletion?([])
             searchTask?.cancel()
             searchCompletion = completionHandler
@@ -571,15 +549,14 @@ extension CarPlayController: CarPlayManagerDelegate {
                 on: navigationMapView.mapView,
                 satellite: UserDefaults.standard.object(forKey: "carplay.satellite") as? Bool ?? true
             )
-            let overlay = FriendOverlay(mapView: navigationMapView.mapView) { [weak self] in self?.friendsVisible ?? true }
+            let overlay = FriendOverlay(mapView: navigationMapView.mapView) { [weak self] in self?.friendsShown ?? true }
             overlay.start()
             browseOverlay = overlay
-            applyPitch(to: navigationMapView)
+            configureCamera(navigationMapView, navigating: false)
             browseRecenter?.cancel()
             browseRecenter = startAutoRecenter(navigationMapView)
-            navigationMapView.navigationCamera.update(cameraState: .following)
             if CarPlayFlyoverMirror.isEnabled {
-                let mirror = flyover ?? CarPlayFlyoverMirror { [weak self] in self?.friendsVisible ?? true }
+                let mirror = flyover ?? CarPlayFlyoverMirror { [weak self] in self?.friendsShown ?? true }
                 flyover = mirror
                 mirror.attach(to: navigationMapView)
             }
@@ -598,11 +575,13 @@ extension CarPlayController: CarPlayManagerDelegate {
                 on: mapView,
                 satellite: UserDefaults.standard.object(forKey: "carplay.satellite") as? Bool ?? true
             )
-            let overlay = FriendOverlay(mapView: mapView) { [weak self] in self?.friendsVisible ?? true }
+            let overlay = FriendOverlay(mapView: mapView) { [weak self] in self?.friendsShown ?? true }
             overlay.start()
             navigationOverlay = overlay
             if let navMap = navigationViewController.navigationMapView {
-                applyPitch(to: navMap)
+                navZoom = nil
+                overviewChosen = false
+                configureCamera(navMap, navigating: true)
                 navRecenter?.cancel()
                 navRecenter = startAutoRecenter(navMap)
                 flyover?.showPreview(nil)
@@ -620,21 +599,9 @@ extension CarPlayController: CarPlayManagerDelegate {
         MainActor.assumeIsolated {
             switch activity {
             case .browsing:
-                guard let map = carPlayManager.carPlayMapViewController else { return nil }
-                // Zentrieren auf den Live-Standort, Freunde ein/aus, Zoom
-                return [map.recenterButton, friendsButton(), map.zoomInButton, map.zoomOutButton]
+                return mapButtons()
             case .navigating:
-                // Kamera: folgen ↔ Übersicht, dazu 3D/2D (statt der Mapbox-Standardknöpfe)
-                let camera = CPMapButton { [weak self] _ in
-                    guard let camera = self?.manager.carPlayNavigationViewController?.navigationMapView?.navigationCamera else { return }
-                    camera.update(cameraState: camera.currentCameraState == .following ? .overview : .following)
-                }
-                camera.image = UIImage(systemName: "location.viewfinder",
-                                       withConfiguration: UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold))
-                let three = CPMapButton { [weak self] _ in self?.toggleThreeD() }
-                three.image = Self.textImage(threeD ? "2D" : "3D")
-                threeDMapButton = three
-                return [camera, three]
+                return navigationMapButtons()
             case .previewing, .panningInBrowsingMode, .panningInNavigationMode:
                 return nil
             }
@@ -649,15 +616,10 @@ extension CarPlayController: CarPlayManagerDelegate {
         cameraState: NavigationCameraState
     ) -> [CPBarButton]? {
         MainActor.assumeIsolated {
-            switch activity {
-            case .browsing:
-                // 3D/2D der Karte; während der Fahrt bleibt Mapbox-Standard (Stummschalten, Alternativen)
-                let button = CPBarButton(title: threeD ? "2D" : "3D") { [weak self] _ in self?.toggleThreeD() }
-                threeDBarButton = button
-                return [button]
-            default:
-                return nil
-            }
+            // Links bleibt die Leiste frei (2D/3D sitzt rechts bei den Kartenknöpfen);
+            // während der Fahrt Mapbox-Standard (Stummschalten, Alternativen)
+            let buttons: [CPBarButton]? = activity == .browsing ? [] : nil
+            return buttons
         }
     }
 
@@ -678,41 +640,16 @@ extension CarPlayController: CarPlayManagerDelegate {
                 return [search, goals]
             case .navigating:
                 // „Beenden“ muss immer da sein (der Mapbox-Standardknopf entfällt, sobald wir die Leiste belegen).
-                // Einladen öffnet nur auf Knopfdruck (ab iOS 27 als Panel, davor als Liste).
-                // Ab iOS 27 sitzen „Route beenden“ und „Freunde einladen“ im Fahrtfenster unten
-                if #available(iOS 27.0, *) { return [] }
+                // Kein dauerhaftes Fenster über der Karte – Einladen und Stopp öffnen sich nur auf Knopfdruck.
                 let end = CPBarButton(title: "Beenden") { [weak self] _ in self?.endNavigationIfNeeded() }
                 if !AppModel.shared.friends.accepted.isEmpty, inviteDestination != nil {
-                    let invite = CPBarButton(title: "Einladen") { [weak self] _ in
-                        guard let self else { return }
-                        if #available(iOS 27.0, *), let map = manager.interfaceController?.topTemplate as? CPMapTemplate {
-                            showTripPanel(on: map)
-                        } else {
-                            showInviteList()
-                        }
-                    }
-                    return [invite, end]
+                    let more = CPBarButton(title: "Einladen") { [weak self] _ in self?.showInviteList() }
+                    return [more, end]
                 }
-                return [end]
+                let stop = CPBarButton(title: "Stopp") { [weak self] _ in self?.showSearch() }
+                return [stop, end]
             case .previewing, .panningInBrowsingMode, .panningInNavigationMode:
                 return nil
-            }
-        }
-    }
-
-    nonisolated func carPlayManager(
-        _ carPlayManager: CarPlayManager,
-        templateDidAppear template: CPTemplate,
-        animated: Bool
-    ) {
-        MainActor.assumeIsolated {
-            guard let map = template as? CPMapTemplate else { return }
-            if #available(iOS 27.0, *) {
-                switch carPlayManager.currentActivity {
-                case .navigating: showTripPanel(on: map)
-                case .browsing: showHomePanel(on: map)
-                default: break
-                }
             }
         }
     }
@@ -722,11 +659,17 @@ extension CarPlayController: CarPlayManagerDelegate {
         selectedPreviewFor trip: CPTrip,
         using routeChoice: CPRouteChoice
     ) {
-        MainActor.assumeIsolated { flyover?.showPreview(routeChoice.navigationRoutes) }
+        MainActor.assumeIsolated {
+            flyover?.showPreview(routeChoice.navigationRoutes)
+            refreshFriends()
+        }
     }
 
     nonisolated func carPlayManagerDidCancelPreview(_ carPlayManager: CarPlayManager) {
-        MainActor.assumeIsolated { flyover?.showPreview(nil) }
+        MainActor.assumeIsolated {
+            flyover?.showPreview(nil)
+            refreshFriends()
+        }
     }
 
     nonisolated func carPlayManagerDidBeginNavigation(_ carPlayManager: CarPlayManager) {
@@ -735,6 +678,7 @@ extension CarPlayController: CarPlayManagerDelegate {
             if !coordinator.isNavigating {
                 coordinator.didBeginOnCarPlay(destination: pendingDestination)
             }
+            refreshFriends()
         }
     }
 
@@ -743,15 +687,36 @@ extension CarPlayController: CarPlayManagerDelegate {
             navigationOverlay?.stop()
             navigationOverlay = nil
             navRecenter?.cancel(); navRecenter = nil
+            navZoom = nil
+            overviewChosen = false
             if let browseMap = carPlayManager.carPlayMapViewController?.navigationMapView {
                 flyover?.attach(to: browseMap)
             }
             pendingDestination = nil
             AppModel.shared.navigation.stop()
+            refreshFriends()
         }
     }
 
     nonisolated func carPlayManager(_ carPlayManager: CarPlayManager, shouldPresentArrivalUIFor waypoint: Waypoint) -> Bool {
         true
+    }
+}
+
+extension CarPlayController: CPSessionConfigurationDelegate {
+    nonisolated func sessionConfiguration(
+        _ sessionConfiguration: CPSessionConfiguration,
+        limitedUserInterfacesChanged limitedUserInterfaces: CPLimitableUserInterface
+    ) {
+        MainActor.assumeIsolated {
+            Diag.log("CarPlay: vom Auto gesperrt jetzt \(Self.describe(limitedUserInterfaces))")
+        }
+    }
+
+    static func describe(_ limits: CPLimitableUserInterface) -> String {
+        var parts: [String] = []
+        if limits.contains(.keyboard) { parts.append("Tastatur") }
+        if limits.contains(.lists) { parts.append("Listen") }
+        return parts.isEmpty ? "nichts" : parts.joined(separator: ", ")
     }
 }

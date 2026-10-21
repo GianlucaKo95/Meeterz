@@ -233,7 +233,7 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
 
     // MARK: Freunde und Treffpunkte
 
-    private func refreshFriends() {
+    func refreshFriends() {
         mapView.removeOverlays(friendOverlays)
         friendOverlays = []
         let model = AppModel.shared

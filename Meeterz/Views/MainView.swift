@@ -148,8 +148,8 @@ struct MainView: View {
         if focus.showRoute, let route = app.routes.friendRoutes[focus.friendId], route.coordinates.count > 1 {
             return .overview(
                 geometry: MultiPoint(route.coordinates + [friend]),
-                geometryPadding: EdgeInsets(top: 150, leading: 50, bottom: 470, trailing: 50),
-                bearing: 0, pitch: 0)
+                bearing: 0, pitch: 0,
+                geometryPadding: EdgeInsets(top: 150, leading: 50, bottom: 470, trailing: 50))
         }
         // Mittelpunkt etwas südlich, damit der Freund über dem Fenster liegt (Zoom 15,5: ≈ 2 m je Pixel)
         var center = friend

@@ -222,14 +222,27 @@ final class CarPlayController: NSObject {
             return item
         }
 
+        // Wie bei Apple Karten ganz oben: Zuhause, Arbeit und eigene Favoriten mit Symbol
+        let favorites = model.favorites
+        let favoriteItems: [CPListItem] = ([favorites.home, favorites.work].compactMap { $0 } + favorites.others).map { fav in
+            let item = CPListItem(text: fav.label, detailText: fav.address,
+                                  image: UIImage(systemName: fav.symbol,
+                                                 withConfiguration: UIImage.SymbolConfiguration(pointSize: 24, weight: .semibold)))
+            item.handler = { [weak self] _, completion in
+                self?.preview(to: fav.coordinate, name: fav.label, completion: completion)
+            }
+            return item
+        }
+
         var sections: [CPListSection] = []
+        if !favoriteItems.isEmpty { sections.append(CPListSection(items: favoriteItems, header: "Favoriten", sectionIndexTitle: nil)) }
         if !inviteItems.isEmpty { sections.append(CPListSection(items: inviteItems, header: "Einladungen", sectionIndexTitle: nil)) }
         if !meetupItems.isEmpty { sections.append(CPListSection(items: meetupItems, header: "Treffpunkte", sectionIndexTitle: nil)) }
         sections.append(CPListSection(items: friendItems.isEmpty
             ? [CPListItem(text: "Gerade ist niemand unterwegs", detailText: nil)]
             : friendItems,
             header: "Freunde", sectionIndexTitle: nil))
-        return CPListTemplate(title: "Meeterz", sections: sections)
+        return CPListTemplate(title: "Ziele", sections: sections)
     }
 
     private func preview(to coordinate: CLLocationCoordinate2D, name: String, completion: @escaping () -> Void) {

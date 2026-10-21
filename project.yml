@@ -67,12 +67,16 @@ targets:
           LocationAccuracyAuthorizationDescription: "Für die Navigation braucht Meeterz deinen genauen Standort."
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: true
-          CPSupportsDashboardNavigationScene: false
+          CPSupportsDashboardNavigationScene: true
           UISceneConfigurations:
             CPTemplateApplicationSceneSessionRoleApplication:
               - UISceneClassName: CPTemplateApplicationScene
                 UISceneConfigurationName: CarPlay
                 UISceneDelegateClassName: $(PRODUCT_MODULE_NAME).CarPlaySceneDelegate
+            CPTemplateApplicationDashboardSceneSessionRoleApplication:
+              - UISceneClassName: CPTemplateApplicationDashboardScene
+                UISceneConfigurationName: CarPlay-Dashboard
+                UISceneDelegateClassName: $(PRODUCT_MODULE_NAME).CarPlayDashboardSceneDelegate
         SUPABASE_URL: $(SUPABASE_URL)
         SUPABASE_ANON_KEY: $(SUPABASE_ANON_KEY)
         MBXAccessToken: $(MAPBOX_ACCESS_TOKEN)

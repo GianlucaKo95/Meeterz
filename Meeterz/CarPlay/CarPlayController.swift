@@ -41,6 +41,66 @@ final class CarPlayController: NSObject {
     private var shownInvites = Set<UUID>()
     private var searchTask: Task<Void, Never>?
     private var searchCompletion: (([CPListItem]) -> Void)?
+    private var browseRecenter: Task<Void, Never>?
+    private var navRecenter: Task<Void, Never>?
+    private var threeDBarButton: CPBarButton?
+    private var threeDMapButton: CPMapButton?
+
+    // MARK: 3D und Kamera
+
+    /// 3D (geneigte Karte) auf CarPlay; Standard an
+    private var threeD: Bool {
+        get { UserDefaults.standard.object(forKey: "carplay.3d") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "carplay.3d") }
+    }
+
+    private static func textImage(_ text: String) -> UIImage {
+        let size = CGSize(width: 44, height: 44)
+        let image = UIGraphicsImageRenderer(size: size).image { _ in
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 20, weight: .heavy),
+                .foregroundColor: UIColor.black,
+            ]
+            let str = NSAttributedString(string: text, attributes: attrs)
+            let box = str.size()
+            str.draw(at: CGPoint(x: (size.width - box.width) / 2, y: (size.height - box.height) / 2))
+        }
+        return image.withRenderingMode(.alwaysTemplate)
+    }
+
+    /// Neigung der Kamera im Folgemodus setzen (3D = 60°, 2D = 0°)
+    private func applyPitch(to navigationMapView: NavigationMapView?) {
+        guard let camera = navigationMapView?.navigationCamera else { return }
+        if let source = camera.viewportDataSource as? CarPlayViewportDataSource {
+            source.options.followingCameraOptions.defaultPitch = threeD ? 60 : 0
+        }
+        if camera.currentCameraState == .following { camera.update(cameraState: .following) }
+    }
+
+    private func toggleThreeD() {
+        threeD.toggle()
+        applyPitch(to: manager.carPlayMapViewController?.navigationMapView)
+        applyPitch(to: manager.carPlayNavigationViewController?.navigationMapView)
+        threeDBarButton?.title = threeD ? "2D" : "3D"
+        threeDMapButton?.image = Self.textImage(threeD ? "2D" : "3D")
+    }
+
+    /// Kehrt nach 10 s ohne Eingabe zum Standort zurück, wenn man die Karte weggeschoben hat
+    private func startAutoRecenter(_ navigationMapView: NavigationMapView) -> Task<Void, Never> {
+        Task { @MainActor [weak navigationMapView] in
+            var idle = 0
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                guard let camera = navigationMapView?.navigationCamera else { return }
+                if camera.currentCameraState == .idle {
+                    idle += 1
+                    if idle >= 10 { camera.update(cameraState: .following); idle = 0 }
+                } else {
+                    idle = 0
+                }
+            }
+        }
+    }
 
     private lazy var manager: CarPlayManager = {
         let m = CarPlayManager(navigationProvider: navigationProvider, styles: NavigationStyles.carPlay())
@@ -65,6 +125,8 @@ final class CarPlayController: NSObject {
         navigationOverlay?.stop()
         browseOverlay = nil
         navigationOverlay = nil
+        browseRecenter?.cancel(); browseRecenter = nil
+        navRecenter?.cancel(); navRecenter = nil
         manager.templateApplicationScene(scene, didDisconnect: interfaceController, from: window)
         manager.delegate = nil
         isConnected = false
@@ -387,6 +449,9 @@ extension CarPlayController: CarPlayManagerDelegate {
             let overlay = FriendOverlay(mapView: navigationMapView.mapView) { [weak self] in self?.friendsVisible ?? true }
             overlay.start()
             browseOverlay = overlay
+            applyPitch(to: navigationMapView)
+            browseRecenter?.cancel()
+            browseRecenter = startAutoRecenter(navigationMapView)
         }
     }
 
@@ -405,6 +470,11 @@ extension CarPlayController: CarPlayManagerDelegate {
             let overlay = FriendOverlay(mapView: mapView) { [weak self] in self?.friendsVisible ?? true }
             overlay.start()
             navigationOverlay = overlay
+            if let navMap = navigationViewController.navigationMapView {
+                applyPitch(to: navMap)
+                navRecenter?.cancel()
+                navRecenter = startAutoRecenter(navMap)
+            }
         }
     }
 
@@ -420,7 +490,19 @@ extension CarPlayController: CarPlayManagerDelegate {
                 guard let map = carPlayManager.carPlayMapViewController else { return nil }
                 // Zentrieren auf den Live-Standort, Freunde ein/aus, Zoom
                 return [map.recenterButton, friendsButton(), map.zoomInButton, map.zoomOutButton]
-            case .navigating, .previewing, .panningInBrowsingMode, .panningInNavigationMode:
+            case .navigating:
+                // Kamera: folgen ↔ Übersicht, dazu 3D/2D (statt der Mapbox-Standardknöpfe)
+                let camera = CPMapButton { [weak self] _ in
+                    guard let camera = self?.manager.carPlayNavigationViewController?.navigationMapView?.navigationCamera else { return }
+                    camera.update(cameraState: camera.currentCameraState == .following ? .overview : .following)
+                }
+                camera.image = UIImage(systemName: "location.viewfinder",
+                                       withConfiguration: UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold))
+                let three = CPMapButton { [weak self] _ in self?.toggleThreeD() }
+                three.image = Self.textImage(threeD ? "2D" : "3D")
+                threeDMapButton = three
+                return [camera, three]
+            case .previewing, .panningInBrowsingMode, .panningInNavigationMode:
                 return nil
             }
         }
@@ -433,8 +515,17 @@ extension CarPlayController: CarPlayManagerDelegate {
         for activity: CarPlayActivity,
         cameraState: NavigationCameraState
     ) -> [CPBarButton]? {
-        // Mapbox-Standard (z. B. Pan-Modus, Stummschalten); eigene Buttons liegen rechts bzw. im Fahrt-Panel
-        nil
+        MainActor.assumeIsolated {
+            switch activity {
+            case .browsing:
+                // 3D/2D der Karte; während der Fahrt bleibt Mapbox-Standard (Stummschalten, Alternativen)
+                let button = CPBarButton(title: threeD ? "2D" : "3D") { [weak self] _ in self?.toggleThreeD() }
+                threeDBarButton = button
+                return [button]
+            default:
+                return nil
+            }
+        }
     }
 
     nonisolated func carPlayManager(
@@ -453,11 +544,13 @@ extension CarPlayController: CarPlayManagerDelegate {
                 }
                 return [search, goals]
             case .navigating:
-                // Ab iOS 27 liegt Einladen im Fahrt-Panel; davor gibt es dafür einen Knopf in der Leiste
+                // „Beenden“ muss immer da sein (der Mapbox-Standardknopf entfällt, sobald wir die Leiste belegen).
+                // Ab iOS 27 liegt Einladen im Fahrt-Panel; davor gibt es dafür einen zusätzlichen Knopf.
+                let end = CPBarButton(title: "Beenden") { [weak self] _ in self?.endNavigationIfNeeded() }
                 if #unavailable(iOS 27.0), !AppModel.shared.friends.accepted.isEmpty, inviteDestination != nil {
-                    return [CPBarButton(title: "Einladen") { [weak self] _ in self?.showInviteList() }]
+                    return [CPBarButton(title: "Einladen") { [weak self] _ in self?.showInviteList() }, end]
                 }
-                return nil
+                return [end]
             case .previewing, .panningInBrowsingMode, .panningInNavigationMode:
                 return nil
             }
@@ -488,6 +581,7 @@ extension CarPlayController: CarPlayManagerDelegate {
         MainActor.assumeIsolated {
             navigationOverlay?.stop()
             navigationOverlay = nil
+            navRecenter?.cancel(); navRecenter = nil
             pendingDestination = nil
             AppModel.shared.navigation.stop()
         }

@@ -108,6 +108,16 @@ final class NavigationCoordinator: NSObject {
         }
     }
 
+    /// Fahrzeit mit dem Auto zu einem Ort, ohne die Berechnen-Anzeige der App (z. B. für die Zielliste auf CarPlay)
+    func driveTime(to coordinate: CLLocationCoordinate2D) async -> TimeInterval? {
+        guard let origin = AppModel.shared.location.lastLocation?.coordinate else { return nil }
+        let options = NavigationRouteOptions(waypoints: [Waypoint(coordinate: origin), Waypoint(coordinate: coordinate)],
+                                             profileIdentifier: .automobileAvoidingTraffic,
+                                             locale: Locale.navigation, distanceUnit: .kilometer)
+        let routes = try? await core.routingProvider().calculateRoutes(options: options).value
+        return routes?.mainRoute.route.expectedTravelTime
+    }
+
     func planRoute(to place: Place) async {
         let mode = effectiveMode
         guard let routes = await calculate(to: place, mode: mode) else { return }
@@ -132,6 +142,7 @@ final class NavigationCoordinator: NSObject {
         self.preview = nil
         activeMode = preview.mode
         destination = preview.destination
+        AppModel.shared.recents.record(preview.destination)
         remaining = (preview.distance, preview.routes.mainRoute.route.expectedTravelTime)
 
         navigationProvider.apply(coreConfig: meeterzCoreConfig(
@@ -240,7 +251,7 @@ final class NavigationCoordinator: NSObject {
 
     /// Navigation wurde auf CarPlay gestartet (ohne iPhone-Oberfläche)
     func didBeginOnCarPlay(destination place: Place?) {
-        if let place { destination = place }
+        if let place { destination = place; AppModel.shared.recents.record(place) }
         beginTracking()
     }
 

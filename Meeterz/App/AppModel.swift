@@ -19,6 +19,7 @@ final class AppModel {
     let avatars = AvatarStore()
     let sounds = SoundStore()
     let favorites = FavoritesStore()
+    let recents = RecentsStore()
 
     struct Banner: Identifiable, Equatable {
         let id = UUID()
@@ -47,6 +48,7 @@ final class AppModel {
         guard let profile, sessionUser != profile.id else { return }
         sessionUser = profile.id
         favorites.load(userId: profile.id)
+        recents.load(userId: profile.id)
 
         location.onUpdate = { [weak self] loc in
             Task { await self?.onLocation(loc) }
@@ -75,6 +77,7 @@ final class AppModel {
         avatars.reset()
         sounds.reset()
         favorites.reset()
+        recents.reset()
         refreshLoop?.cancel()
         refreshLoop = nil
         sessionUser = nil

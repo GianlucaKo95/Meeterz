@@ -234,8 +234,30 @@ final class CarPlayController: NSObject {
             return item
         }
 
+        // Fahrzeit zu Zuhause und Arbeit nachreichen, sobald sie berechnet ist
+        for (item, fav) in zip(favoriteItems, [favorites.home, favorites.work].compactMap { $0 } + favorites.others)
+        where fav.kind != .other {
+            Task { @MainActor in
+                guard let seconds = await model.navigation.driveTime(to: fav.coordinate) else { return }
+                item.setDetailText("\(Format.minutes(seconds: seconds)) · \(fav.address ?? fav.label)")
+            }
+        }
+
+        let recentItems: [CPListItem] = model.recents.items
+            .filter { r in !favorites.items.contains { $0.coordinate.distance(to: r.coordinate) < 50 } }
+            .prefix(5).map { recent in
+                let item = CPListItem(text: recent.name, detailText: recent.address,
+                                      image: UIImage(systemName: "clock.fill",
+                                                     withConfiguration: UIImage.SymbolConfiguration(pointSize: 24, weight: .semibold)))
+                item.handler = { [weak self] _, completion in
+                    self?.preview(to: recent.coordinate, name: recent.name, completion: completion)
+                }
+                return item
+            }
+
         var sections: [CPListSection] = []
         if !favoriteItems.isEmpty { sections.append(CPListSection(items: favoriteItems, header: "Favoriten", sectionIndexTitle: nil)) }
+        if !recentItems.isEmpty { sections.append(CPListSection(items: recentItems, header: "Zuletzt", sectionIndexTitle: nil)) }
         if !inviteItems.isEmpty { sections.append(CPListSection(items: inviteItems, header: "Einladungen", sectionIndexTitle: nil)) }
         if !meetupItems.isEmpty { sections.append(CPListSection(items: meetupItems, header: "Treffpunkte", sectionIndexTitle: nil)) }
         sections.append(CPListSection(items: friendItems.isEmpty

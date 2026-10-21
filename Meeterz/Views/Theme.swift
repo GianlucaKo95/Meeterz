@@ -144,6 +144,11 @@ enum Format {
         return f
     }()
 
+    static func minutes(seconds: TimeInterval) -> String {
+        let m = max(1, Int((seconds / 60).rounded()))
+        return m < 60 ? "\(m) Min" : "\(m / 60) Std \(m % 60) Min"
+    }
+
     static func minutes(until date: Date) -> String {
         let m = max(0, Int(date.timeIntervalSinceNow / 60))
         return m < 60 ? "\(m) Min" : "\(m / 60) Std \(m % 60) Min"

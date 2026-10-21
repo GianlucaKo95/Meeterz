@@ -589,10 +589,18 @@ extension CarPlayController: CarPlayManagerDelegate {
                 return [search, goals]
             case .navigating:
                 // „Beenden“ muss immer da sein (der Mapbox-Standardknopf entfällt, sobald wir die Leiste belegen).
-                // Ab iOS 27 liegt Einladen im Fahrt-Panel; davor gibt es dafür einen zusätzlichen Knopf.
+                // Einladen öffnet nur auf Knopfdruck (ab iOS 27 als Panel, davor als Liste).
                 let end = CPBarButton(title: "Beenden") { [weak self] _ in self?.endNavigationIfNeeded() }
-                if #unavailable(iOS 27.0), !AppModel.shared.friends.accepted.isEmpty, inviteDestination != nil {
-                    return [CPBarButton(title: "Einladen") { [weak self] _ in self?.showInviteList() }, end]
+                if !AppModel.shared.friends.accepted.isEmpty, inviteDestination != nil {
+                    let invite = CPBarButton(title: "Einladen") { [weak self] _ in
+                        guard let self else { return }
+                        if #available(iOS 27.0, *), let map = manager.interfaceController?.topTemplate as? CPMapTemplate {
+                            showTripPanel(on: map)
+                        } else {
+                            showInviteList()
+                        }
+                    }
+                    return [invite, end]
                 }
                 return [end]
             case .previewing, .panningInBrowsingMode, .panningInNavigationMode:
@@ -607,8 +615,8 @@ extension CarPlayController: CarPlayManagerDelegate {
         animated: Bool
     ) {
         MainActor.assumeIsolated {
-            guard let map = template as? CPMapTemplate, carPlayManager.currentActivity == .navigating else { return }
-            if #available(iOS 27.0, *) { showTripPanel(on: map) }
+            // Das Einladen-Panel öffnet sich nicht mehr von selbst – nur über den Knopf „Einladen“
+            _ = template
         }
     }
 

@@ -20,6 +20,8 @@ struct FlyoverMapView: View {
     @State private var idleToken = 0
     @Environment(\.scenePhase) private var scenePhase
 
+    @Namespace private var compassScope
+
     var body: some View {
         MapReader { proxy in
             mapContent
@@ -37,7 +39,7 @@ struct FlyoverMapView: View {
     }
 
     private var mapContent: some View {
-        Map(position: $position) {
+        Map(position: $position, scope: compassScope) {
             UserAnnotation()
 
             if let pin = droppedPin {
@@ -104,6 +106,12 @@ struct FlyoverMapView: View {
         }
         .mapStyle(.hybrid(elevation: .realistic, pointsOfInterest: .including([.publicTransport, .restaurant, .cafe, .parking, .hospital])))
         .mapControls { }
+        .overlay(alignment: .topTrailing) {
+            MapCompass(scope: compassScope)
+                .mapControlVisibility(.automatic)
+                .padding(.top, 400).padding(.trailing, 22)
+        }
+        .mapScope(compassScope)
         .ignoresSafeArea()
         .onMapCameraChange(frequency: .continuous) { context in lastCamera = context.camera }
         // Weggescrollt: nach 10 s ohne Eingabe zurück zum eigenen Standort

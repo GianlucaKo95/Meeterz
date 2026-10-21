@@ -195,6 +195,15 @@ final class CarPlayController: NSObject {
 
     private var friendsShown: Bool { friendsVisible && !showsRouteOverview }
 
+    /// Leiste und Kartenknöpfe nach ein paar Sekunden ausblenden – mit und ohne Route, Tippen holt sie zurück.
+    /// (Standard bei CarPlay: Leiste blendet aus, Kartenknöpfe bleiben stehen.)
+    private func autoHideButtons() {
+        for case let template as CPMapTemplate in manager.interfaceController?.templates ?? [] {
+            template.automaticallyHidesNavigationBar = true
+            template.hidesButtonsWithNavigationBar = true
+        }
+    }
+
     private func refreshFriends() {
         browseOverlay?.refresh()
         navigationOverlay?.refresh()
@@ -553,6 +562,7 @@ extension CarPlayController: CarPlayManagerDelegate {
             overlay.start()
             browseOverlay = overlay
             configureCamera(navigationMapView, navigating: false)
+            autoHideButtons()
             browseRecenter?.cancel()
             browseRecenter = startAutoRecenter(navigationMapView)
             if CarPlayFlyoverMirror.isEnabled {
@@ -582,6 +592,7 @@ extension CarPlayController: CarPlayManagerDelegate {
                 navZoom = nil
                 overviewChosen = false
                 configureCamera(navMap, navigating: true)
+                autoHideButtons()
                 navRecenter?.cancel()
                 navRecenter = startAutoRecenter(navMap)
                 flyover?.showPreview(nil)
@@ -689,6 +700,7 @@ extension CarPlayController: CarPlayManagerDelegate {
             navRecenter?.cancel(); navRecenter = nil
             navZoom = nil
             overviewChosen = false
+            autoHideButtons()
             if let browseMap = carPlayManager.carPlayMapViewController?.navigationMapView {
                 flyover?.attach(to: browseMap)
             }

@@ -11,6 +11,10 @@ on:
     - cron: "0 2 * * *"
   workflow_dispatch:
     inputs:
+      ui_tests:
+        description: "Auch Smoke- und UI-Tests laufen lassen (dauert ca. 15 Min. länger)"
+        type: boolean
+        default: false
       store_screenshots:
         description: "Auf einem iPhone Pro Max laufen lassen (Screenshots in 6,9 Zoll für den App Store)"
         type: boolean
@@ -30,6 +34,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Zwischenstand des letzten Builds (vor allem die fertig übersetzten Pakete wie Mapbox und Supabase)
+      - name: Build-Cache laden
+        uses: actions/cache@v4
+        with:
+          path: build/dd
+          key: dd-${{ hashFiles('project.yml') }}-${{ github.run_id }}
+          restore-keys: |
+            dd-${{ hashFiles('project.yml') }}-
+            dd-
+
       - name: Bauen
         id: build
         continue-on-error: true
@@ -40,6 +54,8 @@ jobs:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           MAPBOX_PUBLIC_TOKEN: ${{ secrets.MAPBOX_PUBLIC_TOKEN }}
           PREFER_MAX: ${{ inputs.store_screenshots && '1' || '0' }}
+          # Nachts immer mit Tests, auf Knopfdruck nur, wenn angehakt (oder für Screenshots)
+          RUN_TESTS: ${{ (github.event_name == 'schedule' || inputs.ui_tests || inputs.store_screenshots) && '1' || '0' }}
         run: ./ci/build.sh
 
       - name: Bericht veröffentlichen

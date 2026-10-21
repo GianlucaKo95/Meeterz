@@ -48,7 +48,8 @@ xcodegen generate 2>&1 | tee -a "$REPORT"
 
 log ""
 log "== Pakete laden =="
-xcodebuild -resolvePackageDependencies -project Meeterz.xcodeproj -scheme Meeterz > resolve.log 2>&1
+# Gleicher Ordner wie beim Bauen – sonst lädt xcodebuild alle Pakete ein zweites Mal
+xcodebuild -resolvePackageDependencies -project Meeterz.xcodeproj -scheme Meeterz -derivedDataPath build/dd > resolve.log 2>&1
 RES=$?
 tail -25 resolve.log | tee -a "$REPORT"
 [ $RES -eq 0 ] || { log "!! Paketauflösung fehlgeschlagen ($RES)"; exit 13; }
@@ -72,7 +73,10 @@ log ""
 log "== Warnungen (Auswahl) =="
 grep -E "warning:" build.log | sed 's#/Users/runner/work/[^/]*/[^/]*/##' | awk '!seen[$0]++' | head -30 >> "$REPORT"
 
-if [ $RC -eq 0 ]; then
+if [ $RC -eq 0 ] && [ "${RUN_TESTS:-1}" = "0" ]; then
+  log ""
+  log "== Tests übersprungen (nur Compile-Check) =="
+elif [ $RC -eq 0 ]; then
   ./ci/smoke.sh
   SMOKE=$?
   ./ci/uitest.sh

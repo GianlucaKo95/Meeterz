@@ -283,6 +283,7 @@ final class NavigationCoordinator: NSObject {
         phoneController?.dismiss(animated: true)
         phoneController = nil
         isNavigating = false
+        NavigationLiveActivityController.shared.end()
         AppModel.shared.location.setNavigating(false)
         destination = nil
         eta = nil
@@ -316,6 +317,17 @@ final class NavigationCoordinator: NSObject {
                     else { return }
                     await self?.share(progress)
                 }
+            }
+            .store(in: &subscriptions)
+
+        // Live-Aktivität (Sperrbildschirm, Dynamic Island): Abbiegung und Ankunft alle paar Sekunden
+        NavigationLiveActivityController.shared.start(destinationName: destination?.name,
+                                                      destination: destination?.coordinate)
+        core.navigation().routeProgress
+            .compactMap { $0?.routeProgress }
+            .throttle(for: .seconds(2), scheduler: RunLoop.main, latest: true)
+            .sink { progress in
+                Task { @MainActor in NavigationLiveActivityController.shared.update(progress) }
             }
             .store(in: &subscriptions)
 

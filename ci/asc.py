@@ -65,6 +65,24 @@ def create(workdir, bundle_identifier, profile_name):
                "name": prof["attributes"]["name"]}, open(f"{workdir}/ids.json", "w"))
     print("Profil:", prof["attributes"]["name"], prof["attributes"]["uuid"])
 
+def extra(workdir, bundle_identifier, profile_name, display_name):
+    """Profil für eine Erweiterung (z. B. Widgets) mit dem Zertifikat aus `create`; legt die Bundle-ID bei Bedarf an."""
+    cert_id = json.load(open(f"{workdir}/ids.json"))["certificate"]
+    ids = api("GET", f"/v1/bundleIds?filter[identifier]={bundle_identifier}&limit=50")["data"]
+    bundle = next((b for b in ids if b["attributes"]["identifier"] == bundle_identifier), None)
+    if not bundle:
+        bundle = api("POST", "/v1/bundleIds", {"data": {"type": "bundleIds", "attributes": {
+            "identifier": bundle_identifier, "name": display_name, "platform": "IOS"}}})["data"]
+        print("Bundle-ID angelegt:", bundle_identifier)
+    prof = api("POST", "/v1/profiles", {"data": {"type": "profiles",
+        "attributes": {"name": profile_name, "profileType": "IOS_APP_STORE"},
+        "relationships": {"bundleId": {"data": {"type": "bundleIds", "id": bundle["id"]}},
+                          "certificates": {"data": [{"type": "certificates", "id": cert_id}]}}}})["data"]
+    open(f"{workdir}/{bundle_identifier}.mobileprovision", "wb").write(base64.b64decode(prof["attributes"]["profileContent"]))
+    json.dump({"uuid": prof["attributes"]["uuid"], "name": prof["attributes"]["name"]},
+              open(f"{workdir}/{bundle_identifier}.json", "w"))
+    print("Profil:", prof["attributes"]["name"], prof["attributes"]["uuid"])
+
 def cleanup(workdir):
     try:
         ids = json.load(open(f"{workdir}/ids.json"))
@@ -124,4 +142,5 @@ if __name__ == "__main__":
     if cmd == "purge": purge(); raise SystemExit
     if cmd == "status": status(sys.argv[2]); raise SystemExit
     if cmd == "create": create(sys.argv[2], sys.argv[3], sys.argv[4])
+    elif cmd == "extra": extra(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5])
     elif cmd == "cleanup": cleanup(sys.argv[2])

@@ -73,6 +73,12 @@ log "== Zertifikat und Profil erzeugen =="
 python3 ci/asc.py create "$WORK" de.koeven.meeterz "$PROFILE_NAME" 2>&1 | tee -a "$REPORT"
 [ -f "$WORK/ids.json" ] || { log "!! Zertifikat/Profil konnten nicht erzeugt werden"; exit 33; }
 PROFILE_UUID=$(python3 -c "import json;print(json.load(open('$WORK/ids.json'))['uuid'])")
+# Widgets/Live-Aktivität: eigenes Profil mit demselben Zertifikat
+WIDGET_ID="de.koeven.meeterz.widgets"
+WIDGET_PROFILE_NAME="Meeterz CI W${GITHUB_RUN_NUMBER:-0}-$(date +%s)"
+python3 ci/asc.py extra "$WORK" "$WIDGET_ID" "$WIDGET_PROFILE_NAME" "Meeterz Widgets" 2>&1 | tee -a "$REPORT"
+[ -f "$WORK/$WIDGET_ID.json" ] || { log "!! Widget-Profil konnte nicht erzeugt werden"; exit 34; }
+WIDGET_UUID=$(python3 -c "import json;print(json.load(open('$WORK/$WIDGET_ID.json'))['uuid'])")
 
 openssl x509 -inform DER -in "$WORK/cert.der" -out "$WORK/cert.pem"
 openssl pkcs12 -export -inkey "$WORK/key.pem" -in "$WORK/cert.pem" -out "$WORK/sign.p12" -passout pass:ci -legacy >/dev/null 2>&1 \
@@ -91,14 +97,18 @@ security find-identity -v -p codesigning "$KC" 2>&1 | tee -a "$REPORT"
 mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
 cp "$WORK/profile.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision"
 cp "$WORK/profile.mobileprovision" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/$PROFILE_UUID.mobileprovision"
+cp "$WORK/$WIDGET_ID.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/$WIDGET_UUID.mobileprovision"
+cp "$WORK/$WIDGET_ID.mobileprovision" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/$WIDGET_UUID.mobileprovision"
 
 # App-Target auf manuelle Signierung mit diesem Profil stellen
-python3 - "$PROFILE_NAME" <<'PY'
+python3 - "$PROFILE_NAME" "$WIDGET_PROFILE_NAME" <<'PY'
 import sys
-name = sys.argv[1]
+# Reihenfolge in project.yml: erst die App, dann die Widgets
 s = open("project.yml").read()
-s = s.replace("CODE_SIGN_STYLE: Automatic",
-              f'CODE_SIGN_STYLE: Manual\n        CODE_SIGN_IDENTITY: "Apple Distribution"\n        PROVISIONING_PROFILE_SPECIFIER: "{name}"', 1)
+for name in sys.argv[1:]:
+    assert "CODE_SIGN_STYLE: Automatic" in s
+    s = s.replace("CODE_SIGN_STYLE: Automatic",
+                  f'CODE_SIGN_STYLE: Manual\n        CODE_SIGN_IDENTITY: "Apple Distribution"\n        PROVISIONING_PROFILE_SPECIFIER: "{name}"', 1)
 open("project.yml", "w").write(s)
 PY
 xcodegen generate 2>&1 | tee -a "$REPORT"
@@ -123,7 +133,7 @@ cat > ExportOptions.plist <<PL
   <key>teamID</key><string>${APPLE_TEAM_ID}</string>
   <key>signingStyle</key><string>manual</string>
   <key>signingCertificate</key><string>Apple Distribution</string>
-  <key>provisioningProfiles</key><dict><key>de.koeven.meeterz</key><string>${PROFILE_NAME}</string></dict>
+  <key>provisioningProfiles</key><dict><key>de.koeven.meeterz</key><string>${PROFILE_NAME}</string><key>${WIDGET_ID}</key><string>${WIDGET_PROFILE_NAME}</string></dict>
   <key>uploadSymbols</key><false/>
   <key>manageAppVersionAndBuildNumber</key><false/>
 </dict></plist>

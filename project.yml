@@ -25,6 +25,7 @@ targets:
     platform: iOS
     sources:
       - path: Meeterz
+      - path: Shared
     configFiles:
       Debug: Config.xcconfig
       Release: Config.xcconfig
@@ -37,6 +38,8 @@ targets:
         product: MapboxNavigationCore
       - package: MapboxNavigation
         product: MapboxNavigationUIKit
+      - target: MeeterzWidgets
+        embed: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: de.koeven.meeterz
@@ -58,6 +61,7 @@ targets:
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         ITSAppUsesNonExemptEncryption: false
+        NSSupportsLiveActivities: true
         UILaunchScreen:
           UIColorName: LaunchBackground
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
@@ -90,6 +94,31 @@ targets:
         SUPABASE_ANON_KEY: $(SUPABASE_ANON_KEY)
         MBXAccessToken: $(MAPBOX_ACCESS_TOKEN)
         MEETERZ_PUSH_ENV: $(MEETERZ_PUSH_ENV)
+
+  # Live-Aktivität (Sperrbildschirm, Dynamic Island) und Widgets
+  MeeterzWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: MeeterzWidgets
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: de.koeven.meeterz.widgets
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_STYLE: Automatic
+        SKIP_INSTALL: YES
+    info:
+      path: MeeterzWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: Meeterz
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
 
   MeeterzUITests:
     type: bundle.ui-testing

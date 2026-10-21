@@ -72,6 +72,7 @@ struct FlyoverMapView: View {
                 Annotation(item.friend.displayName, coordinate: item.position.coordinate, anchor: .bottom) {
                     FriendMarker(friend: item.friend, position: item.position)
                         .environment(app)
+                        .onTapGesture { app.selectedFriend = item.id }
                 }
                 .annotationTitles(.hidden)
             }

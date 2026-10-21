@@ -99,6 +99,9 @@ struct MainView: View {
             }
             .environment(app)
         }
+        .sheet(isPresented: Binding(get: { app.selectedFriend != nil }, set: { if !$0 { app.selectedFriend = nil } })) {
+            if let id = app.selectedFriend { FriendActionSheet(friendId: id).environment(app) }
+        }
         .sheet(isPresented: $showFriends) { FriendsView() }
         .sheet(isPresented: $showSearch) { SearchView() }
         .sheet(item: $plannedMeetup) { MeetupPlannerView(candidate: $0) }
@@ -213,6 +216,7 @@ struct MainView: View {
                     .textColor(StyleColor(.white))
                     .textHaloColor(StyleColor(.black))
                     .textHaloWidth(1.5)
+                    .onTapGesture { app.selectedFriend = item.id }
             }
             .iconAllowOverlap(true)
             .iconIgnorePlacement(true)

@@ -35,6 +35,8 @@ final class AppModel {
         let showRoute: Bool
     }
     var mapFocus: MapFocus?
+    /// Auf der Karte angetippter Freund (öffnet das Aktionsfenster)
+    var selectedFriend: UUID?
 
     @ObservationIgnored private var sessionUser: UUID?
     @ObservationIgnored private var refreshLoop: Task<Void, Never>?

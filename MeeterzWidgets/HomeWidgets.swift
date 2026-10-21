@@ -75,9 +75,37 @@ struct FriendsWidget: Widget {
 
 private struct FriendsWidgetView: View {
     @Environment(\.widgetFamily) private var family
+    /// false in CarPlay und StandBy: dort ohne Hintergrund, groß und nur das Wichtigste
+    @Environment(\.showsWidgetContainerBackground) private var showsBackground
     let snapshot: WidgetSnapshot
 
     var body: some View {
+        if family == .systemSmall && !showsBackground {
+            glanceable
+        } else {
+            standard
+        }
+    }
+
+    /// CarPlay/StandBy: die zwei nächsten Freunde, große Schrift
+    private var glanceable: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if snapshot.friends.isEmpty {
+                Text("Niemand teilt").font(.title3.weight(.semibold))
+            }
+            ForEach(Array(snapshot.friends.prefix(2)), id: \.self) { f in
+                HStack(spacing: 10) {
+                    Avatar(initials: f.initials, size: 34)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(f.name).font(.title3.weight(.bold)).lineLimit(1)
+                        Text(distance(f.distance)).font(.headline).foregroundStyle(accent).monospacedDigit()
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private var standard: some View {
         switch family {
         case .accessoryRectangular:
             if let f = snapshot.friends.first {

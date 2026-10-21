@@ -44,7 +44,7 @@ struct FlyoverMapView: View {
         Binding(get: { nil }, set: { feature in
             guard let feature else { return }
             Task {
-                guard let item = try? await MKMapItemRequest(mapFeature: feature).mapItem else { return }
+                guard let item = try? await MKMapItemRequest(feature: feature).mapItem else { return }
                 detail = PlaceDetailItem(mapItem: item)
             }
         })

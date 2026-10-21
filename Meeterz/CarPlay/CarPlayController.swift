@@ -396,6 +396,58 @@ final class CarPlayController: NSObject {
         template.showPanel(panel, completion: nil)
     }
 
+    /// Startfenster (wie Apple Karten): Suchen, Angepinnt (Zuhause, Arbeit, Favoriten mit Fahrzeit), Zuletzt, Freunde
+    @available(iOS 27.0, *)
+    private func showHomePanel(on template: CPMapTemplate) {
+        let model = AppModel.shared
+        guard !model.navigation.isNavigating else { return }
+
+        func item(_ symbol: String, _ title: String, _ info: String?, _ handler: @escaping () -> Void) -> CPMapPanelItem {
+            var details = [CPRouteDetail(symbolName: symbol, value: title)]
+            if let info, !info.isEmpty { details.append(CPRouteDetail(info: info)) }
+            return CPMapPanelItem(routeDetails: details, handler: { _, done in handler(); done() })
+        }
+
+        var sections: [CPMapPanelSection] = []
+        sections.append(CPMapPanelSection(title: "Suchen", items: [
+            item("magnifyingglass", "Ziel suchen", nil) { [weak self] in self?.showSearch() },
+        ]))
+
+        let favorites = model.favorites
+        let pinned = [favorites.home, favorites.work].compactMap { $0 } + favorites.others
+        if !pinned.isEmpty {
+            sections.append(CPMapPanelSection(title: "Angepinnt", items: pinned.prefix(6).map { fav in
+                item(fav.symbol, fav.label, fav.address) { [weak self] in
+                    self?.preview(to: fav.coordinate, name: fav.label) {}
+                }
+            }))
+        }
+
+        let recents = model.recents.items.filter { r in !pinned.contains { $0.coordinate.distance(to: r.coordinate) < 50 } }.prefix(4)
+        if !recents.isEmpty {
+            sections.append(CPMapPanelSection(title: "Zuletzt", items: recents.map { r in
+                item("clock.fill", r.name, r.address) { [weak self] in
+                    self?.preview(to: r.coordinate, name: r.name) {}
+                }
+            }))
+        }
+
+        let friends = model.friendsOnMap.prefix(4)
+        if !friends.isEmpty {
+            sections.append(CPMapPanelSection(title: "Freunde", items: friends.map { f in
+                let route = model.routes.friendRoutes[f.friend.friendId]
+                let info = route.flatMap { $0.destinationName.map { "Unterwegs nach \($0)" } } ?? "Zum Standort"
+                return item("person.crop.circle.fill", f.friend.displayName, info) { [weak self] in
+                    self?.preview(to: f.position.coordinate, name: f.friend.displayName) {}
+                }
+            }))
+        }
+
+        let panel = CPMapPanel(title: "Meeterz", sections: sections, buttonConfiguration: nil)
+        panel.showsCloseButton = true
+        template.showPanel(panel, completion: nil)
+    }
+
     /// Fallback für iOS < 27: Freundesliste zum Einladen an das Fahrtziel
     private func showInviteList() {
         let model = AppModel.shared
@@ -654,8 +706,14 @@ extension CarPlayController: CarPlayManagerDelegate {
         animated: Bool
     ) {
         MainActor.assumeIsolated {
-            guard let map = template as? CPMapTemplate, carPlayManager.currentActivity == .navigating else { return }
-            if #available(iOS 27.0, *) { showTripPanel(on: map) }
+            guard let map = template as? CPMapTemplate else { return }
+            if #available(iOS 27.0, *) {
+                switch carPlayManager.currentActivity {
+                case .navigating: showTripPanel(on: map)
+                case .browsing: showHomePanel(on: map)
+                default: break
+                }
+            }
         }
     }
 

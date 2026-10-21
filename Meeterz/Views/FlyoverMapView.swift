@@ -16,7 +16,6 @@ struct FlyoverMapView: View {
     let zoomSteps: Int
 
     @State private var position: MapCameraPosition = .automatic
-    @State private var selection: MapFeature?
     @State private var detail: PlaceDetailItem?
     @State private var lastCamera: MapCamera?
     @State private var idleToken = 0
@@ -38,6 +37,17 @@ struct FlyoverMapView: View {
                         }
                 )
         }
+    }
+
+    /// Tipp auf ein POI: Auswahl sofort wieder zurücknehmen und Apples Ortsdetails laden
+    private var featureSelection: Binding<MapFeature?> {
+        Binding(get: { nil }, set: { feature in
+            guard let feature else { return }
+            Task {
+                guard let item = try? await MKMapItemRequest(mapFeature: feature).mapItem else { return }
+                detail = PlaceDetailItem(mapItem: item)
+            }
+        })
     }
 
     @MapContentBuilder
@@ -81,7 +91,7 @@ struct FlyoverMapView: View {
     }
 
     private var mapBase: some View {
-        Map(position: $position, selection: $selection, scope: compassScope) {
+        Map(position: $position, selection: featureSelection, scope: compassScope) {
             UserAnnotation()
 
             if let pin = droppedPin {
@@ -125,14 +135,6 @@ struct FlyoverMapView: View {
     /// POI antippen → Apples Ortsdetails
     private var mapDetail: some View {
         mapBase
-        .onChange(of: selection) { _, new in
-            guard let feature = new else { return }
-            selection = nil
-            Task {
-                guard let item = try? await MKMapItemRequest(mapFeature: feature).mapItem else { return }
-                detail = PlaceDetailItem(mapItem: item)
-            }
-        }
         .sheet(item: $detail) { item in
             PlaceDetailSheet(item: item) { place in
                 Task {

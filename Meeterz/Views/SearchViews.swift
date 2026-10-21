@@ -18,6 +18,7 @@ struct SearchView: View {
     @FocusState private var focused: Bool
     /// Gesetzt = die nächste Auswahl wird als Zuhause/Arbeit/Favorit gespeichert statt zur Route zu führen
     @State private var assigning: Favorite.Kind?
+    @State private var detail: PlaceDetailItem?
     @State private var namingPlace: Place?
     @State private var favoriteName = ""
     @State private var renaming: Favorite?
@@ -45,7 +46,17 @@ struct SearchView: View {
                     if loading { ProgressView().padding() }
                     if let errorText { Text(errorText).font(.footnote).foregroundStyle(Theme.muted) }
                     ForEach(results) { place in
-                        PlaceRow(place: place, distance: distance(to: place), selected: false) { choose(place) }
+                        HStack(spacing: 6) {
+                            PlaceRow(place: place, distance: distance(to: place), selected: false) { choose(place) }
+                            Button {
+                                Task {
+                                    if let item = await ApplePlaces.mapItem(for: place) { detail = PlaceDetailItem(mapItem: item) }
+                                }
+                            } label: {
+                                Image(systemName: "info.circle").font(.system(size: 22)).foregroundStyle(Theme.muted).frame(width: 38, height: 44)
+                            }
+                            .accessibilityLabel("Details zu \(place.name)")
+                        }
                             .contextMenu {
                                 Button("Als Favorit speichern", systemImage: "star") { askName(for: place) }
                             }
@@ -58,6 +69,9 @@ struct SearchView: View {
         .presentationDetents([.large])
         .onAppear { focused = true }
         .task(id: query) { await search() }
+        .sheet(item: $detail) { item in
+            PlaceDetailSheet(item: item) { place in choose(place) }
+        }
         .alert("Favorit speichern", isPresented: Binding(get: { namingPlace != nil }, set: { if !$0 { namingPlace = nil } })) {
             TextField("Name, z. B. Oma", text: $favoriteName)
             Button("Speichern") {

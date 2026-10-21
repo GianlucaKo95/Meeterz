@@ -16,6 +16,8 @@ struct FlyoverMapView: View {
     let zoomSteps: Int
 
     @State private var position: MapCameraPosition = .automatic
+    @State private var selection: MapSelection<UUID>?
+    @State private var detail: PlaceDetailItem?
     @State private var lastCamera: MapCamera?
     @State private var idleToken = 0
     @Environment(\.scenePhase) private var scenePhase
@@ -39,7 +41,7 @@ struct FlyoverMapView: View {
     }
 
     private var mapContent: some View {
-        Map(position: $position, scope: compassScope) {
+        Map(position: $position, selection: $selection, scope: compassScope) {
             UserAnnotation()
 
             if let pin = droppedPin {
@@ -113,6 +115,22 @@ struct FlyoverMapView: View {
                 .padding(.top, 400).padding(.trailing, 22)
         }
         .mapScope(compassScope)
+        .onChange(of: selection) { _, new in
+            guard let feature = new?.feature else { return }
+            selection = nil
+            Task {
+                guard let item = try? await MKMapItemRequest(mapFeature: feature).mapItem else { return }
+                detail = PlaceDetailItem(mapItem: item)
+            }
+        }
+        .sheet(item: $detail) { item in
+            PlaceDetailSheet(item: item) { place in
+                Task {
+                    try? await Task.sleep(for: .milliseconds(450))
+                    await app.navigation.planRoute(to: place)
+                }
+            }
+        }
         .ignoresSafeArea()
         .onMapCameraChange(frequency: .continuous) { context in lastCamera = context.camera }
         // Weggescrollt: nach 10 s ohne Eingabe zurück zum eigenen Standort

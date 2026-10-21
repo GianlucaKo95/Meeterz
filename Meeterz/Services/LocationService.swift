@@ -34,8 +34,8 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
 
     /// Ab dieser Geschwindigkeit (m/s, ≈ 7 km/h) gilt man als „unterwegs“
     private static let movingSpeed = 2.0
-    /// So lange nach der letzten Bewegung bleibt der Unterwegs-Modus aktiv
-    private static let settleAfter: TimeInterval = 5 * 60
+    /// So lange (Sekunden) nach der letzten Bewegung bleibt der Unterwegs-Modus aktiv
+    private static let settleAfter: TimeInterval = 30
 
     override init() {
         authorization = manager.authorizationStatus
@@ -104,7 +104,13 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
     }
 
     func setCarPlay(_ value: Bool) {
+        let wasConnected = carPlay
         carPlay = value
+        if wasConnected && !value {
+            // CarPlay getrennt = ausgestiegen: letzten Parkplatz noch melden, dann sofort in den Spar-Modus
+            if let last = lastLocation { onUpdate?(last) }
+            lastMovingAt = .distantPast
+        }
         apply()
     }
 
@@ -164,7 +170,7 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
     private func scheduleSettleCheck() {
         settleTask?.cancel()
         settleTask = Task { [weak self] in
-            // Solange noch Bewegung war, bis fünf Minuten nach der letzten Bewegung warten – dann erst zurückschalten.
+            // Solange noch Bewegung war, bis 30 Sekunden nach der letzten Bewegung warten – dann erst zurückschalten.
             // (Im Stand kommen wegen des Distanzfilters keine Updates, die sonst neu bewerten würden.)
             while let self, !Task.isCancelled {
                 let remaining = Self.settleAfter - Date().timeIntervalSince(self.lastMovingAt)

@@ -345,13 +345,26 @@ final class CarPlayController: NSObject {
         AppModel.shared.navigation.destination ?? pendingDestination
     }
 
-    /// Legt das Panel auf die Karten-Vorlage der laufenden Navigation
+    /// Legt das Fahrt-Fenster (wie bei Apple Karten) auf die Karten-Vorlage der laufenden Navigation:
+    /// unten Ankunft/Zeit/Strecke und „Route beenden“, hochgezogen die weiteren Aktionen.
     @available(iOS 27.0, *)
     private func showTripPanel(on template: CPMapTemplate) {
         let model = AppModel.shared
         guard model.navigation.isNavigating, let place = inviteDestination else { return }
         let friends = model.friends.accepted
-        guard !friends.isEmpty else { return }
+
+        func action(_ symbol: String, _ title: String, _ handler: @escaping () -> Void) -> CPMapPanelItem {
+            CPMapPanelItem(routeDetails: [CPRouteDetail(symbolName: symbol, value: title)], handler: { _, done in
+                handler(); done()
+            })
+        }
+        var actions: [CPMapPanelItem] = [
+            action("plus.circle.fill", "Stopp hinzufügen") { [weak self] in self?.showSearch() },
+        ]
+        if !friends.isEmpty {
+            actions.append(action("person.2.circle.fill", "Freunde einladen") { [weak self] in self?.showInviteList() })
+        }
+        var sections = [CPMapPanelSection(title: "Aktionen", items: actions)]
 
         let items: [CPMapPanelItem] = friends.prefix(CPPanel.maximumPanelItemsCount).map { friend in
             CPMapPanelItem(
@@ -365,6 +378,7 @@ final class CarPlayController: NSObject {
                 }
             )
         }
+        if !items.isEmpty { sections.append(CPMapPanelSection(title: "Freunde", items: items)) }
 
         var buttons: CPMapPanelButtonConfiguration?
         if let remaining = model.navigation.remaining {
@@ -372,11 +386,8 @@ final class CarPlayController: NSObject {
                 distanceRemaining: Measurement(value: remaining.distance, unit: .meters),
                 timeRemaining: remaining.duration
             )
-            let primary = CPTextButton(
-                title: friends.count > 1 ? "Alle einladen" : "Einladen",
-                textStyle: .confirm
-            ) { [weak self] _ in
-                self?.sendInvites(to: friends.map(\.friendId), place: place)
+            let primary = CPTextButton(title: "Route beenden", textStyle: .cancel) { [weak self] _ in
+                self?.endNavigationIfNeeded()
             }
             let toggle = CPButton(image: friendsToggleImage()) { [weak self] _ in
                 guard let self else { return }
@@ -391,8 +402,8 @@ final class CarPlayController: NSObject {
         }
 
         let panel = CPMapPanel(
-            title: "Einladen nach \(place.name)",
-            sections: [CPMapPanelSection(title: "Freunde", items: items)],
+            title: place.name,
+            sections: sections,
             buttonConfiguration: buttons
         )
         panel.showsCloseButton = true
@@ -504,7 +515,12 @@ extension CarPlayController: CPSearchTemplateDelegate {
         MainActor.assumeIsolated {
             guard let place = item.userInfo as? Place else { completionHandler(); return }
             manager.interfaceController?.popToRootTemplate(animated: true, completion: nil)
-            preview(to: place.coordinate, name: place.name, completion: completionHandler)
+            if AppModel.shared.navigation.isNavigating {
+                go(to: place)            // läuft schon eine Fahrt: Ort wird Zwischenstopp
+                completionHandler()
+            } else {
+                preview(to: place.coordinate, name: place.name, completion: completionHandler)
+            }
         }
     }
 }
@@ -650,8 +666,8 @@ extension CarPlayController: CarPlayManagerDelegate {
         animated: Bool
     ) {
         MainActor.assumeIsolated {
-            // Das Einladen-Panel öffnet sich nicht mehr von selbst – nur über den Knopf „Einladen“
-            _ = template
+            guard let map = template as? CPMapTemplate, carPlayManager.currentActivity == .navigating else { return }
+            if #available(iOS 27.0, *) { showTripPanel(on: map) }
         }
     }
 

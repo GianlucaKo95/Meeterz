@@ -41,21 +41,27 @@ struct PlaceDetailSheet: View {
         }
         .presentationDetents([.height(480), .large])
         .presentationDragIndicator(.visible)
+        .onAppear { Diag.log("Ortskarte geöffnet: \(item.mapItem.name ?? "?")") }
     }
 }
 
 enum ApplePlaces {
     /// Findet zu einem Ort (z. B. Suchtreffer von Mapbox) den passenden Eintrag in Apples Orten.
     static func mapItem(for place: Place) async -> MKMapItem? {
-        let request = MKLocalSearch.Request()
-        request.naturalLanguageQuery = place.name
-        request.region = MKCoordinateRegion(center: place.coordinate, latitudinalMeters: 400, longitudinalMeters: 400)
-        guard let response = try? await MKLocalSearch(request: request).start() else { return nil }
         let target = CLLocation(latitude: place.coordinate.latitude, longitude: place.coordinate.longitude)
-        return response.mapItems
-            .map { ($0, CLLocation(latitude: $0.coordinate.latitude, longitude: $0.coordinate.longitude).distance(from: target)) }
-            .filter { $0.1 < 150 }
-            .min { $0.1 < $1.1 }?.0
+        // Erst eng um den Ort, dann weiter – Mapbox und Apple setzen Orte nicht auf den Meter gleich
+        for radius in [400.0, 1500.0] {
+            let request = MKLocalSearch.Request()
+            request.naturalLanguageQuery = place.name
+            request.region = MKCoordinateRegion(center: place.coordinate, latitudinalMeters: radius, longitudinalMeters: radius)
+            guard let response = try? await MKLocalSearch(request: request).start() else { continue }
+            let best = response.mapItems
+                .map { ($0, CLLocation(latitude: $0.coordinate.latitude, longitude: $0.coordinate.longitude).distance(from: target)) }
+                .filter { $0.1 < radius / 2 }
+                .min { $0.1 < $1.1 }
+            if let best { return best.0 }
+        }
+        return nil
     }
 }
 

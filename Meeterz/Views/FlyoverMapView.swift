@@ -43,9 +43,18 @@ struct FlyoverMapView: View {
     private var featureSelection: Binding<MapFeature?> {
         Binding(get: { nil }, set: { feature in
             guard let feature else { return }
+            Diag.log("POI getippt: \(feature.title ?? "ohne Namen")")
             Task {
-                guard let item = try? await MKMapItemRequest(feature: feature).mapItem else { return }
-                detail = PlaceDetailItem(mapItem: item)
+                do {
+                    let item = try await MKMapItemRequest(feature: feature).mapItem
+                    detail = PlaceDetailItem(mapItem: item)
+                } catch {
+                    // Kein Apple-Eintrag: einfache Ortskarte aus Name und Position
+                    Diag.log("POI-Details nicht geladen: \(error.localizedDescription)")
+                    let item = MKMapItem(placemark: MKPlacemark(coordinate: feature.coordinate))
+                    item.name = feature.title
+                    detail = PlaceDetailItem(mapItem: item)
+                }
             }
         })
     }

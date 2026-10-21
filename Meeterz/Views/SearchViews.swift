@@ -50,7 +50,13 @@ struct SearchView: View {
                             PlaceRow(place: place, distance: distance(to: place), selected: false) { choose(place) }
                             Button {
                                 Task {
-                                    if let item = await ApplePlaces.mapItem(for: place) { detail = PlaceDetailItem(mapItem: item) }
+                                    Diag.log("Details angefragt: \(place.name)")
+                                    if let item = await ApplePlaces.mapItem(for: place) {
+                                        detail = PlaceDetailItem(mapItem: item)
+                                    } else {
+                                        Diag.log("Keine Apple-Details gefunden: \(place.name)")
+                                        app.show("Zu „\(place.name)“ hat Apple keine Details.")
+                                    }
                                 }
                             } label: {
                                 Image(systemName: "info.circle").font(.system(size: 22)).foregroundStyle(Theme.muted).frame(width: 38, height: 44)

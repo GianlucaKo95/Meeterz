@@ -359,7 +359,7 @@ struct FriendsView: View {
             }
             Text("Gilt ab dem nächsten Verbinden mit CarPlay. Flyover zeigt Apples 3D-Satellitenbild; die Abbiegehinweise bleiben gleich.")
                 .font(.footnote).foregroundStyle(Theme.muted)
-            DisclosureGroup("Diagnose (CarPlay-Kamera)") {
+            DisclosureGroup("Diagnose") {
                 Text(diagText.isEmpty ? "Noch keine Einträge." : diagText)
                     .font(.system(size: 10, design: .monospaced)).textSelection(.enabled)
                 HStack {

@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import Combine
 import CarPlay
 import CoreLocation
 import MapboxDirections
@@ -92,6 +93,11 @@ final class CarPlayController: NSObject {
         Task { @MainActor [weak navigationMapView] in
             var idle = 0
             var lost = 0
+            var token: AnyCancellable?
+            if let navigationMapView {
+                token = navigationMapView.navigationCamera.cameraStates.sink { Diag.log("CarPlay-Kamera → \($0)") }
+            }
+            defer { token?.cancel() }
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(1))
                 guard let navigationMapView, let camera = Optional(navigationMapView.navigationCamera) else { return }
@@ -103,6 +109,7 @@ final class CarPlayController: NSObject {
                     let b = navigationMapView.bounds.insetBy(dx: 8, dy: 8)
                     if b.width > 1, !b.contains(p) { lost += 1 } else { lost = 0 }
                     if lost >= 3 {
+                        Diag.log("Standort außerhalb des Bildes trotz .following (Punkt \(Int(p.x)),\(Int(p.y)), Bild \(Int(navigationMapView.bounds.width))x\(Int(navigationMapView.bounds.height)), Kameramitte \(map.cameraState.center.latitude),\(map.cameraState.center.longitude), Standort \(me.latitude),\(me.longitude))")
                         camera.stop()
                         camera.update(cameraState: .following)
                         lost = 0

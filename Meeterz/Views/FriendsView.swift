@@ -23,6 +23,7 @@ struct FriendsView: View {
     }
     @AppStorage("carplay.satellite") private var carPlaySatellite = true
     @AppStorage("carplay.flyover") private var carPlayFlyover = true
+    @State private var diagText = Diag.text
     @State private var voiceOn = !MeeterzSpeechSynthesizer.shared.muted
     #if DEBUG
     @State private var simulate = NavigationCoordinator.simulate
@@ -358,6 +359,17 @@ struct FriendsView: View {
             }
             Text("Gilt ab dem nächsten Verbinden mit CarPlay. Flyover zeigt Apples 3D-Satellitenbild; die Abbiegehinweise bleiben gleich.")
                 .font(.footnote).foregroundStyle(Theme.muted)
+            DisclosureGroup("Diagnose (CarPlay-Kamera)") {
+                Text(diagText.isEmpty ? "Noch keine Einträge." : diagText)
+                    .font(.system(size: 10, design: .monospaced)).textSelection(.enabled)
+                HStack {
+                    Button("Aktualisieren") { diagText = Diag.text }
+                    Spacer()
+                    ShareLink(item: diagText)
+                    Button("Leeren", role: .destructive) { Diag.clear(); diagText = "" }
+                }
+                .buttonStyle(.borderless)
+            }
             #if DEBUG
             Toggle("Fahrten simulieren (Test)", isOn: $simulate)
                 .tint(Theme.accent)

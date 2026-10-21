@@ -1,5 +1,6 @@
 import SwiftUI
 import MapKit
+import CoreLocation
 
 /// Apples Ortsdetail-Ansicht (Öffnungszeiten, Bewertungen, Fotos, Anrufen …) – ab iOS 18.
 struct PlaceDetailItem: Identifiable {
@@ -27,7 +28,7 @@ struct PlaceDetailSheet: View {
         VStack(spacing: 0) {
             AppleDetailView(mapItem: item.mapItem)
             Button {
-                let coordinate = item.mapItem.location.coordinate
+                let coordinate = item.mapItem.placemark.coordinate
                 let place = Place(id: "apple-\(UUID().uuidString)", name: item.mapItem.name ?? "Ziel", address: nil, coordinate: coordinate)
                 dismiss()
                 navigate(place)
@@ -52,7 +53,7 @@ enum ApplePlaces {
         guard let response = try? await MKLocalSearch(request: request).start() else { return nil }
         let target = CLLocation(latitude: place.coordinate.latitude, longitude: place.coordinate.longitude)
         return response.mapItems
-            .map { ($0, $0.location.distance(from: target)) }
+            .map { ($0, CLLocation(latitude: $0.placemark.coordinate.latitude, longitude: $0.placemark.coordinate.longitude).distance(from: target)) }
             .filter { $0.1 < 150 }
             .min { $0.1 < $1.1 }?.0
     }

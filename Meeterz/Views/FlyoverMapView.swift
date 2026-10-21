@@ -46,9 +46,9 @@ struct FlyoverMapView: View {
 
     /// Orte (Restaurant, Café, Tankstelle …) in Tippnähe; der Suchradius wächst mit dem Kartenabstand
     private func openPlace(near coordinate: CLLocationCoordinate2D) {
-        guard detail == nil else { return }
+        guard detail == nil, !UserDefaults.standard.bool(forKey: "ui.reset") else { return }   // UI-Tests tippen nur zum Ein-/Ausblenden
         let distance = lastCamera?.distance ?? 1000
-        let radius = min(max(distance * 0.05, 20), 150)
+        let radius = min(max(distance * 0.03, 15), 80)
         Task {
             let request = MKLocalPointsOfInterestRequest(center: coordinate, radius: radius)
             request.pointOfInterestFilter = MKPointOfInterestFilter(including: [.restaurant, .cafe, .parking, .gasStation, .publicTransport, .hospital, .bakery, .pharmacy, .hotel, .museum, .park, .store, .foodMarket, .evCharger])

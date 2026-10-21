@@ -151,10 +151,14 @@ struct MainView: View {
                 bearing: 0, pitch: 0,
                 geometryPadding: EdgeInsets(top: 150, leading: 50, bottom: 470, trailing: 50))
         }
-        // Mittelpunkt etwas südlich, damit der Freund über dem Fenster liegt (Zoom 15,5: ≈ 2 m je Pixel)
+        // Freund auf ~32 % der Bildhöhe: unter der oberen Leiste, über dem halb geöffneten „Unterwegs“-Fenster.
+        // Mapbox: 512-Punkt-Kacheln → Meter je Punkt = 78271,5 · cos(Breite) / 2^Zoom
+        let zoom = 15.5
+        let metersPerPoint = 78_271.517 * cos(friend.latitude * .pi / 180) / pow(2, zoom)
+        let shift = (0.5 - 0.32) * Double(UIScreen.main.bounds.height) * metersPerPoint
         var center = friend
-        center.latitude -= 0.0038
-        return .camera(center: center, zoom: 15.5, bearing: 0, pitch: 0)
+        center.latitude -= shift / 111_320
+        return .camera(center: center, zoom: zoom, bearing: 0, pitch: 0)
     }
 
     // MARK: Karte

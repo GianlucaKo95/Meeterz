@@ -161,13 +161,13 @@ struct FlyoverMapView: View {
         let minSide = MKMapPointsPerMeterAtLatitude(item.position.coordinate.latitude) * 700
         if rect.width < minSide { rect = rect.insetBy(dx: -(minSide - rect.width) / 2, dy: 0) }
         if rect.height < minSide { rect = rect.insetBy(dx: 0, dy: -(minSide - rect.height) / 2) }
-        // Inhalt in die obere Hälfte: sichtbare Höhe ≈ Inhalt / 0,4, Breite nach Bildschirmformat
+        // Inhalt in das Band 16–48 % der Bildhöhe: unter der oberen Leiste, über dem halb geöffneten Fenster
         let content = rect.insetBy(dx: -rect.width * 0.15, dy: -rect.height * 0.15)
         let screen = UIScreen.main.bounds.size
         let aspect = screen.width / screen.height
-        let height = max(content.height / 0.4, content.width / aspect)
+        let height = max(content.height / 0.32, content.width / aspect)
         let width = height * aspect
-        let target = MKMapRect(x: content.midX - width / 2, y: content.minY, width: width, height: height)
+        let target = MKMapRect(x: content.midX - width / 2, y: content.minY - 0.16 * height, width: width, height: height)
         withAnimation(.easeOut(duration: 0.8)) { position = .rect(target) }
     }
 

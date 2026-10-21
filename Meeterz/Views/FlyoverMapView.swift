@@ -26,6 +26,11 @@ struct FlyoverMapView: View {
     var body: some View {
         MapReader { proxy in
             mapContent
+                // Tipp aufs Kartenbild: nächstgelegenen Ort in der Nähe suchen und Apples Ortsdetails zeigen
+                .onTapGesture(count: 1, coordinateSpace: .local) { point in
+                    guard let coordinate = proxy.convert(point, from: .local) else { return }
+                    openPlace(near: coordinate)
+                }
                 .simultaneousGesture(
                     LongPressGesture(minimumDuration: 0.6)
                         .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .local))
@@ -36,6 +41,25 @@ struct FlyoverMapView: View {
                             }
                         }
                 )
+        }
+    }
+
+    /// Orte (Restaurant, Café, Tankstelle …) in Tippnähe; der Suchradius wächst mit dem Kartenabstand
+    private func openPlace(near coordinate: CLLocationCoordinate2D) {
+        guard detail == nil else { return }
+        let distance = lastCamera?.distance ?? 1000
+        let radius = min(max(distance * 0.05, 20), 150)
+        Task {
+            let request = MKLocalPointsOfInterestRequest(center: coordinate, radius: radius)
+            request.pointOfInterestFilter = MKPointOfInterestFilter(including: [.restaurant, .cafe, .parking, .gasStation, .publicTransport, .hospital, .bakery, .pharmacy, .hotel, .museum, .park, .store, .foodMarket, .evCharger])
+            guard let response = try? await MKLocalPointsOfInterestSearch(request: request).start() else { return }
+            let target = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+            let nearest = response.mapItems.min {
+                CLLocation(latitude: $0.coordinate.latitude, longitude: $0.coordinate.longitude).distance(from: target)
+                < CLLocation(latitude: $1.coordinate.latitude, longitude: $1.coordinate.longitude).distance(from: target)
+            }
+            Diag.log("Kartentipp: \(nearest?.name ?? "kein Ort in \(Int(radius)) m")")
+            if let nearest, detail == nil { detail = PlaceDetailItem(mapItem: nearest) }
         }
     }
 

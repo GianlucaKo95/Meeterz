@@ -4,9 +4,20 @@ import CoreLocation
 /// Mapbox Search Box API (Ziele und Orte in der Nähe eines Treffpunkts).
 enum SearchService {
     enum Category: String, CaseIterable, Identifiable {
-        case restArea, coffee, restaurant, gasStation
+        case restArea, coffee, restaurant, gasStation, park
 
         var id: String { rawValue }
+
+        /// Raststätten und Tankstellen sind nur mit dem Auto erreichbar und als Treffpunkt sinnvoll
+        var carOnly: Bool { self == .restArea || self == .gasStation }
+
+        /// Welche Orte passen zu den Fortbewegungsarten beider? Ist einer zu Fuß oder mit dem Rad unterwegs,
+        /// entfallen Raststätte und Tankstelle; dann gibt es zusätzlich Parks.
+        static func available(me: TravelMode, friend: TravelMode) -> [Category] {
+            TravelMode.canMeetOnRoute(me, friend)
+                ? [.restArea, .coffee, .restaurant, .gasStation]
+                : [.coffee, .restaurant, .park]
+        }
 
         var title: String {
             switch self {
@@ -14,6 +25,7 @@ enum SearchService {
             case .coffee: "Café"
             case .restaurant: "Essen"
             case .gasStation: "Tanken"
+            case .park: "Park"
             }
         }
     }
@@ -62,6 +74,8 @@ enum SearchService {
             return try await request(path: "category/restaurant", items: items)
         case .gasStation:
             return try await request(path: "category/gas_station", items: items)
+        case .park:
+            return try await request(path: "category/park", items: items)
         }
     }
 

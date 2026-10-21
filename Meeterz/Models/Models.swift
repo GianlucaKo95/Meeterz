@@ -117,7 +117,10 @@ struct MeetupCandidate: Codable, Identifiable, Equatable {
     let myEta: Date
     let friendEta: Date
     let distanceM: Double
+    /// Fortbewegungsart des Freundes (fehlt bei älterer Datenbank → Auto)
+    var friendModeRaw: String? = nil
 
+    var friendMode: TravelMode { friendModeRaw.flatMap(TravelMode.init(rawValue:)) ?? .car }
     var id: UUID { friendId }
     var coordinate: CLLocationCoordinate2D { .init(latitude: lat, longitude: lng) }
     /// Wer wartet wie lange am Treffpunkt (positiv: ich warte)
@@ -129,6 +132,7 @@ struct MeetupCandidate: Codable, Identifiable, Equatable {
         case myEta = "my_eta"
         case friendEta = "friend_eta"
         case distanceM = "distance_m"
+        case friendModeRaw = "friend_mode"
     }
 }
 

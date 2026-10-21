@@ -25,9 +25,16 @@ func meeterzCoreConfig(simulate: Bool, initialLocation: CLLocation? = nil) -> Co
 @MainActor @Observable
 final class NavigationCoordinator: NSObject {
     struct Preview: Identifiable {
-        let id = UUID()
+        let id: UUID
         let destination: Place
         let routes: NavigationRoutes
+        let mode: TravelMode
+        init(id: UUID = UUID(), destination: Place, routes: NavigationRoutes, mode: TravelMode = .car) {
+            self.id = id
+            self.destination = destination
+            self.routes = routes
+            self.mode = mode
+        }
         var eta: Date { Date().addingTimeInterval(routes.mainRoute.route.expectedTravelTime) }
         var distance: CLLocationDistance { routes.mainRoute.route.distance }
         /// Linien für die Vorschaukarte: zuerst die Hauptroute, danach Alternativen
@@ -45,6 +52,15 @@ final class NavigationCoordinator: NSObject {
     /// Restweg und -zeit der laufenden Navigation (für das CarPlay-Panel)
     private(set) var remaining: (distance: CLLocationDistance, duration: TimeInterval)?
     var preview: Preview?
+    /// Gewählte Fortbewegungsart (wird gemerkt). Auf CarPlay gilt immer Auto.
+    var travelMode: TravelMode = TravelMode.saved {
+        didSet { TravelMode.saved = travelMode }
+    }
+    /// Art der laufenden Navigation (für das Teilen der Route)
+    @ObservationIgnored private var activeMode: TravelMode = .car
+
+    /// Mit CarPlay verbunden ist klar: man sitzt im Auto
+    var effectiveMode: TravelMode { CarPlayController.shared.isConnected ? .car : travelMode }
 
     @ObservationIgnored private weak var phoneController: NavigationViewController?
     @ObservationIgnored private var overlay: FriendOverlay?
@@ -68,7 +84,8 @@ final class NavigationCoordinator: NSObject {
     // MARK: Route planen
 
     /// Berechnet Routen (mit Live-Traffic) vom aktuellen Standort über optionale Zwischenstopps zum Ziel.
-    func calculate(to place: Place, via stops: [Place] = []) async -> NavigationRoutes? {
+    func calculate(to place: Place, via stops: [Place] = [], mode: TravelMode? = nil, silent: Bool = false) async -> NavigationRoutes? {
+        let mode = mode ?? effectiveMode
         guard let origin = AppModel.shared.location.lastLocation?.coordinate else {
             AppModel.shared.show("Dein Standort ist noch nicht bekannt.")
             return nil
@@ -79,25 +96,40 @@ final class NavigationCoordinator: NSObject {
         let waypoints = [Waypoint(coordinate: origin)]
             + stops.map { Waypoint(coordinate: $0.coordinate, name: $0.name) }
             + [Waypoint(coordinate: place.coordinate, name: place.name)]
-        let options = NavigationRouteOptions(waypoints: waypoints, locale: Locale(identifier: "de_DE"), distanceUnit: .kilometer)
+        let options = NavigationRouteOptions(waypoints: waypoints, profileIdentifier: mode.profile,
+                                             locale: Locale(identifier: "de_DE"), distanceUnit: .kilometer)
 
         do {
             return try await core.routingProvider().calculateRoutes(options: options).value
         } catch {
-            AppModel.shared.show(Self.friendly(error))
+            if !silent { AppModel.shared.show(Self.friendly(error)) }
             return nil
         }
     }
 
     func planRoute(to place: Place) async {
-        guard let routes = await calculate(to: place) else { return }
-        preview = Preview(destination: place, routes: routes)
+        let mode = effectiveMode
+        guard let routes = await calculate(to: place, mode: mode) else { return }
+        preview = Preview(destination: place, routes: routes, mode: mode)
+    }
+
+    /// Vorschau mit anderer Fortbewegungsart neu berechnen (gleiche Vorschau-ID, das Fenster bleibt offen)
+    func recalculate(_ old: Preview, mode: TravelMode) async -> Preview? {
+        guard let routes = await calculate(to: old.destination, mode: mode) else { return nil }
+        travelMode = mode
+        return Preview(id: old.id, destination: old.destination, routes: routes, mode: mode)
+    }
+
+    /// Gibt es für diese Art überhaupt eine Route zum Ort? (Treffpunkt-Vorschlag)
+    func canReach(_ place: Place, mode: TravelMode) async -> Bool {
+        await calculate(to: place, mode: mode, silent: true) != nil
     }
 
     // MARK: Navigation starten / beenden
 
     func start(_ preview: Preview) {
         self.preview = nil
+        activeMode = preview.mode
         destination = preview.destination
         remaining = (preview.distance, preview.routes.mainRoute.route.expectedTravelTime)
 
@@ -217,7 +249,7 @@ final class NavigationCoordinator: NSObject {
             await planRoute(to: stop)
             return
         }
-        guard let routes = await calculate(to: destination, via: [stop]) else { return }
+        guard let routes = await calculate(to: destination, via: [stop], mode: activeMode) else { return }
         core.tripSession().startActiveGuidance(with: routes, startLegIndex: 0)
         AppModel.shared.show("\(stop.name) als Zwischenstopp hinzugefügt.", isError: false)
     }
@@ -291,7 +323,8 @@ final class NavigationCoordinator: NSObject {
             destinationName: destination?.name,
             destination: dest,
             eta: arrival,
-            points: points
+            points: points,
+            mode: activeMode
         )
     }
 

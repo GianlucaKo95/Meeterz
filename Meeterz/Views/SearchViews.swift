@@ -193,7 +193,12 @@ struct SearchView: View {
 struct RoutePreviewView: View {
     @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
-    let preview: NavigationCoordinator.Preview
+    @State private var current: NavigationCoordinator.Preview
+    @State private var switching = false
+
+    init(preview: NavigationCoordinator.Preview) {
+        _current = State(initialValue: preview)
+    }
 
     /// Gewählte Route: 0 = vorgeschlagene, danach Alternativen
     @State private var selected = 0
@@ -206,13 +211,13 @@ struct RoutePreviewView: View {
     @State private var simulate = NavigationCoordinator.simulate
     #endif
 
-    private var shown: Route { preview.options[min(selected, preview.options.count - 1)] }
+    private var shown: Route { current.options[min(selected, current.options.count - 1)] }
     private var eta: Date { Date().addingTimeInterval(shown.expectedTravelTime) }
 
     /// Auswahl zwischen der vorgeschlagenen Route und Alternativen
     private var routeChoices: some View {
         HStack(spacing: 8) {
-            ForEach(Array(preview.options.enumerated()), id: \.offset) { index, route in
+            ForEach(Array(current.options.enumerated()), id: \.offset) { index, route in
                 Button { select(index) } label: {
                     VStack(spacing: 2) {
                         Text(index == 0 ? "Schnellste" : "Alternative \(index)")
@@ -232,20 +237,53 @@ struct RoutePreviewView: View {
     private func select(_ index: Int) {
         selected = index
         Task {
-            chosen = index == 0 ? preview.routes : await preview.routes.selectingAlternativeRoute(at: index - 1)
+            chosen = index == 0 ? current.routes : await current.routes.selectingAlternativeRoute(at: index - 1)
+        }
+    }
+
+    /// Auto / Fahrrad / Zu Fuß – nicht auf CarPlay (dort ist klar: Auto)
+    private var modePicker: some View {
+        HStack(spacing: 8) {
+            ForEach(TravelMode.allCases) { m in
+                Button { switchMode(m) } label: {
+                    Label(m.title, systemImage: m.icon)
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .frame(maxWidth: .infinity).frame(height: 38)
+                        .background(Capsule().fill(m == current.mode ? Theme.text : .clear))
+                        .overlay(Capsule().stroke(Theme.stroke))
+                        .foregroundStyle(m == current.mode ? Theme.ink : Theme.text)
+                }
+                .accessibilityLabel("Fortbewegungsart \(m.title)")
+                .disabled(switching)
+            }
+        }
+    }
+
+    private func switchMode(_ m: TravelMode) {
+        guard m != current.mode, !switching else { return }
+        switching = true
+        Task {
+            if let next = await app.navigation.recalculate(current, mode: m) {
+                current = next
+                selected = 0
+                chosen = nil
+            }
+            switching = false
         }
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            RoutePreviewMap(lines: preview.lines, selected: selected, destination: preview.destination.coordinate)
+            if !CarPlayController.shared.isConnected { modePicker }
+            RoutePreviewMap(lines: current.lines, selected: selected, destination: current.destination.coordinate)
+                .id(current.mode)
                 .frame(height: 190)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
-            if preview.options.count > 1 { routeChoices }
+            if current.options.count > 1 { routeChoices }
             VStack(alignment: .leading, spacing: 4) {
                 Text("Ziel").font(.caption.weight(.bold)).foregroundStyle(Theme.accent).textCase(.uppercase)
-                Text(preview.destination.name).font(Theme.display(26))
-                if let address = preview.destination.address {
+                Text(current.destination.name).font(Theme.display(26))
+                if let address = current.destination.address {
                     Text(address).foregroundStyle(Theme.muted)
                 }
             }
@@ -256,12 +294,12 @@ struct RoutePreviewView: View {
                 stat("Strecke", Format.distance(shown.distance))
             }
 
-            Text("Inklusive aktueller Verkehrslage. Deine Freunde sehen deine Route, solange du teilst.")
+            Text(current.mode == .car ? "Inklusive aktueller Verkehrslage. Deine Freunde sehen deine Route, solange du teilst." : "Deine Freunde sehen deine Route, solange du teilst.")
                 .font(.footnote).foregroundStyle(Theme.muted)
 
-            let saved = app.favorites.contains(preview.destination.coordinate)
+            let saved = app.favorites.contains(current.destination.coordinate)
             Button {
-                favoriteName = preview.destination.name
+                favoriteName = current.destination.name
                 showFavoriteAlert = true
             } label: {
                 Label(saved ? "Als Favorit gespeichert" : "Als Favorit speichern", systemImage: saved ? "star.fill" : "star")
@@ -277,7 +315,7 @@ struct RoutePreviewView: View {
 
             Spacer()
             Button("Losfahren") {
-                app.navigation.start(.init(destination: preview.destination, routes: chosen ?? preview.routes))
+                app.navigation.start(.init(destination: current.destination, routes: chosen ?? current.routes, mode: current.mode))
             }
                 .buttonStyle(PrimaryButtonStyle())
             if !app.friends.accepted.isEmpty {
@@ -292,16 +330,16 @@ struct RoutePreviewView: View {
         .padding(20)
         .background(Theme.ink)
         .presentationDetents([.large])
-        .sheet(isPresented: $showInvite) { InviteFriendsView(place: preview.destination) }
+        .sheet(isPresented: $showInvite) { InviteFriendsView(place: current.destination) }
         .alert("Favorit speichern", isPresented: $showFavoriteAlert) {
             TextField("Name, z. B. Oma", text: $favoriteName)
             Button("Speichern") {
                 let name = favoriteName.trimmingCharacters(in: .whitespaces)
-                if !name.isEmpty { app.favorites.save(kind: .other, label: name, place: preview.destination) }
+                if !name.isEmpty { app.favorites.save(kind: .other, label: name, place: current.destination) }
             }
             Button("Abbrechen", role: .cancel) {}
         } message: {
-            Text(preview.destination.address ?? "")
+            Text(current.destination.address ?? "")
         }
     }
 

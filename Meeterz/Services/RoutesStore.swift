@@ -49,7 +49,8 @@ final class RoutesStore {
     }
 
     /// points: [[lng, lat, eta_unix]]
-    func shareMine(destinationName: String?, destination: CLLocationCoordinate2D, eta: Date, points: [[Double]]) async {
+    func shareMine(destinationName: String?, destination: CLLocationCoordinate2D, eta: Date, points: [[Double]],
+                   mode: TravelMode = .car) async {
         guard points.count >= 2 else { return }
         struct Params: Encodable {
             let destination_name: String?
@@ -57,14 +58,23 @@ final class RoutesStore {
             let dest_lng: Double
             let eta_unix: Double
             let points: [[Double]]
+            var travel_mode: String?
         }
-        _ = try? await client.rpc("set_active_route", params: Params(
+        var params = Params(
             destination_name: destinationName,
             dest_lat: destination.latitude,
             dest_lng: destination.longitude,
             eta_unix: eta.timeIntervalSince1970,
-            points: points
-        )).execute()
+            points: points,
+            travel_mode: mode.rawValue
+        )
+        do {
+            try await client.rpc("set_active_route", params: params).execute()
+        } catch {
+            // Datenbank kennt die Fortbewegungsart noch nicht: ohne sie teilen, damit die Route trotzdem ankommt
+            params.travel_mode = nil
+            _ = try? await client.rpc("set_active_route", params: params).execute()
+        }
     }
 
     func clearMine() async {

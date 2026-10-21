@@ -120,6 +120,13 @@ final class MeeterzZLiveNavTests: MeeterzTestBase {
         need(app.buttons["Losfahren"], "route-vorschau", timeout: 40)
         pause(4)
         shot("route-vorschau")
+        // Fortbewegungsart wechseln: zu Fuß, dann Fahrrad, zurück zum Auto
+        for (name, label) in [("Zu Fuß", "zu-fuss"), ("Fahrrad", "fahrrad"), ("Auto", "auto")] {
+            let b = need(app.buttons["Fortbewegungsart \(name)"], "modus-\(label)")
+            b.tap()
+            pause(8)
+            shot("route-vorschau-\(label)")
+        }
         app.buttons["Losfahren"].tap()
 
         // Beobachten: Fehlerhinweis der App oder Navigationsansicht (Karte mit Suchleiste verschwindet)

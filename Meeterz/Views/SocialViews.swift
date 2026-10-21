@@ -130,12 +130,19 @@ struct MeetupPlannerView: View {
     @Environment(\.dismiss) private var dismiss
     let candidate: MeetupCandidate
 
-    @State private var category: SearchService.Category = .restArea
+    @State private var category: SearchService.Category = .coffee
     @State private var places: [Place] = []
     @State private var selected: Place?
     @State private var loading = false
     @State private var errorText: String?
     @State private var sending = false
+
+    private var myMode: TravelMode { app.navigation.effectiveMode }
+    /// Orte, die für beide erreichbar sind (Raststätte nur, wenn beide mit dem Auto fahren)
+    private var categories: [SearchService.Category] {
+        SearchService.Category.available(me: myMode, friend: candidate.friendMode)
+    }
+    private var onRouteAllowed: Bool { TravelMode.canMeetOnRoute(myMode, candidate.friendMode) }
 
     private var exactSpot: Place {
         Place(id: "spot", name: "Treffpunkt auf der Route", address: nil, coordinate: candidate.coordinate)
@@ -151,7 +158,9 @@ struct MeetupPlannerView: View {
                     }
                     VStack(alignment: .leading) {
                         Text("Treffen mit \(friend?.displayName ?? "Freund")").font(Theme.display(24))
-                        Text("Eure Wege kreuzen sich").foregroundStyle(Theme.muted)
+                        Text(onRouteAllowed ? "Eure Wege kreuzen sich"
+                             : "Eure Wege kreuzen sich – du \(myMode.activity), \(friend?.displayName ?? "Freund") \(candidate.friendMode.activity)")
+                            .foregroundStyle(Theme.muted)
                     }
                 }
 
@@ -164,7 +173,7 @@ struct MeetupPlannerView: View {
                 Text("Wo wollt ihr euch treffen?").font(Theme.title())
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
-                        ForEach(SearchService.Category.allCases) { c in
+                        ForEach(categories) { c in
                             Button(c.title) { category = c }
                                 .font(.system(size: 14, weight: .semibold, design: .rounded))
                                 .padding(.horizontal, 14).frame(height: 36)
@@ -176,7 +185,9 @@ struct MeetupPlannerView: View {
                 }
 
                 VStack(spacing: 8) {
-                    PlaceRow(place: exactSpot, distance: nil, selected: selected == exactSpot) { selected = exactSpot }
+                    if onRouteAllowed {
+                        PlaceRow(place: exactSpot, distance: nil, selected: selected == exactSpot) { selected = exactSpot }
+                    }
                     if loading { ProgressView().frame(maxWidth: .infinity).padding() }
                     if let errorText { Text(errorText).font(.footnote).foregroundStyle(Theme.muted) }
                     ForEach(places) { place in
@@ -190,6 +201,12 @@ struct MeetupPlannerView: View {
                     guard let selected else { return }
                     Task {
                         sending = true
+                        // Der Ort muss für mich mit meiner Fortbewegungsart erreichbar sein
+                        guard await app.navigation.canReach(selected, mode: myMode) else {
+                            app.show("Dorthin gibt es für „\(myMode.title)“ keine Route. Wähle einen anderen Ort.")
+                            sending = false
+                            return
+                        }
                         if await app.meetups.propose(to: candidate.friendId, place: selected) {
                             app.show("Vorschlag an \(friend?.displayName ?? "Freund") gesendet.", isError: false)
                             dismiss()
@@ -205,6 +222,7 @@ struct MeetupPlannerView: View {
         }
         .background(Theme.ink)
         .presentationDetents([.large])
+        .onAppear { if !categories.contains(category) { category = categories.first ?? .coffee } }
         .task(id: category) { await loadPlaces() }
     }
 
@@ -213,6 +231,10 @@ struct MeetupPlannerView: View {
         errorText = nil
         do {
             places = try await SearchService.places(category, near: candidate.coordinate)
+            if !onRouteAllowed {
+                // Zu Fuß / mit dem Rad: nur Orte in Reichweite des Treffpunkts
+                places = places.filter { $0.coordinate.distance(to: candidate.coordinate) < 2_500 }
+            }
             if places.isEmpty { errorText = "Keine passenden Orte in der Nähe." }
         } catch {
             places = []

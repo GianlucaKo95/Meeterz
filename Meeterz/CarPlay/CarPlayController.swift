@@ -293,7 +293,7 @@ final class CarPlayController: NSObject {
         let model = AppModel.shared
 
         let meetupItems: [CPListItem] = model.meetups.accepted.map { meetup in
-            let item = CPListItem(text: meetup.placeName, detailText: "Treffen mit \(meetup.otherName)")
+            let item = CPListItem(text: meetup.placeName, detailText: "Treffen mit \(meetup.incoming ? meetup.withText : meetup.otherName)")
             item.handler = { [weak self] _, completion in
                 self?.preview(to: meetup.coordinate, name: meetup.placeName, completion: completion)
             }

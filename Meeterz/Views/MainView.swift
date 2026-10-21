@@ -502,6 +502,7 @@ struct UnterwegsSheet: View {
     @Environment(\.dismiss) private var dismiss
     let manageFriends: () -> Void
     @State private var detent: PresentationDetent = .medium
+    @State private var showGroupMeetup = false
 
     var body: some View {
         NavigationStack {
@@ -525,17 +526,26 @@ struct UnterwegsSheet: View {
                                 .font(.subheadline).foregroundStyle(Theme.muted)
                         }
                     }
+                    if !app.friendsOnMap.isEmpty {
+                        Button {
+                            showGroupMeetup = true
+                        } label: {
+                            Label("Gruppen-Treffen planen", systemImage: "person.3.fill")
+                        }
+                        .buttonStyle(SecondaryButtonStyle())
+                        .padding(.top, 8)
+                    }
                     Button(app.friends.accepted.isEmpty ? "Freunde hinzufügen" : "Freunde & Profil") {
                         manageFriends()
                     }
                     .buttonStyle(PrimaryButtonStyle())
-                    .padding(.top, 8)
                 }
                 .padding(16)
             }
             .background(Theme.ink)
             .navigationTitle("Unterwegs")
             .navigationBarTitleDisplayMode(.inline)
+            .sheet(isPresented: $showGroupMeetup) { GroupMeetupView().environment(app) }
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } }
             }

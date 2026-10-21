@@ -147,8 +147,17 @@ struct Meetup: Codable, Identifiable, Equatable {
     let lng: Double
     let status: String
     let createdAt: Date
+    /// Gruppen-Treffen: gemeinsame ID aller Einladungen und Zahl der Beteiligten (inkl. Einladendem)
+    var groupId: UUID? = nil
+    var groupSize: Int? = nil
 
     var coordinate: CLLocationCoordinate2D { .init(latitude: lat, longitude: lng) }
+    var isGroup: Bool { groupId != nil }
+    /// „mit Lisa“ bzw. „mit Lisa und 2 weiteren“
+    var withText: String {
+        let others = max(0, (groupSize ?? 2) - 2)
+        return others == 0 ? otherName : "\(otherName) und \(others) weiteren"
+    }
     var isPending: Bool { status == "pending" }
     var isAccepted: Bool { status == "accepted" }
     var place: Place { Place(id: id.uuidString, name: placeName, address: nil, coordinate: coordinate) }
@@ -161,6 +170,8 @@ struct Meetup: Codable, Identifiable, Equatable {
         case placeName = "place_name"
         case lat, lng, status
         case createdAt = "created_at"
+        case groupId = "group_id"
+        case groupSize = "group_size"
     }
 }
 

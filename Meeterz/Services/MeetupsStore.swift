@@ -107,6 +107,41 @@ final class MeetupsStore {
         }
     }
 
+    /// Gruppen-Treffen: ein Ort, Einladung an mehrere Freunde (jeder antwortet für sich)
+    func proposeGroup(to friendIds: [UUID], place: Place) async -> Bool {
+        struct Params: Encodable { let friend_ids: [UUID]; let place_name: String; let lat: Double; let lng: Double }
+        do {
+            let _: UUID = try await client.rpc("propose_group_meetup", params: Params(
+                friend_ids: friendIds, place_name: place.name,
+                lat: place.coordinate.latitude, lng: place.coordinate.longitude
+            )).execute().value
+            await refreshMeetups()
+            for id in friendIds {
+                let meetupId = meetups.first { !$0.incoming && $0.otherId == id && $0.isPending }?.id
+                AppModel.shared.push.notify(.meetupProposed, to: id, meetupId: meetupId)
+            }
+            return true
+        } catch {
+            AppModel.shared.show("Gruppen-Treffen konnte nicht gesendet werden.")
+            return false
+        }
+    }
+
+    struct GroupMember: Decodable, Identifiable {
+        let userId: UUID
+        let displayName: String
+        let status: String
+        let organizer: Bool
+        var id: UUID { userId }
+        enum CodingKeys: String, CodingKey {
+            case userId = "user_id", displayName = "display_name", status, organizer
+        }
+    }
+
+    func groupMembers(_ groupId: UUID) async -> [GroupMember] {
+        (try? await client.rpc("group_members", params: ["gid": groupId]).execute().value) ?? []
+    }
+
     func respond(_ meetup: Meetup, accept: Bool) async {
         struct Params: Encodable { let meetup_id: UUID; let accept: Bool }
         do {

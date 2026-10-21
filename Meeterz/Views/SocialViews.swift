@@ -55,7 +55,9 @@ private struct IncomingMeetupCard: View {
 
     var body: some View {
         Card {
-            Text("\(meetup.otherName) möchte sich treffen")
+            Text(meetup.isGroup
+                 ? "\(meetup.otherName) lädt \(max(2, (meetup.groupSize ?? 3) - 1)) Freunde ein"
+                 : "\(meetup.otherName) möchte sich treffen")
                 .font(.caption.weight(.bold)).foregroundStyle(Theme.accent).textCase(.uppercase)
             Text(meetup.placeName).font(Theme.display(22))
             HStack(spacing: 10) {
@@ -81,7 +83,7 @@ private struct AcceptedMeetupCard: View {
         Card {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Treffen mit \(meetup.otherName)")
+                    Text("Treffen mit \(meetup.incoming ? meetup.withText : meetup.otherName)")
                         .font(.caption.weight(.bold)).foregroundStyle(Theme.accent).textCase(.uppercase)
                     Text(meetup.placeName).font(Theme.title(18))
                 }

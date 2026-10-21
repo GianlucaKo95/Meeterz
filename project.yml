@@ -1,6 +1,8 @@
 name: Meeterz
 options:
   bundleIdPrefix: de.koeven
+  # Deutsch als Entwicklungssprache: Mapbox wählt Sprache für Ansagen und Beschriftungen nach den Sprachen der App
+  developmentLanguage: de
   deploymentTarget:
     iOS: "18.0"
   createIntermediateGroups: true
@@ -51,6 +53,8 @@ targets:
       path: Meeterz/Info.plist
       properties:
         CFBundleDisplayName: Meeterz
+        CFBundleDevelopmentRegion: de
+        CFBundleLocalizations: [de, en]
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         ITSAppUsesNonExemptEncryption: false

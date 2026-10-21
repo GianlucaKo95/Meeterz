@@ -91,9 +91,25 @@ final class CarPlayController: NSObject {
     private func startAutoRecenter(_ navigationMapView: NavigationMapView) -> Task<Void, Never> {
         Task { @MainActor [weak navigationMapView] in
             var idle = 0
+            var lost = 0
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(1))
-                guard let camera = navigationMapView?.navigationCamera else { return }
+                guard let navigationMapView, let camera = Optional(navigationMapView.navigationCamera) else { return }
+                // Wachhund: Kamera meldet „folgen“, der Standortpunkt wandert aber aus dem Bild (iOS 18) → Folgen neu anstoßen
+                if camera.currentCameraState == .following,
+                   let me = navigationMapView.mapView.location.latestLocation?.coordinate,
+                   let map = navigationMapView.mapView.mapboxMap {
+                    let p = map.point(for: me)
+                    let b = navigationMapView.bounds.insetBy(dx: 8, dy: 8)
+                    if b.width > 1, !b.contains(p) { lost += 1 } else { lost = 0 }
+                    if lost >= 3 {
+                        camera.stop()
+                        camera.update(cameraState: .following)
+                        lost = 0
+                    }
+                } else {
+                    lost = 0
+                }
                 if camera.currentCameraState == .idle {
                     idle += 1
                     if idle >= 10 { camera.update(cameraState: .following); idle = 0 }

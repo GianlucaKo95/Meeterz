@@ -41,6 +41,8 @@ final class CarPlayController: NSObject {
     private var shownInvites = Set<UUID>()
     private var searchTask: Task<Void, Never>?
     private var searchCompletion: (([CPListItem]) -> Void)?
+    /// Apple-Flyover-Karte über der Mapbox-Karte (abschaltbar in den iPhone-Einstellungen)
+    private var flyover: CarPlayFlyoverMirror?
     private var browseRecenter: Task<Void, Never>?
     private var navRecenter: Task<Void, Never>?
     private var threeDBarButton: CPBarButton?
@@ -127,6 +129,7 @@ final class CarPlayController: NSObject {
         navigationOverlay = nil
         browseRecenter?.cancel(); browseRecenter = nil
         navRecenter?.cancel(); navRecenter = nil
+        flyover?.detach(); flyover = nil
         manager.templateApplicationScene(scene, didDisconnect: interfaceController, from: window)
         manager.delegate = nil
         isConnected = false
@@ -452,6 +455,11 @@ extension CarPlayController: CarPlayManagerDelegate {
             applyPitch(to: navigationMapView)
             browseRecenter?.cancel()
             browseRecenter = startAutoRecenter(navigationMapView)
+            if CarPlayFlyoverMirror.isEnabled {
+                let mirror = flyover ?? CarPlayFlyoverMirror { [weak self] in self?.friendsVisible ?? true }
+                flyover = mirror
+                mirror.attach(to: navigationMapView)
+            }
         }
     }
 
@@ -474,6 +482,8 @@ extension CarPlayController: CarPlayManagerDelegate {
                 applyPitch(to: navMap)
                 navRecenter?.cancel()
                 navRecenter = startAutoRecenter(navMap)
+                flyover?.showPreview(nil)
+                flyover?.attach(to: navMap)
             }
         }
     }
@@ -568,6 +578,18 @@ extension CarPlayController: CarPlayManagerDelegate {
         }
     }
 
+    nonisolated func carPlayManager(
+        _ carPlayManager: CarPlayManager,
+        selectedPreviewFor trip: CPTrip,
+        using routeChoice: CPRouteChoice
+    ) {
+        MainActor.assumeIsolated { flyover?.showPreview(routeChoice.navigationRoutes) }
+    }
+
+    nonisolated func carPlayManagerDidCancelPreview(_ carPlayManager: CarPlayManager) {
+        MainActor.assumeIsolated { flyover?.showPreview(nil) }
+    }
+
     nonisolated func carPlayManagerDidBeginNavigation(_ carPlayManager: CarPlayManager) {
         MainActor.assumeIsolated {
             let coordinator = AppModel.shared.navigation
@@ -582,6 +604,9 @@ extension CarPlayController: CarPlayManagerDelegate {
             navigationOverlay?.stop()
             navigationOverlay = nil
             navRecenter?.cancel(); navRecenter = nil
+            if let browseMap = carPlayManager.carPlayMapViewController?.navigationMapView {
+                flyover?.attach(to: browseMap)
+            }
             pendingDestination = nil
             AppModel.shared.navigation.stop()
         }

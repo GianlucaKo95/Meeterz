@@ -22,6 +22,7 @@ struct FriendsView: View {
         let friendId: UUID
     }
     @AppStorage("carplay.satellite") private var carPlaySatellite = true
+    @AppStorage("carplay.flyover") private var carPlayFlyover = true
     @State private var voiceOn = !MeeterzSpeechSynthesizer.shared.muted
     #if DEBUG
     @State private var simulate = NavigationCoordinator.simulate
@@ -344,10 +345,19 @@ struct FriendsView: View {
 
     private var appSection: some View {
         Section("App") {
-            Picker("Karte in CarPlay", selection: $carPlaySatellite) {
-                Text("Satellit").tag(true)
-                Text("Klassisch").tag(false)
+            Picker("Karte in CarPlay", selection: Binding<String>(
+                get: { carPlayFlyover ? "flyover" : (carPlaySatellite ? "satellite" : "classic") },
+                set: { value in
+                    carPlayFlyover = value == "flyover"
+                    if value != "flyover" { carPlaySatellite = value == "satellite" }
+                }
+            )) {
+                Text("Apple Flyover").tag("flyover")
+                Text("Satellit").tag("satellite")
+                Text("Klassisch").tag("classic")
             }
+            Text("Gilt ab dem nächsten Verbinden mit CarPlay. Flyover zeigt Apples 3D-Satellitenbild; die Abbiegehinweise bleiben gleich.")
+                .font(.footnote).foregroundStyle(Theme.muted)
             #if DEBUG
             Toggle("Fahrten simulieren (Test)", isOn: $simulate)
                 .tint(Theme.accent)

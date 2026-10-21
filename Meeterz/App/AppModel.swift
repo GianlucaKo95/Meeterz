@@ -27,6 +27,14 @@ final class AppModel {
     }
     private(set) var banner: Banner?
 
+    /// Karte soll einen Freund (und optional seine restliche Route) zeigen, z. B. aus dem Unterwegs-Fenster
+    struct MapFocus: Equatable {
+        let token = UUID()
+        let friendId: UUID
+        let showRoute: Bool
+    }
+    var mapFocus: MapFocus?
+
     @ObservationIgnored private var sessionUser: UUID?
     @ObservationIgnored private var refreshLoop: Task<Void, Never>?
 

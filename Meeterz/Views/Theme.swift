@@ -32,6 +32,7 @@ extension Color {
 
 extension FriendPalette {
     static func color(for id: UUID) -> Color { Color(uiColor: uiColor(for: id)) }
+    static func routeColor(for id: UUID) -> Color { Color(uiColor: routeUIColor(for: id)) }
 }
 
 // MARK: Bausteine

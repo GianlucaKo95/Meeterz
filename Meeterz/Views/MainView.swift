@@ -114,17 +114,23 @@ struct MainView: View {
         .onAppear { viewport = followViewport }
         // Weggescrollt (Mapbox-Karte): nach 10 s ohne Eingabe zurück zum Standort
         .onChange(of: viewport) { _, new in
-            guard !satellite, new == .idle else { return }
+            guard !satellite, new == .idle, app.mapFocus == nil else { return }
             idleToken += 1
             let token = idleToken
             Task {
                 try? await Task.sleep(for: .seconds(10))
-                if token == idleToken, viewport == .idle {
+                if token == idleToken, viewport == .idle, app.mapFocus == nil {
                     withViewportAnimation(.easeOut(duration: 0.6)) { viewport = followViewport }
                 }
             }
         }
+        .onChange(of: app.mapFocus) { _, focus in
+            guard !satellite, let focus, let target = focusViewport(focus) else { return }
+            withViewportAnimation(.easeOut(duration: 0.8)) { viewport = target }
+        }
+        .onChange(of: navigation.isNavigating) { _, active in if active { app.mapFocus = nil } }
         .onChange(of: scenePhase) { _, phase in
+            if phase == .active { app.mapFocus = nil }
             if phase == .active, !satellite { withViewportAnimation(.easeOut(duration: 0.6)) { viewport = followViewport } }
         }
         .onChange(of: zoomSteps) { _, _ in
@@ -133,6 +139,22 @@ struct MainView: View {
         .onChange(of: threeD) { _, _ in
             withViewportAnimation(.easeOut(duration: 0.6)) { viewport = followViewport }
         }
+    }
+
+    /// Zeigt den Freund (und seine restliche Route) im oberen Teil der Karte, damit das halbhohe Unterwegs-Fenster nichts verdeckt.
+    private func focusViewport(_ focus: AppModel.MapFocus) -> Viewport? {
+        guard let item = app.friendsOnMap.first(where: { $0.friend.friendId == focus.friendId }) else { return nil }
+        let friend = item.position.coordinate
+        if focus.showRoute, let route = app.routes.friendRoutes[focus.friendId], route.coordinates.count > 1 {
+            return .overview(
+                geometry: MultiPoint(route.coordinates + [friend]),
+                geometryPadding: EdgeInsets(top: 150, leading: 50, bottom: 470, trailing: 50),
+                bearing: 0, pitch: 0)
+        }
+        // Mittelpunkt etwas südlich, damit der Freund über dem Fenster liegt (Zoom 15,5: ≈ 2 m je Pixel)
+        var center = friend
+        center.latitude -= 0.0038
+        return .camera(center: center, zoom: 15.5, bearing: 0, pitch: 0)
     }
 
     // MARK: Karte
@@ -150,12 +172,26 @@ struct MainView: View {
                     .exaggeration(1.3)
             }
 
-            // Routen der Freunde
+            // Routen der Freunde: dunkle Umrandung, darüber knallige Farbe (die gezeigte Route etwas breiter)
+            ForEvery(Array(app.routes.friendRoutes.values)) { route in
+                PolylineAnnotation(id: "routecase-\(route.friendId)", lineCoordinates: route.coordinates)
+                    .lineColor(FriendPalette.routeCasing)
+                    .lineWidth(app.mapFocus?.friendId == route.friendId ? 13 : 10)
+            }
             ForEvery(Array(app.routes.friendRoutes.values)) { route in
                 PolylineAnnotation(id: "route-\(route.friendId)", lineCoordinates: route.coordinates)
-                    .lineColor(FriendPalette.uiColor(for: route.friendId))
-                    .lineWidth(5)
-                    .lineOpacity(0.85)
+                    .lineColor(FriendPalette.routeUIColor(for: route.friendId))
+                    .lineWidth(app.mapFocus?.friendId == route.friendId ? 8 : 6)
+            }
+            // Ziel der gezeigten Route
+            if let focus = app.mapFocus, focus.showRoute, let route = app.routes.friendRoutes[focus.friendId] {
+                MapViewAnnotation(coordinate: route.destination) {
+                    Image(systemName: "flag.checkered.circle.fill")
+                        .font(.system(size: 34))
+                        .foregroundStyle(.black, FriendPalette.routeColor(for: route.friendId))
+                        .shadow(radius: 3)
+                }
+                .allowOverlap(true)
             }
 
             // Freunde live
@@ -304,6 +340,7 @@ struct MainView: View {
             .accessibilityLabel(threeD ? "Zur 2D-Ansicht wechseln" : "Zur 3D-Ansicht wechseln")
 
             CircleIconButton(systemName: "location.north.line.fill", label: "Auf meinen Standort zentrieren", tint: Theme.accent) {
+                app.mapFocus = nil
                 recenterTick += 1
                 withViewportAnimation(.easeOut(duration: 0.5)) { viewport = followViewport }
             }
@@ -446,6 +483,7 @@ struct UnterwegsSheet: View {
     @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
     let manageFriends: () -> Void
+    @State private var detent: PresentationDetent = .medium
 
     var body: some View {
         NavigationStack {
@@ -458,7 +496,11 @@ struct UnterwegsSheet: View {
                         Text("\(app.friendsOnMap.count) von \(app.friends.accepted.count) sichtbar")
                             .font(.footnote).foregroundStyle(Theme.muted)
                         ForEach(app.friendsOnMap) { item in
-                            FriendRowView(item: item)
+                            FriendRowView(item: item) { showRoute in
+                                // Fenster auf halbe Höhe, Karte dahinter zeigt den Freund oberhalb
+                                detent = .medium
+                                app.mapFocus = .init(friendId: item.friend.friendId, showRoute: showRoute)
+                            }
                         }
                         if app.friendsOnMap.isEmpty {
                             Text("Gerade teilt niemand seinen Standort.")
@@ -480,7 +522,8 @@ struct UnterwegsSheet: View {
                 ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } }
             }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.medium, .large], selection: $detent)
+        .presentationBackgroundInteraction(.enabled(upThrough: .medium))
         .presentationBackground(Theme.ink)
     }
 }
@@ -489,19 +532,25 @@ private struct FriendRowView: View {
     @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
     let item: AppModel.FriendOnMap
+    /// true = Route (mit Ziel) auf der Karte zeigen, false = nur den Standort
+    let show: (Bool) -> Void
 
     var body: some View {
         let route = app.routes.friendRoutes[item.friend.friendId]
         let distance = app.location.lastLocation.map { item.position.coordinate.distance(to: $0.coordinate) }
 
         Menu {
-            Button("Route zu \(item.friend.displayName)", systemImage: "arrow.triangle.turn.up.right.diamond") {
+            Button(route == nil ? "Auf Karte anzeigen" : "Route anzeigen",
+                   systemImage: route == nil ? "mappin.and.ellipse" : "point.topleft.down.to.point.bottomright.curvepath") {
+                show(route != nil)
+            }
+            Button("Zu \(item.friend.displayName) navigieren", systemImage: "arrow.triangle.turn.up.right.diamond") {
                 go(to: Place(
                     id: "friend-\(item.friend.friendId)", name: item.friend.displayName,
                     address: nil, coordinate: item.position.coordinate))
             }
             if let route {
-                Button("Zum Ziel von \(item.friend.displayName)", systemImage: "flag.checkered") {
+                Button("Zum Ziel von \(item.friend.displayName) navigieren", systemImage: "flag.checkered") {
                     go(to: Place(
                         id: "dest-\(item.friend.friendId)", name: route.destinationName ?? "Ziel von \(item.friend.displayName)",
                         address: nil, coordinate: route.destination))

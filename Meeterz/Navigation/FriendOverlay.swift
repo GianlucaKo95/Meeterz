@@ -40,13 +40,19 @@ final class FriendOverlay {
         }
         let model = AppModel.shared
 
-        lines.annotations = model.routes.friendRoutes.values.map { route in
+        var lineItems: [PolylineAnnotation] = model.routes.friendRoutes.values.map { route in
+            var casing = PolylineAnnotation(id: "routecase-\(route.friendId)", lineCoordinates: route.coordinates)
+            casing.lineColor = StyleColor(FriendPalette.routeCasing)
+            casing.lineWidth = 10
+            return casing
+        }
+        lineItems += model.routes.friendRoutes.values.map { route in
             var line = PolylineAnnotation(id: "route-\(route.friendId)", lineCoordinates: route.coordinates)
-            line.lineColor = StyleColor(FriendPalette.uiColor(for: route.friendId))
+            line.lineColor = StyleColor(FriendPalette.routeUIColor(for: route.friendId))
             line.lineWidth = 6
-            line.lineOpacity = 0.85
             return line
         }
+        lines.annotations = lineItems
 
         var points: [PointAnnotation] = model.friendsOnMap.map { item in
             var p = PointAnnotation(id: "friend-\(item.friend.friendId)", coordinate: item.position.coordinate)
@@ -97,6 +103,23 @@ enum FriendPalette {
     static func uiColor(for id: UUID) -> UIColor {
         colors[Int(id.uuid.0) % colors.count]
     }
+
+    /// Knallige Routenfarben, die sich auf dunkler und heller Karte absetzen (Reihenfolge wie `colors`)
+    static let routeColors: [UIColor] = [
+        UIColor(red: 1.00, green: 0.43, blue: 0.00, alpha: 1),  // Neon-Orange
+        UIColor(red: 0.85, green: 0.20, blue: 1.00, alpha: 1),  // Magenta-Violett
+        UIColor(red: 0.00, green: 0.90, blue: 1.00, alpha: 1),  // Cyan
+        UIColor(red: 0.15, green: 0.45, blue: 1.00, alpha: 1),  // Elektrisch-Blau
+        UIColor(red: 1.00, green: 0.10, blue: 0.55, alpha: 1),  // Neon-Pink
+        UIColor(red: 1.00, green: 0.93, blue: 0.00, alpha: 1),  // Leuchtgelb
+    ]
+
+    static func routeUIColor(for id: UUID) -> UIColor {
+        routeColors[Int(id.uuid.0) % routeColors.count]
+    }
+
+    /// Dunkle Umrandung unter der Route, damit sie auch auf Satellitenbild und hellen Flächen lesbar bleibt
+    static let routeCasing = UIColor(red: 0.02, green: 0.04, blue: 0.07, alpha: 0.92)
 }
 
 enum AvatarRenderer {

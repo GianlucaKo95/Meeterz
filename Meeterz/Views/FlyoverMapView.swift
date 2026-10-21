@@ -47,9 +47,23 @@ struct FlyoverMapView: View {
                 .annotationTitles(.hidden)
             }
 
+            // Routen der Freunde: dunkle Umrandung, darüber knallige Farbe (die gezeigte Route etwas breiter)
             ForEach(Array(app.routes.friendRoutes.values)) { route in
                 MapPolyline(coordinates: route.coordinates)
-                    .stroke(FriendPalette.color(for: route.friendId).opacity(0.9), lineWidth: 5)
+                    .stroke(Color(uiColor: FriendPalette.routeCasing), lineWidth: app.mapFocus?.friendId == route.friendId ? 13 : 10)
+            }
+            ForEach(Array(app.routes.friendRoutes.values)) { route in
+                MapPolyline(coordinates: route.coordinates)
+                    .stroke(FriendPalette.routeColor(for: route.friendId), lineWidth: app.mapFocus?.friendId == route.friendId ? 8 : 6)
+            }
+            if let focus = app.mapFocus, focus.showRoute, let route = app.routes.friendRoutes[focus.friendId] {
+                Annotation("Ziel", coordinate: route.destination, anchor: .center) {
+                    Image(systemName: "flag.checkered.circle.fill")
+                        .font(.system(size: 34))
+                        .foregroundStyle(.black, FriendPalette.routeColor(for: route.friendId))
+                        .shadow(radius: 3)
+                }
+                .annotationTitles(.hidden)
             }
 
             ForEach(app.friendsOnMap) { item in
@@ -99,10 +113,11 @@ struct FlyoverMapView: View {
             let token = idleToken
             Task {
                 try? await Task.sleep(for: .seconds(10))
-                if token == idleToken, position.positionedByUser { follow(force: true) }
+                if token == idleToken, position.positionedByUser, app.mapFocus == nil { follow(force: true) }
             }
         }
         .onChange(of: scenePhase) { _, phase in if phase == .active { follow(force: true) } }
+        .onChange(of: app.mapFocus) { _, focus in if let focus { show(focus) } }
         .onAppear { follow(force: true) }
         .onChange(of: zoomSteps) { old, new in zoom(by: new - old) }
         .onChange(of: recenterTick) { _, _ in follow(force: true) }
@@ -113,7 +128,7 @@ struct FlyoverMapView: View {
     /// Kamera folgt dem eigenen Standort, solange man die Karte nicht selbst verschoben hat.
     private func follow(force: Bool) {
         guard let loc = app.location.lastLocation else { return }
-        guard force || !position.positionedByUser else { return }
+        guard force || (!position.positionedByUser && app.mapFocus == nil) else { return }
         let camera = MapCamera(
             centerCoordinate: loc.coordinate,
             distance: (threeD ? 650 : 5000) * pow(2, -Double(zoomSteps)),
@@ -121,6 +136,31 @@ struct FlyoverMapView: View {
             pitch: threeD ? 65 : 0
         )
         withAnimation(.easeOut(duration: 0.8)) { position = .camera(camera) }
+    }
+
+    /// Zeigt den Freund (und seine restliche Route) im oberen Teil der Karte, damit das halbhohe Unterwegs-Fenster nichts verdeckt.
+    private func show(_ focus: AppModel.MapFocus) {
+        guard let item = app.friendsOnMap.first(where: { $0.friend.friendId == focus.friendId }) else { return }
+        var points = [item.position.coordinate]
+        if focus.showRoute, let route = app.routes.friendRoutes[focus.friendId] {
+            points += route.coordinates
+        }
+        let mapPoints = points.map(MKMapPoint.init)
+        var rect = mapPoints.dropFirst().reduce(MKMapRect(origin: mapPoints[0], size: MKMapSize(width: 0, height: 0))) {
+            $0.union(MKMapRect(origin: $1, size: MKMapSize(width: 0, height: 0)))
+        }
+        // Mindestausschnitt ≈ 700 m, damit ein einzelner Freund nicht extrem nah gezeigt wird
+        let minSide = MKMapPointsPerMeterAtLatitude(item.position.coordinate.latitude) * 700
+        if rect.width < minSide { rect = rect.insetBy(dx: -(minSide - rect.width) / 2, dy: 0) }
+        if rect.height < minSide { rect = rect.insetBy(dx: 0, dy: -(minSide - rect.height) / 2) }
+        // Inhalt in die obere Hälfte: sichtbare Höhe ≈ Inhalt / 0,4, Breite nach Bildschirmformat
+        let content = rect.insetBy(dx: -rect.width * 0.15, dy: -rect.height * 0.15)
+        let screen = UIScreen.main.bounds.size
+        let aspect = screen.width / screen.height
+        let height = max(content.height / 0.4, content.width / aspect)
+        let width = height * aspect
+        let target = MKMapRect(x: content.midX - width / 2, y: content.minY, width: width, height: height)
+        withAnimation(.easeOut(duration: 0.8)) { position = .rect(target) }
     }
 
     /// Zoomt die aktuelle Kamera (auch nach Verschieben/Pinch), Blickrichtung und Neigung bleiben.

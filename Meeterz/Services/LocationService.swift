@@ -116,16 +116,17 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
     private func start() {
         started = true
         manager.allowsBackgroundLocationUpdates = true
-        manager.showsBackgroundLocationIndicator = true
         apply()
     }
 
     private func desiredMode() -> Mode {
         if inForeground || navigating || carPlay { return .full }
         if !isSharing() { return (mayResumeSharing() && canShareInBackground) ? .saving : .off }
+        if !canShareInBackground { return .off }
         if Date().timeIntervalSince(lastMovingAt) < Self.settleAfter { return .moving }
-        // Ohne „Immer“ liefert iOS im Hintergrund keine Ortswechsel-Meldungen – dann reduziert weiterlaufen
-        return canShareInBackground ? .saving : .moving
+        // Ohne „Immer“ gibt es im Hintergrund keine Ortswechsel-Meldungen. Dauerhaft weiterzuorten
+        // würde den Akku leeren und die Ortungsanzeige in der Dynamic Island dauernd zeigen – also aus.
+        return canShareInBackground ? .saving : .off
     }
 
     private func apply() {
@@ -136,20 +137,24 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
 
         switch target {
         case .full:
+            manager.showsBackgroundLocationIndicator = true       // Navigation/CarPlay im Hintergrund: Anzeige ist gewollt
             manager.stopMonitoringSignificantLocationChanges()
             manager.desiredAccuracy = kCLLocationAccuracyBest
             manager.distanceFilter = 10
             manager.startUpdatingLocation()
         case .moving:
+            manager.showsBackgroundLocationIndicator = false
             manager.stopMonitoringSignificantLocationChanges()
-            manager.desiredAccuracy = canShareInBackground ? kCLLocationAccuracyNearestTenMeters : kCLLocationAccuracyHundredMeters
-            manager.distanceFilter = canShareInBackground ? 50 : 100
+            manager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
+            manager.distanceFilter = 50
             manager.startUpdatingLocation()
             scheduleSettleCheck()
         case .saving:
+            manager.showsBackgroundLocationIndicator = false
             manager.stopUpdatingLocation()
             manager.startMonitoringSignificantLocationChanges()
         case .off:
+            manager.showsBackgroundLocationIndicator = false
             manager.stopUpdatingLocation()
             manager.stopMonitoringSignificantLocationChanges()
         }
@@ -159,7 +164,13 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
     private func scheduleSettleCheck() {
         settleTask?.cancel()
         settleTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(Self.settleAfter + 5))
+            // Solange noch Bewegung war, bis fünf Minuten nach der letzten Bewegung warten – dann erst zurückschalten.
+            // (Im Stand kommen wegen des Distanzfilters keine Updates, die sonst neu bewerten würden.)
+            while let self, !Task.isCancelled {
+                let remaining = Self.settleAfter - Date().timeIntervalSince(self.lastMovingAt)
+                if remaining <= 0 { break }
+                try? await Task.sleep(for: .seconds(remaining + 5))
+            }
             guard !Task.isCancelled else { return }
             self?.apply()
         }

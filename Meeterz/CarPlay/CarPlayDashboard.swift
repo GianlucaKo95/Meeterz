@@ -2,7 +2,7 @@ import UIKit
 import CarPlay
 import Combine
 import CoreLocation
-import MapboxMaps
+import MapKit
 import MapboxNavigationCore
 
 /// Dashboard-Karte im CarPlay-Startbildschirm: eigene Karte mit Standort, Freunden und der laufenden Route,
@@ -14,8 +14,8 @@ final class CarPlayDashboardSceneDelegate: NSObject, CPTemplateApplicationDashbo
         to window: UIWindow
     ) {
         MainActor.assumeIsolated {
-            Diag.log("Dashboard verbunden: Fenster \(Int(window.bounds.width))x\(Int(window.bounds.height)), versteckt=\(window.isHidden), Szene=\(templateApplicationDashboardScene.activationState.rawValue)")
-            CarPlayDashboard.shared.connect(window: window, name: "Dashboard")
+            Diag.log("Dashboard verbunden: Fenster \(Int(window.bounds.width))x\(Int(window.bounds.height)), Szene=\(templateApplicationDashboardScene.activationState.rawValue)")
+            CarPlayDashboard.shared.connect(window: window)
         }
     }
 
@@ -51,7 +51,7 @@ final class CarPlayClusterSceneDelegate: NSObject, CPTemplateApplicationInstrume
     }
 
     func instrumentClusterControllerDidConnect(_ instrumentClusterWindow: UIWindow) {
-        MainActor.assumeIsolated { CarPlayDashboard.cluster.connect(window: instrumentClusterWindow, zoom: 16.5, name: "Kombiinstrument") }
+        MainActor.assumeIsolated { CarPlayDashboard.cluster.connect(window: instrumentClusterWindow, zoom: 16.5) }
     }
 
     func instrumentClusterControllerDidDisconnectWindow(_ instrumentClusterWindow: UIWindow) {
@@ -67,95 +67,166 @@ final class CarPlayClusterSceneDelegate: NSObject, CPTemplateApplicationInstrume
     }
 }
 
+/// Dashboard- und Kombiinstrument-Karte mit Apple MapKit.
+///
+/// Vorher lief hier eine Mapbox-Karte. Mapbox zeichnet nur, solange es die Szene als aktiv erkennt;
+/// die Dashboard-Szene meldet sich beim Verbinden aber als „nicht verbunden“ (Diagnose: Szene=-1).
+/// Die Karte lud laut Diagnose, wurde aber sehr wahrscheinlich nie gezeichnet – CarPlay zeigte nur das
+/// App-Symbol und das Dashboard hing. MapKit hängt nicht an dieser Erkennung.
 @MainActor
-final class CarPlayDashboard {
-    static let shared = CarPlayDashboard()
+final class CarPlayDashboard: NSObject, MKMapViewDelegate {
+    static let shared = CarPlayDashboard(name: "Dashboard")
     /// Dieselbe Karte im Kombiinstrument
-    static let cluster = CarPlayDashboard()
+    static let cluster = CarPlayDashboard(name: "Kombiinstrument")
 
-    private var zoomLevel: Double = 15.5
-
-    private var mapView: MapView?
-    private var overlay: FriendOverlay?
-    private var routeManager: PolylineAnnotationManager?
+    private let name: String
+    private var mapView: MKMapView?
+    private var distance: CLLocationDistance = 900
     private var subscriptions = Set<AnyCancellable>()
-    private var cancelables = Set<AnyCancelable>()
+    private var timer: Timer?
+    private var pins: [UUID: MapPin] = [:]
+    private var routeOverlays: [MKOverlay] = []
 
-    func connect(window: UIWindow, zoom: Double = 15.5, name: String) {
+    private init(name: String) {
+        self.name = name
+        super.init()
+    }
+
+    func connect(window: UIWindow, zoom: Double = 15.5) {
         disconnect()
-        zoomLevel = zoom
-        let satellite = UserDefaults.standard.object(forKey: "carplay.satellite") as? Bool ?? true
-        let options = MapInitOptions(
-            cameraOptions: CameraOptions(zoom: zoomLevel, pitch: 55),
-            styleURI: satellite ? .standardSatellite : .standard
-        )
-        let map = MapView(frame: window.bounds, mapInitOptions: options)
+        // Zoomstufe grob in Kameraabstand umrechnen (16 ≈ 700 m)
+        distance = 700 * pow(2, 16 - zoom)
+
+        let map = MKMapView(frame: window.bounds)
         map.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        map.ornaments.options.scaleBar.visibility = .hidden
-        map.ornaments.options.compass.visibility = .hidden
-        map.location.options.puckType = .puck2D(.makeDefault(showBearing: true))
-        map.location.options.puckBearing = .course
+        map.delegate = self
+        map.mapType = CarPlayFlyoverMirror.isEnabled ? .hybridFlyover
+            : (UserDefaults.standard.object(forKey: "carplay.satellite") as? Bool ?? true) ? .hybrid : .standard
+        map.showsUserLocation = true
+        map.showsCompass = false
+        map.showsScale = false
+        map.isUserInteractionEnabled = false
+        map.pointOfInterestFilter = MKPointOfInterestFilter(including: [.gasStation, .parking, .evCharger])
+        if let here = AppModel.shared.location.lastLocation { follow(here, map: map, animated: false) }
 
         let controller = UIViewController()
         controller.view = map
         window.rootViewController = controller
         mapView = map
 
-        // Diagnose: Lädt die Karte? (Dashboard zeigte nur das App-Symbol)
-        map.mapboxMap.onMapLoaded.observeNext { _ in Diag.log("\(name): Karte geladen") }.store(in: &cancelables)
-        map.mapboxMap.onMapLoadingError.observe { e in Diag.log("\(name): Kartenfehler \(e.type) \(e.message)") }.store(in: &cancelables)
-        Task { @MainActor [weak map, weak window] in
-            try? await Task.sleep(for: .seconds(5))
-            guard let map else { return }
-            Diag.log("\(name) nach 5 s: Karte \(Int(map.bounds.width))x\(Int(map.bounds.height)), im Fenster=\(map.window != nil), Fenster versteckt=\(window?.isHidden ?? true), Standort=\(map.location.latestLocation != nil)")
-        }
-
-        // Kamera folgt dem Standort
-        follow()
-
-        Satellite3DBuildings.install(on: map, satellite: satellite)
-        let friends = FriendOverlay(mapView: map) { true }
-        friends.start()
-        overlay = friends
-
-        // Laufende Route einzeichnen
-        let manager = map.annotations.makePolylineAnnotationManager(id: "meeterz-dashboard-route")
-        routeManager = manager
+        // Laufende Route
         navigationProvider.mapboxNavigation.tripSession().navigationRoutes
             .receive(on: DispatchQueue.main)
-            .sink { routes in
-                guard let coords = routes?.mainRoute.route.shape?.coordinates else {
-                    manager.annotations = []
-                    return
-                }
-                var line = PolylineAnnotation(id: "route", lineCoordinates: coords)
-                line.lineColor = StyleColor(UIColor(red: 0.20, green: 0.55, blue: 1.0, alpha: 1))
-                line.lineWidth = 8
-                manager.annotations = [line]
-            }
+            .sink { [weak self] routes in self?.drawRoute(routes?.mainRoute.route.shape?.coordinates) }
             .store(in: &subscriptions)
-    }
 
-    private func follow() {
-        guard let map = mapView else { return }
-        let state = map.viewport.makeFollowPuckViewportState(
-            options: FollowPuckViewportStateOptions(zoom: zoomLevel, bearing: .course, pitch: 55))
-        map.viewport.transition(to: state)
+        // Freunde alle 3 s abgleichen
+        timer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.refreshFriends() }
+        }
+        refreshFriends()
+
+        Task { @MainActor [weak self, weak map, weak window] in
+            try? await Task.sleep(for: .seconds(5))
+            guard let self, let map else { return }
+            Diag.log("\(self.name) nach 5 s (MapKit): \(Int(map.bounds.width))x\(Int(map.bounds.height)), im Fenster=\(map.window != nil), Fenster versteckt=\(window?.isHidden ?? true), Standort=\(map.userLocation.location != nil)")
+        }
     }
 
     func zoom(by delta: Double) {
-        zoomLevel = min(max(zoomLevel + delta, 10), 19)
-        follow()
+        distance = min(max(distance * pow(2, -delta), 150), 60_000)
+        if let map = mapView, let here = map.userLocation.location { follow(here, map: map, animated: true) }
     }
 
     func disconnect() {
-        cancelables.removeAll()
         subscriptions.removeAll()
-        overlay?.stop()
-        overlay = nil
-        routeManager?.annotations = []
-        routeManager = nil
+        timer?.invalidate()
+        timer = nil
+        pins = [:]
+        routeOverlays = []
+        mapView?.delegate = nil
         mapView?.removeFromSuperview()
         mapView = nil
+    }
+
+    // MARK: Kamera: folgt dem Standort, in Fahrtrichtung, leicht geneigt
+
+    private func follow(_ location: CLLocation, map: MKMapView, animated: Bool) {
+        let heading = location.course >= 0 ? location.course : map.camera.heading
+        let camera = MKMapCamera(lookingAtCenter: location.coordinate, fromDistance: distance, pitch: 55, heading: heading)
+        map.setCamera(camera, animated: animated)
+    }
+
+    // MARK: Route und Freunde
+
+    private func drawRoute(_ coords: [CLLocationCoordinate2D]?) {
+        guard let map = mapView else { return }
+        map.removeOverlays(routeOverlays)
+        routeOverlays = []
+        guard var c = coords, c.count > 1 else { return }
+        let outline = StyledPolyline(coordinates: &c, count: c.count)
+        outline.color = FriendPalette.routeCasing
+        outline.width = 12
+        let line = StyledPolyline(coordinates: &c, count: c.count)
+        line.color = UIColor(red: 0.20, green: 0.55, blue: 1.0, alpha: 1)
+        line.width = 8
+        routeOverlays = [outline, line]
+        map.addOverlays(routeOverlays, level: .aboveRoads)
+    }
+
+    private func refreshFriends() {
+        guard let map = mapView else { return }
+        let items = AppModel.shared.friendsOnMap
+        let wanted = Set(items.map(\.friend.friendId))
+        for (id, pin) in pins where !wanted.contains(id) {
+            map.removeAnnotation(pin)
+            pins.removeValue(forKey: id)
+        }
+        for item in items {
+            let id = item.friend.friendId
+            if let pin = pins[id] {
+                pin.coordinate = item.position.coordinate
+                pin.kind = .friend(item)
+                map.view(for: pin)?.image = pin.image()
+            } else {
+                let pin = MapPin(kind: .friend(item))
+                pin.coordinate = item.position.coordinate
+                pins[id] = pin
+                map.addAnnotation(pin)
+            }
+        }
+    }
+
+    // MARK: MKMapViewDelegate
+
+    nonisolated func mapView(_ mapView: MKMapView, didUpdate userLocation: MKUserLocation) {
+        MainActor.assumeIsolated {
+            guard let location = userLocation.location else { return }
+            follow(location, map: mapView, animated: true)
+        }
+    }
+
+    nonisolated func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
+        guard let line = overlay as? StyledPolyline else { return MKOverlayRenderer(overlay: overlay) }
+        let renderer = MKPolylineRenderer(polyline: line)
+        renderer.strokeColor = line.color
+        renderer.lineWidth = line.width
+        renderer.lineCap = .round
+        renderer.lineJoin = .round
+        return renderer
+    }
+
+    nonisolated func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+        MainActor.assumeIsolated {
+            guard let pin = annotation as? MapPin else { return nil }   // eigener Standort: Standard-Punkt
+            let view = mapView.dequeueReusableAnnotationView(withIdentifier: "pin")
+                ?? MKAnnotationView(annotation: pin, reuseIdentifier: "pin")
+            view.annotation = pin
+            view.canShowCallout = false
+            view.image = pin.image()
+            view.centerOffset = CGPoint(x: 0, y: -(view.image?.size.height ?? 0) / 2)
+            view.displayPriority = .required
+            return view
+        }
     }
 }

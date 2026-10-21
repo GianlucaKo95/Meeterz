@@ -346,7 +346,7 @@ final class CarPlayController: NSObject {
     }
 
     /// Legt das Fahrt-Fenster (wie bei Apple Karten) auf die Karten-Vorlage der laufenden Navigation:
-    /// unten Ankunft/Zeit/Strecke und „Route beenden“, hochgezogen die weiteren Aktionen.
+    /// unten Ankunft/Zeit/Strecke und „Freunde einladen“, hochgezogen Stopp hinzufügen und Route beenden.
     @available(iOS 27.0, *)
     private func showTripPanel(on template: CPMapTemplate) {
         let model = AppModel.shared
@@ -358,27 +358,12 @@ final class CarPlayController: NSObject {
                 handler(); done()
             })
         }
-        var actions: [CPMapPanelItem] = [
+        // Hochgezogen: Stopp hinzufügen und Route beenden (Einladen steht unten als Hauptknopf)
+        let actions: [CPMapPanelItem] = [
             action("plus.circle.fill", "Stopp hinzufügen") { [weak self] in self?.showSearch() },
+            action("xmark.circle.fill", "Route beenden") { [weak self] in self?.endNavigationIfNeeded() },
         ]
-        if !friends.isEmpty {
-            actions.append(action("person.2.circle.fill", "Freunde einladen") { [weak self] in self?.showInviteList() })
-        }
-        var sections = [CPMapPanelSection(title: "Aktionen", items: actions)]
-
-        let items: [CPMapPanelItem] = friends.prefix(CPPanel.maximumPanelItemsCount).map { friend in
-            CPMapPanelItem(
-                routeDetails: [
-                    CPRouteDetail(symbolName: "person.crop.circle.fill", value: friend.displayName),
-                    CPRouteDetail(info: "Einladen"),
-                ],
-                handler: { [weak self] _, done in
-                    self?.sendInvites(to: [friend.friendId], place: place)
-                    done()
-                }
-            )
-        }
-        if !items.isEmpty { sections.append(CPMapPanelSection(title: "Freunde", items: items)) }
+        let sections = [CPMapPanelSection(title: "Aktionen", items: actions)]
 
         var buttons: CPMapPanelButtonConfiguration?
         if let remaining = model.navigation.remaining {
@@ -386,8 +371,9 @@ final class CarPlayController: NSObject {
                 distanceRemaining: Measurement(value: remaining.distance, unit: .meters),
                 timeRemaining: remaining.duration
             )
-            let primary = CPTextButton(title: "Route beenden", textStyle: .cancel) { [weak self] _ in
-                self?.endNavigationIfNeeded()
+            // Unten angeheftet (wie „Ankunftszeit teilen“ bei Apple Karten): Freunde einladen, einzeln wählbar
+            let primary = CPTextButton(title: friends.isEmpty ? "Stopp hinzufügen" : "Freunde einladen", textStyle: .confirm) { [weak self] _ in
+                if friends.isEmpty { self?.showSearch() } else { self?.showInviteList() }
             }
             let toggle = CPButton(image: friendsToggleImage()) { [weak self] _ in
                 guard let self else { return }

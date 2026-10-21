@@ -10,5 +10,10 @@
 	<string>development</string>
 	<key>com.apple.developer.carplay-maps</key>
 	<true/>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>$(AppIdentifierPrefix)de.koeven.meeterz</string>
+		<string>$(AppIdentifierPrefix)de.koeven.meeterz.shared</string>
+	</array>
 </dict>
 </plist>

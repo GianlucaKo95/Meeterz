@@ -252,10 +252,16 @@ struct FriendsView: View {
             ))
             .tint(Theme.accent)
 
-            Picker("Dauer", selection: $sharingMode) {
-                ForEach(SharingMode.allCases) { Text($0.title).tag($0) }
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Teilen für")
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.muted)
+                Picker("Teilen für", selection: $sharingMode) {
+                    ForEach(SharingMode.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.segmented)
             }
-            .pickerStyle(.segmented)
+            .padding(.vertical, 4)
             .onChange(of: sharingMode) { _, mode in
                 SharingMode.current = mode
                 Task { await applySharing(on: true) }
@@ -405,15 +411,7 @@ struct FriendsView: View {
             await app.auth.setSharing(false)
             return
         }
-        switch sharingMode {
-        case .always:
-            await app.auth.setSharing(true, until: nil)
-        case .oneHour:
-            await app.auth.setSharing(true, until: Date().addingTimeInterval(3600))
-        case .untilArrival:
-            let until = app.navigation.eta.map { $0.addingTimeInterval(15 * 60) }
-            await app.auth.setSharing(true, until: until)
-        }
+        await app.shareLocation(for: sharingMode)
     }
 
     private var sharingFooter: String {
@@ -422,11 +420,7 @@ struct FriendsView: View {
     }
 
     private var sharingBase: String {
-        switch sharingMode {
-        case .always: "Freunde sehen dich, bis du das Teilen pausierst."
-        case .oneHour: "Das Teilen endet automatisch nach einer Stunde."
-        case .untilArrival: "Das Teilen endet 15 Minuten nach der Ankunft deiner nächsten Fahrt."
-        }
+        sharingMode.explanation
     }
 
     private func status(for row: FriendRow) -> String {

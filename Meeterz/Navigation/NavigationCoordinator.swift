@@ -393,15 +393,36 @@ extension NavigationCoordinator: NavigationViewControllerDelegate {
 
 /// Wie lange der Standort geteilt wird
 enum SharingMode: String, CaseIterable, Identifiable {
-    case always, oneHour, untilArrival
+    case fifteenMinutes, oneHour, untilArrival, always
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .always: "Immer"
+        case .fifteenMinutes: "15 Min."
         case .oneHour: "1 Std."
         case .untilArrival: "Bis Ankunft"
+        case .always: "Immer"
+        }
+    }
+
+    /// Ende des Teilens; „Bis Ankunft“ ohne laufende Fahrt bleibt offen, bis die nächste Fahrt startet
+    func until(eta: Date?) -> Date? {
+        switch self {
+        case .fifteenMinutes: Date().addingTimeInterval(15 * 60)
+        case .oneHour: Date().addingTimeInterval(3600)
+        case .untilArrival: eta.map { $0.addingTimeInterval(15 * 60) }
+        case .always: nil
+        }
+    }
+
+    /// Beschreibung für Fußzeile und Siri
+    var explanation: String {
+        switch self {
+        case .fifteenMinutes: "Das Teilen endet automatisch nach 15 Minuten."
+        case .oneHour: "Das Teilen endet automatisch nach einer Stunde."
+        case .untilArrival: "Das Teilen endet 15 Minuten nach der Ankunft deiner nächsten Fahrt."
+        case .always: "Freunde sehen dich, bis du das Teilen pausierst."
         }
     }
 

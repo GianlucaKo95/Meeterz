@@ -40,6 +40,7 @@ final class FavoritesStore {
         guard let data = UserDefaults.standard.data(forKey: key(userId)),
               let list = try? JSONDecoder().decode([Favorite].self, from: data) else { items = []; return }
         items = list
+        MeeterzShortcuts.updateAppShortcutParameters()
     }
 
     func reset() {
@@ -77,5 +78,6 @@ final class FavoritesStore {
     private func persist() {
         guard let userId, let data = try? JSONEncoder().encode(items) else { return }
         UserDefaults.standard.set(data, forKey: key(userId))
+        MeeterzShortcuts.updateAppShortcutParameters()   // Siri: „Mit Meeterz nach Zuhause“
     }
 }

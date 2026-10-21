@@ -129,6 +129,7 @@ final class AuthStore {
             p.sharingEnabled = enabled
             p.sharingUntil = until
             state = .ready(p)
+            WidgetSnapshotWriter.shared.update(force: true)
         }
     }
 

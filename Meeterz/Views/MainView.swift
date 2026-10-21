@@ -424,15 +424,27 @@ struct SharingPill: View {
     private func pill(_ profile: Profile?) -> some View {
         let incognito = profile?.isIncognito ?? false
         let sharing = profile?.isSharingNow ?? false
-        Button {
-            Task {
-                if incognito {
-                    await app.stopIncognito()
-                } else if sharing {
-                    await app.auth.setSharing(false)
-                } else {
-                    let until: Date? = SharingMode.current == .oneHour ? Date().addingTimeInterval(3600) : nil
-                    await app.auth.setSharing(true, until: until)
+        // Tippen öffnet die Teilen-Optionen direkt auf der Karte (Dauer, Pausieren, Inkognito beenden)
+        Menu {
+            if incognito {
+                Button("Inkognito beenden", systemImage: "eye") { Task { await app.stopIncognito() } }
+            }
+            Section("Standort teilen für") {
+                ForEach(SharingMode.allCases) { mode in
+                    Button {
+                        Task { await app.shareLocation(for: mode) }
+                    } label: {
+                        if sharing && SharingMode.current == mode {
+                            Label(mode.title, systemImage: "checkmark")
+                        } else {
+                            Text(mode.title)
+                        }
+                    }
+                }
+            }
+            if sharing {
+                Button("Teilen pausieren", systemImage: "pause.circle", role: .destructive) {
+                    Task { await app.auth.setSharing(false) }
                 }
             }
         } label: {
@@ -449,7 +461,7 @@ struct SharingPill: View {
             .padding(.horizontal, 12).padding(.vertical, 8)
             .background(Capsule().fill(Theme.panel.opacity(0.92)))
         }
-        .accessibilityHint(incognito ? "Tippen beendet Inkognito" : sharing ? "Tippen pausiert das Teilen" : "Tippen teilt deinen Standort wieder")
+        .accessibilityHint("Öffnet die Optionen zum Teilen")
     }
 
     private func label(_ profile: Profile?) -> String {

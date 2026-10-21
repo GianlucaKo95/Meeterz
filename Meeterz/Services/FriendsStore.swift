@@ -16,6 +16,8 @@ final class FriendsStore {
     func refresh() async {
         do {
             rows = try await client.rpc("my_friends").execute().value
+            // Siri kennt die Namen der Freunde („Navigiere mit Meeterz zu Lisa“)
+            MeeterzShortcuts.updateAppShortcutParameters()
         } catch {
             errorMessage = error.localizedDescription
         }

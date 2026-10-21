@@ -76,6 +76,7 @@ final class AppModel {
     }
 
     func endSession() async {
+        WidgetSnapshotWriter.shared.clear()
         avatars.reset()
         sounds.reset()
         favorites.reset()
@@ -155,6 +156,13 @@ final class AppModel {
         show("Inkognito beendet – du bist für Freunde wieder sichtbar.", isError: false)
     }
 
+    /// Standort teilen für die gewählte Dauer (Profil, Karte, Siri)
+    func shareLocation(for mode: SharingMode) async {
+        SharingMode.current = mode
+        if profile?.isIncognito == true { await stopIncognito() }
+        await auth.setSharing(true, until: mode.until(eta: navigation.eta))
+    }
+
     func setHideRoutes(_ hide: Bool) async {
         await auth.setHideRoutes(hide)
         if hide { await routes.clearMine() }
@@ -164,6 +172,7 @@ final class AppModel {
         guard let profile else { return }
         await hub.publish(loc, userId: profile.id, sharingEnabled: profile.isSharingNow)
         await checkSoundMoments(me: loc)
+        WidgetSnapshotWriter.shared.update()
     }
 
     // MARK: Sound-Pack-Momente

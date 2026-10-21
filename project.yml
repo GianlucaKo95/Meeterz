@@ -94,6 +94,7 @@ targets:
         SUPABASE_ANON_KEY: $(SUPABASE_ANON_KEY)
         MBXAccessToken: $(MAPBOX_ACCESS_TOKEN)
         MEETERZ_PUSH_ENV: $(MEETERZ_PUSH_ENV)
+        MeeterzKeychainPrefix: $(AppIdentifierPrefix)
 
   # Live-Aktivität (Sperrbildschirm, Dynamic Island) und Widgets
   MeeterzWidgets:
@@ -105,6 +106,8 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: de.koeven.meeterz.widgets
+        # Gemeinsamer Schlüsselbund mit der App (Datenstand für die Widgets)
+        CODE_SIGN_ENTITLEMENTS: MeeterzWidgets/MeeterzWidgets.entitlements
         MARKETING_VERSION: "1.0"
         CURRENT_PROJECT_VERSION: "1"
         SWIFT_VERSION: "5.0"
@@ -117,6 +120,7 @@ targets:
         CFBundleDisplayName: Meeterz
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        MeeterzKeychainPrefix: $(AppIdentifierPrefix)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
 

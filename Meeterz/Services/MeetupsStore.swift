@@ -79,7 +79,9 @@ final class MeetupsStore {
                     }
                 }
             }
+            let changed = meetups != rows
             meetups = rows
+            if changed { WidgetSnapshotWriter.shared.update(force: true) }
         }
     }
 

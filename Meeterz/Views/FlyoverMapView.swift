@@ -52,7 +52,7 @@ struct FlyoverMapView: View {
         Task {
             let request = MKLocalPointsOfInterestRequest(center: coordinate, radius: radius)
             request.pointOfInterestFilter = MKPointOfInterestFilter(including: [.restaurant, .cafe, .parking, .gasStation, .publicTransport, .hospital, .bakery, .pharmacy, .hotel, .museum, .park, .store, .foodMarket, .evCharger])
-            guard let response = try? await MKLocalPointsOfInterestSearch(request: request).start() else { return }
+            guard let response = try? await MKLocalSearch(request: request).start() else { return }
             let target = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
             let nearest = response.mapItems.min {
                 CLLocation(latitude: $0.coordinate.latitude, longitude: $0.coordinate.longitude).distance(from: target)

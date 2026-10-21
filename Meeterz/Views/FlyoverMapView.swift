@@ -16,7 +16,7 @@ struct FlyoverMapView: View {
     let zoomSteps: Int
 
     @State private var position: MapCameraPosition = .automatic
-    @State private var selection: MapSelection<UUID>?
+    @State private var selection: MapFeature?
     @State private var detail: PlaceDetailItem?
     @State private var lastCamera: MapCamera?
     @State private var idleToken = 0
@@ -126,7 +126,7 @@ struct FlyoverMapView: View {
     private var mapDetail: some View {
         mapBase
         .onChange(of: selection) { _, new in
-            guard let feature = new?.feature else { return }
+            guard let feature = new else { return }
             selection = nil
             Task {
                 guard let item = try? await MKMapItemRequest(mapFeature: feature).mapItem else { return }

@@ -28,7 +28,7 @@ struct PlaceDetailSheet: View {
         VStack(spacing: 0) {
             AppleDetailView(mapItem: item.mapItem)
             Button {
-                let coordinate = item.mapItem.placemark.coordinate
+                let coordinate = item.mapItem.coordinate
                 let place = Place(id: "apple-\(UUID().uuidString)", name: item.mapItem.name ?? "Ziel", address: nil, coordinate: coordinate)
                 dismiss()
                 navigate(place)
@@ -53,8 +53,16 @@ enum ApplePlaces {
         guard let response = try? await MKLocalSearch(request: request).start() else { return nil }
         let target = CLLocation(latitude: place.coordinate.latitude, longitude: place.coordinate.longitude)
         return response.mapItems
-            .map { ($0, CLLocation(latitude: $0.placemark.coordinate.latitude, longitude: $0.placemark.coordinate.longitude).distance(from: target)) }
+            .map { ($0, CLLocation(latitude: $0.coordinate.latitude, longitude: $0.coordinate.longitude).distance(from: target)) }
             .filter { $0.1 < 150 }
             .min { $0.1 < $1.1 }?.0
+    }
+}
+
+extension MKMapItem {
+    /// Ab iOS 26 gibt es `location`, `placemark` ist dort veraltet; davor nur `placemark`.
+    var coordinate: CLLocationCoordinate2D {
+        if #available(iOS 26.0, *) { return location.coordinate }
+        return placemark.coordinate
     }
 }

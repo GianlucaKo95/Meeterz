@@ -31,6 +31,7 @@ struct RootView: View {
 
 struct SignInView: View {
     @Environment(AuthStore.self) private var auth
+    @Environment(\.colorScheme) private var colorScheme
     /// Roh-Nonce geht an Supabase, der SHA-256-Hash an Apple – so ist das Token an diesen Login gebunden
     @State private var nonce = ""
 
@@ -77,7 +78,7 @@ struct SignInView: View {
                     }
                 }
             }
-            .signInWithAppleButtonStyle(.white)
+            .signInWithAppleButtonStyle(colorScheme == .light ? .black : .white)
             .frame(height: 54)
             .clipShape(Capsule())
             #endif

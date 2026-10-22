@@ -1,23 +1,82 @@
 import SwiftUI
 import UIKit
 
-/// Nachtfahrt-Look: dunkler Grund, ein Lime-Akzent, runde Schrift.
+/// Nachtfahrt-Look (dunkel) bzw. heller Tag-Look: Grund, ein Lime-Akzent, runde Schrift.
+/// Alle Farben passen sich dem Erscheinungsbild an (Einstellung „Darstellung“: System, Hell, Dunkel).
 enum Theme {
-    static let ink = Color(hex: 0x0E1116)
-    static let panel = Color(hex: 0x161B22)
-    static let panelRaised = Color(hex: 0x1D232C)
-    static let stroke = Color(hex: 0x262F3C)
-    static let text = Color(hex: 0xF2F4F7)
-    static let muted = Color(hex: 0x9AA4B2)
-    static let accent = Color(hex: 0xC6F432)
-    static let danger = Color(hex: 0xFF5A5F)
-    /// Klares Grün für „ist unterwegs“ (bewusst nicht das Limettengrün der Akzentfarbe)
-    static let go = Color(hex: 0x34C759)
+    enum UI {
+        static let ink = dynamic(dark: 0x0E1116, light: 0xF3F4F6)
+        static let panel = dynamic(dark: 0x161B22, light: 0xFFFFFF)
+        static let panelRaised = dynamic(dark: 0x1D232C, light: 0xE9ECF0)
+        static let stroke = dynamic(dark: 0x262F3C, light: 0xD5DAE1)
+        static let text = dynamic(dark: 0xF2F4F7, light: 0x11151B)
+        static let muted = dynamic(dark: 0x9AA4B2, light: 0x5B6573)
+        /// Hell: dunkleres Grün, damit Text und Symbole auf Weiß lesbar bleiben
+        static let accent = dynamic(dark: 0xC6F432, light: 0x4C7A00)
+        static let danger = dynamic(dark: 0xFF5A5F, light: 0xD92D35)
+        static let go = dynamic(dark: 0x34C759, light: 0x1E9E48)
+    }
 
-    static let accentUI = UIColor(red: 0.78, green: 0.96, blue: 0.20, alpha: 1)
+    static let ink = Color(uiColor: UI.ink)
+    static let panel = Color(uiColor: UI.panel)
+    static let panelRaised = Color(uiColor: UI.panelRaised)
+    static let stroke = Color(uiColor: UI.stroke)
+    static let text = Color(uiColor: UI.text)
+    static let muted = Color(uiColor: UI.muted)
+    static let accent = Color(uiColor: UI.accent)
+    static let danger = Color(uiColor: UI.danger)
+    /// Klares Grün für „ist unterwegs“ (bewusst nicht das Limettengrün der Akzentfarbe)
+    static let go = Color(uiColor: UI.go)
+
+    static let accentUI = UI.accent
+
+    static func dynamic(dark: UInt32, light: UInt32, alpha: CGFloat = 1) -> UIColor {
+        UIColor { $0.userInterfaceStyle == .light ? UIColor(hex: light, alpha: alpha) : UIColor(hex: dark, alpha: alpha) }
+    }
 
     static func display(_ size: CGFloat) -> Font { .system(size: size, weight: .heavy, design: .rounded) }
     static func title(_ size: CGFloat = 17) -> Font { .system(size: size, weight: .semibold, design: .rounded) }
+}
+
+extension UIColor {
+    convenience init(hex: UInt32, alpha: CGFloat = 1) {
+        self.init(red: CGFloat((hex >> 16) & 0xFF) / 255, green: CGFloat((hex >> 8) & 0xFF) / 255,
+                  blue: CGFloat(hex & 0xFF) / 255, alpha: alpha)
+    }
+}
+
+/// Darstellung der App auf dem iPhone (CarPlay hat sein eigenes Erscheinungsbild)
+enum AppAppearance: String, CaseIterable, Identifiable {
+    case system, light, dark
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .system: "Wie System"
+        case .light: "Hell"
+        case .dark: "Dunkel"
+        }
+    }
+    var style: UIUserInterfaceStyle {
+        switch self {
+        case .system: .unspecified
+        case .light: .light
+        case .dark: .dark
+        }
+    }
+
+    static let key = "app.appearance"
+    /// Standard bleibt der bisherige dunkle Look
+    static var current: AppAppearance {
+        get { UserDefaults.standard.string(forKey: key).flatMap(AppAppearance.init(rawValue:)) ?? .dark }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: key); apply() }
+    }
+
+    /// Setzt das Erscheinungsbild für alle iPhone-Fenster – auch für die UIKit-Navigation von Mapbox
+    @MainActor static func apply() {
+        for case let scene as UIWindowScene in UIApplication.shared.connectedScenes {
+            for window in scene.windows { window.overrideUserInterfaceStyle = current.style }
+        }
+    }
 }
 
 extension Color {

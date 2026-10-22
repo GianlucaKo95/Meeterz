@@ -64,8 +64,8 @@ struct MeeterzApp: App {
             RootView()
                 .environment(AppModel.shared)
                 .environment(AppModel.shared.auth)
-                .preferredColorScheme(.dark)
                 .tint(Theme.accent)
+                .onAppear { AppAppearance.apply() }
                 .task { await AppModel.shared.auth.start() }
         }
     }

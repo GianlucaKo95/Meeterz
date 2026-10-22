@@ -18,6 +18,7 @@ struct FriendsView: View {
     @State private var showSettings = false
     @State private var autoDelay = MessagesStore.autoDelay
     @State private var evEnabled = EVSettings.enabled
+    @State private var appearance = AppAppearance.current
     @State private var evRange = EVSettings.rangeKm
 
     private struct InviteTarget: Identifiable {
@@ -397,6 +398,12 @@ struct FriendsView: View {
 
     private var appSection: some View {
         Section("App") {
+            Picker("Darstellung", selection: Binding(
+                get: { appearance },
+                set: { appearance = $0; AppAppearance.current = $0 }
+            )) {
+                ForEach(AppAppearance.allCases) { Text($0.title).tag($0) }
+            }
             Toggle("E-Auto", isOn: Binding(get: { evEnabled }, set: { evEnabled = $0; EVSettings.enabled = $0 }))
                 .tint(Theme.accent)
             if evEnabled {

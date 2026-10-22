@@ -26,12 +26,13 @@ class SatelliteNightStyle: StandardNightStyle {
 
 /// Banner, Knöpfe und Abbiegepfeile in den App-Farben; die Karte selbst bleibt (Satellit bzw. klassisch)
 enum MeeterzNavigationLook {
-    static let ink = UIColor(red: 0.055, green: 0.067, blue: 0.086, alpha: 1)
-    static let panel = UIColor(red: 0.086, green: 0.106, blue: 0.133, alpha: 0.97)
-    static let stroke = UIColor(red: 0.149, green: 0.184, blue: 0.235, alpha: 1)
-    static let text = UIColor(red: 0.949, green: 0.957, blue: 0.969, alpha: 1)
-    static let muted = UIColor(red: 0.604, green: 0.643, blue: 0.698, alpha: 1)
-    static let accent = UIColor(red: 0.776, green: 0.957, blue: 0.196, alpha: 1)
+    // Folgen der Einstellung „Darstellung“ (hell/dunkel) wie der Rest der App
+    static let ink = Theme.UI.ink
+    static let panel = Theme.dynamic(dark: 0x161B22, light: 0xFFFFFF, alpha: 0.97)
+    static let stroke = Theme.UI.stroke
+    static let text = Theme.UI.text
+    static let muted = Theme.UI.muted
+    static let accent = Theme.UI.accent
 
     static func apply() {
         for idiom in [UIUserInterfaceIdiom.phone, .pad] {

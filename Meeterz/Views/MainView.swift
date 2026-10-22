@@ -4,6 +4,7 @@ import CoreLocation
 
 struct MainView: View {
     @Environment(AppModel.self) private var app
+    @Environment(\.colorScheme) private var colorScheme
 
     @AppStorage("map.satellite") private var satellite = true
     @AppStorage("map.3d") private var threeD = true
@@ -268,7 +269,7 @@ struct MainView: View {
         }
         .onMapTapGesture { _ in toggleChrome() }
         .onMapLongPressGesture { context in dropPin(at: context.coordinate) }
-        .mapStyle(.standard(lightPreset: .night))
+        .mapStyle(.standard(lightPreset: colorScheme == .light ? .day : .night))
         // Kompass unter die Knopfleiste rechts, sonst liegt er hinter der oberen Leiste
         .ornamentOptions(OrnamentOptions(compass: CompassViewOptions(position: .topTrailing, margins: CGPoint(x: 20, y: 400), visibility: .adaptive)))
         .ignoresSafeArea()

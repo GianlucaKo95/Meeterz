@@ -35,6 +35,16 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
     private var pins: [String: MapPin] = [:]
     private var userArrow: UIImageView?
 
+    /// Eigene Ebene über der 3D-Karte: Route und Standortpfeil.
+    /// MapKit legt Linien auf den Boden – Flyover-Bäume und -Gebäude verdecken sie dann (nah herangezoomt
+    /// verschwand die Route). In dieser Ebene liegt sie immer obenauf, wie bei Apple Karten.
+    private let routeView = UIView()
+    private let casingLayer = CAShapeLayer()
+    private let lineLayer = CAShapeLayer()
+    private let arrowLayer = CALayer()
+    /// Hauptroute, auf höchstens 25 m Punktabstand verdichtet (sonst fielen lange Geraden hinter der Kamera weg)
+    private var mainLine: [CLLocationCoordinate2D] = []
+
     init(friendsVisible: @escaping () -> Bool) {
         self.friendsVisible = friendsVisible
         super.init()
@@ -45,6 +55,23 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
         mapView.showsScale = false
         mapView.isUserInteractionEnabled = false      // Bedienung läuft über CarPlay (und damit die Mapbox-Kamera)
         mapView.pointOfInterestFilter = MKPointOfInterestFilter(including: [.restaurant, .cafe, .parking, .gasStation, .publicTransport, .hospital])
+        routeView.isUserInteractionEnabled = false
+        routeView.backgroundColor = .clear
+        for layer in [casingLayer, lineLayer] {
+            layer.fillColor = nil
+            layer.lineCap = .round
+            layer.lineJoin = .round
+            routeView.layer.addSublayer(layer)
+        }
+        casingLayer.strokeColor = UIColor(red: 0.02, green: 0.04, blue: 0.07, alpha: 0.92).cgColor
+        casingLayer.lineWidth = 14
+        lineLayer.strokeColor = UIColor(red: 0.20, green: 0.55, blue: 1.0, alpha: 1).cgColor
+        lineLayer.lineWidth = 10
+        arrowLayer.contents = Self.arrowImage.cgImage
+        arrowLayer.bounds = CGRect(x: 0, y: 0, width: 52, height: 52)
+        arrowLayer.contentsScale = UIScreen.main.scale
+        arrowLayer.isHidden = true
+        routeView.layer.addSublayer(arrowLayer)
         observeRoutes()
         timer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.refreshFriends() }
@@ -81,6 +108,15 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
             mapView.topAnchor.constraint(equalTo: navigationMapView.topAnchor),
             mapView.bottomAnchor.constraint(equalTo: navigationMapView.bottomAnchor),
         ])
+        routeView.removeFromSuperview()
+        routeView.translatesAutoresizingMaskIntoConstraints = false
+        parent.insertSubview(routeView, aboveSubview: mapView)
+        NSLayoutConstraint.activate([
+            routeView.leadingAnchor.constraint(equalTo: mapView.leadingAnchor),
+            routeView.trailingAnchor.constraint(equalTo: mapView.trailingAnchor),
+            routeView.topAnchor.constraint(equalTo: mapView.topAnchor),
+            routeView.bottomAnchor.constraint(equalTo: mapView.bottomAnchor),
+        ])
         parent.layoutIfNeeded()
 
         let map = navigationMapView.mapView.mapboxMap
@@ -110,6 +146,7 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
         timer = nil
         subscriptions.removeAll()
         mapView.removeFromSuperview()
+        routeView.removeFromSuperview()
     }
 
     // MARK: Kamera
@@ -150,6 +187,67 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
         mapView.setCamera(camera, animated: false)
         cameraHeading = state.bearing
         updateArrow()
+        updateTopLayer()
+    }
+
+    /// Route und Pfeil in der eigenen Ebene an die aktuelle Kamera anpassen
+    private func updateTopLayer() {
+        guard routeView.bounds.width > 1 else { return }
+        let cam = mapView.camera
+        // Bodenpunkt unter der Kamera; was dahinter liegt, ist nicht sichtbar und würde falsch projiziert
+        let back = cam.centerCoordinateDistance * sin(Double(cam.pitch) * .pi / 180)
+        let ground = Self.offset(cam.centerCoordinate, bearing: cam.heading, meters: -back)
+        let h = cam.heading * .pi / 180
+        let cosLat = cos(ground.latitude * .pi / 180)
+        let reach = max(3_000, cam.centerCoordinateDistance * 6)
+        func local(_ c: CLLocationCoordinate2D) -> (ahead: Double, dist: Double) {
+            let dy = (c.latitude - ground.latitude) * 111_320
+            let dx = (c.longitude - ground.longitude) * 111_320 * cosLat
+            return (dy * cos(h) + dx * sin(h), (dx * dx + dy * dy).squareRoot())
+        }
+
+        let path = UIBezierPath()
+        var drawing = false
+        for c in mainLine {
+            let l = local(c)
+            guard l.ahead > 20, l.dist < reach else { drawing = false; continue }
+            let p = mapView.convert(c, toPointTo: routeView)
+            guard p.x.isFinite, p.y.isFinite, abs(p.x) < 10_000, abs(p.y) < 10_000 else { drawing = false; continue }
+            if drawing { path.addLine(to: p) } else { path.move(to: p); drawing = true }
+        }
+
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        casingLayer.path = path.cgPath
+        lineLayer.path = path.cgPath
+        if let me = mapView.userLocation.location ?? AppModel.shared.location.lastLocation {
+            let p = mapView.convert(me.coordinate, toPointTo: routeView)
+            arrowLayer.isHidden = !(p.x.isFinite && p.y.isFinite)
+            arrowLayer.position = p
+            let course = me.course >= 0 ? me.course : cameraHeading
+            arrowLayer.setAffineTransform(CGAffineTransform(rotationAngle: CGFloat((course - cameraHeading) * .pi / 180)))
+        } else {
+            arrowLayer.isHidden = true
+        }
+        CATransaction.commit()
+    }
+
+    /// Punkte so einfügen, dass kein Abstand größer als `step` Meter ist
+    private static func densify(_ coords: [CLLocationCoordinate2D], step: Double = 25) -> [CLLocationCoordinate2D] {
+        guard coords.count > 1 else { return coords }
+        var out: [CLLocationCoordinate2D] = [coords[0]]
+        for (a, b) in zip(coords, coords.dropFirst()) {
+            let n = Int(a.distance(to: b) / step)
+            if n > 1 {
+                for i in 1..<n {
+                    let t = Double(i) / Double(n)
+                    out.append(CLLocationCoordinate2D(latitude: a.latitude + (b.latitude - a.latitude) * t,
+                                                      longitude: a.longitude + (b.longitude - a.longitude) * t))
+                }
+            }
+            out.append(b)
+        }
+        return out
     }
 
     private static func offset(_ c: CLLocationCoordinate2D, bearing: Double, meters: Double) -> CLLocationCoordinate2D {
@@ -197,6 +295,8 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
         guard let routes = activeRoutes ?? previewRoutes,
               let main = routes.mainRoute.route.shape?.coordinates, main.count > 1 else {
             if !routeOverlays.isEmpty { mapView.removeOverlays(routeOverlays); routeOverlays = [] }
+            mainLine = []
+            updateTopLayer()
             drawnRouteKey = nil
             trimIndex = 0
             trimmedAt = nil
@@ -228,8 +328,9 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
                 overlays += Self.styled(coords, color: UIColor(white: 0.75, alpha: 1), width: 7, casing: 11)
             }
         }
-        let rest = Array(main[min(trimIndex, main.count - 2)...])
-        overlays += Self.styled(rest, color: UIColor(red: 0.20, green: 0.55, blue: 1.0, alpha: 1), width: 10, casing: 14)
+        // Hauptroute in der eigenen Ebene (über Bäumen und Gebäuden), Alternativen bleiben Kartenlinien
+        mainLine = Self.densify(Array(main[min(trimIndex, main.count - 2)...]))
+        updateTopLayer()
 
         let old = routeOverlays
         routeOverlays = overlays
@@ -359,13 +460,11 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
                 let view = mapView.dequeueReusableAnnotationView(withIdentifier: id) ?? MKAnnotationView(annotation: annotation, reuseIdentifier: id)
                 view.annotation = annotation
                 view.canShowCallout = false
+                // Unsichtbar: der Pfeil liegt in der eigenen Ebene über der Route (siehe updateTopLayer)
                 view.subviews.forEach { $0.removeFromSuperview() }
-                view.frame = CGRect(x: 0, y: 0, width: 52, height: 52)
-                let arrow = UIImageView(image: Self.arrowImage)
-                arrow.frame = view.bounds
-                view.addSubview(arrow)
-                userArrow = arrow
-                updateArrow()
+                view.frame = .zero
+                view.image = nil
+                userArrow = nil
                 return view
             }
             guard let pin = annotation as? MapPin else { return nil }
@@ -381,7 +480,7 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
     }
 
     nonisolated func mapView(_ mapView: MKMapView, didUpdate userLocation: MKUserLocation) {
-        MainActor.assumeIsolated { updateArrow() }
+        MainActor.assumeIsolated { updateTopLayer() }
     }
 }
 

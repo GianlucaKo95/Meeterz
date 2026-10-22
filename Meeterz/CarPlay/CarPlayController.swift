@@ -375,6 +375,8 @@ final class CarPlayController: NSObject {
         let waypoint = Waypoint(coordinate: coordinate, name: name)
         pendingDestination = Place(id: UUID().uuidString, name: name, address: nil, coordinate: coordinate)
         // Eigene Routenoptionen: Deutsch (sonst gilt die Systemsprache des iPhones, z. B. Englisch) und Auto
+        // Mapbox meldet den Abschluss aus einem Hintergrund-Task; CarPlay bekommt ihn auf dem Hauptthread
+        let completion = { DispatchQueue.main.async(execute: completion) }
         guard let here = AppModel.shared.location.lastLocation else {
             manager.previewRoutes(to: waypoint, completionHandler: completion)
             return
@@ -388,6 +390,67 @@ final class CarPlayController: NSObject {
     }
 
     private var pendingDestination: Place?
+
+    /// Ziel aus einer Liste gewählt. Die Liste bleibt offen, bis die Route berechnet ist –
+    /// so lange zeigt CarPlay am Eintrag einen Ladekreis (vorher schlossen wir sie sofort, und bei
+    /// schlechtem Netz sah es eingefroren aus). Die Vorschau legt Mapbox darüber; „Abbrechen“ führt zur Karte.
+    func select(_ place: Place, done: @escaping () -> Void) {
+        if AppModel.shared.navigation.isNavigating {
+            Task { @MainActor in
+                await AppModel.shared.navigation.addStop(place)   // läuft schon eine Fahrt: Zwischenstopp
+                manager.interfaceController?.popToRootTemplate(animated: true, completion: nil)
+                done()
+            }
+        } else {
+            preview(to: place.coordinate, name: place.name, completion: done)
+        }
+    }
+
+    // MARK: Direkt losfahren (Schnellwahl im Dashboard)
+
+    private var autoStart = false
+    private var previewTrip: CPTrip?
+
+    /// Route berechnen und sofort starten, ohne Vorschau
+    func startGuidance(to place: Place) {
+        guard isConnected else { return }
+        if AppModel.shared.navigation.isNavigating { go(to: place); return }
+        autoStart = true
+        preview(to: place.coordinate, name: place.name) { [weak self] in
+            MainActor.assumeIsolated { self?.startPendingTrip() }
+        }
+    }
+
+    private func startPendingTrip() {
+        guard autoStart else { return }
+        autoStart = false
+        guard let trip = previewTrip, let choice = trip.routeChoices.first,
+              let template = manager.interfaceController?.topTemplate as? CPMapTemplate else { return }
+        manager.mapTemplate(template, startedTrip: trip, using: choice)
+    }
+
+    // MARK: Kartenstil sofort wechseln (Einstellung „Karte in CarPlay“)
+
+    func applyMapStyle() {
+        guard isConnected else { return }
+        let satellite = UserDefaults.standard.object(forKey: "carplay.satellite") as? Bool ?? true
+        manager.styles = NavigationStyles.carPlay()
+        for map in [browseMap, navMap].compactMap({ $0 }) {
+            Satellite3DBuildings.install(on: map.mapView, satellite: satellite)
+        }
+        let current = manager.currentActivity == .navigating ? (navMap ?? browseMap) : (browseMap ?? navMap)
+        if CarPlayFlyoverMirror.isEnabled {
+            let mirror = flyover ?? CarPlayFlyoverMirror { [weak self] in self?.friendsShown ?? true }
+            flyover = mirror
+            if let current { mirror.attach(to: current) }
+        } else {
+            flyover?.detach()
+            flyover = nil
+        }
+        CarPlayDashboard.shared.applyMapType()
+        CarPlayDashboard.cluster.applyMapType()
+        Diag.log("CarPlay: Kartenstil gewechselt (Flyover=\(CarPlayFlyoverMirror.isEnabled), Satellit=\(satellite))")
+    }
 
     // MARK: Einladungen empfangen
 
@@ -555,18 +618,35 @@ extension CarPlayController: CPSearchTemplateDelegate {
     ) {
         MainActor.assumeIsolated {
             guard let place = item.userInfo as? Place else { completionHandler(); return }
-            manager.interfaceController?.popToRootTemplate(animated: true, completion: nil)
-            if AppModel.shared.navigation.isNavigating {
-                go(to: place)            // läuft schon eine Fahrt: Ort wird Zwischenstopp
-                completionHandler()
-            } else {
-                preview(to: place.coordinate, name: place.name, completion: completionHandler)
-            }
+            select(place, done: completionHandler)
         }
     }
 }
 
 extension CarPlayController: CarPlayManagerDelegate {
+    nonisolated func carPlayManager(_ carPlayManager: CarPlayManager, willPreview trip: CPTrip) -> CPTrip {
+        DispatchQueue.main.async { [weak self] in self?.previewTrip = trip }
+        return trip
+    }
+
+    /// Route nicht berechenbar (z. B. kein Netz): Hinweis statt Stille
+    nonisolated func carPlayManager(
+        _ carPlayManager: CarPlayManager,
+        didFailToFetchRouteBetween waypoints: [Waypoint]?,
+        options: RouteOptions,
+        error: Error
+    ) -> CPNavigationAlert? {
+        Diag.log("CarPlay: Route fehlgeschlagen – \(error.localizedDescription)")
+        DispatchQueue.main.async { [weak self] in self?.autoStart = false }
+        return CPNavigationAlert(
+            titleVariants: ["Route konnte nicht berechnet werden", "Keine Route"],
+            subtitleVariants: ["Prüfe die Internetverbindung und versuche es erneut."],
+            image: UIImage(systemName: "wifi.exclamationmark"),
+            primaryAction: CPAlertAction(title: "OK", style: .cancel) { _ in },
+            secondaryAction: nil,
+            duration: 8)
+    }
+
     nonisolated func carPlayManager(_ carPlayManager: CarPlayManager, didSetup navigationMapView: NavigationMapView) {
         MainActor.assumeIsolated {
             browseOverlay?.stop()

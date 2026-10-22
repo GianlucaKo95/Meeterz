@@ -79,5 +79,6 @@ final class FavoritesStore {
         guard let userId, let data = try? JSONEncoder().encode(items) else { return }
         UserDefaults.standard.set(data, forKey: key(userId))
         MeeterzShortcuts.updateAppShortcutParameters()   // Siri: „Mit Meeterz nach Zuhause“
+        CarPlayDashboard.shared.updateShortcuts()
     }
 }

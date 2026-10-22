@@ -357,13 +357,14 @@ struct FriendsView: View {
                 set: { value in
                     carPlayFlyover = value == "flyover"
                     if value != "flyover" { carPlaySatellite = value == "satellite" }
+                    CarPlayController.shared.applyMapStyle()   // gilt sofort, auch während der Fahrt
                 }
             )) {
                 Text("Apple Flyover").tag("flyover")
                 Text("Satellit").tag("satellite")
                 Text("Klassisch").tag("classic")
             }
-            Text("Gilt ab dem nächsten Verbinden mit CarPlay. Flyover zeigt Apples 3D-Satellitenbild; die Abbiegehinweise bleiben gleich.")
+            Text("Gilt sofort, auch während der Fahrt. Flyover zeigt Apples 3D-Satellitenbild; die Abbiegehinweise bleiben gleich.")
                 .font(.footnote).foregroundStyle(Theme.muted)
             DisclosureGroup("Diagnose") {
                 Text(diagText.isEmpty ? "Noch keine Einträge." : diagText)

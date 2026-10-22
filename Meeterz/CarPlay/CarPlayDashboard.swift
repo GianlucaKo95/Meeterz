@@ -17,6 +17,8 @@ final class CarPlayDashboardSceneDelegate: NSObject, CPTemplateApplicationDashbo
             MainThreadWatch.start(label: "Dashboard")
             Diag.log("Dashboard verbunden: Fenster \(Int(window.bounds.width))x\(Int(window.bounds.height)), Szene=\(templateApplicationDashboardScene.activationState.rawValue)")
             CarPlayDashboard.shared.connect(window: window)
+            CarPlayDashboard.shared.dashboardController = dashboardController
+            CarPlayDashboard.shared.updateShortcuts()
         }
     }
 
@@ -113,6 +115,8 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
 
     private let name: String
     private var mapView: MKMapView?
+    /// Schnellwahl-Knöpfe im Dashboard (ohne laufende Navigation)
+    var dashboardController: CPDashboardController?
     private var distance: CLLocationDistance = 900
     private var subscriptions = Set<AnyCancellable>()
     private var timer: Timer?
@@ -132,8 +136,7 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
         let map = MKMapView(frame: window.bounds)
         map.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         map.delegate = self
-        map.mapType = CarPlayFlyoverMirror.isEnabled ? .hybridFlyover
-            : (UserDefaults.standard.object(forKey: "carplay.satellite") as? Bool ?? true) ? .hybrid : .standard
+        map.mapType = Self.mapType
         map.showsUserLocation = true
         map.showsCompass = false
         map.showsScale = false
@@ -165,12 +168,57 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
         }
     }
 
+    private static var mapType: MKMapType {
+        CarPlayFlyoverMirror.isEnabled ? .hybridFlyover
+            : (UserDefaults.standard.object(forKey: "carplay.satellite") as? Bool ?? true) ? .hybrid : .standard
+    }
+
+    /// Kartenstil sofort übernehmen (Einstellung „Karte in CarPlay“)
+    func applyMapType() {
+        mapView?.mapType = Self.mapType
+    }
+
+    /// Bis zu zwei Schnellwahl-Knöpfe wie bei Apple Karten: Zuhause, Arbeit bzw. die ersten Favoriten.
+    ///
+    /// Ohne Knöpfe zeigte CarPlay im Dashboard vor einer Route nur Platzhalter (Kachel oben rechts und
+    /// teils die Karte). Apple sieht die Knöpfe genau für die Zeit ohne Navigation vor.
+    func updateShortcuts() {
+        guard let controller = dashboardController else { return }
+        let f = AppModel.shared.favorites
+        let favorites = Array(([f.home, f.work].compactMap { $0 } + f.others).prefix(2))
+        let config = UIImage.SymbolConfiguration(pointSize: 26, weight: .semibold)
+        var buttons: [CPDashboardButton] = favorites.map { fav in
+            let place = fav.place
+            return CPDashboardButton(
+                titleVariants: [fav.label],
+                subtitleVariants: [fav.address ?? ""],
+                image: UIImage(systemName: fav.symbol, withConfiguration: config) ?? UIImage()
+            ) { _ in
+                Task { @MainActor in CarPlayController.shared.startGuidance(to: place) }
+            }
+        }
+        if buttons.isEmpty {
+            // Ohne Favoriten: Freunde in der Nähe (nächster Freund als Ziel)
+            if let friend = AppModel.shared.friendsOnMap.first {
+                let place = Place(id: "friend-\(friend.friend.friendId)", name: friend.friend.displayName,
+                                  address: nil, coordinate: friend.position.coordinate)
+                buttons = [CPDashboardButton(titleVariants: [friend.friend.displayName], subtitleVariants: ["Zum Freund"],
+                                             image: UIImage(systemName: "person.crop.circle.fill", withConfiguration: config) ?? UIImage()) { _ in
+                    Task { @MainActor in CarPlayController.shared.startGuidance(to: place) }
+                }]
+            }
+        }
+        controller.shortcutButtons = buttons
+        Diag.log("Dashboard: \(buttons.count) Schnellwahl-Knöpfe")
+    }
+
     func zoom(by delta: Double) {
         distance = min(max(distance * pow(2, -delta), 150), 60_000)
         if let map = mapView, let here = map.userLocation.location { follow(here, map: map, animated: true) }
     }
 
     func disconnect() {
+        dashboardController = nil
         subscriptions.removeAll()
         timer?.invalidate()
         timer = nil

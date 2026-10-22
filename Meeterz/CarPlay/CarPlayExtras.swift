@@ -227,11 +227,7 @@ extension CarPlayController {
             let items: [CPListItem] = places.prefix(CPListTemplate.maximumItemCount).map { place in
                 let away = Format.distance(place.coordinate.distance(to: me))
                 let item = CPListItem(text: place.name, detailText: [away, place.address].compactMap { $0 }.joined(separator: " · "))
-                item.handler = { [weak self] _, done in
-                    self?.manager.interfaceController?.popToRootTemplate(animated: true, completion: nil)
-                    self?.go(to: place)
-                    done()
-                }
+                item.handler = { [weak self] _, done in self?.select(place, done: done) }
                 return item
             }
             template.updateSections([CPListSection(items: items.isEmpty

@@ -72,7 +72,7 @@ enum AppAppearance: String, CaseIterable, Identifiable {
 
     static let key = "app.appearance"
     /// Standard bleibt der bisherige dunkle Look
-    static var current: AppAppearance {
+    @MainActor static var current: AppAppearance {
         get { UserDefaults.standard.string(forKey: key).flatMap(AppAppearance.init(rawValue:)) ?? .dark }
         set { UserDefaults.standard.set(newValue.rawValue, forKey: key); apply() }
     }

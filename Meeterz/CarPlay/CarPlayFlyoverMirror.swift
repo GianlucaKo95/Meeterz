@@ -378,7 +378,7 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
     /// Neue Linien kommen jetzt dazu, bevor die alten entfernt werden, damit nie eine Lücke entsteht.
     private func redrawRoutes() {
         guard let routes = activeRoutes ?? previewRoutes,
-              let main = routes.mainRoute.route.shape?.coordinates, main.count > 1 else {
+              let shape = routes.mainRoute.route.shape?.coordinates, shape.count > 1 else {
             if !routeOverlays.isEmpty { mapView.removeOverlays(routeOverlays); routeOverlays = [] }
             mainLine = []
             mainLevels = []
@@ -391,10 +391,10 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
         let navigating = activeRoutes != nil
         // Verkehrslage je Abschnitt; ändert sich mit der Routenaktualisierung (alle ~2 Min.)
         let withTraffic = Self.traffic(routes.mainRoute.route)
-        let main = withTraffic?.coords ?? main
+        let main = withTraffic?.coords ?? shape
         let levels = withTraffic?.levels ?? Array(repeating: CongestionLevel.unknown, count: main.count)
         var hasher = Hasher()
-        levels.forEach { hasher.combine($0) }
+        levels.forEach { hasher.combine($0.rawValue) }
         let identity = "\(navigating)-\(main.count)-\(main.first!.latitude)-\(main.last!.latitude)-\(routes.alternativeRoutes.count)-\(hasher.finalize())"
         if !(drawnRouteKey?.hasPrefix(identity + "#") ?? false) {
             trimIndex = 0

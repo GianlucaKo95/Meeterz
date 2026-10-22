@@ -6,6 +6,8 @@ import CoreLocation
 import MapboxDirections
 import MapboxNavigationCore
 import MapboxNavigationUIKit
+import MapboxMaps
+import MapKit
 
 /// CarPlay-Szene. Wird über Info.plist (UIApplicationSceneManifest) eingebunden.
 final class CarPlaySceneDelegate: NSObject, CPTemplateApplicationSceneDelegate {
@@ -181,7 +183,7 @@ final class CarPlayController: NSObject {
                 try? await Task.sleep(for: .seconds(1))
                 guard let self, let camera = navigationMapView?.navigationCamera else { return }
                 let activity = manager.currentActivity
-                let returnToMe = activity == .browsing || (activity == .navigating && !overviewChosen)
+                let returnToMe = (activity == .browsing && !isLoadingPreview) || (activity == .navigating && !overviewChosen)
                 if camera.currentCameraState == .idle, returnToMe {
                     idle += 1
                     if idle >= 4 { camera.update(cameraState: .following); idle = 0 }
@@ -391,9 +393,9 @@ final class CarPlayController: NSObject {
 
     private var pendingDestination: Place?
 
-    /// Ziel aus einer Liste gewählt. Die Liste bleibt offen, bis die Route berechnet ist –
-    /// so lange zeigt CarPlay am Eintrag einen Ladekreis (vorher schlossen wir sie sofort, und bei
-    /// schlechtem Netz sah es eingefroren aus). Die Vorschau legt Mapbox darüber; „Abbrechen“ führt zur Karte.
+    /// Ziel aus einer Liste gewählt: sofort zur Karte, Kamera zeigt Start und Ziel, am Ziel dreht ein Ladekreis.
+    /// Sobald die Route da ist, öffnet Mapbox die Vorschau und rahmt die Route ein.
+    /// (Vorher passierte bei schlechtem Netz sichtbar nichts – es wirkte eingefroren.)
     func select(_ place: Place, done: @escaping () -> Void) {
         if AppModel.shared.navigation.isNavigating {
             Task { @MainActor in
@@ -401,9 +403,72 @@ final class CarPlayController: NSObject {
                 manager.interfaceController?.popToRootTemplate(animated: true, completion: nil)
                 done()
             }
-        } else {
-            preview(to: place.coordinate, name: place.name, completion: done)
+            return
         }
+        manager.interfaceController?.popToRootTemplate(animated: true, completion: nil)
+        done()
+        showLoading(at: place)
+        preview(to: place.coordinate, name: place.name) { [weak self] in
+            MainActor.assumeIsolated { self?.hideLoading() }
+        }
+    }
+
+    // MARK: Ladephase bis zur Routenvorschau
+
+    private var loadingView: RouteLoadingView?
+    private var loadingTarget: CLLocationCoordinate2D?
+    private var loadingTimer: Timer?
+    var isLoadingPreview: Bool { loadingView != nil }
+
+    private func showLoading(at place: Place) {
+        hideLoading()
+        guard let host = manager.carPlayMapViewController?.view, let map = browseMap else { return }
+        // Kamera: eigener Standort und Ziel zusammen im Bild
+        if let me = AppModel.shared.location.lastLocation?.coordinate,
+           let camera = try? map.mapView.mapboxMap.camera(
+               for: [me, place.coordinate],
+               camera: CameraOptions(bearing: 0, pitch: 0),
+               coordinatesPadding: UIEdgeInsets(top: 90, left: 90, bottom: 90, right: 90),
+               maxZoom: 16,
+               offset: nil) {
+            map.navigationCamera.stop()
+            map.mapView.camera.ease(to: camera, duration: 0.6)
+        }
+        let view = RouteLoadingView(title: place.name)
+        host.addSubview(view)
+        loadingView = view
+        loadingTarget = place.coordinate
+        positionLoading()
+        // Mitführen, während die Kamera schwenkt; nach 30 s ohne Antwort aufgeben
+        var ticks = 0
+        loadingTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                ticks += 1
+                if ticks > 600 { self.hideLoading(); return }
+                self.positionLoading()
+            }
+        }
+    }
+
+    private func positionLoading() {
+        guard let view = loadingView, let target = loadingTarget, let host = view.superview else { return }
+        var point: CGPoint?
+        if let mirror = flyover, mirror.mapView.window != nil {
+            point = mirror.mapView.convert(target, toPointTo: host)
+        } else if let map = browseMap {
+            point = map.convert(map.mapView.mapboxMap.point(for: target), to: host)
+        }
+        guard let p = point, p.x.isFinite, p.y.isFinite else { return }
+        view.center = CGPoint(x: p.x, y: p.y - view.bounds.height / 2 + 14)
+    }
+
+    private func hideLoading() {
+        loadingTimer?.invalidate()
+        loadingTimer = nil
+        loadingView?.removeFromSuperview()
+        loadingView = nil
+        loadingTarget = nil
     }
 
     // MARK: Direkt losfahren (Schnellwahl im Dashboard)
@@ -637,7 +702,10 @@ extension CarPlayController: CarPlayManagerDelegate {
         error: Error
     ) -> CPNavigationAlert? {
         Diag.log("CarPlay: Route fehlgeschlagen – \(error.localizedDescription)")
-        DispatchQueue.main.async { [weak self] in self?.autoStart = false }
+        DispatchQueue.main.async { [weak self] in
+            self?.autoStart = false
+            self?.hideLoading()
+        }
         return CPNavigationAlert(
             titleVariants: ["Route konnte nicht berechnet werden", "Keine Route"],
             subtitleVariants: ["Prüfe die Internetverbindung und versuche es erneut."],
@@ -828,4 +896,38 @@ extension CarPlayController: CPSessionConfigurationDelegate {
         if limits.contains(.lists) { parts.append("Listen") }
         return parts.isEmpty ? "nichts" : parts.joined(separator: ", ")
     }
+}
+
+/// Ziel-Markierung mit Ladekreis und Namen, solange die Route berechnet wird
+final class RouteLoadingView: UIView {
+    init(title: String) {
+        super.init(frame: CGRect(x: 0, y: 0, width: 180, height: 84))
+        isUserInteractionEnabled = false
+
+        let ring = UIView(frame: CGRect(x: 66, y: 0, width: 48, height: 48))
+        ring.backgroundColor = UIColor(red: 0.05, green: 0.07, blue: 0.09, alpha: 0.9)
+        ring.layer.cornerRadius = 24
+        ring.layer.borderColor = UIColor(red: 0.78, green: 0.96, blue: 0.20, alpha: 1).cgColor
+        ring.layer.borderWidth = 2
+        let spinner = UIActivityIndicatorView(style: .medium)
+        spinner.color = .white
+        spinner.center = CGPoint(x: 24, y: 24)
+        spinner.startAnimating()
+        ring.addSubview(spinner)
+        addSubview(ring)
+
+        let label = UILabel(frame: CGRect(x: 0, y: 54, width: 180, height: 24))
+        label.text = title
+        label.textAlignment = .center
+        label.font = .systemFont(ofSize: 13, weight: .semibold)
+        label.textColor = .white
+        label.backgroundColor = UIColor(red: 0.05, green: 0.07, blue: 0.09, alpha: 0.9)
+        label.layer.cornerRadius = 12
+        label.layer.masksToBounds = true
+        let width = min(180, label.intrinsicContentSize.width + 20)
+        label.frame = CGRect(x: (180 - width) / 2, y: 54, width: width, height: 24)
+        addSubview(label)
+    }
+
+    required init?(coder: NSCoder) { nil }
 }

@@ -517,11 +517,31 @@ struct UnterwegsSheet: View {
     let manageFriends: () -> Void
     @State private var detent: PresentationDetent = .medium
     @State private var showGroupMeetup = false
+    @State private var showMeetups = false
+
+    /// Zugesagte und offene Treffen (Gruppen zählen einmal)
+    private var meetupCount: Int {
+        Set(app.meetups.meetups.filter { $0.isAccepted || $0.isPending }.map { $0.groupId ?? $0.id }).count
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
+                    if meetupCount > 0 {
+                        Button { showMeetups = true } label: {
+                            HStack {
+                                Image(systemName: "calendar.badge.clock").foregroundStyle(Theme.accent)
+                                Text(meetupCount == 1 ? "1 Treffen" : "\(meetupCount) Treffen").font(Theme.title(15))
+                                Spacer()
+                                Image(systemName: "chevron.right").font(.footnote.weight(.bold)).foregroundStyle(Theme.muted)
+                            }
+                            .foregroundStyle(Theme.text)
+                            .padding(12)
+                            .background(RoundedRectangle(cornerRadius: 12).fill(Theme.panelRaised))
+                        }
+                        .accessibilityIdentifier("meetups-overview")
+                    }
                     if app.friends.accepted.isEmpty {
                         Text("Noch keine Freunde. Füge jemanden über den Benutzernamen hinzu.")
                             .font(.subheadline).foregroundStyle(Theme.muted)
@@ -560,6 +580,7 @@ struct UnterwegsSheet: View {
             .navigationTitle("Unterwegs")
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $showGroupMeetup) { GroupMeetupView().environment(app) }
+            .sheet(isPresented: $showMeetups) { MeetupsOverviewView().environment(app) }
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } }
             }

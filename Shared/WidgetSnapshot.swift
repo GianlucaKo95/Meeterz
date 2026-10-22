@@ -38,12 +38,37 @@ enum WidgetSnapshotStore {
     private static let service = "de.koeven.meeterz.widget"
     private static let account = "snapshot"
 
-    /// "TEAMID.de.koeven.meeterz.shared" – ohne Signatur (Simulator-Build) leer, dann ohne Gruppe
-    private static var accessGroup: String? {
-        guard let prefix = Bundle.main.object(forInfoDictionaryKey: "MeeterzKeychainPrefix") as? String,
-              !prefix.isEmpty, !prefix.contains("$(") else { return nil }
-        return prefix + "de.koeven.meeterz.shared"
-    }
+    /// Gemeinsame Schlüsselbund-Gruppe von App und Widget: "TEAMID.de.koeven.meeterz.shared".
+    ///
+    /// Früher kam die Team-ID aus der Info.plist ($(AppIdentifierPrefix)). War die beim Bauen nicht eingesetzt,
+    /// schrieb jede Seite in ihre eigene Standard-Gruppe – App und Widget sahen sich nie.
+    /// Jetzt wird die Team-ID zur Laufzeit aus dem Schlüsselbund selbst gelesen. Ohne Signatur (Simulator) nil.
+    static let accessGroup: String? = {
+        let probe: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: "de.koeven.meeterz.teamprobe",
+            kSecAttrAccount as String: "probe",
+        ]
+        var lookup = probe
+        lookup[kSecReturnAttributes as String] = true
+        var out: CFTypeRef?
+        var status = SecItemCopyMatching(lookup as CFDictionary, &out)
+        if status == errSecItemNotFound {
+            var add = probe
+            add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+            add[kSecReturnAttributes as String] = true
+            status = SecItemAdd(add as CFDictionary, &out)
+        }
+        guard status == errSecSuccess,
+              let attrs = out as? [String: Any],
+              let group = attrs[kSecAttrAccessGroup as String] as? String,
+              let team = group.split(separator: ".").first, team.count == 10
+        else { return nil }
+        return "\(team).de.koeven.meeterz.shared"
+    }()
+
+    /// Für das Diagnoseprotokoll
+    static var groupDescription: String { accessGroup ?? "keine (ohne Signatur)" }
 
     private static func query() -> [String: Any] {
         var q: [String: Any] = [

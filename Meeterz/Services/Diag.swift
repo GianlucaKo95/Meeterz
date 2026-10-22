@@ -17,7 +17,8 @@ enum Diag {
     static var text: String {
         let app = (UserDefaults.standard.stringArray(forKey: key) ?? []).joined(separator: "\n")
         let widget = WidgetSnapshotStore.readLog()
-        return widget.isEmpty ? app : app + "\n--- Widget ---\n" + widget.joined(separator: "\n")
+        let header = "--- Widget (Gruppe \(WidgetSnapshotStore.groupDescription), Daten aus Sicht der App: \(WidgetSnapshotStore.loadStatus())) ---"
+        return app + "\n" + header + "\n" + (widget.isEmpty ? "(noch keine Einträge vom Widget)" : widget.joined(separator: "\n"))
     }
     static func clear() { UserDefaults.standard.removeObject(forKey: key) }
 }

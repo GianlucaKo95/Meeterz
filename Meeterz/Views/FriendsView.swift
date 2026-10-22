@@ -233,18 +233,29 @@ struct FriendsView: View {
                     .foregroundStyle(Theme.muted)
             }
             ForEach(friends.accepted) { row in
+                let hidden = friends.isHidden(row.friendId)
                 HStack {
                     FriendLabel(row: row)
                     Spacer()
+                    if hidden {
+                        Image(systemName: "eye.slash").foregroundStyle(Theme.muted)
+                            .accessibilityLabel("Standort verborgen")
+                    }
                     Text(status(for: row)).font(.footnote).foregroundStyle(Theme.muted)
                 }
                 .swipeActions {
                     Button("Entfernen", role: .destructive) { Task { await friends.remove(row) } }
                     Button("Einladen") { inviteFriend = row }
                         .tint(Theme.accent)
+                    Button(hidden ? "Zeigen" : "Verbergen") { Task { await friends.setHidden(row.friendId, !hidden) } }
+                        .tint(.gray)
                 }
                 .contextMenu {
                     Button("Zu einem Ort einladen", systemImage: "mappin.and.ellipse") { inviteFriend = row }
+                    Button(hidden ? "Standort wieder zeigen" : "Standort vor \(row.displayName) verbergen",
+                           systemImage: hidden ? "eye" : "eye.slash") {
+                        Task { await friends.setHidden(row.friendId, !hidden) }
+                    }
                 }
             }
         }

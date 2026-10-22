@@ -144,6 +144,9 @@ final class LiveLocationHub {
                       let pos = try? decoder.decode(LivePosition.self, from: data),
                       pos.userId == friendId
                 else { continue }
+                // Laut Server gerade nicht sichtbar (pausiert, inkognito oder vor mir verborgen):
+                // Positionen eines noch offenen Kanals nicht anzeigen
+                if self?.seenHidden.contains(friendId) == true { continue }
                 self?.positions[friendId] = pos
             }
         }

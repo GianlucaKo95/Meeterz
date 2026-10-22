@@ -9,7 +9,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import * as jose from "npm:jose@5";
 
-type Kind = "friend_request" | "friend_accepted" | "meetup_proposed" | "meetup_accepted" | "meetup_declined";
+type Kind = "friend_request" | "friend_accepted" | "meetup_proposed" | "meetup_accepted" | "meetup_declined" | "message";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -34,20 +34,20 @@ Deno.serve(async (req) => {
   const { data: { user } } = await userClient.auth.getUser();
   if (!user) return json({ error: "unauthorized" }, 401);
 
-  let body: { kind?: Kind; target?: string; meetup_id?: string };
+  let body: { kind?: Kind; target?: string; meetup_id?: string; message_id?: string };
   try {
     body = await req.json();
   } catch {
     return json({ error: "invalid body" }, 400);
   }
-  const { kind, target, meetup_id } = body;
+  const { kind, target, meetup_id, message_id } = body;
   if (!kind || !target || target === user.id) return json({ error: "invalid body" }, 400);
   console.log(`notify: ${kind} von ${user.id} an ${target}`);
 
   const admin = createClient(url, serviceKey);
 
   // Darf der Aufrufer dem Ziel diese Nachricht schicken?
-  const allowed = await isAllowed(admin, kind, user.id, target, meetup_id);
+  const allowed = await isAllowed(admin, kind, user.id, target, meetup_id, message_id);
   if (!allowed) return json({ error: "forbidden" }, 403);
 
   const keyId = Deno.env.get("APNS_KEY_ID");
@@ -64,7 +64,12 @@ Deno.serve(async (req) => {
     const { data } = await admin.from("meetups").select("place_name").eq("id", meetup_id).single();
     placeName = data?.place_name;
   }
-  const alert = message(kind, name, placeName);
+  let text: string | undefined;
+  if (kind === "message" && message_id) {
+    const { data } = await admin.from("messages").select("body").eq("id", message_id).single();
+    text = data?.body;
+  }
+  const alert = message(kind, name, placeName, text);
 
   const { data: tokens } = await admin.from("device_tokens").select("token, environment").eq("user_id", target);
   if (!tokens?.length) return json({ sent: 0 });
@@ -105,8 +110,15 @@ async function isAllowed(
   me: string,
   target: string,
   meetupId?: string,
+  messageId?: string,
 ): Promise<boolean> {
   switch (kind) {
+    case "message": {
+      if (!messageId) return false;
+      const { data } = await admin.from("messages").select("id")
+        .eq("id", messageId).eq("from_user", me).eq("to_user", target).limit(1);
+      return !!data?.length;
+    }
     case "friend_request": {
       const { data } = await admin.from("friendships").select("id")
         .eq("requester", me).eq("addressee", target).limit(1);
@@ -133,8 +145,10 @@ async function isAllowed(
   }
 }
 
-function message(kind: Kind, name: string, place?: string) {
+function message(kind: Kind, name: string, place?: string, text?: string) {
   switch (kind) {
+    case "message":
+      return { title: name, body: text ?? "Neue Nachricht" };
     case "friend_request":
       return { title: "Neue Freundschaftsanfrage", body: `${name} möchte dich bei Meeterz hinzufügen.` };
     case "friend_accepted":

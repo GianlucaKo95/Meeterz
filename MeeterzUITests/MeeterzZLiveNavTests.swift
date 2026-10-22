@@ -25,19 +25,19 @@ final class MeeterzZLiveNavTests: MeeterzTestBase {
         let base = env["SB_URL"] ?? ""
         let key = env["SB_KEY"] ?? ""
         try XCTSkipIf(base.isEmpty || key.isEmpty, "SB_URL/SB_KEY fehlen")
-        let suffix = String(UUID().uuidString.prefix(8)).lowercased()
-        let emailA = "ci-na-\(suffix)@example.com", passA = "Ci-na-\(suffix)-pw"
+        let suffix = "fix"
+        let emailA = MeeterzTwoAccountTests.Remote.email("na"), passA = MeeterzTwoAccountTests.Remote.testPassword
 
         // A und B anlegen, befreunden, B in der Nähe platzieren
-        let a = try XCTUnwrap(MeeterzTwoAccountTests.Remote.signUp(base: base, key: key, email: emailA, password: passA), "Konto A")
-        let b = try XCTUnwrap(MeeterzTwoAccountTests.Remote.signUp(base: base, key: key, email: "ci-nb-\(suffix)@example.com", password: "Ci-nb-\(suffix)-pw"), "Konto B")
+        let a = try XCTUnwrap(MeeterzTwoAccountTests.Remote.fixed("na", base: base, key: key), "Konto A")
+        let b = try XCTUnwrap(MeeterzTwoAccountTests.Remote.fixed("nb", base: base, key: key), "Konto B")
         let hp: [String: String] = ["Prefer": "return=minimal"]
         a.request("POST", "/rest/v1/profiles", body: ["id": a.id, "handle": "na_\(suffix)", "display_name": "Al Alpha"], headers: hp)
         b.request("POST", "/rest/v1/profiles", body: ["id": b.id, "handle": "nb_\(suffix)", "display_name": "Bea Beta"], headers: hp)
         // Zweiter Freund C: muss neben B ebenfalls auf der Karte erscheinen
-        let c = try XCTUnwrap(MeeterzTwoAccountTests.Remote.signUp(base: base, key: key, email: "ci-nc-\(suffix)@example.com", password: "Ci-nc-\(suffix)-pw"), "Konto C")
+        let c = try XCTUnwrap(MeeterzTwoAccountTests.Remote.fixed("nc", base: base, key: key), "Konto C")
         c.request("POST", "/rest/v1/profiles", body: ["id": c.id, "handle": "nc_\(suffix)", "display_name": "Cleo Gamma"], headers: hp)
-        defer { a.rpc("delete_account"); b.rpc("delete_account"); c.rpc("delete_account") }
+        // Konten bleiben bestehen und werden beim nächsten Lauf zurückgesetzt
         a.rpc("send_friend_request", ["target_handle": "nb_\(suffix)"])
         let rows = try XCTUnwrap(b.rpc("my_friends").1 as? [[String: Any]])
         let rid = try XCTUnwrap(rows.first?["friendship_id"] as? String)

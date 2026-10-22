@@ -32,7 +32,29 @@ final class MeeterzTwoAccountTests: MeeterzTestBase {
             guard status < 300, let j = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let t = j["access_token"] as? String else { return nil }
             r.token = t
+            if let u = j["user"] as? [String: Any], let id = u["id"] as? String { r.id = id.lowercased() }
             return r
+        }
+
+        /// Passwort aller festen Testkonten (Testprojekt, keine echten Daten)
+        static let testPassword = "Meeterz-CI-Test-2026!"
+
+        static func email(_ role: String) -> String { "ci-fix-\(role)@example.com" }
+
+        /// Festes Testkonto wiederverwenden: anmelden und zurücksetzen (Profil samt Freundschaften, Treffen …
+        /// weg), nur beim allerersten Lauf neu anlegen. So sammeln sich keine Konten mehr an.
+        static func fixed(_ role: String, base: String, key: String) -> Remote? {
+            let mail = email(role)
+            if let r = signIn(base: base, key: key, email: mail, password: testPassword) {
+                if r.rpc("reset_test_account").0 < 300 { return r }
+                r.rpc("delete_account")   // Datenbank-Änderung fehlt noch: wie früher löschen und neu anlegen
+            }
+            return signUp(base: base, key: key, email: mail, password: testPassword)
+        }
+
+        /// Für Tests, die die Registrierung in der App prüfen: vorhandenes Konto vorher ganz entfernen
+        static func removeIfExists(_ role: String, base: String, key: String) {
+            signIn(base: base, key: key, email: email(role), password: testPassword)?.rpc("delete_account")
         }
 
         @discardableResult
@@ -84,12 +106,12 @@ final class MeeterzTwoAccountTests: MeeterzTestBase {
         let key = env["SB_KEY"] ?? ""
         try XCTSkipIf(base.isEmpty || key.isEmpty, "SB_URL/SB_KEY fehlen")
 
-        let suffix = String(UUID().uuidString.prefix(8)).lowercased()
+        let suffix = "fix"
         let handleB = "cb_\(suffix)"
         let nameB = "Bea Beta"
 
         // Konto B vorbereiten: Profil, Standort in der Nähe (Duisburg), Profilfoto
-        let b = try XCTUnwrap(Remote.signUp(base: base, key: key, email: "ci-b-\(suffix)@example.com", password: "Ci-b-\(suffix)-pw"), "Konto B anlegen")
+        let b = try XCTUnwrap(Remote.fixed("zk-b", base: base, key: key), "Konto B (wiederverwendet)")
         let (ps, _) = b.request("POST", "/rest/v1/profiles", body: ["id": b.id, "handle": handleB, "display_name": nameB],
                                 headers: ["Prefer": "return=minimal"])
         XCTAssertLessThan(ps, 300, "Profil B anlegen")
@@ -100,7 +122,7 @@ final class MeeterzTwoAccountTests: MeeterzTestBase {
         XCTAssertLessThan(b.rpc("set_avatar_version").0, 300, "Fotoversion B")
 
         // Konto C (fremd, nie befreundet): darf Bild von B nicht lesen
-        let c = try XCTUnwrap(Remote.signUp(base: base, key: key, email: "ci-c-\(suffix)@example.com", password: "Ci-c-\(suffix)-pw"), "Konto C anlegen")
+        let c = try XCTUnwrap(Remote.fixed("zk-c", base: base, key: key), "Konto C (wiederverwendet)")
         _ = c.request("POST", "/rest/v1/profiles", body: ["id": c.id, "handle": "cc_\(suffix)", "display_name": "Cem Fremd"], headers: ["Prefer": "return=minimal"])
         let (cs, _) = c.request("GET", "/storage/v1/object/authenticated/avatars/\(b.id)/avatar.jpg")
         XCTAssertGreaterThanOrEqual(cs, 400, "Fremder darf das Foto nicht laden (Status \(cs))")
@@ -108,13 +130,13 @@ final class MeeterzTwoAccountTests: MeeterzTestBase {
         XCTAssertEqual(bs, 200, "Besitzer lädt eigenes Foto")
 
         // Konto A in der App (wird am Ende in jedem Fall auch über das Backend entfernt)
-        let email = "ci-a-\(suffix)@example.com"
-        let password = "Ci-a-\(suffix)-pw"
+        // A registriert sich in der App (prüft Registrierung und am Ende „Konto löschen“) – immer dieselbe Adresse
+        let email = Remote.email("zk-a")
+        let password = Remote.testPassword
+        Remote.removeIfExists("zk-a", base: base, key: key)
         defer {
-            // falls die App-Löschung nicht lief: A, B, C über das Backend aufräumen (Fehler egal)
+            // falls die App-Löschung nicht lief: A entfernen; B und C bleiben für den nächsten Lauf
             if let a = Remote.signIn(base: base, key: key, email: email, password: password) { a.rpc("delete_account") }
-            b.rpc("delete_account")
-            c.rpc("delete_account")
         }
         need(app.buttons["Registrieren"], "login")
         type(email, into: need(app.textFields["E-Mail"], "email-feld"))
@@ -278,7 +300,6 @@ final class MeeterzTwoAccountTests: MeeterzTestBase {
         need(app.buttons["Konto und alle Daten löschen"], "loeschen-bestaetigen").tap()
         need(app.buttons["Anmelden"], "login-nach-loeschen", timeout: 30)
         shot("a-nach-loeschen")
-        b.rpc("delete_account")
-        c.rpc("delete_account")
+        // B und C bleiben bestehen und werden beim nächsten Lauf zurückgesetzt
     }
 }

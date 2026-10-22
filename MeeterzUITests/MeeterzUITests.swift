@@ -123,9 +123,14 @@ final class MeeterzUITests: MeeterzTestBase {
     // MARK: Ablauf
 
     func testGesamtablauf() throws {
-        let suffix = String(UUID().uuidString.prefix(8)).lowercased()
-        let email = "ci-\(suffix)@example.com"
-        let password = "Ci-\(suffix)-pw"
+        // Prüft Registrierung und „Konto löschen“ – immer dieselbe Adresse, Reste eines abgebrochenen Laufs vorher weg
+        let env = ProcessInfo.processInfo.environment
+        if let base = env["SB_URL"], let key = env["SB_KEY"], !base.isEmpty, !key.isEmpty {
+            MeeterzTwoAccountTests.Remote.removeIfExists("ui", base: base, key: key)
+        }
+        let suffix = "fix"
+        let email = MeeterzTwoAccountTests.Remote.email("ui")
+        let password = MeeterzTwoAccountTests.Remote.testPassword
         let handle = "ci_\(suffix)"
 
         // 1. Login-Bildschirm

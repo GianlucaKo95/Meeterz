@@ -6,6 +6,8 @@ import Supabase
 final class FriendsStore {
     private(set) var rows: [FriendRow] = []
     var errorMessage: String?
+    /// Freunde, vor denen ich Standort und Routen verberge (Teilen pro Freund)
+    private(set) var hiddenFrom: Set<UUID> = []
 
     var accepted: [FriendRow] { rows.filter(\.isAccepted) }
     var incoming: [FriendRow] { rows.filter { !$0.isAccepted && $0.incoming } }
@@ -16,10 +18,31 @@ final class FriendsStore {
     func refresh() async {
         do {
             rows = try await client.rpc("my_friends").execute().value
+            if let hidden: [UUID] = try? await client.rpc("my_hidden_friends").execute().value {
+                hiddenFrom = Set(hidden)
+            }
             // Siri kennt die Namen der Freunde („Navigiere mit Meeterz zu Lisa“)
             MeeterzShortcuts.updateAppShortcutParameters()
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    func isHidden(_ friendId: UUID) -> Bool { hiddenFrom.contains(friendId) }
+
+    /// Standort und Routen vor einem Freund verbergen bzw. wieder zeigen
+    func setHidden(_ friendId: UUID, _ hidden: Bool) async {
+        struct Params: Encodable { let friend_id: UUID; let hidden: Bool }
+        do {
+            try await client.rpc("set_hidden_from", params: Params(friend_id: friendId, hidden: hidden)).execute()
+            if hidden { hiddenFrom.insert(friendId) } else { hiddenFrom.remove(friendId) }
+            if hidden, let me = AppModel.shared.profile?.id {
+                // Sofort von seiner Karte nehmen (er bekommt danach keine Positionen mehr)
+                await AppModel.shared.hub.announceGone(userId: me)
+            }
+            AppModel.shared.show(hidden ? "Dein Standort ist für diesen Freund verborgen." : "Dein Standort ist wieder sichtbar.", isError: false)
+        } catch {
+            AppModel.shared.show("Das hat nicht geklappt – ist die Datenbank-Änderung eingespielt?")
         }
     }
 

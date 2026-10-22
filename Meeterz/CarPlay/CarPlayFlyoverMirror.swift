@@ -1,5 +1,6 @@
 import UIKit
 import MapKit
+import CarPlay
 import Combine
 import CoreLocation
 import MapboxMaps
@@ -30,6 +31,9 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
     private var syncTimer: Timer?
     /// Gleicht die Kamera bei jedem Bild des Autodisplays ab (vorher 10-mal pro Sekunde – ruckelte wie ein Daumenkino)
     private var displayLink: CADisplayLink?
+    private var linkTask: Task<Void, Never>?
+    private var tickWatch: Timer?
+    private var lastTick = Date()
     private struct CameraKey: Equatable { let lat, lng, zoom, bearing, pitch, top, bottom: Double }
     private var lastCamera: CameraKey?
     private var puckToken: Cancelable?
@@ -152,15 +156,57 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
             }
         }
         lastCamera = nil
-        displayLink?.invalidate()
-        let link = (parent.window?.screen ?? UIScreen.main).displayLink(withTarget: self, selector: #selector(frameTick))
-        link?.add(to: .main, forMode: .common)
-        displayLink = link
+        startDisplayLink()
         if let state = navigationMapView.mapView.mapboxMap?.cameraState { apply(state, force: true) }
         redrawRoutes()
     }
 
+    /// Bildtakt des Autodisplays. Wichtig: der Takt muss vom CarPlay-Bildschirm kommen. Hing die Karte beim
+    /// Einbinden noch nicht im Fenster, lief er früher über den iPhone-Bildschirm – und blieb stehen, sobald das
+    /// iPhone gesperrt war: die Flyover-Karte fror ein, bis CarPlay neu verbunden wurde.
+    private func startDisplayLink() {
+        displayLink?.invalidate()
+        displayLink = nil
+        linkTask?.cancel()
+        linkTask = Task { @MainActor [weak self] in
+            for _ in 0..<40 {
+                guard let self, !Task.isCancelled else { return }
+                if let screen = self.mapView.window?.screen {
+                    let link = screen.displayLink(withTarget: self, selector: #selector(self.frameTick))
+                    link?.add(to: .main, forMode: .common)
+                    self.displayLink = link
+                    self.lastTick = Date()
+                    Diag.log("Flyover: Bildtakt vom Autodisplay (\(Int(screen.bounds.width))×\(Int(screen.bounds.height)), \(screen.maximumFramesPerSecond) fps)")
+                    self.watchTicks()
+                    return
+                }
+                try? await Task.sleep(for: .milliseconds(250))
+            }
+            Diag.log("Flyover: Karte hängt in keinem Fenster – kein Bildtakt")
+        }
+    }
+
+    /// Meldet (und behebt), falls der Bildtakt trotzdem aussetzt – z. B. wenn das Autodisplay neu aufgebaut wurde
+    private func watchTicks() {
+        tickWatch?.invalidate()
+        tickWatch = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, let window = self.mapView.window else { return }
+                // Im Hintergrund (z. B. Rückfahrkamera oder Radio des Autos im Vordergrund) pausiert der Takt zu Recht
+                let scene = (window as? CPWindow)?.templateApplicationScene
+                guard scene?.activationState == .foregroundActive else { return }
+                guard Date().timeIntervalSince(self.lastTick) > 3 else { return }
+                let screen = window.screen as UIScreen?
+                Diag.log("Flyover: Bildtakt ausgesetzt (Fenster-Bildschirm \(screen.map { "\(Int($0.bounds.width))×\(Int($0.bounds.height))" } ?? "–")) – neu verbunden")
+                self.startDisplayLink()
+            }
+        }
+    }
+
     func detach() {
+        linkTask?.cancel()
+        tickWatch?.invalidate()
+        tickWatch = nil
         attachTask?.cancel()
         cameraToken?.cancel()
         cameraToken = nil
@@ -183,6 +229,7 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
     /// Pro Bild: Kamera nur übernehmen, wenn sie sich bewegt hat; Pfeil immer nachführen
     @objc private func frameTick() {
         MainActor.assumeIsolated {
+            lastTick = Date()
             guard let s = mapbox?.mapView.mapboxMap?.cameraState else { return }
             let now = CameraKey(lat: s.center.latitude, lng: s.center.longitude, zoom: s.zoom, bearing: s.bearing,
                                 pitch: s.pitch, top: Double(s.padding.top), bottom: Double(s.padding.bottom))
@@ -277,7 +324,16 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
             arrowLayer.position = p
             let rawCourse = raw.map { $0.course >= 0 ? $0.course : cameraHeading } ?? cameraHeading
             let course = puck?.bearing ?? rawCourse
-            arrowLayer.setAffineTransform(CGAffineTransform(rotationAngle: CGFloat((course - cameraHeading) * .pi / 180)))
+            // Pfeil liegt flach auf der Straße (wie bei Apple Karten): erst in Fahrtrichtung drehen,
+            // dann um die Kameraneigung nach hinten kippen – sonst „steht“ er aufrecht im 3D-Bild
+            let tilt = CGFloat(min(max(Double(cam.pitch), 0), 75) * .pi / 180)
+            // etwas größer, damit er gekippt nicht zu schmal wirkt
+            var t = CATransform3DMakeScale(1 + 0.5 * sin(tilt), 1 + 0.5 * sin(tilt), 1)
+            t = CATransform3DConcat(t, CATransform3DMakeRotation(CGFloat((course - cameraHeading) * .pi / 180), 0, 0, 1))
+            t = CATransform3DConcat(t, CATransform3DMakeRotation(tilt, 1, 0, 0))
+            var perspective = CATransform3DIdentity
+            perspective.m34 = -1 / 500
+            arrowLayer.transform = CATransform3DConcat(t, perspective)
         } else {
             arrowLayer.isHidden = true
         }

@@ -156,6 +156,12 @@ final class NavigationCoordinator: NSObject {
             initialLocation: AppModel.shared.location.lastLocation
         ))
 
+        presentPhone(routes: preview.routes, fromCarPlay: false)
+    }
+
+    /// Turn-by-Turn auf dem iPhone anzeigen. Beim Start auf CarPlay mit den dort laufenden Routen –
+    /// so sieht man die Fahrt auch auf dem Handy (wie bei Apple Karten).
+    private func presentPhone(routes: NavigationRoutes, fromCarPlay: Bool) {
         let options = NavigationOptions(
             mapboxNavigation: core,
             voiceController: navigationProvider.routeVoiceController,
@@ -163,14 +169,14 @@ final class NavigationCoordinator: NSObject {
             styles: NavigationStyles.phone(),
             predictiveCacheManager: navigationProvider.predictiveCacheManager
         )
-        let controller = NavigationViewController(navigationRoutes: preview.routes, navigationOptions: options)
+        let controller = NavigationViewController(navigationRoutes: routes, navigationOptions: options)
         controller.modalPresentationStyle = .fullScreen
         controller.routeLineTracksTraversal = true
         controller.usesNightStyleInDarkMode = true
         controller.delegate = self
         phoneController = controller
 
-        beginTracking()
+        if !fromCarPlay { beginTracking() }
 
         // Erst das Vorschau-Sheet schließen lassen, dann die Navigation darüber legen.
         // Das Schließen dauert unterschiedlich lang; ein Present auf ein noch schließendes Sheet
@@ -193,14 +199,20 @@ final class NavigationCoordinator: NSObject {
                         o.start()
                         self?.overlay = o
                     }
-                    CarPlayController.shared.beginNavigationIfConnected()
+                    if !fromCarPlay { CarPlayController.shared.beginNavigationIfConnected() }
                 }
                 try? await Task.sleep(for: .milliseconds(600))
                 if controller.presentingViewController != nil { return }
             }
-            // Gar nicht anzeigbar: Zustand zurücksetzen, damit die Karte nicht „navigiert“
             let top = UIApplication.topViewController()
             let info = top.map { "\(type(of: $0)), Sheet: \($0.presentationController is UISheetPresentationController), schließt: \($0.isBeingDismissed)" } ?? "kein Controller"
+            if fromCarPlay {
+                // CarPlay navigiert weiter – nur das iPhone zeigt die Fahrt nicht
+                if self?.phoneController === controller { self?.phoneController = nil }
+                Diag.log("iPhone-Navigation zur CarPlay-Fahrt nicht anzeigbar (\(info))")
+                return
+            }
+            // Gar nicht anzeigbar: Zustand zurücksetzen, damit die Karte nicht „navigiert“
             self?.stop()
             AppModel.shared.show("Navigation konnte nicht gestartet werden (\(info)).")
         }
@@ -258,7 +270,21 @@ final class NavigationCoordinator: NSObject {
     /// Navigation wurde auf CarPlay gestartet (ohne iPhone-Oberfläche)
     func didBeginOnCarPlay(destination place: Place?) {
         if let place { destination = place; AppModel.shared.recents.record(place) }
+        activeMode = .car
         beginTracking()
+        // Auch auf dem iPhone die laufende Fahrt zeigen (offene Sheets wie die Vorschau vorher schließen)
+        guard phoneController == nil else { return }
+        preview = nil
+        Task { @MainActor [weak self] in
+            for _ in 0..<20 {
+                guard let self, self.isNavigating, self.phoneController == nil else { return }
+                if let routes = self.core.tripSession().currentNavigationRoutes {
+                    self.presentPhone(routes: routes, fromCarPlay: true)
+                    return
+                }
+                try? await Task.sleep(for: .milliseconds(250))
+            }
+        }
     }
 
     /// Zwischenstopp (z. B. Treffpunkt) in die laufende Navigation einfügen

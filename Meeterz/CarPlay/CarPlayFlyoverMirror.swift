@@ -241,6 +241,7 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
     @objc private func frameTick() {
         MainActor.assumeIsolated {
             lastTick = Date()
+            DriveHealth.shared.frame()
             guard let s = mapbox?.mapView.mapboxMap?.cameraState else { return }
             let now = CameraKey(lat: s.center.latitude, lng: s.center.longitude, zoom: s.zoom, bearing: s.bearing,
                                 pitch: s.pitch, top: Double(s.padding.top), bottom: Double(s.padding.bottom))

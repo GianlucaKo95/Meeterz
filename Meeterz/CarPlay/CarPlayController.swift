@@ -225,6 +225,7 @@ final class CarPlayController: NSObject {
     }()
 
     func connect(scene: CPTemplateApplicationScene, interfaceController: CPInterfaceController, window: CPWindow) {
+        DriveHealth.shared.start()
         manager.delegate = self
         manager.templateApplicationScene(scene, didConnect: interfaceController, to: window)
         isConnected = true
@@ -243,6 +244,7 @@ final class CarPlayController: NSObject {
     }
 
     func disconnect(scene: CPTemplateApplicationScene, interfaceController: CPInterfaceController, window: CPWindow) {
+        DriveHealth.shared.stop()
         browseOverlay?.stop()
         navigationOverlay?.stop()
         browseOverlay = nil

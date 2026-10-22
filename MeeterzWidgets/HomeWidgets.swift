@@ -1,8 +1,8 @@
 import SwiftUI
 import WidgetKit
 
-private let accent = Color(red: 0.78, green: 0.96, blue: 0.20)
-private let panel = Color(red: 0.07, green: 0.09, blue: 0.11)
+private let accent = Color(red: 0.435, green: 0.953, blue: 0.855)  // Mint aus dem Logo
+private let panel = Color(red: 0.039, green: 0.212, blue: 0.251)  // Petrol aus dem Logo
 
 // MARK: Datenquelle (Datenstand der App, alle 30 Min. neu gelesen)
 

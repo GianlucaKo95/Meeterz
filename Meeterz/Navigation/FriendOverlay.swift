@@ -80,7 +80,7 @@ final class FriendOverlay {
             p.textField = meetup.placeName
             p.textOffset = [0, 2.4]
             p.textSize = 13
-            p.textColor = StyleColor(Theme.accentUI)
+            p.textColor = StyleColor(Theme.mintUI)
             p.textHaloColor = StyleColor(.black)
             p.textHaloWidth = 1.5
             return p
@@ -127,7 +127,7 @@ enum AvatarRenderer {
         let size = CGSize(width: 44, height: 44)
         return UIGraphicsImageRenderer(size: size).image { ctx in
             let rect = CGRect(origin: .zero, size: size).insetBy(dx: 2, dy: 2)
-            UIColor(red: 0.05, green: 0.07, blue: 0.09, alpha: 1).setFill()
+            Theme.petrolUI.setFill()
             ctx.cgContext.fillEllipse(in: rect)
             if let photo {
                 // Foto im Kreis, farbiger Rand wie beim Initialen-Marker
@@ -145,7 +145,7 @@ enum AvatarRenderer {
             ctx.cgContext.fillEllipse(in: rect.insetBy(dx: 3, dy: 3))
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: UIFont.systemFont(ofSize: 15, weight: .heavy),
-                .foregroundColor: UIColor(red: 0.05, green: 0.07, blue: 0.09, alpha: 1),
+                .foregroundColor: Theme.petrolUI,
             ]
             let text = initials as NSString
             let textSize = text.size(withAttributes: attrs)
@@ -157,7 +157,7 @@ enum AvatarRenderer {
     static func meetupPin() -> UIImage {
         let config = UIImage.SymbolConfiguration(pointSize: 30, weight: .bold)
         let symbol = UIImage(systemName: "mappin.circle.fill", withConfiguration: config)?
-            .withTintColor(Theme.accentUI, renderingMode: .alwaysOriginal)
+            .withTintColor(Theme.mintUI, renderingMode: .alwaysOriginal)
         return symbol ?? UIImage()
     }
 }

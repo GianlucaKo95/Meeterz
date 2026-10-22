@@ -1,20 +1,23 @@
 import SwiftUI
 import UIKit
 
-/// Nachtfahrt-Look (dunkel) bzw. heller Tag-Look: Grund, ein Lime-Akzent, runde Schrift.
+/// Meeterz-Look nach dem Logo: Petrol-Grund, Mint-Akzent, Bernstein, runde Schrift (dunkel bzw. hell).
 /// Alle Farben passen sich dem Erscheinungsbild an (Einstellung „Darstellung“: System, Hell, Dunkel).
 enum Theme {
     enum UI {
-        static let ink = dynamic(dark: 0x0E1116, light: 0xF3F4F6)
-        static let panel = dynamic(dark: 0x161B22, light: 0xFFFFFF)
-        static let panelRaised = dynamic(dark: 0x1D232C, light: 0xE9ECF0)
-        static let stroke = dynamic(dark: 0x262F3C, light: 0xD5DAE1)
-        static let text = dynamic(dark: 0xF2F4F7, light: 0x11151B)
-        static let muted = dynamic(dark: 0x9AA4B2, light: 0x5B6573)
-        /// Hell: dunkleres Grün, damit Text und Symbole auf Weiß lesbar bleiben
-        static let accent = dynamic(dark: 0xC6F432, light: 0x4C7A00)
+        // Farben aus dem Logo: tiefes Petrol (Grund), Mint (Akzent), Bernstein (zweite Markenfarbe)
+        static let ink = dynamic(dark: 0x062A32, light: 0xEEF4F4)
+        static let panel = dynamic(dark: 0x0A3640, light: 0xFFFFFF)
+        static let panelRaised = dynamic(dark: 0x0F414C, light: 0xE3ECED)
+        static let stroke = dynamic(dark: 0x134A54, light: 0xCBD8DA)
+        static let text = dynamic(dark: 0xEEF8F7, light: 0x082B33)
+        static let muted = dynamic(dark: 0x8FB3B4, light: 0x4E6A70)
+        /// Hell: dunkleres Türkis, damit Text und Symbole auf Weiß lesbar bleiben
+        static let accent = dynamic(dark: 0x6FF3DA, light: 0x0B7F70)
         static let danger = dynamic(dark: 0xFF5A5F, light: 0xD92D35)
-        static let go = dynamic(dark: 0x34C759, light: 0x1E9E48)
+        /// Bernstein: „ist unterwegs“ / „ist da“ – bewusst nicht Mint, damit es sich vom Akzent abhebt
+        static let go = dynamic(dark: 0xFFC857, light: 0xA86B00)
+        static let amber = go
     }
 
     static let ink = Color(uiColor: UI.ink)
@@ -25,10 +28,13 @@ enum Theme {
     static let muted = Color(uiColor: UI.muted)
     static let accent = Color(uiColor: UI.accent)
     static let danger = Color(uiColor: UI.danger)
-    /// Klares Grün für „ist unterwegs“ (bewusst nicht das Limettengrün der Akzentfarbe)
+    /// „ist unterwegs“ / „ist da“ in Bernstein (bewusst nicht Mint wie der Akzent)
     static let go = Color(uiColor: UI.go)
 
     static let accentUI = UI.accent
+    /// Feste Markenfarben für Karte und CarPlay (dort gibt es kein App-Erscheinungsbild)
+    static let mintUI = UIColor(hex: 0x6FF3DA)
+    static let petrolUI = UIColor(hex: 0x062A32)
 
     static func dynamic(dark: UInt32, light: UInt32, alpha: CGFloat = 1) -> UIColor {
         UIColor { $0.userInterfaceStyle == .light ? UIColor(hex: light, alpha: alpha) : UIColor(hex: dark, alpha: alpha) }
@@ -151,7 +157,7 @@ struct CircleIconButton: View {
     let label: String
     var tint: Color = Theme.text
     var badge = false
-    /// Grüner Punkt: z. B. ein Freund ist gerade per Navigation unterwegs
+    /// Bernsteinfarbener Punkt: z. B. ein Freund ist gerade per Navigation unterwegs
     var activeDot = false
     let action: () -> Void
 

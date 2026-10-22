@@ -22,13 +22,13 @@ class SatelliteNightStyle: StandardNightStyle {
     }
 }
 
-// MARK: iPhone-Navigation im Meeterz-Look (dunkel, Limettengrün) statt Mapbox-Blau
+// MARK: iPhone-Navigation im Meeterz-Look (Petrol, Mint) statt Mapbox-Blau
 
 /// Banner, Knöpfe und Abbiegepfeile in den App-Farben; die Karte selbst bleibt (Satellit bzw. klassisch)
 enum MeeterzNavigationLook {
     // Folgen der Einstellung „Darstellung“ (hell/dunkel) wie der Rest der App
     static let ink = Theme.UI.ink
-    static let panel = Theme.dynamic(dark: 0x161B22, light: 0xFFFFFF, alpha: 0.97)
+    static let panel = Theme.dynamic(dark: 0x0A3640, light: 0xFFFFFF, alpha: 0.97)
     static let stroke = Theme.UI.stroke
     static let text = Theme.UI.text
     static let muted = Theme.UI.muted

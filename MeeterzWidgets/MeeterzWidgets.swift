@@ -12,7 +12,7 @@ struct MeeterzWidgets: WidgetBundle {
     }
 }
 
-private let accent = Color(red: 0.78, green: 0.96, blue: 0.20)
+private let accent = Color(red: 0.435, green: 0.953, blue: 0.855)  // Mint aus dem Logo
 
 /// Navigation auf dem Sperrbildschirm und in der Dynamic Island
 struct NavigationLiveActivity: Widget {

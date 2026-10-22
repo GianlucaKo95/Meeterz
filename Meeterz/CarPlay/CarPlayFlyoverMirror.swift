@@ -644,7 +644,7 @@ final class MapPin: MKPointAnnotation {
         return UIGraphicsImageRenderer(size: size).image { _ in
             avatar.draw(at: CGPoint(x: (size.width - avatar.size.width) / 2, y: 0))
             let rect = CGRect(x: (size.width - pill.width) / 2, y: avatar.size.height + 2, width: pill.width, height: pill.height)
-            UIColor(red: 0.05, green: 0.07, blue: 0.09, alpha: 0.9).setFill()
+            UIColor(red: 0.024, green: 0.165, blue: 0.196, alpha: 0.9).setFill()
             UIBezierPath(roundedRect: rect, cornerRadius: pill.height / 2).fill()
             (text as NSString).draw(at: CGPoint(x: rect.minX + 8, y: rect.minY + 3), withAttributes: attrs)
         }

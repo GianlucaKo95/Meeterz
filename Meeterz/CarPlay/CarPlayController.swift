@@ -931,9 +931,9 @@ final class RouteLoadingView: UIView {
         isUserInteractionEnabled = false
 
         let ring = UIView(frame: CGRect(x: 66, y: 0, width: 48, height: 48))
-        ring.backgroundColor = UIColor(red: 0.05, green: 0.07, blue: 0.09, alpha: 0.9)
+        ring.backgroundColor = UIColor(red: 0.024, green: 0.165, blue: 0.196, alpha: 0.9)
         ring.layer.cornerRadius = 24
-        ring.layer.borderColor = UIColor(red: 0.78, green: 0.96, blue: 0.20, alpha: 1).cgColor
+        ring.layer.borderColor = Theme.mintUI.cgColor
         ring.layer.borderWidth = 2
         let spinner = UIActivityIndicatorView(style: .medium)
         spinner.color = .white
@@ -947,7 +947,7 @@ final class RouteLoadingView: UIView {
         label.textAlignment = .center
         label.font = .systemFont(ofSize: 13, weight: .semibold)
         label.textColor = .white
-        label.backgroundColor = UIColor(red: 0.05, green: 0.07, blue: 0.09, alpha: 0.9)
+        label.backgroundColor = UIColor(red: 0.024, green: 0.165, blue: 0.196, alpha: 0.9)
         label.layer.cornerRadius = 12
         label.layer.masksToBounds = true
         let width = min(180, label.intrinsicContentSize.width + 20)

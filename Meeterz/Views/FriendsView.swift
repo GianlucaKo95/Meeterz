@@ -17,6 +17,8 @@ struct FriendsView: View {
     @State private var invite: InviteTarget?
     @State private var showSettings = false
     @State private var autoDelay = MessagesStore.autoDelay
+    @State private var evEnabled = EVSettings.enabled
+    @State private var evRange = EVSettings.rangeKm
 
     private struct InviteTarget: Identifiable {
         let id = UUID()
@@ -395,6 +397,16 @@ struct FriendsView: View {
 
     private var appSection: some View {
         Section("App") {
+            Toggle("E-Auto", isOn: Binding(get: { evEnabled }, set: { evEnabled = $0; EVSettings.enabled = $0 }))
+                .tint(Theme.accent)
+            if evEnabled {
+                Stepper(value: Binding(get: { evRange }, set: { evRange = $0; EVSettings.rangeKm = $0 }),
+                        in: 100...800, step: 10) {
+                    LabeledContent("Reichweite bei 100 %", value: "\(Int(evRange)) km")
+                }
+                Text("Den Akkustand stellst du beim Losfahren in CarPlay unter „Mehr“ ein. Reicht er nicht bis zum Ziel, schlägt Meeterz Ladesäulen entlang der Route vor (mit 10 % Reserve).")
+                    .font(.footnote).foregroundStyle(Theme.muted)
+            }
             Picker("Karte in CarPlay", selection: Binding<String>(
                 get: { carPlayFlyover ? "flyover" : (carPlaySatellite ? "satellite" : "classic") },
                 set: { value in

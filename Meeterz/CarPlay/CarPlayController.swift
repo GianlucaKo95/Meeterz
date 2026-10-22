@@ -583,7 +583,6 @@ final class CarPlayController: NSObject {
         let model = AppModel.shared
         guard let place = inviteDestination else { return }
         let friends = model.friends.accepted
-        guard !friends.isEmpty else { return }
 
         let stop = CPListItem(text: "Stopp hinzufügen", detailText: nil,
                               image: UIImage(systemName: "plus.circle.fill"))
@@ -606,6 +605,7 @@ final class CarPlayController: NSObject {
             sections.append(CPListSection(items: [tell]))
         }
         if let convoy = convoySection() { sections.append(convoy) }
+        if let charge = chargeSection() { sections.append(charge) }
         sections.append(CPListSection(items: [stop]))
 
         var items: [CPListItem] = []
@@ -628,7 +628,7 @@ final class CarPlayController: NSObject {
             }
             items.append(item)
         }
-        sections.append(CPListSection(items: items, header: "Einladen", sectionIndexTitle: nil))
+        if !items.isEmpty { sections.append(CPListSection(items: items, header: "Einladen", sectionIndexTitle: nil)) }
         let template = CPListTemplate(title: place.name, sections: sections)
         manager.interfaceController?.pushTemplate(template, animated: true, completion: nil)
     }
@@ -837,7 +837,7 @@ extension CarPlayController: CarPlayManagerDelegate {
                 // „Beenden“ muss immer da sein (der Mapbox-Standardknopf entfällt, sobald wir die Leiste belegen).
                 // Kein dauerhaftes Fenster über der Karte – Einladen und Stopp öffnen sich nur auf Knopfdruck.
                 let end = CPBarButton(title: "Beenden") { [weak self] _ in self?.endNavigationIfNeeded() }
-                if !AppModel.shared.friends.accepted.isEmpty, inviteDestination != nil {
+                if inviteDestination != nil, !AppModel.shared.friends.accepted.isEmpty || EVSettings.enabled {
                     let more = CPBarButton(title: "Mehr") { [weak self] _ in self?.showInviteList() }
                     return [more, end]
                 }
@@ -875,6 +875,11 @@ extension CarPlayController: CarPlayManagerDelegate {
             }
             refreshFriends()
             announceFriendsHeadingToDestination()
+            // E-Auto: kurz warten, bis Restweg berechnet ist, dann prüfen, ob der Akku reicht
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .seconds(4))
+                self?.checkCharge()
+            }
         }
     }
 

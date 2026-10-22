@@ -199,8 +199,9 @@ extension CarPlayController {
         manager.interfaceController?.pushTemplate(template, animated: true, completion: nil)
     }
 
-    private func showStopovers(_ kind: SearchService.Stopover) {
-        let template = CPListTemplate(title: kind.title, sections: [
+    /// `limitMeters`: nur Orte bis zu diesem Punkt der Route (z. B. so weit der Akku reicht)
+    func showStopovers(_ kind: SearchService.Stopover, title: String? = nil, limitMeters: Double? = nil) {
+        let template = CPListTemplate(title: title ?? kind.title, sections: [
             CPListSection(items: [CPListItem(text: "Wird gesucht …", detailText: nil)]),
         ])
         manager.interfaceController?.pushTemplate(template, animated: true, completion: nil)
@@ -211,7 +212,16 @@ extension CarPlayController {
                 template.updateSections([CPListSection(items: [CPListItem(text: "Standort unbekannt", detailText: nil)])])
                 return
             }
-            let ahead = AppModel.shared.navigation.isNavigating ? routeAhead(from: me) : nil
+            var ahead = AppModel.shared.navigation.isNavigating ? routeAhead(from: me) : nil
+            // Kilometer entlang der Strecke je Routenpunkt
+            var along: [Double] = [0]
+            if let route = ahead {
+                for (a, b) in zip(route, route.dropFirst()) { along.append(along.last! + a.distance(to: b)) }
+                if let limitMeters, let cut = along.firstIndex(where: { $0 > limitMeters }), cut > 1 {
+                    ahead = Array(route[..<cut])
+                    along = Array(along[..<cut])
+                }
+            }
             var places: [Place]
             do {
                 places = try await SearchService.stopovers(kind, near: me, route: ahead)
@@ -233,7 +243,10 @@ extension CarPlayController {
                 places.sort { $0.coordinate.distance(to: me) < $1.coordinate.distance(to: me) }
             }
             let items: [CPListItem] = places.prefix(CPListTemplate.maximumItemCount).map { place in
-                let away = Format.distance(place.coordinate.distance(to: me))
+                var away = Format.distance(place.coordinate.distance(to: me))
+                if let route = ahead, let i = Self.nearestIndex(of: place.coordinate, in: route), i < along.count {
+                    away = "nach \(Format.distance(along[i]))"   // entlang der Route
+                }
                 let item = CPListItem(text: place.name, detailText: [away, place.address].compactMap { $0 }.joined(separator: " · "))
                 item.handler = { [weak self] _, done in self?.select(place, done: done) }
                 return item
@@ -314,5 +327,83 @@ extension CarPlayController {
                                       subtitleVariants: m.automatic ? ["Automatische Nachricht"] : nil,
                                       image: image, primaryAction: reply, secondaryAction: ok, duration: 12)
         template.present(navigationAlert: alert, animated: true)
+    }
+}
+
+// MARK: - E-Auto: Ladestopp, wenn der Akku nicht reicht
+
+/// Angaben zum E-Auto (Einstellungen; den Akkustand stellt man beim Losfahren in CarPlay ein)
+enum EVSettings {
+    static var enabled: Bool {
+        get { UserDefaults.standard.bool(forKey: "ev.enabled") }
+        set { UserDefaults.standard.set(newValue, forKey: "ev.enabled") }
+    }
+    /// Reichweite bei 100 % in km (realistisch, nicht WLTP)
+    static var rangeKm: Double {
+        get { UserDefaults.standard.object(forKey: "ev.rangeKm") as? Double ?? 350 }
+        set { UserDefaults.standard.set(newValue, forKey: "ev.rangeKm") }
+    }
+    /// Akkustand beim Losfahren in Prozent (zuletzt gewählt)
+    static var chargePercent: Double {
+        get { UserDefaults.standard.object(forKey: "ev.charge") as? Double ?? 80 }
+        set { UserDefaults.standard.set(newValue, forKey: "ev.charge") }
+    }
+    /// Bis hierhin kommt man mit 10 % Reserve (Meter)
+    static var usableMeters: Double { max(0, rangeKm * 1000 * (chargePercent - 10) / 100) }
+}
+
+extension CarPlayController {
+    /// Nach dem Start der Navigation: reicht der Akku bis zum Ziel? Sonst Hinweis mit Ladesäulen.
+    func checkCharge() {
+        guard EVSettings.enabled, let remaining = AppModel.shared.navigation.remaining?.distance else { return }
+        let usable = EVSettings.usableMeters
+        guard remaining > usable else { return }
+        Diag.log("E-Auto: Route \(Int(remaining / 1000)) km, Akku reicht ca. \(Int(usable / 1000)) km")
+        guard let template = alertTemplate, template.currentNavigationAlert == nil else { return }
+        let show = CPAlertAction(title: "Ladesäulen", style: .default) { [weak self] _ in
+            Task { @MainActor in self?.showChargingStops() }
+        }
+        let later = CPAlertAction(title: "Später", style: .cancel) { _ in }
+        let alert = CPNavigationAlert(
+            titleVariants: ["Ladestopp nötig – Akku reicht ca. \(Format.distance(usable))", "Ladestopp nötig"],
+            subtitleVariants: ["Bei \(Int(EVSettings.chargePercent)) % Akku und 10 % Reserve"],
+            image: UIImage(systemName: "bolt.car.fill"),
+            primaryAction: show, secondaryAction: later, duration: 15)
+        template.present(navigationAlert: alert, animated: true)
+    }
+
+    /// Ladesäulen entlang der Route, bis zu dem Punkt, an dem der Akku knapp wird
+    func showChargingStops() {
+        let limit = EVSettings.usableMeters
+        showStopovers(.charging, title: "Laden bis km \(Int(limit / 1000))", limitMeters: limit > 1_000 ? limit : nil)
+    }
+
+    /// Akkustand beim Losfahren einstellen (CarPlay-Liste)
+    func showChargePicker() {
+        let items: [CPListItem] = stride(from: 100, through: 10, by: -10).map { value in
+            let current = Int(EVSettings.chargePercent) == value
+            let item = CPListItem(text: "\(value) %", detailText: current ? "aktuell" : "ca. \(Int(EVSettings.rangeKm * Double(value) / 100)) km")
+            item.handler = { [weak self] _, done in
+                EVSettings.chargePercent = Double(value)
+                self?.manager.interfaceController?.popTemplate(animated: true, completion: nil)
+                done()
+                self?.checkCharge()
+            }
+            return item
+        }
+        manager.interfaceController?.pushTemplate(
+            CPListTemplate(title: "Akkustand", sections: [CPListSection(items: items)]), animated: true, completion: nil)
+    }
+
+    /// Abschnitt „E-Auto“ für die „Mehr“-Liste
+    func chargeSection() -> CPListSection? {
+        guard EVSettings.enabled else { return nil }
+        let battery = CPListItem(text: "Akku beim Losfahren: \(Int(EVSettings.chargePercent)) %",
+                                 detailText: "Reicht ca. \(Format.distance(EVSettings.usableMeters))",
+                                 image: UIImage(systemName: "battery.75percent"))
+        battery.handler = { [weak self] _, done in self?.showChargePicker(); done() }
+        let stops = CPListItem(text: "Ladesäulen entlang der Route", detailText: nil, image: UIImage(systemName: "bolt.car.fill"))
+        stops.handler = { [weak self] _, done in self?.showChargingStops(); done() }
+        return CPListSection(items: [battery, stops], header: "E-Auto", sectionIndexTitle: nil)
     }
 }

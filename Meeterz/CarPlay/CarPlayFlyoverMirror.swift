@@ -1,6 +1,7 @@
 import UIKit
 import MapKit
 import CarPlay
+import ObjectiveC
 import Combine
 import CoreLocation
 import MapboxMaps
@@ -21,6 +22,9 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
 
     private let friendsVisible: () -> Bool
     private weak var mapbox: NavigationMapView?
+    private struct WeakMap { weak var map: MapView? }
+    /// Mapbox-Karten, deren Zeichnen wir abgeschaltet haben (werden beim Abschalten von Flyover wiederhergestellt)
+    private var suppressed: [WeakMap] = []
     private var cameraToken: Cancelable?
     private var lastApply = Date.distantPast
     private var cameraHeading: CLLocationDirection = 0
@@ -124,7 +128,12 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
     }
 
     private func install(in parent: UIView, above navigationMapView: NavigationMapView) {
+        // Die vorherige Karte (Browsen unter der Navigation) bleibt ausgeblendet – sie ist ebenfalls verdeckt
+        suppressed.append(WeakMap(map: navigationMapView.mapView))
         mapbox = navigationMapView
+        // Die Mapbox-Karte liegt komplett unter der Flyover-Karte: ihre Ebenen nicht mehr zeichnen.
+        // Sonst rendert das Autodisplay zwei 3D-Satellitenkarten gleichzeitig – das ließ die Navigation haken.
+        HiddenMapboxRendering.suppress(navigationMapView.mapView)
         mapView.removeFromSuperview()
         mapView.translatesAutoresizingMaskIntoConstraints = false
         parent.insertSubview(mapView, aboveSubview: navigationMapView)
@@ -219,6 +228,8 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
         timer?.invalidate()
         timer = nil
         subscriptions.removeAll()
+        for entry in suppressed { if let map = entry.map { HiddenMapboxRendering.restore(map) } }
+        suppressed = []
         mapView.removeFromSuperview()
         routeView.removeFromSuperview()
     }
@@ -234,7 +245,7 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
             let now = CameraKey(lat: s.center.latitude, lng: s.center.longitude, zoom: s.zoom, bearing: s.bearing,
                                 pitch: s.pitch, top: Double(s.padding.top), bottom: Double(s.padding.bottom))
             if let last = lastCamera, last == now {
-                updateTopLayer()
+                updateArrowLayer()
             } else {
                 lastCamera = now
                 apply(s, force: true)
@@ -273,6 +284,12 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
     /// Route und Pfeil in der eigenen Ebene an die aktuelle Kamera anpassen
     private func updateTopLayer() {
         guard routeView.bounds.width > 1 else { return }
+        updateRoutePath()
+        updateArrowLayer()
+    }
+
+    /// Routenlinie neu projizieren – nur wenn sich die Kamera bewegt hat, und nur der Teil in Sichtweite
+    private func updateRoutePath() {
         let cam = mapView.camera
         // Bodenpunkt unter der Kamera; was dahinter liegt, ist nicht sichtbar und würde falsch projiziert
         let back = cam.centerCoordinateDistance * sin(Double(cam.pitch) * .pi / 180)
@@ -286,8 +303,17 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
             return (dy * cos(h) + dx * sin(h), (dx * dx + dy * dy).squareRoot())
         }
 
-        // Punkte projizieren (nil = nicht sichtbar bzw. hinter der Kamera)
-        let points: [CGPoint?] = mainLine.map { c in
+        // Punkte projizieren (nil = nicht sichtbar bzw. hinter der Kamera). Entlang der Route höchstens bis
+        // zur doppelten Sichtweite – weiter hinten liegende Punkte sind nie im Bild, kosteten aber bei langen
+        // Strecken jedes Bild Tausende Umrechnungen
+        let limit = reach * 2 + 600
+        var along = 0.0
+        var visible = mainLine.count
+        for i in 1..<max(1, mainLine.count) {
+            along += mainLine[i - 1].distance(to: mainLine[i])
+            if along > limit { visible = i + 1; break }
+        }
+        let points: [CGPoint?] = mainLine.prefix(visible).map { c in
             let l = local(c)
             guard l.ahead > 20, l.dist < reach else { return nil }
             let p = mapView.convert(c, toPointTo: routeView)
@@ -317,6 +343,15 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
         casingLayer.path = path.cgPath
         lineLayer.path = path.cgPath
         for (level, layer) in trafficLayers { layer.path = traffic[level]?.cgPath }
+        CATransaction.commit()
+    }
+
+    /// Standortpfeil (folgt dem weich animierten Mapbox-Pfeil)
+    private func updateArrowLayer() {
+        guard routeView.bounds.width > 1 else { return }
+        let cam = mapView.camera
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
         let raw = mapView.userLocation.location ?? AppModel.shared.location.lastLocation
         if let coordinate = puck?.coordinate ?? raw?.coordinate {
             let p = mapView.convert(coordinate, toPointTo: routeView)
@@ -536,6 +571,8 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
     private var friendRoutesKey = ""
 
     func refreshFriends() {
+        // Neu hinzugekommene Mapbox-Ebenen (Routenlinie, Gebäude) ebenfalls nicht zeichnen
+        for entry in suppressed { if let map = entry.map { HiddenMapboxRendering.refresh(map) } }
         let model = AppModel.shared
         let show = friendsVisible()
 
@@ -703,6 +740,58 @@ final class MapPin: MKPointAnnotation {
             UIColor(red: 0.024, green: 0.165, blue: 0.196, alpha: 0.9).setFill()
             UIBezierPath(roundedRect: rect, cornerRadius: pill.height / 2).fill()
             (text as NSString).draw(at: CGPoint(x: rect.minX + 8, y: rect.minY + 3), withAttributes: attrs)
+        }
+    }
+}
+
+
+/// Schaltet das Zeichnen einer verdeckten Mapbox-Karte ab (alle Stilebenen unsichtbar), ohne ihre Kamera
+/// anzuhalten – die Flyover-Karte folgt ihr weiter. Übersteht Stilwechsel (Tag/Nacht, Kartenstil).
+@MainActor
+enum HiddenMapboxRendering {
+    private final class State {
+        var hidden: Set<String> = []
+        var token: Cancelable?
+    }
+    private static var key: UInt8 = 0
+
+    static func suppress(_ mapView: MapView) {
+        guard objc_getAssociatedObject(mapView, &key) == nil, let map = mapView.mapboxMap else { return }
+        let state = State()
+        objc_setAssociatedObject(mapView, &key, state, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        state.token = map.onStyleLoaded.observe { [weak map, weak state] _ in
+            guard let map, let state else { return }
+            state.hidden = []
+            hideAll(map, state)
+        }
+        if map.isStyleLoaded { hideAll(map, state) }
+    }
+
+    static func restore(_ mapView: MapView) {
+        guard let state = objc_getAssociatedObject(mapView, &key) as? State else { return }
+        state.token?.cancel()
+        if let map = mapView.mapboxMap {
+            for id in state.hidden where map.layerExists(withId: id) {
+                try? map.setLayerProperty(for: id, property: "visibility", value: "visible")
+            }
+        }
+        objc_setAssociatedObject(mapView, &key, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+    }
+
+    /// Erneut ausblenden (z. B. nachdem die Navigation eine neue Routenlinie hinzugefügt hat)
+    static func refresh(_ mapView: MapView) {
+        guard let state = objc_getAssociatedObject(mapView, &key) as? State, let map = mapView.mapboxMap,
+              map.isStyleLoaded else { return }
+        hideAll(map, state)
+    }
+
+    private static func hideAll(_ map: MapboxMap, _ state: State) {
+        for info in map.allLayerIdentifiers {
+            let current = map.layerProperty(for: info.id, property: "visibility").value as? String
+            guard current != "none" else { continue }
+            if (try? map.setLayerProperty(for: info.id, property: "visibility", value: "none")) != nil {
+                state.hidden.insert(info.id)
+            }
         }
     }
 }

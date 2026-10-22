@@ -20,9 +20,11 @@ on:
         type: boolean
         default: false
 
+# Testläufe (nächtlich oder mit ui_tests) und reine Compile-Checks getrennt: ein Compile-Check oder ein
+# verspäteter Nachtlauf bricht keinen laufenden UI-Testlauf mehr ab
 concurrency:
-  group: build-${{ github.ref }}
-  cancel-in-progress: true
+  group: build-${{ github.ref }}-${{ (github.event_name == 'schedule' || inputs.ui_tests || inputs.store_screenshots) && 'tests' || 'compile' }}
+  cancel-in-progress: ${{ github.event_name != 'schedule' }}
 
 permissions:
   contents: write

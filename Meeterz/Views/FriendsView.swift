@@ -16,6 +16,7 @@ struct FriendsView: View {
     @State private var inviteFriend: FriendRow?
     @State private var invite: InviteTarget?
     @State private var showSettings = false
+    @State private var autoDelay = MessagesStore.autoDelay
 
     private struct InviteTarget: Identifiable {
         let id = UUID()
@@ -279,6 +280,12 @@ struct FriendsView: View {
             Toggle("Standort teilen", isOn: Binding(
                 get: { app.profile?.isSharingNow ?? false },
                 set: { on in Task { await applySharing(on: on) } }
+            ))
+            .tint(Theme.accent)
+
+            Toggle("Bei Verspätung automatisch Bescheid geben", isOn: Binding(
+                get: { autoDelay },
+                set: { autoDelay = $0; MessagesStore.autoDelay = $0 }
             ))
             .tint(Theme.accent)
 

@@ -13,6 +13,7 @@ final class PushService {
         case meetupProposed = "meetup_proposed"
         case meetupAccepted = "meetup_accepted"
         case meetupDeclined = "meetup_declined"
+        case message
     }
 
     private var client: SupabaseClient { Backend.client }
@@ -40,9 +41,9 @@ final class PushService {
     }
 
     /// Feuert und vergisst – eine fehlende Push-Konfiguration darf nie den eigentlichen Vorgang stören.
-    func notify(_ kind: Kind, to user: UUID, meetupId: UUID? = nil) {
-        struct Body: Encodable { let kind: Kind; let target: UUID; let meetup_id: UUID? }
-        let body = Body(kind: kind, target: user, meetup_id: meetupId)
+    func notify(_ kind: Kind, to user: UUID, meetupId: UUID? = nil, messageId: UUID? = nil) {
+        struct Body: Encodable { let kind: Kind; let target: UUID; let meetup_id: UUID?; let message_id: UUID? }
+        let body = Body(kind: kind, target: user, meetup_id: meetupId, message_id: messageId)
         Task {
             try? await client.functions.invoke("notify", options: FunctionInvokeOptions(body: body))
         }

@@ -14,6 +14,7 @@ final class AppModel {
     let hub = LiveLocationHub()
     let routes = RoutesStore()
     let meetups = MeetupsStore()
+    let messages = MessagesStore()
     let navigation = NavigationCoordinator()
     let push = PushService()
     let avatars = AvatarStore()
@@ -64,6 +65,7 @@ final class AppModel {
 
         await hub.startPublishing(userId: profile.id)
         await meetups.startListening(userId: profile.id)
+        await messages.startListening(userId: profile.id)
         await push.registerIfPossible()
 
         refreshLoop?.cancel()
@@ -88,6 +90,7 @@ final class AppModel {
         navigation.stop()
         await hub.stopAll()
         await meetups.stopListening()
+        await messages.stopListening()
     }
 
     /// Freunde, Routen, Treffen und Treffpunkte neu laden

@@ -241,6 +241,12 @@ final class SoundStore: NSObject {
         }
     }
 
+    /// Kurze Ansage (z. B. eingehende Nachricht im Auto) – nicht, wenn das Soundpaket aus ist oder gerade aufgenommen wird
+    func announce(_ text: String) {
+        guard enabled, !isRecording else { return }
+        speak(text)
+    }
+
     private func speak(_ text: String) {
         let session = AVAudioSession.sharedInstance()
         try? session.setCategory(.playback, mode: .voicePrompt, options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers])

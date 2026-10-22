@@ -138,7 +138,15 @@ extension CarPlayController {
                 guard let self else { return }
                 self.updateSpeedSigns()
                 // alle 30 s: Freunde mit gleichem Ziel prüfen
-                if Int(Date().timeIntervalSince1970) % 30 == 0 { self.announceFriendsHeadingToDestination() }
+                if Int(Date().timeIntervalSince1970) % 30 == 0 {
+                    self.announceFriendsHeadingToDestination()
+                    // Konvoi: anhalten, zurückfallen, andere Strecke
+                    ConvoyTracker.shared.check { text, friend in
+                        let image = AvatarRenderer.image(initials: friend.initials, color: FriendPalette.uiColor(for: friend.friendId),
+                                                         faded: false, photo: AppModel.shared.avatars.image(for: friend.friendId))
+                        self.showNotice(title: [text], image: image)
+                    }
+                }
             }
         }
     }
@@ -252,5 +260,59 @@ extension CarPlayController {
 
     private static func nearestIndex(of point: CLLocationCoordinate2D, in coords: [CLLocationCoordinate2D]) -> Int? {
         coords.indices.min { coords[$0].distance(to: point) < coords[$1].distance(to: point) }
+    }
+}
+
+// MARK: - Kurznachrichten in CarPlay
+
+extension CarPlayController {
+    /// Wen betrifft dieses Ziel? Angenommene Treffen hier und Freunde, die auch hierher fahren.
+    func meetupPartners(at place: Place) -> (ids: [UUID], meetupId: UUID?) {
+        let app = AppModel.shared
+        let meetups = app.meetups.accepted.filter { $0.coordinate.distance(to: place.coordinate) < 300 }
+        var ids = meetups.map(\.otherId)
+        for friend in app.friends.accepted where friendArrival(friend.friendId, at: place) != nil {
+            ids.append(friend.friendId)
+        }
+        var seen = Set<UUID>()
+        return (ids.filter { seen.insert($0).inserted }, meetups.first?.id)
+    }
+
+    /// Liste vorgefertigter Antworten; ein Tippen sendet an alle Empfänger
+    func showQuickReplies(to ids: [UUID], meetupId: UUID?, replace: Bool = false) {
+        let eta = AppModel.shared.navigation.isNavigating ? AppModel.shared.navigation.eta : nil
+        let items: [CPListItem] = MessagesStore.quickReplies(eta: eta).map { text in
+            let item = CPListItem(text: text, detailText: nil)
+            item.handler = { [weak self] _, done in
+                Task { @MainActor in
+                    let sent = await AppModel.shared.messages.send(text, to: ids, meetupId: meetupId)
+                    self?.manager.interfaceController?.popToRootTemplate(animated: true, completion: nil)
+                    done()
+                    self?.showNotice(title: [sent > 0 ? "Gesendet: „\(text)“" : "Nachricht nicht gesendet"])
+                }
+            }
+            return item
+        }
+        let names = ids.compactMap { AppModel.shared.friend($0)?.displayName.split(separator: " ").first.map(String.init) }
+        let template = CPListTemplate(title: names.isEmpty ? "Bescheid geben" : "An " + names.joined(separator: ", "),
+                                      sections: [CPListSection(items: items)])
+        manager.interfaceController?.pushTemplate(template, animated: true, completion: nil)
+    }
+
+    /// Eingehende Nachricht: kurzer Hinweis mit „Antworten“
+    func messageReceived(_ m: MessagesStore.Message) {
+        guard let template = alertTemplate, template.currentNavigationAlert == nil, fasterRouteAnswer == nil else { return }
+        let image = AppModel.shared.friend(m.otherId).map { f in
+            AvatarRenderer.image(initials: f.initials, color: FriendPalette.uiColor(for: f.friendId),
+                                 faded: false, photo: AppModel.shared.avatars.image(for: f.friendId))
+        }
+        let reply = CPAlertAction(title: "Antworten", style: .default) { [weak self] _ in
+            Task { @MainActor in self?.showQuickReplies(to: [m.otherId], meetupId: m.meetupId) }
+        }
+        let ok = CPAlertAction(title: "OK", style: .cancel) { _ in }
+        let alert = CPNavigationAlert(titleVariants: ["\(m.firstName): \(m.body)", m.firstName],
+                                      subtitleVariants: m.automatic ? ["Automatische Nachricht"] : nil,
+                                      image: image, primaryAction: reply, secondaryAction: ok, duration: 12)
+        template.present(navigationAlert: alert, animated: true)
     }
 }

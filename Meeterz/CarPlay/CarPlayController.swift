@@ -589,7 +589,23 @@ final class CarPlayController: NSObject {
             self?.showSearchHub()
             done()
         }
-        var items: [CPListItem] = [stop]
+        var sections: [CPListSection] = []
+        // Kurz Bescheid geben: an alle, die ich hier treffe oder die auch hierher fahren
+        let partners = meetupPartners(at: place)
+        if !partners.ids.isEmpty {
+            let names = partners.ids.compactMap { model.friend($0)?.displayName.split(separator: " ").first.map(String.init) }
+            let tell = CPListItem(text: "Kurz Bescheid geben", detailText: "an " + names.joined(separator: ", "),
+                                  image: UIImage(systemName: "text.bubble.fill"))
+            tell.handler = { [weak self] _, done in
+                self?.showQuickReplies(to: partners.ids, meetupId: partners.meetupId, replace: true)
+                done()
+            }
+            sections.append(CPListSection(items: [tell]))
+        }
+        if let convoy = convoySection() { sections.append(convoy) }
+        sections.append(CPListSection(items: [stop]))
+
+        var items: [CPListItem] = []
         if friends.count > 1 {
             let all = CPListItem(text: "Alle einladen", detailText: nil)
             all.handler = { [weak self] _, done in
@@ -599,7 +615,7 @@ final class CarPlayController: NSObject {
             }
             items.append(all)
         }
-        for friend in friends.prefix(max(0, CPListTemplate.maximumItemCount - items.count)) {
+        for friend in friends.prefix(max(0, CPListTemplate.maximumItemCount - items.count - 4)) {
             let detail = friendArrival(friend.friendId, at: place).map { "Kommt auch hierher · an \(Format.time.string(from: $0))" } ?? "Einladen"
             let item = CPListItem(text: friend.displayName, detailText: detail)
             item.handler = { [weak self] _, done in
@@ -609,7 +625,8 @@ final class CarPlayController: NSObject {
             }
             items.append(item)
         }
-        let template = CPListTemplate(title: place.name, sections: [CPListSection(items: items)])
+        sections.append(CPListSection(items: items, header: "Einladen", sectionIndexTitle: nil))
+        let template = CPListTemplate(title: place.name, sections: sections)
         manager.interfaceController?.pushTemplate(template, animated: true, completion: nil)
     }
 
@@ -818,7 +835,7 @@ extension CarPlayController: CarPlayManagerDelegate {
                 // Kein dauerhaftes Fenster über der Karte – Einladen und Stopp öffnen sich nur auf Knopfdruck.
                 let end = CPBarButton(title: "Beenden") { [weak self] _ in self?.endNavigationIfNeeded() }
                 if !AppModel.shared.friends.accepted.isEmpty, inviteDestination != nil {
-                    let more = CPBarButton(title: "Einladen") { [weak self] _ in self?.showInviteList() }
+                    let more = CPBarButton(title: "Mehr") { [weak self] _ in self?.showInviteList() }
                     return [more, end]
                 }
                 let stop = CPBarButton(title: "Stopp") { [weak self] _ in self?.showSearchHub() }
@@ -870,6 +887,7 @@ extension CarPlayController: CarPlayManagerDelegate {
                 flyover?.attach(to: browseMap)
             }
             pendingDestination = nil
+            ConvoyTracker.shared.reset()
             AppModel.shared.navigation.stop()
             refreshFriends()
         }

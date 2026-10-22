@@ -288,6 +288,7 @@ final class NavigationCoordinator: NSObject {
         destination = nil
         eta = nil
         remaining = nil
+        announcedArrival = [:]
         Task { await AppModel.shared.routes.clearMine() }
     }
 
@@ -342,6 +343,7 @@ final class NavigationCoordinator: NSObject {
         )
         let arrival = Date().addingTimeInterval(progress.durationRemaining)
         eta = arrival
+        checkDelay(eta: arrival)
         remaining = (progress.distanceRemaining, progress.durationRemaining)
         let dest = destination?.coordinate
             ?? progress.route.shape?.coordinates.last
@@ -356,6 +358,31 @@ final class NavigationCoordinator: NSObject {
             points: points,
             mode: activeMode
         )
+    }
+
+    // MARK: Verspätung automatisch melden
+
+    /// Zuletzt mitgeteilte Ankunft je Treffen (am Anfang die erste berechnete)
+    @ObservationIgnored private var announcedArrival: [UUID: Date] = [:]
+
+    /// Fährt man zu einem vereinbarten Treffpunkt und verschiebt sich die Ankunft um 5 Minuten oder mehr,
+    /// bekommt der Freund automatisch eine Nachricht. Danach gilt die neue Zeit als Maßstab.
+    private func checkDelay(eta: Date) {
+        guard MessagesStore.autoDelay, let destination else { return }
+        for meetup in AppModel.shared.meetups.accepted
+        where meetup.coordinate.distance(to: destination.coordinate) < 300 {
+            guard let before = announcedArrival[meetup.id] else {
+                announcedArrival[meetup.id] = eta
+                continue
+            }
+            let late = eta.timeIntervalSince(before)
+            guard late >= 5 * 60 else { continue }
+            announcedArrival[meetup.id] = eta
+            let minutes = Int((late / 60).rounded())
+            let text = "Ich komme ca. \(minutes) Min. später – neue Ankunft \(Format.time.string(from: eta))"
+            Task { await AppModel.shared.messages.send(text, to: [meetup.otherId], meetupId: meetup.id, automatic: true) }
+            Diag.log("Verspätung gemeldet an \(meetup.otherName): +\(minutes) Min.")
+        }
     }
 
     /// Modus „Bis Ankunft": Teilen endet 15 Minuten nach der geplanten Ankunft

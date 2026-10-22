@@ -12,7 +12,7 @@ struct MeetupsOverviewView: View {
         let id: UUID
         let meetups: [Meetup]
         var first: Meetup { meetups[0] }
-        var accepted: Bool { meetups.contains(\.isAccepted) }
+        var accepted: Bool { meetups.contains(where: \.isAccepted) }
     }
 
     private var entries: [Entry] {

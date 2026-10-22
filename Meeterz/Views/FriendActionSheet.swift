@@ -16,6 +16,16 @@ struct FriendActionSheet: View {
                 let route = app.routes.friendRoutes[friendId]
                 VStack(alignment: .leading, spacing: 16) {
                     header(item, route: route)
+                    if let last = lastMessage {
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Image(systemName: "bubble.left.fill").font(.caption).foregroundStyle(Theme.accent)
+                            Text(last.incoming ? last.body : "Du: \(last.body)").font(.subheadline).foregroundStyle(Theme.text)
+                            Spacer(minLength: 4)
+                            Text(Format.time.string(from: last.createdAt)).font(.caption2).foregroundStyle(Theme.muted)
+                        }
+                        .padding(10)
+                        .background(RoundedRectangle(cornerRadius: 12).fill(Theme.panel))
+                    }
 
                     VStack(spacing: 10) {
                         Button { showProfile = true } label: {
@@ -40,6 +50,19 @@ struct FriendActionSheet: View {
                         }
                         .buttonStyle(PrimaryButtonStyle())
 
+                        Menu {
+                            ForEach(MessagesStore.quickReplies(eta: myEta), id: \.self) { text in
+                                Button(text) { send(text) }
+                            }
+                        } label: {
+                            Label("Kurz Bescheid geben", systemImage: "bubble.left.and.text.bubble.right")
+                                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                .foregroundStyle(Theme.text)
+                                .frame(maxWidth: .infinity, minHeight: 46)
+                                .background(Capsule().stroke(Theme.stroke, lineWidth: 1))
+                        }
+                        .accessibilityIdentifier("friend-quick-reply")
+
                         if let route {
                             Button {
                                 go(Place(id: "dest-\(friendId)", name: route.destinationName ?? "Ziel von \(item.friend.displayName)",
@@ -59,7 +82,7 @@ struct FriendActionSheet: View {
                 ProgressView().onAppear { dismiss() }
             }
         }
-        .presentationDetents([.height(400), .large])
+        .presentationDetents([.height(lastMessage == nil ? 460 : 520), .large])
         .presentationDragIndicator(.visible)
     }
 
@@ -116,6 +139,20 @@ struct FriendActionSheet: View {
             Text(value).font(.body.weight(.semibold))
         }
         .padding(14)
+    }
+
+    private var lastMessage: MessagesStore.Message? {
+        app.messages.messages.first { $0.otherId == friendId }
+    }
+
+    /// Eigene Ankunftszeit, falls gerade navigiert wird
+    private var myEta: Date? { app.navigation.isNavigating ? app.navigation.eta : nil }
+
+    private func send(_ text: String) {
+        Task {
+            let n = await app.messages.send(text, to: [friendId])
+            app.show(n > 0 ? "Gesendet" : "Nachricht nicht gesendet", isError: n == 0)
+        }
     }
 
     /// Fenster schließen, dann Route planen – die Vorschau kann erst nach dem Schließen erscheinen.

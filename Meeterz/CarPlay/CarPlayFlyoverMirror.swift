@@ -4,6 +4,7 @@ import Combine
 import CoreLocation
 import MapboxMaps
 import MapboxNavigationCore
+import MapboxDirections
 
 /// Apple-Flyover-Karte auf CarPlay.
 ///
@@ -44,6 +45,12 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
     private let arrowLayer = CALayer()
     /// Hauptroute, auf höchstens 25 m Punktabstand verdichtet (sonst fielen lange Geraden hinter der Kamera weg)
     private var mainLine: [CLLocationCoordinate2D] = []
+    /// Verkehrslage je Abschnitt (gilt vom Punkt i bis i+1), gleich lang wie `mainLine`
+    private var mainLevels: [CongestionLevel] = []
+    /// Verkehrsfarben über der blauen Linie (wie Mapbox/Apple Karten: zäh, stockend, Stau)
+    private let trafficLayers: [(CongestionLevel, CAShapeLayer)] = [
+        (.moderate, CAShapeLayer()), (.heavy, CAShapeLayer()), (.severe, CAShapeLayer()),
+    ]
 
     init(friendsVisible: @escaping () -> Bool) {
         self.friendsVisible = friendsVisible
@@ -67,6 +74,14 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
         casingLayer.lineWidth = 14
         lineLayer.strokeColor = UIColor(red: 0.20, green: 0.55, blue: 1.0, alpha: 1).cgColor
         lineLayer.lineWidth = 10
+        for (level, layer) in trafficLayers {
+            layer.fillColor = nil
+            layer.lineCap = .round
+            layer.lineJoin = .round
+            layer.lineWidth = 10
+            layer.strokeColor = Self.trafficColor(level).cgColor
+            routeView.layer.addSublayer(layer)
+        }
         arrowLayer.contents = Self.arrowImage.cgImage
         arrowLayer.bounds = CGRect(x: 0, y: 0, width: 52, height: 52)
         arrowLayer.contentsScale = UIScreen.main.scale
@@ -206,20 +221,37 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
             return (dy * cos(h) + dx * sin(h), (dx * dx + dy * dy).squareRoot())
         }
 
-        let path = UIBezierPath()
-        var drawing = false
-        for c in mainLine {
+        // Punkte projizieren (nil = nicht sichtbar bzw. hinter der Kamera)
+        let points: [CGPoint?] = mainLine.map { c in
             let l = local(c)
-            guard l.ahead > 20, l.dist < reach else { drawing = false; continue }
+            guard l.ahead > 20, l.dist < reach else { return nil }
             let p = mapView.convert(c, toPointTo: routeView)
-            guard p.x.isFinite, p.y.isFinite, abs(p.x) < 10_000, abs(p.y) < 10_000 else { drawing = false; continue }
-            if drawing { path.addLine(to: p) } else { path.move(to: p); drawing = true }
+            guard p.x.isFinite, p.y.isFinite, abs(p.x) < 10_000, abs(p.y) < 10_000 else { return nil }
+            return p
+        }
+        let path = UIBezierPath()
+        var traffic: [CongestionLevel: UIBezierPath] = [:]
+        var lastBase = -2
+        var lastTraffic: [CongestionLevel: Int] = [:]
+        for i in 0..<max(0, points.count - 1) {
+            guard let a = points[i], let b = points[i + 1] else { continue }
+            if lastBase != i - 1 { path.move(to: a) }
+            path.addLine(to: b)
+            lastBase = i
+            let level = i < mainLevels.count ? mainLevels[i] : .unknown
+            guard level == .moderate || level == .heavy || level == .severe else { continue }
+            let t = traffic[level] ?? UIBezierPath()
+            if lastTraffic[level] != i - 1 { t.move(to: a) }
+            t.addLine(to: b)
+            traffic[level] = t
+            lastTraffic[level] = i
         }
 
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         casingLayer.path = path.cgPath
         lineLayer.path = path.cgPath
+        for (level, layer) in trafficLayers { layer.path = traffic[level]?.cgPath }
         if let me = mapView.userLocation.location ?? AppModel.shared.location.lastLocation {
             let p = mapView.convert(me.coordinate, toPointTo: routeView)
             arrowLayer.isHidden = !(p.x.isFinite && p.y.isFinite)
@@ -233,21 +265,74 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
     }
 
     /// Punkte so einfügen, dass kein Abstand größer als `step` Meter ist
-    private static func densify(_ coords: [CLLocationCoordinate2D], step: Double = 25) -> [CLLocationCoordinate2D] {
-        guard coords.count > 1 else { return coords }
+    private static func densify(_ coords: [CLLocationCoordinate2D], levels: [CongestionLevel],
+                                step: Double = 25) -> (coords: [CLLocationCoordinate2D], levels: [CongestionLevel]) {
+        guard coords.count > 1 else { return (coords, levels) }
         var out: [CLLocationCoordinate2D] = [coords[0]]
-        for (a, b) in zip(coords, coords.dropFirst()) {
+        var outLevels: [CongestionLevel] = []
+        for (i, (a, b)) in zip(coords, coords.dropFirst()).enumerated() {
+            let level = i < levels.count ? levels[i] : .unknown
             let n = Int(a.distance(to: b) / step)
             if n > 1 {
-                for i in 1..<n {
-                    let t = Double(i) / Double(n)
+                for k in 1..<n {
+                    let t = Double(k) / Double(n)
                     out.append(CLLocationCoordinate2D(latitude: a.latitude + (b.latitude - a.latitude) * t,
                                                       longitude: a.longitude + (b.longitude - a.longitude) * t))
+                    outLevels.append(level)
                 }
             }
             out.append(b)
+            outLevels.append(level)
         }
-        return out
+        outLevels.append(.unknown)
+        return (out, outLevels)
+    }
+
+    static func trafficColor(_ level: CongestionLevel) -> UIColor {
+        switch level {
+        case .moderate: UIColor(red: 1.00, green: 0.62, blue: 0.04, alpha: 1)   // zäh
+        case .heavy: UIColor(red: 1.00, green: 0.27, blue: 0.23, alpha: 1)      // stockend
+        case .severe: UIColor(red: 0.69, green: 0.00, blue: 0.13, alpha: 1)     // Stau
+        default: UIColor(red: 0.20, green: 0.55, blue: 1.0, alpha: 1)
+        }
+    }
+
+    /// Routenpunkte mit Verkehrslage je Abschnitt (aus den Etappen; wie Mapbox es für seine Linie macht)
+    private static func traffic(_ route: Route) -> (coords: [CLLocationCoordinate2D], levels: [CongestionLevel])? {
+        var coords: [CLLocationCoordinate2D] = []
+        var levels: [CongestionLevel] = []
+        for leg in route.legs {
+            // Der letzte Punkt eines Schritts ist der erste des nächsten – nur einmal nehmen
+            let legCoords: [CLLocationCoordinate2D] = leg.steps.enumerated().reduce([]) { all, step in
+                let c = step.element.shape?.coordinates ?? []
+                return step.offset == 0 ? c : all + c.dropFirst()
+            }
+            guard legCoords.count > 1 else { continue }
+            var legLevels: [CongestionLevel]
+            if let numeric = leg.segmentNumericCongestionLevels, numeric.count == legCoords.count - 1 {
+                legLevels = numeric.map { value in
+                    guard let value else { return .unknown }
+                    switch value {
+                    case ..<40: return .low
+                    case 40..<60: return .moderate
+                    case 60..<80: return .heavy
+                    default: return .severe
+                    }
+                }
+            } else if let named = leg.segmentCongestionLevels, named.count == legCoords.count - 1 {
+                legLevels = named
+            } else {
+                legLevels = Array(repeating: .unknown, count: legCoords.count - 1)
+            }
+            legLevels.append(.unknown)
+            if let last = coords.last, last.distance(to: legCoords[0]) < 1 {
+                coords.removeLast()
+                levels.removeLast()
+            }
+            coords += legCoords
+            levels += legLevels
+        }
+        return coords.count > 1 ? (coords, levels) : nil
     }
 
     private static func offset(_ c: CLLocationCoordinate2D, bearing: Double, meters: Double) -> CLLocationCoordinate2D {
@@ -296,6 +381,7 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
               let main = routes.mainRoute.route.shape?.coordinates, main.count > 1 else {
             if !routeOverlays.isEmpty { mapView.removeOverlays(routeOverlays); routeOverlays = [] }
             mainLine = []
+            mainLevels = []
             updateTopLayer()
             drawnRouteKey = nil
             trimIndex = 0
@@ -303,7 +389,13 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
             return
         }
         let navigating = activeRoutes != nil
-        let identity = "\(navigating)-\(main.count)-\(main.first!.latitude)-\(main.last!.latitude)-\(routes.alternativeRoutes.count)"
+        // Verkehrslage je Abschnitt; ändert sich mit der Routenaktualisierung (alle ~2 Min.)
+        let withTraffic = Self.traffic(routes.mainRoute.route)
+        let main = withTraffic?.coords ?? main
+        let levels = withTraffic?.levels ?? Array(repeating: CongestionLevel.unknown, count: main.count)
+        var hasher = Hasher()
+        levels.forEach { hasher.combine($0) }
+        let identity = "\(navigating)-\(main.count)-\(main.first!.latitude)-\(main.last!.latitude)-\(routes.alternativeRoutes.count)-\(hasher.finalize())"
         if !(drawnRouteKey?.hasPrefix(identity + "#") ?? false) {
             trimIndex = 0
             trimmedAt = nil
@@ -329,7 +421,8 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
             }
         }
         // Hauptroute in der eigenen Ebene (über Bäumen und Gebäuden), Alternativen bleiben Kartenlinien
-        mainLine = Self.densify(Array(main[min(trimIndex, main.count - 2)...]))
+        let start = min(trimIndex, main.count - 2)
+        (mainLine, mainLevels) = Self.densify(Array(main[start...]), levels: Array(levels[start...]))
         updateTopLayer()
 
         let old = routeOverlays

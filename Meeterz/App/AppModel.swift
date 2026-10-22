@@ -15,6 +15,7 @@ final class AppModel {
     let routes = RoutesStore()
     let meetups = MeetupsStore()
     let messages = MessagesStore()
+    let parking = ParkingStore()
     let navigation = NavigationCoordinator()
     let push = PushService()
     let avatars = AvatarStore()

@@ -242,6 +242,14 @@ struct MainView: View {
                     .allowOverlap(true)
             }
 
+            // Geparktes Auto (beim Trennen von CarPlay gemerkt)
+            if let spot = app.parking.spot {
+                MapViewAnnotation(coordinate: spot.coordinate) {
+                    ParkedCarMarker(spot: spot).environment(app)
+                }
+                .allowOverlap(true)
+            }
+
             // Vereinbarte Treffen
             ForEvery(app.meetups.accepted) { meetup in
                 MapViewAnnotation(coordinate: meetup.coordinate) {

@@ -107,6 +107,13 @@ struct FlyoverMapView: View {
             .annotationTitles(.hidden)
         }
 
+        if let spot = app.parking.spot {
+            Annotation("Dein Auto", coordinate: spot.coordinate, anchor: .bottom) {
+                ParkedCarMarker(spot: spot).environment(app)
+            }
+            .annotationTitles(.hidden)
+        }
+
         ForEach(app.meetups.accepted) { meetup in
             Annotation(meetup.placeName, coordinate: meetup.coordinate, anchor: .bottom) {
                 VStack(spacing: 2) {

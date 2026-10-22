@@ -124,8 +124,8 @@ final class NavigationCoordinator: NSObject {
         return routes?.mainRoute.route.expectedTravelTime
     }
 
-    func planRoute(to place: Place) async {
-        let mode = effectiveMode
+    func planRoute(to place: Place, mode requested: TravelMode? = nil) async {
+        let mode = requested ?? effectiveMode
         guard let routes = await calculate(to: place, mode: mode) else { return }
         preview = Preview(destination: place, routes: routes, mode: mode)
     }

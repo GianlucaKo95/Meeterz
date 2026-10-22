@@ -233,6 +233,7 @@ final class CarPlayController: NSObject {
         Diag.log("CarPlay verbunden, vom Auto gesperrt: \(Self.describe(config.limitedUserInterfaces)), Standort präzise: \(CLLocationManager().accuracyAuthorization == .fullAccuracy), letzte Genauigkeit: \(Int(AppModel.shared.location.lastLocation?.horizontalAccuracy ?? -1)) m")
         AppModel.shared.location.setCarPlay(true)
         NavigationLiveActivityController.shared.end()   // im Auto nur die CarPlay-Anzeige, keine doppelte Kachel
+        AppModel.shared.parking.clear()                  // wieder im Auto: alter Parkplatz ist erledigt
         watchInvites()
         startSpeedWarning()
         // Läuft auf dem iPhone schon eine Navigation, übernimmt CarPlay sie
@@ -254,6 +255,8 @@ final class CarPlayController: NSObject {
         session = nil
         stopSpeedWarning()
         isConnected = false
+        // Ausgestiegen: Parkplatz merken (vor setCarPlay, das den Standort in den Sparmodus schaltet)
+        if let here = AppModel.shared.location.lastLocation { AppModel.shared.parking.save(here) }
         AppModel.shared.location.setCarPlay(false)
         // Läuft die Fahrt weiter (z. B. zu Fuß das letzte Stück), übernimmt wieder die Live-Aktivität auf dem iPhone
         let nav = AppModel.shared.navigation

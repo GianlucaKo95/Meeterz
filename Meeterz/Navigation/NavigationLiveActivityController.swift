@@ -16,6 +16,9 @@ final class NavigationLiveActivityController {
 
     func start(destinationName: String?, destination: CLLocationCoordinate2D?) {
         end()
+        // Im Auto zeigt CarPlay die Abbiegung schon selbst im Dashboard – die Live-Aktivität erschiene dort doppelt.
+        // Sie startet erst, wenn CarPlay getrennt wird und die Fahrt weiterläuft (siehe CarPlayController.disconnect).
+        guard !CarPlayController.shared.isConnected else { return }
         guard ActivityAuthorizationInfo().areActivitiesEnabled else {
             Diag.log("Live-Aktivität: in den Einstellungen deaktiviert")
             return

@@ -170,7 +170,7 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
                 self?.redrawRoutes()
             }
             .store(in: &subscriptions)
-        // Befahrener Teil verschwindet: Route alle 2 s ab der aktuellen Position neu zeichnen
+        // Befahrener Teil verschwindet: prüft alle 2 s, schneidet aber nur alle ~300 m ab (siehe redrawRoutes)
         core.navigation().routeProgress
             .compactMap { $0?.routeProgress }
             .throttle(for: .seconds(2), scheduler: DispatchQueue.main, latest: true)
@@ -183,11 +183,43 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
         redrawRoutes()
     }
 
+    /// Was gerade gezeichnet ist – neu gezeichnet wird nur, wenn sich daran etwas ändert
+    private var drawnRouteKey: String?
+    private var trimIndex = 0
+    private var trimmedAt: CLLocation?
+
+    /// Zeichnet die Route nur bei echten Änderungen neu (neue Route, Vorschau, alle ~300 m Fortschritt).
+    ///
+    /// Vorher wurde die Linie alle 2–3 s gelöscht und neu gezeichnet. Nah herangezoomt rechnet MapKit dafür
+    /// viele Kacheln neu und war vor dem nächsten Löschen nicht fertig – die Linie verschwand.
+    /// Neue Linien kommen jetzt dazu, bevor die alten entfernt werden, damit nie eine Lücke entsteht.
     private func redrawRoutes() {
-        mapView.removeOverlays(routeOverlays)
-        routeOverlays = []
-        guard let routes = activeRoutes ?? previewRoutes else { return }
+        guard let routes = activeRoutes ?? previewRoutes,
+              let main = routes.mainRoute.route.shape?.coordinates, main.count > 1 else {
+            if !routeOverlays.isEmpty { mapView.removeOverlays(routeOverlays); routeOverlays = [] }
+            drawnRouteKey = nil
+            trimIndex = 0
+            trimmedAt = nil
+            return
+        }
         let navigating = activeRoutes != nil
+        let identity = "\(navigating)-\(main.count)-\(main.first!.latitude)-\(main.last!.latitude)-\(routes.alternativeRoutes.count)"
+        if !(drawnRouteKey?.hasPrefix(identity + "#") ?? false) {
+            trimIndex = 0
+            trimmedAt = nil
+        }
+
+        // Befahrenen Teil abschneiden – aber höchstens alle 300 m, nie rückwärts
+        if navigating, let me = AppModel.shared.location.lastLocation {
+            let moved = trimmedAt.map { me.distance(from: $0) } ?? .greatestFiniteMagnitude
+            if moved > 300 {
+                trimIndex = Self.nearestIndex(main, to: me.coordinate, from: trimIndex)
+                trimmedAt = me
+            }
+        }
+        let key = identity + "#\(trimIndex)"
+        guard key != drawnRouteKey else { return }
+        drawnRouteKey = key
 
         var overlays: [MKOverlay] = []
         if !navigating {
@@ -196,28 +228,26 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
                 overlays += Self.styled(coords, color: UIColor(white: 0.75, alpha: 1), width: 7, casing: 11)
             }
         }
-        if var coords = routes.mainRoute.route.shape?.coordinates, coords.count > 1 {
-            if navigating, let me = AppModel.shared.location.lastLocation?.coordinate {
-                coords = Self.remaining(coords, from: me)
-            }
-            if coords.count > 1 {
-                overlays += Self.styled(coords, color: UIColor(red: 0.20, green: 0.55, blue: 1.0, alpha: 1), width: 10, casing: 14)
-            }
-        }
+        let rest = Array(main[min(trimIndex, main.count - 2)...])
+        overlays += Self.styled(rest, color: UIColor(red: 0.20, green: 0.55, blue: 1.0, alpha: 1), width: 10, casing: 14)
+
+        let old = routeOverlays
         routeOverlays = overlays
         for o in overlays { mapView.addOverlay(o, level: .aboveRoads) }
+        mapView.removeOverlays(old)
     }
 
-    /// Route ab dem Punkt, der der Position am nächsten liegt
-    private static func remaining(_ coords: [CLLocationCoordinate2D], from me: CLLocationCoordinate2D) -> [CLLocationCoordinate2D] {
+    /// Nächster Routenpunkt zur Position, nur vorwärts ab `from` gesucht (springt nie zurück)
+    private static func nearestIndex(_ coords: [CLLocationCoordinate2D], to me: CLLocationCoordinate2D, from: Int) -> Int {
         let here = CLLocation(latitude: me.latitude, longitude: me.longitude)
-        var best = 0
+        var best = from
         var bestDistance = CLLocationDistance.greatestFiniteMagnitude
-        for (i, c) in coords.enumerated() {
-            let d = here.distance(from: CLLocation(latitude: c.latitude, longitude: c.longitude))
+        for i in from..<coords.count {
+            let d = here.distance(from: CLLocation(latitude: coords[i].latitude, longitude: coords[i].longitude))
             if d < bestDistance { bestDistance = d; best = i }
         }
-        return Array(coords[best...])
+        // Einen Punkt zurück, damit die Linie sicher bis unter den Pfeil reicht
+        return max(from, best - 1)
     }
 
     private static func styled(_ coords: [CLLocationCoordinate2D], color: UIColor, width: CGFloat, casing: CGFloat) -> [MKOverlay] {
@@ -233,17 +263,27 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
 
     // MARK: Freunde und Treffpunkte
 
+    private var friendRoutesKey = ""
+
     func refreshFriends() {
-        mapView.removeOverlays(friendOverlays)
-        friendOverlays = []
         let model = AppModel.shared
         let show = friendsVisible()
 
+        // Routen der Freunde nur neu zeichnen, wenn sie sich geändert haben (sonst verschwinden sie beim Zoomen)
+        let routes = show ? model.routes.friendRoutes.values.filter { $0.coordinates.count > 1 }.sorted { $0.friendId.uuidString < $1.friendId.uuidString } : []
+        let key = routes.map { "\($0.friendId)-\($0.coordinates.count)-\($0.eta.timeIntervalSince1970)" }.joined(separator: "|")
+        if key != friendRoutesKey {
+            friendRoutesKey = key
+            let old = friendOverlays
+            friendOverlays = routes.flatMap {
+                Self.styled($0.coordinates, color: FriendPalette.routeUIColor(for: $0.friendId), width: 7, casing: 11)
+            }
+            for o in friendOverlays { mapView.insertOverlay(o, at: 0, level: .aboveRoads) }
+            mapView.removeOverlays(old)
+        }
+
         var wanted: [String: (coordinate: CLLocationCoordinate2D, kind: MapPin.Kind)] = [:]
         if show {
-            for route in model.routes.friendRoutes.values where route.coordinates.count > 1 {
-                friendOverlays += Self.styled(route.coordinates, color: FriendPalette.routeUIColor(for: route.friendId), width: 7, casing: 11)
-            }
             for item in model.friendsOnMap {
                 wanted["friend-\(item.friend.friendId)"] = (item.position.coordinate, .friend(item))
             }
@@ -251,7 +291,6 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
         for meetup in model.meetups.accepted {
             wanted["meetup-\(meetup.id)"] = (meetup.coordinate, .meetup(meetup.placeName))
         }
-        for o in friendOverlays { mapView.insertOverlay(o, at: 0, level: .aboveRoads) }
 
         // Pins abgleichen
         for (key, pin) in pins where wanted[key] == nil {
@@ -270,7 +309,6 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
                 mapView.addAnnotation(pin)
             }
         }
-        redrawRoutes()
     }
 
     // MARK: Standortpfeil

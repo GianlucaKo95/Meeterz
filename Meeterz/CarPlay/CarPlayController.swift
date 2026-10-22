@@ -230,6 +230,7 @@ final class CarPlayController: NSObject {
         session = config
         Diag.log("CarPlay verbunden, vom Auto gesperrt: \(Self.describe(config.limitedUserInterfaces))")
         AppModel.shared.location.setCarPlay(true)
+        NavigationLiveActivityController.shared.end()   // im Auto nur die CarPlay-Anzeige, keine doppelte Kachel
         watchInvites()
         startSpeedWarning()
         // Läuft auf dem iPhone schon eine Navigation, übernimmt CarPlay sie
@@ -252,6 +253,12 @@ final class CarPlayController: NSObject {
         stopSpeedWarning()
         isConnected = false
         AppModel.shared.location.setCarPlay(false)
+        // Läuft die Fahrt weiter (z. B. zu Fuß das letzte Stück), übernimmt wieder die Live-Aktivität auf dem iPhone
+        let nav = AppModel.shared.navigation
+        if nav.isNavigating {
+            NavigationLiveActivityController.shared.start(destinationName: nav.destination?.name,
+                                                          destination: nav.destination?.coordinate)
+        }
         searchTask?.cancel()
         searchTask = nil
         searchCompletion = nil

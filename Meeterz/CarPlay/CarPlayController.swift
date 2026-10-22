@@ -230,7 +230,7 @@ final class CarPlayController: NSObject {
         isConnected = true
         let config = CPSessionConfiguration(delegate: self)
         session = config
-        Diag.log("CarPlay verbunden, vom Auto gesperrt: \(Self.describe(config.limitedUserInterfaces))")
+        Diag.log("CarPlay verbunden, vom Auto gesperrt: \(Self.describe(config.limitedUserInterfaces)), Standort präzise: \(CLLocationManager().accuracyAuthorization == .fullAccuracy), letzte Genauigkeit: \(Int(AppModel.shared.location.lastLocation?.horizontalAccuracy ?? -1)) m")
         AppModel.shared.location.setCarPlay(true)
         NavigationLiveActivityController.shared.end()   // im Auto nur die CarPlay-Anzeige, keine doppelte Kachel
         watchInvites()

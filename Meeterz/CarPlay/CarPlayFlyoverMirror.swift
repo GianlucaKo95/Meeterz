@@ -28,6 +28,13 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
     private var attachTask: Task<Void, Never>?
     private var trailing: Task<Void, Never>?
     private var syncTimer: Timer?
+    /// Gleicht die Kamera bei jedem Bild des Autodisplays ab (vorher 10-mal pro Sekunde – ruckelte wie ein Daumenkino)
+    private var displayLink: CADisplayLink?
+    private struct CameraKey: Equatable { let lat, lng, zoom, bearing, pitch, top, bottom: Double }
+    private var lastCamera: CameraKey?
+    private var puckToken: Cancelable?
+    /// Weich animierter Standort des Mapbox-Pfeils (statt roher GPS-Sprünge)
+    private var puck: (coordinate: CLLocationCoordinate2D, bearing: Double?)?
 
     private var activeRoutes: NavigationRoutes?
     private var previewRoutes: NavigationRoutes?
@@ -134,20 +141,22 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
         ])
         parent.layoutIfNeeded()
 
-        let map = navigationMapView.mapView.mapboxMap
         cameraToken?.cancel()
-        cameraToken = map?.onCameraChanged.observe { [weak self] event in
-            MainActor.assumeIsolated { self?.apply(event.cameraState, force: false) }
-        }
-        if let state = map?.cameraState { apply(state, force: true) }
-        // Sicherheitsnetz: Kamera alle 0,5 s abgleichen, falls ein Ereignis ausbleibt
+        cameraToken = nil
         syncTimer?.invalidate()
-        syncTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+        syncTimer = nil
+        puckToken?.cancel()
+        puckToken = navigationMapView.mapView.location.onPuckRender.observe { [weak self] data in
             MainActor.assumeIsolated {
-                guard let self, let s = self.mapbox?.mapView.mapboxMap?.cameraState else { return }
-                self.apply(s, force: false)
+                self?.puck = (data.location.coordinate, data.location.bearing)
             }
         }
+        lastCamera = nil
+        displayLink?.invalidate()
+        let link = (parent.window?.screen ?? UIScreen.main).displayLink(withTarget: self, selector: #selector(frameTick))
+        link?.add(to: .main, forMode: .common)
+        displayLink = link
+        if let state = navigationMapView.mapView.mapboxMap?.cameraState { apply(state, force: true) }
         redrawRoutes()
     }
 
@@ -156,6 +165,10 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
         cameraToken?.cancel()
         cameraToken = nil
         syncTimer?.invalidate()
+        displayLink?.invalidate()
+        displayLink = nil
+        puckToken?.cancel()
+        puckToken = nil
         trailing?.cancel()
         timer?.invalidate()
         timer = nil
@@ -167,17 +180,22 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
     // MARK: Kamera
 
     /// Übersetzt die Mapbox-Kamera (Mitte, Zoom, Drehung, Neigung, Rand) in eine MapKit-Kamera.
-    private func apply(_ state: CameraState, force: Bool) {
-        guard force || Date().timeIntervalSince(lastApply) > 0.1 else {
-            // Gedrosselt: den letzten Stand nachholen, sonst bleibt die Karte beim Ruhigwerden der Kamera stehen
-            trailing?.cancel()
-            trailing = Task { @MainActor [weak self] in
-                try? await Task.sleep(for: .milliseconds(150))
-                guard let self, !Task.isCancelled, let s = self.mapbox?.mapView.mapboxMap?.cameraState else { return }
-                self.apply(s, force: true)
+    /// Pro Bild: Kamera nur übernehmen, wenn sie sich bewegt hat; Pfeil immer nachführen
+    @objc private func frameTick() {
+        MainActor.assumeIsolated {
+            guard let s = mapbox?.mapView.mapboxMap?.cameraState else { return }
+            let now = CameraKey(lat: s.center.latitude, lng: s.center.longitude, zoom: s.zoom, bearing: s.bearing,
+                                pitch: s.pitch, top: Double(s.padding.top), bottom: Double(s.padding.bottom))
+            if let last = lastCamera, last == now {
+                updateTopLayer()
+            } else {
+                lastCamera = now
+                apply(s, force: true)
             }
-            return
         }
+    }
+
+    private func apply(_ state: CameraState, force: Bool) {
         let size = mapView.bounds.size
         guard size.height > 1 else { return }
         lastApply = Date()
@@ -252,11 +270,13 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
         casingLayer.path = path.cgPath
         lineLayer.path = path.cgPath
         for (level, layer) in trafficLayers { layer.path = traffic[level]?.cgPath }
-        if let me = mapView.userLocation.location ?? AppModel.shared.location.lastLocation {
-            let p = mapView.convert(me.coordinate, toPointTo: routeView)
+        let raw = mapView.userLocation.location ?? AppModel.shared.location.lastLocation
+        if let coordinate = puck?.coordinate ?? raw?.coordinate {
+            let p = mapView.convert(coordinate, toPointTo: routeView)
             arrowLayer.isHidden = !(p.x.isFinite && p.y.isFinite)
             arrowLayer.position = p
-            let course = me.course >= 0 ? me.course : cameraHeading
+            let rawCourse = raw.map { $0.course >= 0 ? $0.course : cameraHeading } ?? cameraHeading
+            let course = puck?.bearing ?? rawCourse
             arrowLayer.setAffineTransform(CGAffineTransform(rotationAngle: CGFloat((course - cameraHeading) * .pi / 180)))
         } else {
             arrowLayer.isHidden = true

@@ -138,15 +138,25 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
     private func apply() {
         guard started else { return }
         let target = desiredMode()
-        guard target != mode else { return }
+        // Im Modus „voll“ trotzdem neu einstellen: Auto/Navigation brauchen mehr als die Karte im Vordergrund
+        guard target != mode || target == .full else { return }
         mode = target
 
         switch target {
         case .full:
             manager.showsBackgroundLocationIndicator = true       // Navigation/CarPlay im Hintergrund: Anzeige ist gewollt
             manager.stopMonitoringSignificantLocationChanges()
-            manager.desiredAccuracy = kCLLocationAccuracyBest
-            manager.distanceFilter = 10
+            if navigating || carPlay {
+                // Im Auto wie ein Navi: höchste Genauigkeit (GPS + Sensoren), jede Änderung melden
+                manager.activityType = .automotiveNavigation
+                manager.desiredAccuracy = kCLLocationAccuracyBestForNavigation
+                manager.distanceFilter = kCLDistanceFilterNone
+                requestPreciseIfReduced()
+            } else {
+                manager.activityType = .otherNavigation
+                manager.desiredAccuracy = kCLLocationAccuracyBest
+                manager.distanceFilter = 10
+            }
             manager.startUpdatingLocation()
         case .moving:
             manager.showsBackgroundLocationIndicator = false
@@ -164,6 +174,13 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
             manager.stopUpdatingLocation()
             manager.stopMonitoringSignificantLocationChanges()
         }
+    }
+
+    /// Hat der Nutzer nur „ungefähren Standort“ erlaubt, für die Fahrt um präzisen Standort bitten
+    private func requestPreciseIfReduced() {
+        guard manager.accuracyAuthorization == .reducedAccuracy else { return }
+        Diag.log("Standort: nur ungefähr erlaubt – frage nach präzisem Standort")
+        manager.requestTemporaryFullAccuracyAuthorization(withPurposeKey: "LocationAccuracyAuthorizationDescription")
     }
 
     /// Prüft später, ob man zur Ruhe gekommen ist, und schaltet dann in den sparsamen Modus zurück.

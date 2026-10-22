@@ -268,29 +268,50 @@ struct PlaceRow: View {
     let selected: Bool
     /// Eigenes Symbol (z. B. Haus für Zuhause); ohne Angabe der Standard-Pin
     var icon: String? = nil
+    /// Infoknopf in der Zeile (Apple-Ortsdetails); ohne Angabe kein Knopf
+    var onInfo: (() -> Void)? = nil
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 12) {
-                Image(systemName: selected ? "checkmark.circle.fill" : (icon ?? "mappin.circle"))
-                    .font(.title3)
-                    .foregroundStyle(selected ? Theme.accent : Theme.muted)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(place.name).font(Theme.title(15)).foregroundStyle(Theme.text)
-                    if let address = place.address {
-                        Text(address).font(.footnote).foregroundStyle(Theme.muted).lineLimit(1)
+        HStack(spacing: 10) {
+            Button(action: action) {
+                HStack(spacing: 12) {
+                    Image(systemName: selected ? "checkmark.circle.fill" : (icon ?? place.symbol ?? "mappin.circle"))
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(selected ? Theme.ink : Theme.accent)
+                        .frame(width: 34, height: 34)
+                        .background(Circle().fill(selected ? Theme.accent : Theme.panelRaised))
+                    // Linksbündig, auch wenn der Name umbricht
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(place.name).font(Theme.title(15)).foregroundStyle(Theme.text)
+                            .multilineTextAlignment(.leading)
+                            .lineLimit(2)
+                        if let address = place.address {
+                            Text(address).font(.footnote).foregroundStyle(Theme.muted)
+                                .multilineTextAlignment(.leading)
+                                .lineLimit(1)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    if let distance {
+                        Text(Format.distance(distance)).font(.footnote).foregroundStyle(Theme.muted)
                     }
                 }
-                Spacer()
-                if let distance {
-                    Text(Format.distance(distance)).font(.footnote).foregroundStyle(Theme.muted)
-                }
+                .contentShape(Rectangle())
             }
-            .padding(12)
-            .background(RoundedRectangle(cornerRadius: 16).fill(selected ? Theme.panelRaised : Theme.panel))
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(selected ? Theme.accent : Theme.stroke))
+            .buttonStyle(.plain)
+            if let onInfo {
+                Button(action: onInfo) {
+                    Image(systemName: "info.circle").font(.system(size: 20)).foregroundStyle(Theme.muted)
+                        .frame(width: 32, height: 40)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Details zu \(place.name)")
+            }
         }
+        .padding(.vertical, 10).padding(.leading, 10).padding(.trailing, onInfo == nil ? 12 : 4)
+        .background(RoundedRectangle(cornerRadius: 16).fill(selected ? Theme.panelRaised : Theme.panel))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(selected ? Theme.accent : Theme.stroke))
     }
 }
 

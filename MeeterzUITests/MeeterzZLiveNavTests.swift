@@ -104,10 +104,12 @@ final class MeeterzZLiveNavTests: MeeterzTestBase {
         // Dasselbe auf der klassischen (Mapbox-)Karte: umschalten, bis der Knopf den Wechsel bestätigt
         for _ in 0..<4 {
             showChrome()
-            let toClassic = app.buttons["Zur klassischen Karte wechseln"]
-            if toClassic.waitForExistence(timeout: 5) { toClassic.tap() }
+            let menu = app.buttons["Kartenansicht"]
+            if menu.waitForExistence(timeout: 5) { menu.tap() }
+            let toClassic = app.buttons["Klassische Karte"]
+            if toClassic.waitForExistence(timeout: 3) { toClassic.tap() }
             pause(3)
-            if app.buttons["Zur Satellitenansicht wechseln"].exists { break }
+            if (app.buttons["Kartenansicht"].value as? String)?.hasPrefix("Klassisch") == true { break }
         }
         pause(8)
         shot("karte-klassisch-naher-freund")

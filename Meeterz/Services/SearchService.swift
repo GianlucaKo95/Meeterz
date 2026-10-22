@@ -48,6 +48,9 @@ enum SearchService {
                 let name: String?
                 let full_address: String?
                 let place_formatted: String?
+                let feature_type: String?
+                let maki: String?
+                let poi_category: [String]?
             }
             let geometry: Geometry
             let properties: Properties
@@ -151,6 +154,33 @@ enum SearchService {
         return try await search(kind.fallbackQuery, near: near)
     }
 
+    /// Passendes Symbol zur Ortsart (Mapbox „maki“-Symbole bzw. Kategorien)
+    static func symbol(type: String?, maki: String?, categories: [String]) -> String {
+        let key = ([maki ?? ""] + categories).joined(separator: " ").lowercased()
+        func has(_ words: String...) -> Bool { words.contains { key.contains($0) } }
+        switch type {
+        case "address", "street", "block": return "house.fill"
+        case "place", "locality", "neighborhood", "district", "region", "postcode", "country": return "building.2.fill"
+        default: break
+        }
+        if has("rail", "train", "bahnhof") { return "tram.fill" }
+        if has("bus") { return "bus.fill" }
+        if has("airport", "airfield") { return "airplane" }
+        if has("charging") { return "bolt.car.fill" }
+        if has("fuel", "gas_station", "tankstelle") { return "fuelpump.fill" }
+        if has("parking") { return "parkingsign.circle.fill" }
+        if has("cafe", "coffee") { return "cup.and.saucer.fill" }
+        if has("restaurant", "food", "fast-food", "bar", "beer") { return "fork.knife" }
+        if has("grocery", "supermarket", "shop", "store") { return "cart.fill" }
+        if has("lodging", "hotel") { return "bed.double.fill" }
+        if has("hospital", "doctor", "pharmacy") { return "cross.case.fill" }
+        if has("park", "garden") { return "tree.fill" }
+        if has("school", "college", "university") { return "graduationcap.fill" }
+        if has("museum", "monument", "attraction") { return "building.columns.fill" }
+        if has("fitness", "stadium", "pitch") { return "figure.run" }
+        return "mappin.circle.fill"
+    }
+
     private static func proximity(_ c: CLLocationCoordinate2D) -> URLQueryItem {
         URLQueryItem(name: "proximity", value: "\(c.longitude),\(c.latitude)")
     }
@@ -173,7 +203,9 @@ enum SearchService {
                 id: f.properties.mapbox_id ?? UUID().uuidString,
                 name: name,
                 address: f.properties.full_address ?? f.properties.place_formatted,
-                coordinate: .init(latitude: f.geometry.coordinates[1], longitude: f.geometry.coordinates[0])
+                coordinate: .init(latitude: f.geometry.coordinates[1], longitude: f.geometry.coordinates[0]),
+                symbol: symbol(type: f.properties.feature_type, maki: f.properties.maki,
+                               categories: f.properties.poi_category ?? [])
             )
         }
     }

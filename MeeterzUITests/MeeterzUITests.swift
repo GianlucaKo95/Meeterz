@@ -160,14 +160,17 @@ final class MeeterzUITests: MeeterzTestBase {
         dismissSystemDialogs()
         pause(4)                       // Karte und Kacheln laden
         shot("karte")
-        let toClassic = app.buttons["Zur klassischen Karte wechseln"]
-        if toClassic.exists {
+        // Kartenansicht (Stil und 3D) steckt in einem Menü
+        need(app.buttons["Kartenansicht"], "kartenansicht").tap()
+        let toClassic = app.buttons["Klassische Karte"]
+        if toClassic.waitForExistence(timeout: 3) {
             toClassic.tap()
             pause(5)
             shot("karte-klassisch")
         }
-        let to2D = app.buttons["Zur 2D-Ansicht wechseln"]
-        if to2D.exists {
+        app.buttons["Kartenansicht"].tap()
+        let to2D = app.buttons["2D"]
+        if to2D.waitForExistence(timeout: 3) {
             to2D.tap()
             pause(4)
             shot("karte-2d")

@@ -46,23 +46,17 @@ struct SearchView: View {
                     if loading { ProgressView().padding() }
                     if let errorText { Text(errorText).font(.footnote).foregroundStyle(Theme.muted) }
                     ForEach(results) { place in
-                        HStack(spacing: 6) {
-                            PlaceRow(place: place, distance: distance(to: place), selected: false) { choose(place) }
-                            Button {
-                                Task {
-                                    Diag.log("Details angefragt: \(place.name)")
-                                    if let item = await ApplePlaces.mapItem(for: place) {
-                                        detail = PlaceDetailItem(mapItem: item)
-                                    } else {
-                                        Diag.log("Keine Apple-Details gefunden: \(place.name)")
-                                        app.show("Zu „\(place.name)“ hat Apple keine Details.")
-                                    }
+                        PlaceRow(place: place, distance: distance(to: place), selected: false, onInfo: {
+                            Task {
+                                Diag.log("Details angefragt: \(place.name)")
+                                if let item = await ApplePlaces.mapItem(for: place) {
+                                    detail = PlaceDetailItem(mapItem: item)
+                                } else {
+                                    Diag.log("Keine Apple-Details gefunden: \(place.name)")
+                                    app.show("Zu „\(place.name)“ hat Apple keine Details.")
                                 }
-                            } label: {
-                                Image(systemName: "info.circle").font(.system(size: 22)).foregroundStyle(Theme.muted).frame(width: 38, height: 44)
                             }
-                            .accessibilityLabel("Details zu \(place.name)")
-                        }
+                        }) { choose(place) }
                             .contextMenu {
                                 Button("Als Favorit speichern", systemImage: "star") { askName(for: place) }
                             }

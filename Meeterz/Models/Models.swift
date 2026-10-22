@@ -181,6 +181,8 @@ struct Place: Identifiable, Hashable {
     let name: String
     let address: String?
     let coordinate: CLLocationCoordinate2D
+    /// SF-Symbol für die Ortsart (Bahnhof, Café …), aus der Suche
+    var symbol: String? = nil
 
     static func == (a: Place, b: Place) -> Bool { a.id == b.id }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }

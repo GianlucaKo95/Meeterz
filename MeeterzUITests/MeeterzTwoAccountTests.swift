@@ -230,7 +230,8 @@ final class MeeterzTwoAccountTests: MeeterzTestBase {
         waitFor(true, "B sieht A vor Inkognito") { locationOfA(seenBy: b) }
 
         showChrome()
-        need(app.buttons["Inkognito-Modus aktivieren"], "inkognito-knopf").tap()
+        need(app.buttons["status-pill"], "status-pille").tap()          // Inkognito steckt in der Status-Pille
+        need(app.buttons["Inkognito …"], "inkognito-knopf").tap()
         need(app.buttons["1 Stunde"], "inkognito-dauer").tap()
         pause(3)
         shot("a-inkognito")
@@ -239,7 +240,8 @@ final class MeeterzTwoAccountTests: MeeterzTestBase {
         waitFor(false, "B sieht A im Inkognito nicht") { locationOfA(seenBy: b) }
 
         showChrome()
-        need(app.buttons["Inkognito-Modus beenden"], "inkognito-beenden").tap()
+        need(app.buttons["status-pill"], "status-pille-2").tap()
+        need(app.buttons["Inkognito beenden"], "inkognito-beenden").tap()
         pause(3)
         waitFor(true, "B sieht A nach Inkognito wieder") { locationOfA(seenBy: b) }
 

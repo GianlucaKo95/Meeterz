@@ -49,7 +49,7 @@ struct MainView: View {
                 topBar
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 8) {
-                        SharingPill()
+                        SharingPill { showIncognito = true }
                         BackgroundHint()
                     }
                     Spacer()
@@ -327,31 +327,32 @@ struct MainView: View {
         .padding(.top, 8)
     }
 
+    /// Zwei Knöpfe statt vier: Kartenansicht (Stil + 3D) und Standort. Inkognito steckt in der Status-Pille.
     private var mapControls: some View {
         VStack(spacing: 8) {
-            CircleIconButton(
-                systemName: satellite ? "map.fill" : "globe.europe.africa.fill",
-                label: satellite ? "Zur klassischen Karte wechseln" : "Zur Satellitenansicht wechseln"
-            ) { satellite.toggle() }
-
-            let incognito = app.profile?.isIncognito ?? false
-            CircleIconButton(
-                systemName: incognito ? "eye.slash.fill" : "eye.slash",
-                label: incognito ? "Inkognito-Modus beenden" : "Inkognito-Modus aktivieren",
-                tint: incognito ? Theme.accent : Theme.text
-            ) {
-                if incognito { Task { await app.stopIncognito() } } else { showIncognito = true }
-            }
-
-            Button { threeD.toggle() } label: {
-                Text(threeD ? "2D" : "3D")
-                    .font(.system(size: 15, weight: .heavy, design: .rounded))
+            Menu {
+                Section("Karte") {
+                    Button { satellite = true } label: {
+                        Label("Satellit", systemImage: satellite ? "checkmark" : "globe.europe.africa")
+                    }
+                    Button { satellite = false } label: {
+                        Label("Klassische Karte", systemImage: satellite ? "map" : "checkmark")
+                    }
+                }
+                Section("Ansicht") {
+                    Button { threeD = true } label: { Label("3D", systemImage: threeD ? "checkmark" : "cube") }
+                    Button { threeD = false } label: { Label("2D", systemImage: threeD ? "square" : "checkmark") }
+                }
+            } label: {
+                Image(systemName: "square.3.layers.3d")
+                    .font(.system(size: 19, weight: .semibold))
                     .foregroundStyle(Theme.text)
                     .frame(width: 48, height: 48)
                     .background(Circle().fill(Theme.panel))
                     .overlay(Circle().stroke(Theme.stroke, lineWidth: 1))
             }
-            .accessibilityLabel(threeD ? "Zur 2D-Ansicht wechseln" : "Zur 3D-Ansicht wechseln")
+            .accessibilityLabel("Kartenansicht")
+            .accessibilityValue("\(satellite ? "Satellit" : "Klassisch"), \(threeD ? "3D" : "2D")")
 
             CircleIconButton(systemName: "location.north.line.fill", label: "Auf meinen Standort zentrieren", tint: Theme.accent) {
                 app.mapFocus = nil
@@ -420,6 +421,8 @@ struct BackgroundHint: View {
 
 struct SharingPill: View {
     @Environment(AppModel.self) private var app
+    /// Öffnet die Auswahl der Inkognito-Dauer
+    var startIncognito: () -> Void = {}
 
     var body: some View {
         // Minütlich neu auswerten, damit das Ende von Inkognito/Teilen von selbst sichtbar wird
@@ -436,6 +439,8 @@ struct SharingPill: View {
         Menu {
             if incognito {
                 Button("Inkognito beenden", systemImage: "eye") { Task { await app.stopIncognito() } }
+            } else {
+                Button("Inkognito …", systemImage: "eye.slash") { startIncognito() }
             }
             Section("Standort teilen für") {
                 ForEach(SharingMode.allCases) { mode in
@@ -469,7 +474,8 @@ struct SharingPill: View {
             .padding(.horizontal, 12).padding(.vertical, 8)
             .background(Capsule().fill(Theme.panel.opacity(0.92)))
         }
-        .accessibilityHint("Öffnet die Optionen zum Teilen")
+        .accessibilityIdentifier("status-pill")
+        .accessibilityHint("Öffnet die Optionen zum Teilen und Inkognito")
     }
 
     private func label(_ profile: Profile?) -> String {

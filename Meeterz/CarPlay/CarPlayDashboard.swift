@@ -178,38 +178,55 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
         mapView?.mapType = Self.mapType
     }
 
-    /// Bis zu zwei Schnellwahl-Knöpfe wie bei Apple Karten: Zuhause, Arbeit bzw. die ersten Favoriten.
+    /// Zuletzt gesetzte Knöpfe (nur bei Änderung neu setzen, sonst flackert die Kachel)
+    private var shortcutKey = ""
+
+    /// Schnellwahl im Dashboard: die zwei nächsten Freunde mit Profilbild – ein Tippen navigiert zu ihnen.
+    /// Ist niemand sichtbar: Zuhause und Arbeit. (Apple erlaubt Apps hier höchstens zwei Knöpfe.)
     ///
-    /// Ohne Knöpfe zeigte CarPlay im Dashboard vor einer Route nur Platzhalter (Kachel oben rechts und
-    /// teils die Karte). Apple sieht die Knöpfe genau für die Zeit ohne Navigation vor.
+    /// Ohne Knöpfe zeigte CarPlay im Dashboard vor einer Route nur Platzhalter.
     func updateShortcuts() {
         guard let controller = dashboardController else { return }
-        let f = AppModel.shared.favorites
-        let favorites = Array(([f.home, f.work].compactMap { $0 } + f.others).prefix(2))
-        let config = UIImage.SymbolConfiguration(pointSize: 26, weight: .semibold)
-        var buttons: [CPDashboardButton] = favorites.map { fav in
-            let place = fav.place
-            return CPDashboardButton(
-                titleVariants: [fav.label],
-                subtitleVariants: [fav.address ?? ""],
-                image: UIImage(systemName: fav.symbol, withConfiguration: config) ?? UIImage()
-            ) { _ in
+        let app = AppModel.shared
+        let me = app.location.lastLocation?.coordinate
+        let friends = app.friendsOnMap
+            .sorted { a, b in
+                guard let me else { return false }
+                return a.position.coordinate.distance(to: me) < b.position.coordinate.distance(to: me)
+            }
+            .prefix(2)
+
+        struct Shortcut { let key: String; let title: String; let subtitle: String; let image: UIImage; let place: Place }
+        var shortcuts: [Shortcut] = friends.map { item in
+            let f = item.friend
+            let first = f.displayName.split(separator: " ").first.map(String.init) ?? f.displayName
+            let distance = me.map { Format.distance(item.position.coordinate.distance(to: $0)) } ?? ""
+            let image = AvatarRenderer.image(initials: f.initials, color: FriendPalette.uiColor(for: f.friendId),
+                                             faded: item.position.age > 5 * 60, photo: app.avatars.image(for: f.friendId))
+            // Schlüssel grob (250-m-Schritte), damit die Knöpfe nicht bei jeder Bewegung neu gesetzt werden
+            let bucket = me.map { Int(item.position.coordinate.distance(to: $0) / 250) } ?? -1
+            return Shortcut(key: "\(f.friendId)-\(bucket)", title: first, subtitle: distance, image: image,
+                            place: Place(id: "friend-\(f.friendId)", name: f.displayName, address: nil,
+                                         coordinate: item.position.coordinate))
+        }
+        if shortcuts.isEmpty {
+            let config = UIImage.SymbolConfiguration(pointSize: 26, weight: .semibold)
+            let favs = [app.favorites.home, app.favorites.work].compactMap { $0 } + app.favorites.others
+            shortcuts = favs.prefix(2).map { fav in
+                Shortcut(key: fav.id.uuidString, title: fav.label, subtitle: fav.address ?? "",
+                         image: UIImage(systemName: fav.symbol, withConfiguration: config) ?? UIImage(), place: fav.place)
+            }
+        }
+
+        let key = shortcuts.map(\.key).joined(separator: "|")
+        guard key != shortcutKey else { return }
+        shortcutKey = key
+        controller.shortcutButtons = shortcuts.map { s in
+            let place = s.place
+            return CPDashboardButton(titleVariants: [s.title], subtitleVariants: [s.subtitle], image: s.image) { _ in
                 Task { @MainActor in CarPlayController.shared.startGuidance(to: place) }
             }
         }
-        if buttons.isEmpty {
-            // Ohne Favoriten: Freunde in der Nähe (nächster Freund als Ziel)
-            if let friend = AppModel.shared.friendsOnMap.first {
-                let place = Place(id: "friend-\(friend.friend.friendId)", name: friend.friend.displayName,
-                                  address: nil, coordinate: friend.position.coordinate)
-                buttons = [CPDashboardButton(titleVariants: [friend.friend.displayName], subtitleVariants: ["Zum Freund"],
-                                             image: UIImage(systemName: "person.crop.circle.fill", withConfiguration: config) ?? UIImage()) { _ in
-                    Task { @MainActor in CarPlayController.shared.startGuidance(to: place) }
-                }]
-            }
-        }
-        controller.shortcutButtons = buttons
-        Diag.log("Dashboard: \(buttons.count) Schnellwahl-Knöpfe")
     }
 
     func zoom(by delta: Double) {
@@ -219,6 +236,7 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
 
     func disconnect() {
         dashboardController = nil
+        shortcutKey = ""
         subscriptions.removeAll()
         timer?.invalidate()
         timer = nil
@@ -255,6 +273,7 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
     }
 
     private func refreshFriends() {
+        updateShortcuts()
         guard let map = mapView else { return }
         let items = AppModel.shared.friendsOnMap
         let wanted = Set(items.map(\.friend.friendId))

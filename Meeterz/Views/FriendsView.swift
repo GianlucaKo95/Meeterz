@@ -15,6 +15,7 @@ struct FriendsView: View {
     @State private var showLibrary = false
     @State private var inviteFriend: FriendRow?
     @State private var invite: InviteTarget?
+    @State private var showSettings = false
 
     private struct InviteTarget: Identifiable {
         let id = UUID()
@@ -39,10 +40,6 @@ struct FriendsView: View {
                 if !friends.incoming.isEmpty { incomingSection }
                 friendsSection
                 if !friends.outgoing.isEmpty { outgoingSection }
-                sharingSection
-                soundSection
-                appSection
-                accountSection
 
                 if let msg = friends.errorMessage ?? app.auth.errorMessage {
                     Text(msg).foregroundStyle(Theme.danger).font(.footnote)
@@ -51,8 +48,15 @@ struct FriendsView: View {
             }
             .scrollContentBackground(.hidden)
             .background(Theme.ink)
-            .navigationTitle("Profil")
-            .toolbar { Button("Fertig") { dismiss() } }
+            .navigationTitle(greeting)
+            .toolbar {
+                // Schließen per Wischen nach unten; hier oben die Einstellungen
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { showSettings = true } label: { Image(systemName: "gearshape.fill") }
+                        .accessibilityLabel("Einstellungen")
+                }
+            }
+            .navigationDestination(isPresented: $showSettings) { settingsList }
             .refreshable { await app.refreshSocial() }
             .sheet(item: $inviteFriend) { friend in
                 SearchView { place in
@@ -66,20 +70,41 @@ struct FriendsView: View {
             .sheet(item: $invite) { target in
                 InviteFriendsView(place: target.place, preselected: target.friendId)
             }
-            .confirmationDialog(
-                "Konto wirklich löschen?",
-                isPresented: $confirmDelete,
-                titleVisibility: .visible
-            ) {
-                Button("Konto und alle Daten löschen", role: .destructive) {
-                    Task {
-                        dismiss()
-                        await app.deleteAccount()
-                    }
+        }
+        .presentationDragIndicator(.visible)
+    }
+
+    /// „Hallo Luca“ statt „Profil“
+    private var greeting: String {
+        let first = (app.profile?.displayName ?? "").split(separator: " ").first.map(String.init) ?? ""
+        return first.isEmpty ? "Hallo" : "Hallo \(first)"
+    }
+
+    /// Einstellungen hinter dem Zahnrad: Teilen, Sound-Pack, App, Konto
+    private var settingsList: some View {
+        List {
+            sharingSection
+            soundSection
+            appSection
+            accountSection
+        }
+        .scrollContentBackground(.hidden)
+        .background(Theme.ink)
+        .navigationTitle("Einstellungen")
+        .navigationBarTitleDisplayMode(.inline)
+        .confirmationDialog(
+            "Konto wirklich löschen?",
+            isPresented: $confirmDelete,
+            titleVisibility: .visible
+        ) {
+            Button("Konto und alle Daten löschen", role: .destructive) {
+                Task {
+                    dismiss()
+                    await app.deleteAccount()
                 }
-            } message: {
-                Text("Profil, Freundschaften, Standorte, Routen und Treffen werden endgültig gelöscht.")
             }
+        } message: {
+            Text("Profil, Freundschaften, Standorte, Routen und Treffen werden endgültig gelöscht.")
         }
     }
 

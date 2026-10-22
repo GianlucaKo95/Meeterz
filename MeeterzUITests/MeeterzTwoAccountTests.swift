@@ -139,7 +139,7 @@ final class MeeterzTwoAccountTests: MeeterzTestBase {
         showChrome()
         need(app.buttons["Freunde"], "freunde-knopf").tap()
         need(app.buttons.matching(NSPredicate(format: "label IN {'Freunde & Profil', 'Freunde hinzufügen'}")).firstMatch, "freunde-verwalten").tap()   // „Unterwegs“-Fenster → Verwaltung
-        need(app.navigationBars["Profil"], "freunde-ansicht")
+        need(app.navigationBars.matching(NSPredicate(format: "identifier BEGINSWITH 'Hallo'")).firstMatch, "freunde-ansicht")
         let addField = need(app.textFields["@benutzername"], "freund-feld")
         type(handleB, into: addField)
         addField.typeText("\n")
@@ -180,8 +180,8 @@ final class MeeterzTwoAccountTests: MeeterzTestBase {
         let (cd, _) = c.request("GET", "/storage/v1/object/authenticated/sounds/\(b.id)/pass.m4a")
         XCTAssertGreaterThanOrEqual(cd, 400, "C darf das Schnipsel von B nicht laden (Status \(cd))")
 
-        // Zurück zur Karte: Marker mit Foto von B
-        app.buttons["Fertig"].tap()
+        // Zurück zur Karte: Fenster nach unten wegwischen (kein „Fertig“ mehr)
+        app.navigationBars.firstMatch.swipeDown(velocity: .fast)
         dismissSystemDialogs()
         // Der Freund zählt erst als angenommen und sichtbar, wenn die Karte ihn geladen hat
         showChrome()
@@ -261,14 +261,16 @@ final class MeeterzTwoAccountTests: MeeterzTestBase {
         }
 
         // Aufräumen: A über die App, B und C über das Backend
-        for _ in 0..<3 where !app.navigationBars["Profil"].exists {
+        for _ in 0..<3 where !app.navigationBars.matching(NSPredicate(format: "identifier BEGINSWITH 'Hallo'")).firstMatch.exists {
             showChrome()
             need(app.buttons["Freunde"], "freunde-knopf-2").tap()
             let manage = app.buttons.matching(NSPredicate(format: "label IN {'Freunde & Profil', 'Freunde hinzufügen'}")).firstMatch
             if manage.waitForExistence(timeout: 6) { manage.tap() }
-            _ = app.navigationBars["Profil"].waitForExistence(timeout: 6)
+            _ = app.navigationBars.matching(NSPredicate(format: "identifier BEGINSWITH 'Hallo'")).firstMatch.waitForExistence(timeout: 6)
         }
-        need(app.navigationBars["Profil"], "freunde-ansicht-2")
+        need(app.navigationBars.matching(NSPredicate(format: "identifier BEGINSWITH 'Hallo'")).firstMatch, "freunde-ansicht-2")
+        need(app.buttons["Einstellungen"], "zahnrad").tap()
+        need(app.navigationBars["Einstellungen"], "einstellungen-ansicht")
         pause(2)
         let list = app.tables.firstMatch.exists ? app.tables.firstMatch : app.collectionViews.firstMatch
         for _ in 0..<6 where !app.buttons["Konto löschen"].exists { list.swipeUp() }

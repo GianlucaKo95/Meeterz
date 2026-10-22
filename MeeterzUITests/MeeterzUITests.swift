@@ -192,7 +192,7 @@ final class MeeterzUITests: MeeterzTestBase {
         showChrome()
         need(app.buttons["Freunde"], "freunde-knopf").tap()
         need(app.buttons.matching(NSPredicate(format: "label IN {'Freunde & Profil', 'Freunde hinzufügen'}")).firstMatch, "freunde-verwalten").tap()   // „Unterwegs“-Fenster → Verwaltung
-        need(app.navigationBars["Profil"], "freunde-ansicht")
+        need(app.navigationBars.matching(NSPredicate(format: "identifier BEGINSWITH 'Hallo'")).firstMatch, "freunde-ansicht")
         shot("freunde-oben")
 
         let photoMenu = app.buttons["Foto hinzufügen"]
@@ -212,6 +212,10 @@ final class MeeterzUITests: MeeterzTestBase {
             pause(2)
         }
 
+        // Einstellungen hinter dem Zahnrad
+        need(app.buttons["Einstellungen"], "zahnrad").tap()
+        need(app.navigationBars["Einstellungen"], "einstellungen-ansicht")
+        shot("einstellungen-oben")
         let list = app.tables.firstMatch.exists ? app.tables.firstMatch : app.collectionViews.firstMatch
         list.swipeUp()
         shot("einstellungen-mitte")

@@ -8,7 +8,7 @@ Quellen (so amtlich und detailliert wie möglich, sonst OpenStreetMap):
 Ergebnis: Meeterz/Resources/chargers-eu.json  {"meta": {...}, "sites": [[lat, lng, kW, Ladepunkte, Name, Betreiber, Ort, Land], ...]}
 kW = 0 heißt: Leistung unbekannt (die App rechnet dann vorsichtig mit 50 kW).
 """
-import csv, io, json, re, sys, time, urllib.parse, urllib.request
+import csv, gzip, io, json, re, sys, time, urllib.parse, urllib.request
 from collections import defaultdict
 
 OUT = sys.argv[1] if len(sys.argv) > 1 else "Meeterz/Resources/chargers-eu.json"
@@ -20,7 +20,8 @@ def get(url, data=None, timeout=600):
     for attempt in range(4):
         try:
             with urllib.request.urlopen(req, timeout=timeout) as r:
-                return r.read()
+                body = r.read()
+                return gzip.decompress(body) if body[:2] == b"\x1f\x8b" else body
         except Exception as e:
             print(f"  Versuch {attempt + 1} fehlgeschlagen: {e}", file=sys.stderr)
             time.sleep(30 * (attempt + 1))
@@ -29,7 +30,7 @@ def get(url, data=None, timeout=600):
 def num(v):
     if v is None:
         return None
-    m = re.search(r"(\d+(?:[.,]\d+)?)", str(v))
+    m = re.search(r"(-?\d+(?:[.,]\d+)?)", str(v))   # Vorzeichen! (Westfrankreich hat negative Längen)
     return float(m.group(1).replace(",", ".")) if m else None
 
 def kw(v):
@@ -47,9 +48,18 @@ def kw(v):
         return x / 1000
     return x
 
+# Grobe Landesgrenzen (inkl. Korsika/Sizilien/Sardinien) – fängt vertauschte oder fehlerhafte Koordinaten ab
+BOUNDS = {"FR": (41.2, 51.2, -5.3, 9.7), "CH": (45.7, 47.9, 5.9, 10.6), "NL": (50.7, 53.7, 3.2, 7.3),
+          "BE": (49.4, 51.6, 2.5, 6.5), "LU": (49.4, 50.2, 5.7, 6.6), "AT": (46.3, 49.1, 9.5, 17.2),
+          "CZ": (48.5, 51.1, 12.0, 18.9), "PL": (49.0, 54.9, 14.1, 24.2), "DK": (54.5, 57.8, 8.0, 15.2),
+          "IT": (35.4, 47.1, 6.6, 18.6)}
+
 sites = {}
 def add(country, lat, lng, power, points, name, op, city):
-    if lat is None or lng is None or not (-90 <= lat <= 90 and -180 <= lng <= 180):
+    if lat is None or lng is None:
+        return
+    b = BOUNDS.get(country)
+    if b and not (b[0] <= lat <= b[1] and b[2] <= lng <= b[3]):
         return
     if power and power < 50:
         return

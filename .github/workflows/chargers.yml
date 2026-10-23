@@ -1,0 +1,36 @@
+# Lädt das Ladesäulenregister der Bundesnetzagentur und erzeugt Meeterz/Resources/chargers-de.json
+# (Schnelllader für die Ladeplanung). Manuell oder monatlich.
+name: Ladesäulen aktualisieren
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 3 * *"
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Register herunterladen
+        run: |
+          set -e
+          page=$(curl -fsSL "https://www.bundesnetzagentur.de/DE/Fachthemen/ElektrizitaetundGas/E-Mobilitaet/Ladesaeulenkarte/start.html")
+          url=$(echo "$page" | grep -oE 'https://data\.bundesnetzagentur\.de[^"]*Ladesaeulenregister[^"]*\.csv' | head -1)
+          [ -z "$url" ] && url=$(echo "$page" | grep -oE '/[^"]*Ladesaeulenregister[^"]*\.csv' | head -1 | sed 's#^#https://www.bundesnetzagentur.de#')
+          echo "CSV: $url"
+          curl -fsSL "$url" -o register.csv
+          ls -la register.csv
+      - name: Schnelllader extrahieren
+        run: python3 tools/build_chargers.py register.csv Meeterz/Resources/chargers-de.json
+      - name: Übernehmen
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add Meeterz/Resources/chargers-de.json
+          git diff --cached --quiet && echo "Keine Änderung" && exit 0
+          git commit -m "Ladesäulen (Bundesnetzagentur) aktualisiert"
+          git push

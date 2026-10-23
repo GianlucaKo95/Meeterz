@@ -1,4 +1,5 @@
-# Lädt das Ladesäulenregister der Bundesnetzagentur und erzeugt Meeterz/Resources/chargers-de.json
+# Lädt das Ladesäulenregister der Bundesnetzagentur (chargers-de.json) und Schnelllader der Nachbarländer
+# und Italiens (chargers-eu.json)
 # (Schnelllader für die Ladeplanung). Manuell oder monatlich.
 name: Ladesäulen aktualisieren
 
@@ -26,11 +27,14 @@ jobs:
           ls -la register.csv
       - name: Schnelllader extrahieren
         run: python3 tools/build_chargers.py register.csv Meeterz/Resources/chargers-de.json
+      - name: Nachbarländer und Italien (FR, CH amtlich; sonst OpenStreetMap)
+        run: python3 tools/build_chargers_eu.py Meeterz/Resources/chargers-eu.json
+        timeout-minutes: 60
       - name: Übernehmen
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
-          git add Meeterz/Resources/chargers-de.json
+          git add Meeterz/Resources/chargers-de.json Meeterz/Resources/chargers-eu.json
           git diff --cached --quiet && echo "Keine Änderung" && exit 0
           git commit -m "Ladesäulen (Bundesnetzagentur) aktualisiert"
           git push

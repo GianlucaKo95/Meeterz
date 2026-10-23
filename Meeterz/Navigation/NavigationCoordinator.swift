@@ -60,9 +60,9 @@ final class NavigationCoordinator: NSObject {
     private(set) var remaining: (distance: CLLocationDistance, duration: TimeInterval)?
     var preview: Preview?
     /// Gewählte Fortbewegungsart (wird gemerkt). Auf CarPlay gilt immer Auto.
-    var travelMode: TravelMode = TravelMode.saved {
-        didSet { TravelMode.saved = travelMode }
-    }
+    /// Startet immer mit Auto; in der Vorschau umstellbar. Wird nicht gespeichert – sonst blieb z. B. „Fahrrad“
+    /// hängen, und die nächste lange Strecke scheiterte mit einem Fehler.
+    var travelMode: TravelMode = .car
     /// Art der laufenden Navigation (für das Teilen der Route)
     @ObservationIgnored private var activeMode: TravelMode = .car
 
@@ -109,7 +109,10 @@ final class NavigationCoordinator: NSObject {
         do {
             return try await core.routingProvider().calculateRoutes(options: options).value
         } catch {
-            if !silent { AppModel.shared.show(Self.friendly(error)) }
+            if !silent {
+                AppModel.shared.show(mode == .car ? Self.friendly(error)
+                    : "Keine Route \(mode.activity) gefunden – für lange Strecken auf „Auto“ umstellen.")
+            }
             return nil
         }
     }
@@ -125,7 +128,8 @@ final class NavigationCoordinator: NSObject {
     }
 
     func planRoute(to place: Place, mode requested: TravelMode? = nil) async {
-        let mode = requested ?? effectiveMode
+        let mode = requested ?? .car
+        travelMode = mode
         guard let routes = await calculate(to: place, mode: mode) else { return }
         preview = Preview(destination: place, routes: routes, mode: mode)
     }

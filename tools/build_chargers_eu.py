@@ -56,7 +56,7 @@ BOUNDS = {"FR": (41.2, 51.2, -5.3, 9.7), "CH": (45.7, 47.9, 5.9, 10.6), "NL": (5
           "IT": (35.4, 47.1, 6.6, 18.6)}
 
 sites = {}
-def add(country, lat, lng, power, points, name, op, city):
+def add(country, lat, lng, power, points, name, op, city, evse=None):
     if lat is None or lng is None:
         return
     b = BOUNDS.get(country)
@@ -69,9 +69,15 @@ def add(country, lat, lng, power, points, name, op, city):
     if s:
         s[2] = max(s[2], power or 0)
         s[3] += points or 1
+        if evse:
+            if len(s) < 9: s.append([])
+            s[8].append(evse)
         return
     sites[key] = [round(lat, 5), round(lng, 5), round(power or 0), points or 1,
                   (name or op or "")[:60].strip(), (op or "")[:60].strip(), (city or "")[:40].strip(), country]
+    # Ladepunkt-IDs (Schweiz) für die Live-Belegung
+    if evse:
+        sites[key].append([evse])
 
 # --- Frankreich: IRVE konsolidiert -------------------------------------------------------------
 def france():
@@ -136,7 +142,8 @@ def switzerland():
                 else:
                     name = str(names) if names else rec.get("ChargingStationId")
                 addr = rec.get("Address") or {}
-                add("CH", lat, lng, power, 1, name, op_name, addr.get("City") if isinstance(addr, dict) else "")
+                add("CH", lat, lng, power, 1, name, op_name, addr.get("City") if isinstance(addr, dict) else "",
+                    evse=rec.get("EvseID") or rec.get("EvseId"))
                 n += 1
             except Exception as e:
                 errors += 1

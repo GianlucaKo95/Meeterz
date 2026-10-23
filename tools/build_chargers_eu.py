@@ -18,7 +18,7 @@ stats = {}
 
 def get(url, data=None, timeout=600):
     req = urllib.request.Request(url, data=data, headers=UA)
-    for attempt in range(4):
+    for attempt in range(3):
         try:
             with urllib.request.urlopen(req, timeout=timeout) as r:
                 body = r.read()
@@ -152,7 +152,18 @@ def osm(country):
 area["ISO3166-1"="{country}"][admin_level=2]->.a;
 nwr["amenity"="charging_station"]["socket:type2_combo"](area.a);
 out center tags;"""
-    data = json.loads(get("https://overpass-api.de/api/interpreter", data=urllib.parse.urlencode({"data": q}).encode()))
+    body = urllib.parse.urlencode({"data": q}).encode()
+    data = None
+    # Großes Land (Italien) läuft beim Hauptserver gern in die Zeitgrenze – dann ein anderer Overpass-Server
+    for endpoint in ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter",
+                     "https://overpass.private.coffee/api/interpreter"]:
+        try:
+            data = json.loads(get(endpoint, data=body))
+            break
+        except Exception as e:
+            print(f"  {endpoint}: {e}", file=sys.stderr)
+    if data is None:
+        raise RuntimeError("kein Overpass-Server erreichbar")
     n = 0
     for e in data.get("elements", []):
         t = e.get("tags", {})

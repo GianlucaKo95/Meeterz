@@ -520,6 +520,14 @@ struct UnterwegsSheet: View {
     @Environment(\.dismiss) private var dismiss
     let manageFriends: () -> Void
     @State private var detent: PresentationDetent = .medium
+    /// Höhe des Inhalts – das Fenster wird so hoch, dass alles zu sehen ist (höchstens 85 % des Bildschirms)
+    @State private var contentHeight: CGFloat = 0
+
+    private var fitted: PresentationDetent {
+        guard contentHeight > 0 else { return .medium }
+        let limit = (UIApplication.shared.connectedScenes.compactMap { ($0 as? UIWindowScene)?.screen.bounds.height }.first ?? 800) * 0.85
+        return .height(min(contentHeight + 64, limit))   // + Titelleiste
+    }
     @State private var showGroupMeetup = false
     @State private var showMeetups = false
 
@@ -579,6 +587,15 @@ struct UnterwegsSheet: View {
                     .buttonStyle(PrimaryButtonStyle())
                 }
                 .padding(16)
+                .background(GeometryReader { geo in
+                    Color.clear.preference(key: SheetContentHeight.self, value: geo.size.height)
+                })
+            }
+            .onPreferenceChange(SheetContentHeight.self) { h in
+                guard abs(h - contentHeight) > 1 else { return }
+                let wasFitted = detent != .large
+                contentHeight = h
+                if wasFitted { detent = fitted }
             }
             .background(Theme.ink)
             .navigationTitle("Unterwegs")
@@ -589,8 +606,8 @@ struct UnterwegsSheet: View {
                 ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } }
             }
         }
-        .presentationDetents([.medium, .large], selection: $detent)
-        .presentationBackgroundInteraction(.enabled(upThrough: .medium))
+        .presentationDetents([fitted, .large], selection: $detent)
+        .presentationBackgroundInteraction(.enabled(upThrough: fitted))
         .presentationBackground(Theme.ink)
     }
 }
@@ -701,4 +718,11 @@ struct PinCard: View {
         .background(RoundedRectangle(cornerRadius: 20).fill(Theme.panel))
         .overlay(RoundedRectangle(cornerRadius: 20).stroke(Theme.stroke, lineWidth: 1))
     }
+}
+
+
+/// Höhe des Inhalts im Unterwegs-Fenster
+private struct SheetContentHeight: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }

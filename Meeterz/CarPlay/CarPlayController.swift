@@ -801,6 +801,13 @@ extension CarPlayController: CarPlayManagerDelegate {
         for activity: CarPlayActivity
     ) -> [CPMapButton]? {
         MainActor.assumeIsolated {
+            // Mapbox baut für Kartenansicht, Navigation und nach dem Ende je eine neue Vorlage – hier kommt jede
+            // vorbei, bevor sie angezeigt wird. Vorher wurde das Ausblenden nur in Rückrufen gesetzt, die vor dem
+            // Anlegen der Vorlage kamen: „Knöpfe mit der Leiste ausblenden“ blieb aus, die Knöpfe standen immer.
+            if let map = template as? CPMapTemplate {
+                map.automaticallyHidesNavigationBar = true
+                map.hidesButtonsWithNavigationBar = true
+            }
             switch activity {
             case .browsing:
                 return mapButtons()

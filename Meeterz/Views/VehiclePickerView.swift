@@ -31,6 +31,7 @@ struct VehiclePickerView: View {
                 } footer: {
                     Text("Dein Auto fehlt? Batterie, Verbrauch und Ladeleistung selbst eintragen.")
                 }
+                .listRowBackground(Theme.panel)
             }
             ForEach(groups, id: \.brand) { group in
                 Section(group.brand) {
@@ -54,12 +55,14 @@ struct VehiclePickerView: View {
                         }
                     }
                 }
+                .listRowBackground(Theme.panel)
             }
             Section {
                 EmptyView()
             } footer: {
                 Text("\(EVCatalog.attribution). Werte sind Durchschnittswerte; Meeterz lernt mit der Zeit aus deinen Fahrten.")
             }
+            .listRowBackground(Theme.panel)
         }
         .searchable(text: $query, prompt: "Marke oder Modell")
         .scrollContentBackground(.hidden)
@@ -101,6 +104,7 @@ private struct CustomVehicleForm: View {
             } footer: {
                 Text("Reichweite bei 100 %: ca. \(Int(battery / consumption * 100)) km")
             }
+            .listRowBackground(Theme.panel)
             Section {
                 Button("Übernehmen") {
                     let vehicle = EVVehicle.custom(battery: battery, consumption: consumption, dcMax: dcMax)
@@ -110,6 +114,7 @@ private struct CustomVehicleForm: View {
                 }
                 .accessibilityIdentifier("vehicle-custom-save")
             }
+            .listRowBackground(Theme.panel)
         }
         .scrollContentBackground(.hidden)
         .background(Theme.ink)

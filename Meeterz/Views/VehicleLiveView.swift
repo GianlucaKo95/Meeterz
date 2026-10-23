@@ -20,6 +20,7 @@ struct VehicleLiveView: View {
                     if let t = status.extTemp { LabeledContent("Außentemperatur", value: "\(Int(t.rounded())) °C") }
                     LabeledContent("Stand", value: Self.relative(status.measuredAt))
                 }
+                .listRowBackground(Theme.panel)
             }
 
             if let token = store.token {
@@ -31,12 +32,14 @@ struct VehicleLiveView: View {
                 } footer: {
                     Text("Home Assistant → Add-ons → „MG to ABRP Bridge“ → Konfiguration: „meeterz_url“ und „meeterz_device_id“ einfügen und das Add-on neu starten. Beim Fahren kommt etwa alle 30 Sekunden ein neuer Wert, geparkt seltener.")
                 }
+                .listRowBackground(Theme.panel)
                 Section {
                     Button("Neue Geräte-ID erzeugen") { Task { busy = true; await store.connect(); busy = false } }
                     Button("Live-Daten trennen", role: .destructive) { confirmDisconnect = true }
                 } footer: {
                     Text("Eine neue Geräte-ID macht die alte ungültig.")
                 }
+                .listRowBackground(Theme.panel)
             } else {
                 Section {
                     Button {
@@ -48,6 +51,7 @@ struct VehicleLiveView: View {
                 } footer: {
                     Text("Meeterz übernimmt Akkustand, Reichweite und Ladezustand live aus deinem Auto – über das Home-Assistant-Add-on „MG to ABRP Bridge“ (iSMART). Damit entfällt die Akku-Eingabe in CarPlay, und die Ladeplanung rechnet mit echten Werten.")
                 }
+                .listRowBackground(Theme.panel)
             }
         }
         .scrollContentBackground(.hidden)

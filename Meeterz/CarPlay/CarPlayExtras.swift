@@ -406,7 +406,7 @@ extension CarPlayController {
             let first = plan.stops[0]
             let alert = CPNavigationAlert(
                 titleVariants: [plan.summary, "\(plan.stops.count) Ladestopp\(plan.stops.count == 1 ? "" : "s") nötig"],
-                subtitleVariants: ["Erster: \(first.site.title), \(Int(first.site.maxKW)) kW, \(Int((first.chargeTime / 60).rounded())) Min."],
+                subtitleVariants: ["Erster: \(first.site.title), \(first.site.powerKnown ? "\(Int(first.site.maxKW)) kW, " : "")\(Int((first.chargeTime / 60).rounded())) Min."],
                 image: UIImage(systemName: "bolt.car.fill"),
                 primaryAction: take, secondaryAction: later, duration: 20)
             template.present(navigationAlert: alert, animated: true)

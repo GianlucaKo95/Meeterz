@@ -10,6 +10,12 @@ struct ChargeSite: Hashable {
     let name: String
     let operatorName: String
     let city: String
+    /// Ländercode (DE, FR, CH, …)
+    var country: String = "DE"
+
+    /// Leistung aus der Quelle bekannt? Sonst rechnet die Planung vorsichtig mit 50 kW
+    var powerKnown: Bool { maxKW > 0 }
+    var plannedKW: Double { powerKnown ? maxKW : 50 }
 
     var title: String { name == operatorName || name.isEmpty ? "\(Self.short(operatorName)) \(city)" : name }
 
@@ -30,9 +36,12 @@ struct ChargeSite: Hashable {
 
 /// Gebündelte Schnelllader (tools/build_chargers.py, CC BY 4.0 Bundesnetzagentur.de)
 enum ChargeSites {
-    static let attribution = "Ladesäulen: Bundesnetzagentur.de (CC BY 4.0)"
+    static let attribution = "Ladesäulen: Bundesnetzagentur.de (CC BY 4.0), data.gouv.fr IRVE, Bundesamt für Energie, © OpenStreetMap-Mitwirkende (ODbL)"
 
-    static let germany: [ChargeSite] = {
+    /// Deutschland (BNetzA) und Nachbarländer/Italien (IRVE, BFE, OpenStreetMap)
+    static let all: [ChargeSite] = load("chargers-de") + load("chargers-eu")
+
+    private static func load(_ resource: String) -> [ChargeSite] {
         struct File: Decodable { let sites: [[Value]] }
         enum Value: Decodable {
             case n(Double), s(String)
@@ -43,15 +52,16 @@ enum ChargeSites {
             var double: Double { if case .n(let v) = self { return v }; return 0 }
             var string: String { if case .s(let v) = self { return v }; return "" }
         }
-        guard let url = Bundle.main.url(forResource: "chargers-de", withExtension: "json"),
+        guard let url = Bundle.main.url(forResource: resource, withExtension: "json"),
               let data = try? Data(contentsOf: url),
               let file = try? JSONDecoder().decode(File.self, from: data) else { return [] }
         return file.sites.compactMap { r in
             guard r.count >= 7 else { return nil }
             return ChargeSite(coordinate: .init(latitude: r[0].double, longitude: r[1].double), maxKW: r[2].double,
-                              points: Int(r[3].double), name: r[4].string, operatorName: r[5].string, city: r[6].string)
+                              points: Int(r[3].double), name: r[4].string, operatorName: r[5].string, city: r[6].string,
+                              country: r.count > 7 ? r[7].string : "DE")
         }
-    }()
+    }
 }
 
 /// Ladeplanung wie bei ABRP: Ankunft mit Ziel-Akkustand, Stopps so gewählt, dass Fahr- plus Ladezeit minimal ist.
@@ -79,7 +89,7 @@ enum ChargePlanner {
         var id: ChargeSite { site }
         var place: Place {
             Place(id: "charge-\(site.coordinate.latitude),\(site.coordinate.longitude)", name: site.title,
-                  address: "\(site.operatorName) · \(Int(site.maxKW)) kW", coordinate: site.coordinate, symbol: "bolt.car.fill")
+                  address: "\(site.operatorName) · \(site.powerKnown ? "\(Int(site.maxKW)) kW" : "Leistung unbekannt")", coordinate: site.coordinate, symbol: "bolt.car.fill")
         }
     }
 
@@ -199,7 +209,7 @@ enum ChargePlanner {
         // Je 5 km die zwei besten (stärkste Leistung, wenig Umweg) – hält die Suche klein
         let grouped = Dictionary(grouping: result) { Int($0.along / 5_000) }
         return grouped.values.flatMap { group in
-            group.sorted { ($0.site.maxKW - $0.offset / 50) > ($1.site.maxKW - $1.offset / 50) }.prefix(2)
+            group.sorted { ($0.site.plannedKW - $0.offset / 50) > ($1.site.plannedKW - $1.offset / 50) }.prefix(2)
         }
         .sorted { $0.along < $1.along }
     }
@@ -302,7 +312,7 @@ enum ChargePlanner {
             if s.node == destination { goal = s; break }
             let arrival = s.node == 0 ? startPercent : Double(s.soc)
             let here = along(s.node)
-            let siteKW = s.node == 0 ? 0 : cands[s.node - 1].site.maxKW
+            let siteKW = s.node == 0 ? 0 : cands[s.node - 1].site.plannedKW
 
             for j in (s.node + 1)...destination {
                 let there = along(j)
@@ -378,7 +388,7 @@ extension EVSettings {
         let settings = plannerSettings
         return await Task.detached(priority: .userInitiated) {
             ChargePlanner.plan(route: route, vehicle: vehicle, startPercent: start, settings: settings,
-                               sites: ChargeSites.germany)
+                               sites: ChargeSites.all)
         }.value
     }
 }

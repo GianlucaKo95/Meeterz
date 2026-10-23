@@ -64,7 +64,7 @@ final class ChargePlannerTests: XCTestCase {
     }
 
     func testBundledData() {
-        XCTAssertGreaterThan(ChargeSites.germany.count, 5_000)
+        XCTAssertGreaterThan(ChargeSites.all.count, 5_000)
         XCTAssertGreaterThan(EVCatalog.all.count, 500)
         XCTAssertTrue(EVCatalog.all.contains { $0.brand == "MG" && $0.model.contains("MG5") })
     }

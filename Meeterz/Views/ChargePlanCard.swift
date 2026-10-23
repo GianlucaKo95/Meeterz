@@ -32,7 +32,7 @@ struct ChargePlanCard: View {
                 case .failure(.noVehicle):
                     Text("Wähle in den Einstellungen dein Fahrzeug.").foregroundStyle(Theme.muted)
                 case .failure(.unreachable(let km)):
-                    Text("Mit den Ladesäulen entlang der Route nicht planbar (Reichweite ca. \(Int(km)) km). Außerhalb Deutschlands kennt Meeterz noch keine Leistungsdaten.")
+                    Text("Mit den Ladesäulen entlang der Route nicht planbar (Reichweite ca. \(Int(km)) km). Meeterz kennt Schnelllader in Deutschland, den Nachbarländern und Italien.")
                         .font(.subheadline).foregroundStyle(Theme.muted)
                 case .success(let plan):
                     summary(plan)
@@ -79,7 +79,7 @@ struct ChargePlanCard: View {
                         .frame(width: 52, alignment: .leading)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(stop.site.title).font(.subheadline).foregroundStyle(Theme.text).lineLimit(1)
-                        Text("\(Int(stop.site.maxKW)) kW · \(Int(stop.arrivalPercent)) → \(Int(stop.departurePercent.rounded())) % · \(Int((stop.chargeTime / 60).rounded())) Min.")
+                        Text("\(stop.site.powerKnown ? "\(Int(stop.site.maxKW)) kW" : "kW unbekannt") · \(Int(stop.arrivalPercent)) → \(Int(stop.departurePercent.rounded())) % · \(Int((stop.chargeTime / 60).rounded())) Min.")
                             .font(.caption).foregroundStyle(Theme.muted)
                     }
                 }

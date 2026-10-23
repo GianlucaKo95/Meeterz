@@ -225,6 +225,11 @@ final class CarPlayController: NSObject {
         }
     }
 
+    func refreshFriendsAfterPassengerChange() {
+        refreshFriends()
+        CarPlayDashboard.shared.updateShortcuts()
+    }
+
     private func refreshFriends() {
         browseOverlay?.refresh()
         navigationOverlay?.refresh()
@@ -258,6 +263,7 @@ final class CarPlayController: NSObject {
 
     func disconnect(scene: CPTemplateApplicationScene, interfaceController: CPInterfaceController, window: CPWindow) {
         DriveHealth.shared.stop()
+        Passengers.shared.reset()   // Fahrt vorbei: Mitfahrer wieder sichtbar
         browseOverlay?.stop()
         navigationOverlay?.stop()
         browseOverlay = nil

@@ -139,6 +139,7 @@ extension CarPlayController {
                 self.updateSpeedSigns()
                 // alle 30 s: Freunde mit gleichem Ziel prüfen
                 if Int(Date().timeIntervalSince1970) % 30 == 0 {
+                    Passengers.shared.check { self.askPassenger($0) }
                     self.announceFriendsHeadingToDestination()
                     // Konvoi: anhalten, zurückfallen, andere Strecke
                     ConvoyTracker.shared.check { text, friend in

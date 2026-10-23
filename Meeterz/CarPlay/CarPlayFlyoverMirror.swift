@@ -162,13 +162,18 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
         parent.layoutIfNeeded()
 
         cameraToken?.cancel()
-        cameraToken = nil
+        // Im selben Takt wie die Mapbox-Kamera nachziehen: vorher lief ein eigener Bildtakt daneben. Kam er mal vor,
+        // mal nach dem Mapbox-Bild, sah die Fahrt ruckelig aus (doppelte und übersprungene Kameraschritte).
+        cameraToken = navigationMapView.mapView.mapboxMap.onCameraChanged.observe { [weak self] _ in
+            MainActor.assumeIsolated { self?.syncCamera() }
+        }
         syncTimer?.invalidate()
         syncTimer = nil
         puckToken?.cancel()
         puckToken = navigationMapView.mapView.location.onPuckRender.observe { [weak self] data in
             MainActor.assumeIsolated {
                 self?.puck = (data.location.coordinate, data.location.bearing)
+                self?.updateArrowLayer()
             }
         }
         lastCamera = nil
@@ -259,16 +264,19 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
                     return
                 }
             }
-            guard let s = mapbox?.mapView.mapboxMap?.cameraState else { return }
-            let now = CameraKey(lat: s.center.latitude, lng: s.center.longitude, zoom: s.zoom, bearing: s.bearing,
-                                pitch: s.pitch, top: Double(s.padding.top), bottom: Double(s.padding.bottom))
-            if let last = lastCamera, last == now {
-                updateArrowLayer()
-            } else {
-                lastCamera = now
-                apply(s, force: true)
-            }
+            // Rückfall, falls einmal kein Kamera-Ereignis kommt (z. B. direkt nach dem Einhängen)
+            syncCamera()
         }
+    }
+
+    /// Mapbox-Kamera übernehmen, wenn sie sich geändert hat
+    private func syncCamera() {
+        guard let s = mapbox?.mapView.mapboxMap?.cameraState else { return }
+        let now = CameraKey(lat: s.center.latitude, lng: s.center.longitude, zoom: s.zoom, bearing: s.bearing,
+                            pitch: s.pitch, top: Double(s.padding.top), bottom: Double(s.padding.bottom))
+        guard now != lastCamera else { return }
+        lastCamera = now
+        apply(s, force: true)
     }
 
     private func apply(_ state: CameraState, force: Bool) {
@@ -620,7 +628,8 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
         let show = friendsVisible()
 
         // Routen der Freunde nur neu zeichnen, wenn sie sich geändert haben (sonst verschwinden sie beim Zoomen)
-        let routes = show ? model.routes.friendRoutes.values.filter { $0.coordinates.count > 1 }.sorted { $0.friendId.uuidString < $1.friendId.uuidString } : []
+        let riding = Passengers.shared.riding
+        let routes = show ? model.routes.friendRoutes.values.filter { $0.coordinates.count > 1 && !riding.contains($0.friendId) }.sorted { $0.friendId.uuidString < $1.friendId.uuidString } : []
         let key = routes.map { "\($0.friendId)-\($0.coordinates.count)-\($0.eta.timeIntervalSince1970)" }.joined(separator: "|")
         if key != friendRoutesKey {
             friendRoutesKey = key

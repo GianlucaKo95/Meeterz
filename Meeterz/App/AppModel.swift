@@ -265,7 +265,13 @@ final class AppModel {
         var id: UUID { friend.friendId }
     }
 
+    /// Sichtbare Freunde – ohne Mitfahrer (die gerade bei mir im Auto sitzen)
     var friendsOnMap: [FriendOnMap] {
+        let riding = Passengers.shared.riding
+        return friendsOnMapIncludingPassengers.filter { !riding.contains($0.friend.friendId) }
+    }
+
+    var friendsOnMapIncludingPassengers: [FriendOnMap] {
         friends.accepted.compactMap { f in
             hub.positions[f.friendId].map { FriendOnMap(friend: f, position: $0) }
         }

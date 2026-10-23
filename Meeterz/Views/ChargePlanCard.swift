@@ -22,6 +22,7 @@ struct ChargePlanCard: View {
             }
             if let plan = adopted {
                 summary(plan)
+                ChargeTimeline(plan: plan)
                 stops(plan)
                 Label("Ladestopps sind in der Route", systemImage: "checkmark.circle.fill")
                     .font(.footnote.weight(.semibold)).foregroundStyle(Theme.go)
@@ -36,6 +37,7 @@ struct ChargePlanCard: View {
                         .font(.subheadline).foregroundStyle(Theme.muted)
                 case .success(let plan):
                     summary(plan)
+                    ChargeTimeline(plan: plan)
                     if !plan.direct {
                         stops(plan)
                         Button {
@@ -85,5 +87,61 @@ struct ChargePlanCard: View {
                 }
             }
         }
+    }
+}
+
+
+/// Zeitleiste wie bei ABRP: Start-Akku → (Ankunft → Abfahrt je Ladestopp) → Ankunft am Ziel
+struct ChargeTimeline: View {
+    let plan: ChargePlanner.Plan
+
+    private struct Node: Identifiable {
+        let id: Int
+        let title: String
+        let value: String
+        let low: Bool
+        let charge: Bool
+    }
+
+    private var nodes: [Node] {
+        var n = [Node(id: 0, title: "Start", value: "\(Int(plan.startPercent.rounded())) %", low: false, charge: false)]
+        for (i, stop) in plan.stops.enumerated() {
+            n.append(Node(id: i + 1, title: "\(Int(stop.distanceFromStart / 1000)) km",
+                          value: "\(Int(stop.arrivalPercent)) → \(Int(stop.departurePercent.rounded())) %",
+                          low: stop.arrivalPercent < 12, charge: true))
+        }
+        n.append(Node(id: 99, title: "Ziel", value: "\(Int(plan.arrivalPercent.rounded())) %",
+                      low: plan.arrivalPercent < 15, charge: false))
+        return n
+    }
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(alignment: .top, spacing: 0) {
+                ForEach(Array(nodes.enumerated()), id: \.element.id) { index, node in
+                    VStack(spacing: 4) {
+                        ZStack {
+                            Circle().fill(node.charge ? Theme.accent : Theme.panel)
+                                .overlay(Circle().stroke(Theme.accent, lineWidth: 2))
+                                .frame(width: 22, height: 22)
+                            if node.charge {
+                                Image(systemName: "bolt.fill").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.ink)
+                            }
+                        }
+                        Text(node.value).font(.caption.weight(.bold))
+                            .foregroundStyle(node.low ? Theme.danger : Theme.text)
+                        Text(node.title).font(.caption2).foregroundStyle(Theme.muted)
+                    }
+                    .frame(minWidth: 64)
+                    if index < nodes.count - 1 {
+                        Rectangle().fill(Theme.accent.opacity(0.6)).frame(height: 2).frame(minWidth: 18, maxWidth: .infinity)
+                            .padding(.top, 10)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(plan.summary)
     }
 }

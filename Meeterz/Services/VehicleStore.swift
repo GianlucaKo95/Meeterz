@@ -94,6 +94,7 @@ final class VehicleStore {
         status = new
         loaded = true
         ChargingSession.shared.update(new)
+        if AppModel.shared.navigation.isNavigating { ChargeMonitor.shared.updateForecast() }
     }
 
     /// Neues Gerätetoken anlegen (ein altes wird ungültig)

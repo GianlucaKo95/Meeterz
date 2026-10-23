@@ -14,11 +14,22 @@ final class ChargeMonitor {
     private var lastAlert = Date.distantPast
     private var lastSignature = ""
 
+    /// Akkustand beim Start der Fahrt (für die Prognose ohne Live-Daten)
+    private var startSoc: Double = 0
+    private var profileKey = ""
+    private var profile: ChargePlanner.Profile?
+
     func start() {
         stop()
         guard EVSettings.enabled, EVSettings.vehicle != nil else { return }
+        startSoc = EVSettings.chargePercent
         timer = Timer.scheduledTimer(withTimeInterval: 120, repeats: true) { _ in
             Task { @MainActor in await ChargeMonitor.shared.check() }
+        }
+        // Erste Prognose, sobald die Route steht
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(4))
+            ChargeMonitor.shared.updateForecast()
         }
     }
 
@@ -26,9 +37,43 @@ final class ChargeMonitor {
         timer?.invalidate()
         timer = nil
         lastSignature = ""
+        profile = nil
+        profileKey = ""
+        CarPlayBatteryChip.shared.hide()
+    }
+
+    /// Prognose für das Akku-Kästchen in CarPlay: Akkustand am nächsten Zwischenziel (Ladestopp) bzw. am Ziel
+    func updateForecast() {
+        guard EVSettings.enabled, let vehicle = EVSettings.vehicle,
+              let routes = navigationProvider.mapboxNavigation.tripSession().currentNavigationRoutes,
+              let progress = navigationProvider.mapboxNavigation.navigation().currentRouteProgress?.routeProgress
+        else { CarPlayBatteryChip.shared.hide(); return }
+        let route = routes.mainRoute.route
+        let key = "\(route.distance)-\(route.legs.count)"
+        if key != profileKey {
+            let settings = EVSettings.plannerSettings
+            profile = ChargePlanner.profile(of: route, vehicle: vehicle, temperature: settings.temperature, factors: settings.factors)
+            profileKey = key
+        }
+        guard let profile else { return }
+        let traveled = progress.distanceTraveled
+        let pct = { (kwh: Double) in kwh / vehicle.battery * 100 }
+        let live = (AppModel.shared.vehicle.status?.age ?? .infinity) < 5 * 60 ? AppModel.shared.vehicle.liveSoc : nil
+        let now = live ?? (startSoc - pct(profile.energy(from: 0, to: traveled)))
+        // Ende des aktuellen Abschnitts: Zwischenziel oder Ziel
+        var end = 0.0
+        for (i, leg) in route.legs.enumerated() {
+            end += leg.distance
+            if i >= progress.legIndex { break }
+        }
+        let last = progress.legIndex >= route.legs.count - 1
+        let arrival = now - pct(profile.energy(from: traveled, to: end))
+        let limit = last ? EVSettings.arrivalPercent : EVSettings.minAtChargerPercent
+        CarPlayBatteryChip.shared.show(label: last ? "Ziel" : "Stopp", percent: arrival, low: arrival < limit, live: live != nil)
     }
 
     func check() async {
+        updateForecast()
         guard EVSettings.enabled, let vehicle = EVSettings.vehicle,
               let soc = AppModel.shared.vehicle.liveSoc, let status = AppModel.shared.vehicle.status,
               status.age < 4 * 60,                                              // nur mit frischem Live-Wert
@@ -103,5 +148,42 @@ final class ChargeMonitor {
                                       secondaryAction: CPAlertAction(title: "Nein", style: .cancel) { _ in },
                                       duration: 20)
         template.present(navigationAlert: alert, animated: true)
+    }
+}
+
+
+/// Kleines Akku-Kästchen über der CarPlay-Karte während der Fahrt: „Ziel 21 %“ bzw. „Stopp 18 %“
+@MainActor
+final class CarPlayBatteryChip {
+    static let shared = CarPlayBatteryChip()
+    private var label: UILabel?
+
+    func show(label text: String, percent: Double, low: Bool, live: Bool) {
+        let carPlay = CarPlayController.shared
+        guard carPlay.isConnected, let host = carPlay.manager.carPlayNavigationViewController?.view else { hide(); return }
+        let l = label ?? UILabel()
+        if l.superview !== host {
+            l.removeFromSuperview()
+            l.font = .systemFont(ofSize: 15, weight: .bold)
+            l.textAlignment = .center
+            l.layer.cornerRadius = 14
+            l.layer.masksToBounds = true
+            l.isUserInteractionEnabled = false
+            host.addSubview(l)
+            label = l
+        }
+        let value = Int(percent.rounded())
+        l.text = "\(live ? "🔋" : "≈") \(text) \(max(value, 0)) %"
+        l.textColor = low ? .white : UIColor(red: 0.024, green: 0.165, blue: 0.196, alpha: 1)
+        l.backgroundColor = low ? UIColor(red: 0.85, green: 0.18, blue: 0.21, alpha: 0.95) : Theme.mintUI.withAlphaComponent(0.95)
+        let size = CGSize(width: l.intrinsicContentSize.width + 22, height: 28)
+        let safe = host.bounds.inset(by: host.safeAreaInsets)
+        // unten rechts, links neben der Knopfleiste
+        l.frame = CGRect(x: safe.maxX - size.width - 64, y: safe.maxY - size.height - 10, width: size.width, height: size.height)
+    }
+
+    func hide() {
+        label?.removeFromSuperview()
+        label = nil
     }
 }

@@ -782,8 +782,54 @@ extension CarPlayController: CPSearchTemplateDelegate {
 
 extension CarPlayController: CarPlayManagerDelegate {
     nonisolated func carPlayManager(_ carPlayManager: CarPlayManager, willPreview trip: CPTrip) -> CPTrip {
-        DispatchQueue.main.async { [weak self] in self?.previewTrip = trip }
-        return trip
+        MainActor.assumeIsolated {
+            let shown = Self.withBatteryForecast(trip)
+            previewTrip = shown
+            return shown
+        }
+    }
+
+    /// E-Auto: unter jeder Routen-Option „Ankunft mit 54 %“ bzw. „1 Ladestopp · Ankunft 21 %“
+    private static func withBatteryForecast(_ trip: CPTrip) -> CPTrip {
+        guard EVSettings.enabled, let vehicle = EVSettings.vehicle else { return trip }
+        let settings = EVSettings.plannerSettings
+        let start = EVSettings.chargePercent
+        var changed = false
+        let choices: [CPRouteChoice] = trip.routeChoices.map { choice in
+            guard let route = mainRoute(in: choice.userInfo) else { return choice }
+            let text: String
+            switch ChargePlanner.plan(route: route, vehicle: vehicle, startPercent: start, settings: settings, sites: ChargeSites.all) {
+            case .success(let plan) where plan.direct: text = "Ankunft mit \(Int(plan.arrivalPercent.rounded())) %"
+            case .success(let plan): text = "\(plan.stops.count == 1 ? "1 Ladestopp" : "\(plan.stops.count) Ladestopps") · Ankunft \(Int(plan.arrivalPercent.rounded())) %"
+            case .failure: text = "Akku reicht nicht – kein Ladeplan"
+            }
+            changed = true
+            let info = (choice.additionalInformationVariants ?? []).map { "\(text) · \($0)" }
+            let copy = CPRouteChoice(summaryVariants: choice.summaryVariants,
+                                     additionalInformationVariants: info.isEmpty ? [text] : info,
+                                     selectionSummaryVariants: choice.selectionSummaryVariants ?? [])
+            copy.userInfo = choice.userInfo
+            return copy
+        }
+        guard changed else { return trip }
+        let copy = CPTrip(origin: trip.origin, destination: trip.destination, routeChoices: choices)
+        copy.userInfo = trip.userInfo
+        return copy
+    }
+
+    /// Mapbox legt die Routen intern in `userInfo` ab (Typ nicht öffentlich) – per Spiegelung auslesen
+    private static func mainRoute(in userInfo: Any?) -> Route? {
+        let values: [Any]
+        if let dict = userInfo as? [String: Any?] { values = dict.values.compactMap { $0 } }
+        else if let dict = userInfo as? [String: Any] { values = Array(dict.values) }
+        else { return nil }
+        for value in values {
+            for child in Mirror(reflecting: value).children where child.label == "navigationRoutes" {
+                if let routes = child.value as? NavigationRoutes { return routes.mainRoute.route }
+                if let optional = child.value as? NavigationRoutes? , let routes = optional { return routes.mainRoute.route }
+            }
+        }
+        return nil
     }
 
     /// Route nicht berechenbar (z. B. kein Netz): Hinweis statt Stille
@@ -952,6 +998,11 @@ extension CarPlayController: CarPlayManagerDelegate {
             let coordinator = AppModel.shared.navigation
             if !coordinator.isNavigating {
                 coordinator.didBeginOnCarPlay(destination: pendingDestination)
+            }
+            // Akku-Kästchen, sobald die Navigationsansicht steht
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(2))
+                ChargeMonitor.shared.updateForecast()
             }
             refreshFriends()
             announceFriendsHeadingToDestination()

@@ -12,6 +12,8 @@ struct ChargeSite: Hashable {
     let city: String
     /// Ländercode (DE, FR, CH, …)
     var country: String = "DE"
+    /// Ladepunkt-IDs für die Live-Belegung (bisher Schweiz)
+    var evseIds: [String] = []
 
     /// Leistung aus der Quelle bekannt? Sonst rechnet die Planung vorsichtig mit 50 kW
     var powerKnown: Bool { maxKW > 0 }
@@ -44,11 +46,14 @@ enum ChargeSites {
     private static func load(_ resource: String) -> [ChargeSite] {
         struct File: Decodable { let sites: [[Value]] }
         enum Value: Decodable {
-            case n(Double), s(String)
+            case n(Double), s(String), list([String])
             init(from d: Decoder) throws {
                 let c = try d.singleValueContainer()
-                if let v = try? c.decode(Double.self) { self = .n(v) } else { self = .s((try? c.decode(String.self)) ?? "") }
+                if let v = try? c.decode(Double.self) { self = .n(v) }
+                else if let v = try? c.decode([String].self) { self = .list(v) }
+                else { self = .s((try? c.decode(String.self)) ?? "") }
             }
+            var list: [String] { if case .list(let v) = self { return v }; return [] }
             var double: Double { if case .n(let v) = self { return v }; return 0 }
             var string: String { if case .s(let v) = self { return v }; return "" }
         }
@@ -59,9 +64,21 @@ enum ChargeSites {
             guard r.count >= 7 else { return nil }
             return ChargeSite(coordinate: .init(latitude: r[0].double, longitude: r[1].double), maxKW: r[2].double,
                               points: Int(r[3].double), name: r[4].string, operatorName: r[5].string, city: r[6].string,
-                              country: r.count > 7 ? r[7].string : "DE")
+                              country: r.count > 7 ? r[7].string : "DE", evseIds: r.count > 8 ? r[8].list : [])
         }
     }
+}
+
+/// Live-Belegung eines Standorts
+struct ChargeAvailability: Hashable {
+    var free = 0
+    var occupied = 0
+    var outOfService = 0
+    var total: Int { free + occupied + outOfService }
+    var full: Bool { total > 0 && free == 0 && occupied > 0 }
+    var allOutOfService: Bool { total > 0 && outOfService == total }
+    /// „2 von 4 frei“
+    var text: String { allOutOfService ? "außer Betrieb" : "\(free) von \(total) frei" }
 }
 
 /// Ladeplanung wie bei ABRP: Ankunft mit Ziel-Akkustand, Stopps so gewählt, dass Fahr- plus Ladezeit minimal ist.
@@ -80,6 +97,8 @@ enum ChargePlanner {
         var temperature: Double?
         /// Aus eigenen Fahrten gelernte Korrektur je Tempobereich (Stadt < 60, Land 60–100, Autobahn > 100 km/h)
         var factors: [Double] = [1, 1, 1]
+        /// Live-Belegung (wo verfügbar): defekte Säulen meiden, voll belegte mit Wartezeit
+        var availability: [ChargeSite: ChargeAvailability] = [:]
 
         func factor(kmh: Double) -> Double {
             factors[ConsumptionLearner.band(kmh: kmh)]
@@ -296,7 +315,7 @@ enum ChargePlanner {
                      sites: [ChargeSite]) -> Result<Plan, Failure> {
         guard let total = p.dist.last, total > 0 else { return .failure(.unreachable(reachKm: 0)) }
         let pct = { (kwh: Double) in kwh / vehicle.battery * 100 }
-        let cands = candidates(along: p, sites: sites)
+        let cands = candidates(along: p, sites: sites).filter { settings.availability[$0.site]?.allOutOfService != true }
 
         // Direkt erreichbar?
         let directArrival = startPercent - pct(p.energy(from: 0, to: total))
@@ -350,6 +369,7 @@ enum ChargePlanner {
                     guard requiredDeparture > arrival else { continue }         // anhalten ohne zu laden lohnt nicht
                     depart = requiredDeparture
                     charge = chargeTime(vehicle, from: arrival, to: depart, siteKW: siteKW) + settings.stopOverhead
+                        + (settings.availability[cands[s.node - 1].site]?.full == true ? 10 * 60 : 0)   // alles belegt: warten
                 }
                 let drive = p.time(from: here, to: there) + detourTime(s.node) / 2 + detourTime(j) / 2
                 let next = State(node: j, soc: Int((depart - need).rounded(.down)))

@@ -304,7 +304,23 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
         MainActor.assumeIsolated {
             guard let location = userLocation.location else { return }
             follow(location, map: mapView, animated: true)
+            if let view = mapView.view(for: userLocation) { Self.style(view, location: location, map: mapView) }
         }
+    }
+
+    /// Eigener Standort: Pfeil in Fahrtrichtung, sobald man fährt; im Stand ein Punkt
+    private static let dotImage: UIImage = UIGraphicsImageRenderer(size: CGSize(width: 26, height: 26)).image { _ in
+        let rect = CGRect(x: 3, y: 3, width: 20, height: 20)
+        UIColor.white.setFill(); UIBezierPath(ovalIn: rect).fill()
+        UIColor(red: 0.20, green: 0.55, blue: 1.0, alpha: 1).setFill(); UIBezierPath(ovalIn: rect.insetBy(dx: 4, dy: 4)).fill()
+    }
+
+    private static func style(_ view: MKAnnotationView, location: CLLocation?, map: MKMapView) {
+        let moving = (location?.speed ?? 0) > 1.5 && (location?.course ?? -1) >= 0
+        view.image = moving ? CarPlayFlyoverMirror.arrowImage : dotImage
+        view.bounds.size = view.image?.size ?? .zero
+        let angle = moving ? CGFloat(((location?.course ?? 0) - map.camera.heading) * .pi / 180) : 0
+        view.transform = CGAffineTransform(rotationAngle: angle)
     }
 
     nonisolated func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
@@ -330,7 +346,16 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
 
     nonisolated func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
         MainActor.assumeIsolated {
-            guard let pin = annotation as? MapPin else { return nil }   // eigener Standort: Standard-Punkt
+            if let me = annotation as? MKUserLocation {
+                let view = mapView.dequeueReusableAnnotationView(withIdentifier: "me") ?? MKAnnotationView(annotation: me, reuseIdentifier: "me")
+                view.annotation = me
+                view.canShowCallout = false
+                view.zPriority = .max
+                view.displayPriority = .required
+                Self.style(view, location: me.location, map: mapView)
+                return view
+            }
+            guard let pin = annotation as? MapPin else { return nil }
             let view = mapView.dequeueReusableAnnotationView(withIdentifier: "pin")
                 ?? MKAnnotationView(annotation: pin, reuseIdentifier: "pin")
             view.annotation = pin

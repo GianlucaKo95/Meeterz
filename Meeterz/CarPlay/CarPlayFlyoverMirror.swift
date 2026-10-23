@@ -689,7 +689,7 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
         arrow.transform = CGAffineTransform(rotationAngle: CGFloat((course - cameraHeading) * .pi / 180))
     }
 
-    private static let arrowImage: UIImage = {
+    static let arrowImage: UIImage = {
         let size = CGSize(width: 52, height: 52)
         return UIGraphicsImageRenderer(size: size).image { ctx in
             let c = ctx.cgContext

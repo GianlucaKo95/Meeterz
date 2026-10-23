@@ -41,7 +41,10 @@ Deno.serve(async (req) => {
   set("range_km", num(params.get("est_battery_range")));
   set("charging", bool(params.get("is_charging")));
   set("power_kw", num(params.get("power")));
-  set("ext_temp", num(params.get("ext_temp")));
+  // Geparkt meldet das Auto oft 0 °C (Sensor aus) – dann den letzten echten Wert behalten
+  const parked = bool(params.get("is_parked"));
+  const temp = num(params.get("ext_temp"));
+  if (!(parked && temp === 0)) set("ext_temp", temp);
   set("odometer_km", odometer === null ? null : odometer / 1000);
   set("speed_kmh", num(params.get("speed")));
   set("parked", bool(params.get("is_parked")));

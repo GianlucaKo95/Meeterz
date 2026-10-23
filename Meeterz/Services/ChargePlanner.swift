@@ -377,7 +377,10 @@ extension EVSettings {
         var s = ChargePlanner.Settings()
         s.arrivalPercent = arrivalPercent
         s.minAtChargerPercent = minAtChargerPercent
-        s.temperature = AppModel.shared.vehicle.status?.extTemp
+        // Außentemperatur nur aus frischen Fahrdaten (geparkt liefert das Auto teils 0 °C)
+        if let status = AppModel.shared.vehicle.status, status.parked != true, status.age < 3 * 3600 {
+            s.temperature = status.extTemp
+        }
         return s
     }
 

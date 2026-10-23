@@ -111,6 +111,7 @@ enum ChargePlanner {
         let arrivalPercent: Double
         let departurePercent: Double
         let chargeTime: TimeInterval
+        var availability: ChargeAvailability? = nil
         var id: ChargeSite { site }
         var place: Place {
             Place(id: "charge-\(site.coordinate.latitude),\(site.coordinate.longitude)", name: site.title,
@@ -390,9 +391,12 @@ enum ChargePlanner {
         while let (prev, depart, charge) = previous[s] {
             if prev.node != 0 {
                 let c = cands[prev.node - 1]
+                let availability = settings.availability[c.site]
+                let wait: TimeInterval = availability?.full == true ? 10 * 60 : 0
                 stops.insert(Stop(site: c.site, distanceFromStart: c.along, arrivalPercent: Double(prev.soc),
-                                  departurePercent: depart, chargeTime: charge - settings.stopOverhead), at: 0)
-                totalCharge += charge - settings.stopOverhead
+                                  departurePercent: depart, chargeTime: charge - settings.stopOverhead - wait,
+                                  availability: availability), at: 0)
+                totalCharge += charge - settings.stopOverhead - wait
             }
             s = prev
         }
@@ -430,7 +434,8 @@ extension EVSettings {
     @MainActor static func plan(for route: Route) async -> Result<ChargePlanner.Plan, ChargePlanner.Failure>? {
         guard enabled, let vehicle else { return nil }
         let start = chargePercent
-        let settings = plannerSettings
+        var settings = plannerSettings
+        settings.availability = await ChargeStatusService.shared.availability(along: route)
         return await Task.detached(priority: .userInitiated) {
             ChargePlanner.plan(route: route, vehicle: vehicle, startPercent: start, settings: settings,
                                sites: ChargeSites.all)

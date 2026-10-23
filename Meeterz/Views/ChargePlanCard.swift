@@ -81,6 +81,11 @@ struct ChargePlanCard: View {
                         .frame(width: 52, alignment: .leading)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(stop.site.title).font(.subheadline).foregroundStyle(Theme.text).lineLimit(1)
+                        if let a = stop.availability {
+                            Label(a.text, systemImage: a.full ? "hourglass" : "circle.fill")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(a.free > 0 ? Theme.go : Theme.danger)
+                        }
                         Text("\(stop.site.powerKnown ? "\(Int(stop.site.maxKW)) kW" : "kW unbekannt") · \(Int(stop.arrivalPercent)) → \(Int(stop.departurePercent.rounded())) % · \(Int((stop.chargeTime / 60).rounded())) Min.")
                             .font(.caption).foregroundStyle(Theme.muted)
                     }

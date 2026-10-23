@@ -82,7 +82,8 @@ final class ChargeMonitor {
         else { return }
         let route = routes.mainRoute.route
         let traveled = progress.distanceTraveled
-        let settings = EVSettings.plannerSettings
+        var settings = EVSettings.plannerSettings
+        settings.availability = await ChargeStatusService.shared.availability(along: route)
         let result = await Task.detached(priority: .utility) {
             let rest = ChargePlanner.profile(of: route, vehicle: vehicle, temperature: settings.temperature,
                                              factors: settings.factors).suffix(from: traveled)

@@ -141,3 +141,7 @@ docs/               CarPlay-Antrag, Datenschutzerklärung (Entwurf)
 ```
 
 **Datenschutz-Prinzipien:** Schreiben nur über RPCs; Standort und Routen nur für angenommene Freunde und nur solange geteilt wird; Senden nur in den eigenen Kanal; Hilfsfunktionen im nicht öffentlichen Schema `private`.
+
+## Datenquellen
+
+- Fahrzeugdaten (E-Auto): [Open EV Data](https://github.com/KilowattApp/open-ev-data), MIT-Lizenz mit Namensnennung. Aktualisieren: `python3 tools/build_ev_vehicles.py <ev-data.json>`

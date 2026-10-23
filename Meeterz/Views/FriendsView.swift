@@ -20,6 +20,7 @@ struct FriendsView: View {
     @State private var evEnabled = EVSettings.enabled
     @State private var appearance = AppAppearance.current
     @State private var evRange = EVSettings.rangeKm
+    @State private var evVehicle = EVSettings.vehicle
 
     private struct InviteTarget: Identifiable {
         let id = UUID()
@@ -407,9 +408,19 @@ struct FriendsView: View {
             Toggle("E-Auto", isOn: Binding(get: { evEnabled }, set: { evEnabled = $0; EVSettings.enabled = $0 }))
                 .tint(Theme.accent)
             if evEnabled {
-                Stepper(value: Binding(get: { evRange }, set: { evRange = $0; EVSettings.rangeKm = $0 }),
-                        in: 100...800, step: 10) {
-                    LabeledContent("Reichweite bei 100 %", value: "\(Int(evRange)) km")
+                NavigationLink {
+                    VehiclePickerView(selection: $evVehicle)
+                } label: {
+                    LabeledContent("Fahrzeug", value: evVehicle?.fullName ?? "Auswählen")
+                }
+                .accessibilityIdentifier("ev-vehicle")
+                if let vehicle = evVehicle {
+                    LabeledContent("Reichweite bei 100 %", value: "ca. \(Int(vehicle.rangeKm)) km")
+                } else {
+                    Stepper(value: Binding(get: { evRange }, set: { evRange = $0; EVSettings.rangeKm = $0 }),
+                            in: 100...800, step: 10) {
+                        LabeledContent("Reichweite bei 100 %", value: "\(Int(evRange)) km")
+                    }
                 }
                 Text("Den Akkustand stellst du beim Losfahren in CarPlay unter „Mehr“ ein. Reicht er nicht bis zum Ziel, schlägt Meeterz Ladesäulen entlang der Route vor (mit 10 % Reserve).")
                     .font(.footnote).foregroundStyle(Theme.muted)

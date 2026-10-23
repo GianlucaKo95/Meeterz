@@ -338,9 +338,20 @@ enum EVSettings {
         get { UserDefaults.standard.bool(forKey: "ev.enabled") }
         set { UserDefaults.standard.set(newValue, forKey: "ev.enabled") }
     }
-    /// Reichweite bei 100 % in km (realistisch, nicht WLTP)
+    /// Gewähltes Fahrzeug (Katalog oder „Andere“ mit eigenen Werten)
+    static var vehicle: EVVehicle? {
+        get {
+            guard let data = UserDefaults.standard.data(forKey: "ev.vehicle") else { return nil }
+            return try? JSONDecoder().decode(EVVehicle.self, from: data)
+        }
+        set {
+            UserDefaults.standard.set(newValue.flatMap { try? JSONEncoder().encode($0) }, forKey: "ev.vehicle")
+        }
+    }
+
+    /// Reichweite bei 100 % in km: aus dem Fahrzeug (Batterie ÷ Verbrauch), sonst der eingestellte Wert
     static var rangeKm: Double {
-        get { UserDefaults.standard.object(forKey: "ev.rangeKm") as? Double ?? 350 }
+        get { vehicle.map(\.rangeKm) ?? (UserDefaults.standard.object(forKey: "ev.rangeKm") as? Double ?? 350) }
         set { UserDefaults.standard.set(newValue, forKey: "ev.rangeKm") }
     }
     /// Akkustand beim Losfahren in Prozent (zuletzt gewählt)

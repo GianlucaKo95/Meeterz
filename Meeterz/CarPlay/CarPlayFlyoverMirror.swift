@@ -67,8 +67,13 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
         (.moderate, CAShapeLayer()), (.heavy, CAShapeLayer()), (.severe, CAShapeLayer()),
     ]
 
-    init(friendsVisible: @escaping () -> Bool) {
+    /// Die Mapbox-Karte, die gerade auf dem Autodisplay ist (Navigation oder Kartenansicht)
+    private let currentMap: () -> NavigationMapView?
+    private var lastReattach = Date.distantPast
+
+    init(friendsVisible: @escaping () -> Bool, currentMap: @escaping () -> NavigationMapView? = { nil }) {
         self.friendsVisible = friendsVisible
+        self.currentMap = currentMap
         super.init()
         mapView.delegate = self
         mapView.mapType = .hybridFlyover
@@ -99,6 +104,8 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
         }
         arrowLayer.contents = Self.arrowImage.cgImage
         arrowLayer.bounds = CGRect(x: 0, y: 0, width: 52, height: 52)
+        // Weit nach vorn: gekippt ragt sonst die hintere Hälfte des Pfeils „unter“ die Routenlinie
+        arrowLayer.zPosition = 1_000
         arrowLayer.contentsScale = UIScreen.main.scale
         arrowLayer.isHidden = true
         routeView.layer.addSublayer(arrowLayer)
@@ -242,6 +249,16 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
         MainActor.assumeIsolated {
             lastTick = Date()
             DriveHealth.shared.frame()
+            // Die Karte, der wir folgen, ist nicht mehr auf dem Display (z. B. Navigation am Ziel beendet, ohne
+            // dass CarPlay das meldet): sie bewegt sich nicht mehr, das Flyover-Bild stand still. Neu einhängen.
+            if mapbox?.window == nil, Date().timeIntervalSince(lastReattach) > 1 {
+                lastReattach = Date()
+                if let map = currentMap(), map.window != nil, map !== mapbox {
+                    Diag.log("Flyover: Karte war nicht mehr auf dem Display – folge jetzt der aktuellen Karte")
+                    attach(to: map)
+                    return
+                }
+            }
             guard let s = mapbox?.mapView.mapboxMap?.cameraState else { return }
             let now = CameraKey(lat: s.center.latitude, lng: s.center.longitude, zoom: s.zoom, bearing: s.bearing,
                                 pitch: s.pitch, top: Double(s.padding.top), bottom: Double(s.padding.bottom))
@@ -277,9 +294,27 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
             heading: state.bearing
         )
         mapView.setCamera(camera, animated: false)
+        alignPuck(camera: camera, size: size)
         cameraHeading = state.bearing
         updateArrow()
         updateTopLayer()
+    }
+
+    /// Den Standortpfeil genau dorthin legen, wo Mapbox ihn zeigt – Maßstab und Rand der beiden Karten
+    /// stimmen nie ganz überein. Nie tiefer als knapp über dem Straßennamen am unteren Rand.
+    private func alignPuck(camera: MKMapCamera, size: CGSize) {
+        guard let mapboxMap = mapbox?.mapView.mapboxMap, let coord = puck?.coordinate else { return }
+        let target = mapboxMap.point(for: coord)
+        guard target.x >= 0, target.y >= 0, target.x <= size.width, target.y <= size.height else { return }
+        let wanted = CGPoint(x: target.x, y: min(target.y, size.height - 120))
+        let now = mapView.convert(coord, toPointTo: mapView)
+        let dx = now.x - wanted.x, dy = now.y - wanted.y
+        guard abs(dx) > 1.5 || abs(dy) > 1.5, now.x.isFinite, now.y.isFinite else { return }
+        let newCenter = mapView.convert(CGPoint(x: size.width / 2 + dx, y: size.height / 2 + dy), toCoordinateFrom: mapView)
+        guard CLLocationCoordinate2DIsValid(newCenter) else { return }
+        let fixed = MKMapCamera(lookingAtCenter: newCenter, fromDistance: camera.centerCoordinateDistance,
+                                pitch: camera.pitch, heading: camera.heading)
+        mapView.setCamera(fixed, animated: false)
     }
 
     /// Route und Pfeil in der eigenen Ebene an die aktuelle Kamera anpassen
@@ -293,7 +328,9 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
     private func updateRoutePath() {
         let cam = mapView.camera
         // Bodenpunkt unter der Kamera; was dahinter liegt, ist nicht sichtbar und würde falsch projiziert
-        let back = cam.centerCoordinateDistance * sin(Double(cam.pitch) * .pi / 180)
+        let pitchRad = Double(cam.pitch) * .pi / 180
+        let back = cam.centerCoordinateDistance * sin(pitchRad)
+        let height = cam.centerCoordinateDistance * cos(pitchRad)
         let ground = Self.offset(cam.centerCoordinate, bearing: cam.heading, meters: -back)
         let h = cam.heading * .pi / 180
         let cosLat = cos(ground.latitude * .pi / 180)
@@ -316,7 +353,10 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
         }
         let points: [CGPoint?] = mainLine.prefix(visible).map { c in
             let l = local(c)
-            guard l.ahead > 20, l.dist < reach else { return nil }
+            // Vor der Kamera = Winkel zur Blickrichtung unter 90° (Blick um `pitch` aus der Senkrechten geneigt).
+            // Vorher galt „vor dem Bodenpunkt unter der Kamera“ – in 2D (senkrecht) fiel so die untere Bildhälfte weg.
+            let inFront = l.ahead * sin(pitchRad) + height * cos(pitchRad)
+            guard inFront > 0.05 * (l.dist * l.dist + height * height).squareRoot(), l.dist < reach else { return nil }
             let p = mapView.convert(c, toPointTo: routeView)
             guard p.x.isFinite, p.y.isFinite, abs(p.x) < 10_000, abs(p.y) < 10_000 else { return nil }
             return p

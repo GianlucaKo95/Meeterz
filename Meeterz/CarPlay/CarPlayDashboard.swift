@@ -315,6 +315,17 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
         return renderer
     }
 
+    /// Eigener Standortpunkt immer obenauf – sonst verdeckte ein Freund in der Nähe (Bild und Name) ihn
+    nonisolated func mapView(_ mapView: MKMapView, didAdd views: [MKAnnotationView]) {
+        MainActor.assumeIsolated {
+            for view in views where view.annotation is MKUserLocation {
+                view.zPriority = .max
+                view.displayPriority = .required
+                view.layer.zPosition = 1_000
+            }
+        }
+    }
+
     nonisolated func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
         MainActor.assumeIsolated {
             guard let pin = annotation as? MapPin else { return nil }   // eigener Standort: Standard-Punkt
@@ -325,6 +336,7 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
             view.image = pin.image()
             view.centerOffset = CGPoint(x: 0, y: -(view.image?.size.height ?? 0) / 2)
             view.displayPriority = .required
+            view.zPriority = .defaultUnselected
             return view
         }
     }

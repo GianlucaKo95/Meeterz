@@ -95,6 +95,11 @@ final class CarPlayController: NSObject {
 
     private var browseMap: NavigationMapView? { manager.carPlayMapViewController?.navigationMapView }
     private var navMap: NavigationMapView? { manager.carPlayNavigationViewController?.navigationMapView }
+    /// Die Mapbox-Karte, die gerade auf dem Autodisplay zu sehen ist
+    var displayedMap: NavigationMapView? {
+        if let nav = navMap, nav.window != nil { return nav }
+        return browseMap
+    }
 
     /// Stellt Neigung und Zoom der Folgekamera ein.
     ///
@@ -510,7 +515,8 @@ final class CarPlayController: NSObject {
         }
         let current = manager.currentActivity == .navigating ? (navMap ?? browseMap) : (browseMap ?? navMap)
         if CarPlayFlyoverMirror.isEnabled {
-            let mirror = flyover ?? CarPlayFlyoverMirror { [weak self] in self?.friendsShown ?? true }
+            let mirror = flyover ?? CarPlayFlyoverMirror(friendsVisible: { [weak self] in self?.friendsShown ?? true },
+                                                       currentMap: { [weak self] in self?.displayedMap })
             flyover = mirror
             if let current { mirror.attach(to: current) }
         } else {
@@ -752,7 +758,8 @@ extension CarPlayController: CarPlayManagerDelegate {
             browseRecenter?.cancel()
             browseRecenter = startAutoRecenter(navigationMapView)
             if CarPlayFlyoverMirror.isEnabled {
-                let mirror = flyover ?? CarPlayFlyoverMirror { [weak self] in self?.friendsShown ?? true }
+                let mirror = flyover ?? CarPlayFlyoverMirror(friendsVisible: { [weak self] in self?.friendsShown ?? true },
+                                                       currentMap: { [weak self] in self?.displayedMap })
                 flyover = mirror
                 mirror.attach(to: navigationMapView)
             }

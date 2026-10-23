@@ -354,13 +354,13 @@ enum EVSettings {
         get { vehicle.map(\.rangeKm) ?? (UserDefaults.standard.object(forKey: "ev.rangeKm") as? Double ?? 350) }
         set { UserDefaults.standard.set(newValue, forKey: "ev.rangeKm") }
     }
-    /// Akkustand beim Losfahren in Prozent (zuletzt gewählt)
-    static var chargePercent: Double {
-        get { UserDefaults.standard.object(forKey: "ev.charge") as? Double ?? 80 }
+    /// Akkustand in Prozent: live aus dem Auto, sonst der zuletzt gewählte Wert
+    @MainActor static var chargePercent: Double {
+        get { AppModel.shared.vehicle.liveSoc ?? UserDefaults.standard.object(forKey: "ev.charge") as? Double ?? 80 }
         set { UserDefaults.standard.set(newValue, forKey: "ev.charge") }
     }
     /// Bis hierhin kommt man mit 10 % Reserve (Meter)
-    static var usableMeters: Double { max(0, rangeKm * 1000 * (chargePercent - 10) / 100) }
+    @MainActor static var usableMeters: Double { max(0, rangeKm * 1000 * (chargePercent - 10) / 100) }
 }
 
 extension CarPlayController {
@@ -409,10 +409,12 @@ extension CarPlayController {
     /// Abschnitt „E-Auto“ für die „Mehr“-Liste
     func chargeSection() -> CPListSection? {
         guard EVSettings.enabled else { return nil }
-        let battery = CPListItem(text: "Akku beim Losfahren: \(Int(EVSettings.chargePercent)) %",
+        let live = AppModel.shared.vehicle.liveSoc != nil
+        let battery = CPListItem(text: live ? "Akku (live): \(Int(EVSettings.chargePercent)) %" : "Akku beim Losfahren: \(Int(EVSettings.chargePercent)) %",
                                  detailText: "Reicht ca. \(Format.distance(EVSettings.usableMeters))",
                                  image: UIImage(systemName: "battery.75percent"))
-        battery.handler = { [weak self] _, done in self?.showChargePicker(); done() }
+        // Mit Live-Daten gibt es nichts einzustellen
+        battery.handler = { [weak self] _, done in if !live { self?.showChargePicker() }; done() }
         let stops = CPListItem(text: "Ladesäulen entlang der Route", detailText: nil, image: UIImage(systemName: "bolt.car.fill"))
         stops.handler = { [weak self] _, done in self?.showChargingStops(); done() }
         return CPListSection(items: [battery, stops], header: "E-Auto", sectionIndexTitle: nil)

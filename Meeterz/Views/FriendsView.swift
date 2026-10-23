@@ -397,6 +397,11 @@ struct FriendsView: View {
         return "\(version) (\(build))"
     }
 
+    private var liveDataSummary: String {
+        if let soc = app.vehicle.liveSoc { return "\(Int(soc.rounded())) %" }
+        return app.vehicle.token == nil ? "Aus" : "Verbunden"
+    }
+
     private var appSection: some View {
         Section("App") {
             Picker("Darstellung", selection: Binding(
@@ -414,6 +419,12 @@ struct FriendsView: View {
                     LabeledContent("Fahrzeug", value: evVehicle?.fullName ?? "Auswählen")
                 }
                 .accessibilityIdentifier("ev-vehicle")
+                NavigationLink {
+                    VehicleLiveView()
+                } label: {
+                    LabeledContent("Live-Daten", value: liveDataSummary)
+                }
+                .accessibilityIdentifier("ev-live")
                 if let vehicle = evVehicle {
                     LabeledContent("Reichweite bei 100 %", value: "ca. \(Int(vehicle.rangeKm)) km")
                 } else {

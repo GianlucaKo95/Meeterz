@@ -16,7 +16,17 @@ import MapboxDirections
 @MainActor
 final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
     /// In den iPhone-Einstellungen („Karte in CarPlay“) abschaltbar
-    static var isEnabled: Bool { UserDefaults.standard.object(forKey: "carplay.flyover") as? Bool ?? true }
+    /// Standard ist jetzt die Mapbox-Satellitenkarte (echte Navigationskarte, flüssig, alles aus einem Guss).
+    /// Flyover bleibt als experimentelle Wahl. Einmalig umgestellt – auch wer Flyover vorher gewählt hatte.
+    static var isEnabled: Bool {
+        let d = UserDefaults.standard
+        if !d.bool(forKey: "carplay.flyover.migrated2") {
+            d.set(true, forKey: "carplay.flyover.migrated2")
+            d.set(false, forKey: "carplay.flyover")
+            d.set(true, forKey: "carplay.satellite")
+        }
+        return d.object(forKey: "carplay.flyover") as? Bool ?? false
+    }
 
     let mapView = MKMapView()
 

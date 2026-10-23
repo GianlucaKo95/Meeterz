@@ -30,7 +30,7 @@ struct FriendsView: View {
         let friendId: UUID
     }
     @AppStorage("carplay.satellite") private var carPlaySatellite = true
-    @AppStorage("carplay.flyover") private var carPlayFlyover = true
+    @AppStorage("carplay.flyover") private var carPlayFlyover = false
     @State private var diagText = Diag.text
     @State private var voiceOn = !MeeterzSpeechSynthesizer.shared.muted
     #if DEBUG
@@ -454,11 +454,11 @@ struct FriendsView: View {
                     CarPlayController.shared.applyMapStyle()   // gilt sofort, auch während der Fahrt
                 }
             )) {
-                Text("Apple Flyover").tag("flyover")
                 Text("Satellit").tag("satellite")
                 Text("Klassisch").tag("classic")
+                Text("Apple Flyover (experimentell)").tag("flyover")
             }
-            Text("Gilt sofort, auch während der Fahrt. Flyover zeigt Apples 3D-Satellitenbild; die Abbiegehinweise bleiben gleich.")
+            Text("Gilt sofort, auch während der Fahrt. Satellit: Luftbild mit 3D-Gebäuden. Flyover (experimentell) zeigt Apples fotorealistisches 3D-Bild, kann aber ruckeln und Route oder Pfeil leicht versetzt zeigen.")
                 .font(.footnote).foregroundStyle(Theme.muted)
             DisclosureGroup("Diagnose") {
                 Text(diagText.isEmpty ? "Noch keine Einträge." : diagText)

@@ -51,6 +51,7 @@ struct MeeterzApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     init() {
+        _ = CarPlayFlyoverMirror.isEnabled   // einmalige Umstellung auf Satellit als Standard, bevor Einstellungen gelesen werden
         #if DEBUG
         // UI-Tests starten immer abgemeldet, auch wenn ein früherer Lauf eine Sitzung hinterlassen hat
         if CommandLine.arguments.contains("-ui.reset") {

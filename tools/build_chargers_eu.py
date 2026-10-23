@@ -5,6 +5,7 @@ Quellen (so amtlich und detailliert wie möglich, sonst OpenStreetMap):
   FR  data.gouv.fr – Fichier consolidé IRVE (Licence Ouverte 2.0)
   CH  Bundesamt für Energie, data.geo.admin.ch (OICP, Open Government Data, Quellenangabe)
   NL, BE, LU, AT, CZ, PL, DK, IT  OpenStreetMap via Overpass (ODbL, © OpenStreetMap-Mitwirkende)
+  alle                            zusätzlich Open Charge Map (CC BY 4.0, API-Schlüssel OCM_API_KEY)
 Ergebnis: Meeterz/Resources/chargers-eu.json  {"meta": {...}, "sites": [[lat, lng, kW, Ladepunkte, Name, Betreiber, Ort, Land], ...]}
 kW = 0 heißt: Leistung unbekannt (die App rechnet dann vorsichtig mit 50 kW).
 """
@@ -171,7 +172,56 @@ out center tags;"""
     stats[country] = n
     time.sleep(20)   # Overpass schonen
 
-for job, fn in [("FR", france), ("CH", switzerland)] + [(c, lambda c=c: osm(c)) for c in OSM_COUNTRIES]:
+# --- Open Charge Map (CC BY 4.0): ergänzt alle Länder, Doppelte (< 120 m) werden übersprungen ----
+import math, os
+
+def near_existing(country, lat, lng, grid):
+    k = (round(lat * 100), round(lng * 100))
+    for dy in (-1, 0, 1):
+        for dx in (-1, 0, 1):
+            for (la, lo) in grid.get((k[0] + dy, k[1] + dx), []):
+                if abs(la - lat) * 111_000 < 120 and abs(lo - lng) * 111_000 * math.cos(math.radians(lat)) < 120:
+                    return True
+    return False
+
+def ocm(country):
+    key = os.environ.get("OCM_API_KEY")
+    if not key:
+        stats["OCM_" + country] = "kein API-Schlüssel"
+        return
+    grid = defaultdict(list)
+    for s_ in sites.values():
+        if s_[7] == country:
+            grid[(round(s_[0] * 100), round(s_[1] * 100))].append((s_[0], s_[1]))
+    params = urllib.parse.urlencode({"key": key, "countrycode": country, "maxresults": 50000, "compact": "false",
+                                     "verbose": "false", "connectiontypeid": "33,32", "minpowerkw": 50,
+                                     "output": "json"})
+    data = json.loads(get("https://api.openchargemap.io/v3/poi/?" + params))
+    added = 0
+    for poi in data:
+        if (poi.get("StatusType") or {}).get("IsOperational") is False:
+            continue
+        a = poi.get("AddressInfo") or {}
+        lat, lng = a.get("Latitude"), a.get("Longitude")
+        if lat is None or lng is None or near_existing(country, lat, lng, grid):
+            continue
+        conns = [c for c in poi.get("Connections") or [] if c.get("ConnectionTypeID") in (32, 33)]
+        power = max([c.get("PowerKW") or 0 for c in conns] or [0])
+        points = sum([c.get("Quantity") or 1 for c in conns]) or 1
+        op = (poi.get("OperatorInfo") or {}).get("Title") or ""
+        if op.lower().startswith("(unknown"):
+            op = ""
+        before = len(sites)
+        add(country, lat, lng, power, points, a.get("Title"), op, a.get("Town"))
+        if len(sites) > before:
+            added += 1
+            grid[(round(lat * 100), round(lng * 100))].append((lat, lng))
+    stats["OCM_" + country] = f"{len(data)} geladen, {added} neu"
+    time.sleep(3)
+
+ALL = ["FR", "CH"] + OSM_COUNTRIES
+for job, fn in [("FR", france), ("CH", switzerland)] + [(c, lambda c=c: osm(c)) for c in OSM_COUNTRIES] \
+        + [("OCM_" + c, lambda c=c: ocm(c)) for c in ALL]:
     try:
         print("==", job, file=sys.stderr)
         fn()
@@ -185,7 +235,7 @@ per = defaultdict(int)
 for s in out:
     per[s[7]] += 1
 meta = {"sources": {"FR": "data.gouv.fr IRVE (Licence Ouverte 2.0)", "CH": "Bundesamt für Energie (opendata.swiss)",
-                    "OSM": "© OpenStreetMap-Mitwirkende (ODbL)"},
+                    "OSM": "© OpenStreetMap-Mitwirkende (ODbL)", "OCM": "Open Charge Map (CC BY 4.0)"},
         "sites": len(out), "per_country": per, "raw": stats}
 json.dump({"meta": meta, "sites": out}, open(OUT, "w"), ensure_ascii=False, separators=(",", ":"))
 print(json.dumps(meta, ensure_ascii=False), file=sys.stderr)

@@ -29,6 +29,8 @@ jobs:
         run: python3 tools/build_chargers.py register.csv Meeterz/Resources/chargers-de.json
       - name: Nachbarländer und Italien (FR, CH amtlich; sonst OpenStreetMap)
         run: python3 tools/build_chargers_eu.py Meeterz/Resources/chargers-eu.json
+        env:
+          OCM_API_KEY: ${{ secrets.OCM_API_KEY }}
         timeout-minutes: 60
       - name: Übernehmen
         run: |

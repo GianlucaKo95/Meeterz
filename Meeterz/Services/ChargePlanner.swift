@@ -36,7 +36,7 @@ struct ChargeSite: Hashable {
 
 /// Gebündelte Schnelllader (tools/build_chargers.py, CC BY 4.0 Bundesnetzagentur.de)
 enum ChargeSites {
-    static let attribution = "Ladesäulen: Bundesnetzagentur.de (CC BY 4.0), data.gouv.fr IRVE, Bundesamt für Energie, © OpenStreetMap-Mitwirkende (ODbL)"
+    static let attribution = "Ladesäulen: Bundesnetzagentur.de (CC BY 4.0), data.gouv.fr IRVE, Bundesamt für Energie, Open Charge Map (CC BY 4.0), © OpenStreetMap-Mitwirkende (ODbL)"
 
     /// Deutschland (BNetzA) und Nachbarländer/Italien (IRVE, BFE, OpenStreetMap)
     static let all: [ChargeSite] = load("chargers-de") + load("chargers-eu")

@@ -46,8 +46,17 @@ def create(workdir, bundle_identifier, profile_name):
     key, csr = f"{workdir}/key.pem", f"{workdir}/req.csr"
     subprocess.run(["openssl", "req", "-new", "-newkey", "rsa:2048", "-nodes", "-keyout", key, "-out", csr,
                     "-subj", "/CN=Meeterz CI/O=Meeterz/C=DE"], check=True, capture_output=True)
-    cert = api("POST", "/v1/certificates", {"data": {"type": "certificates", "attributes": {
-        "certificateType": "DISTRIBUTION", "csrContent": open(csr).read()}}})["data"]
+    body = {"data": {"type": "certificates", "attributes": {
+        "certificateType": "DISTRIBUTION", "csrContent": open(csr).read()}}}
+    try:
+        cert = api("POST", "/v1/certificates", body)["data"]
+    except SystemExit:
+        # Apple erlaubt nur wenige Distributionszertifikate. Liefen kurz hintereinander zwei Builds, ist das
+        # Zertifikat des vorigen noch da (bewusst, siehe purge). Ist es älter als 30 Minuten, ist der Upload
+        # längst verarbeitet – dann darf es weg.
+        print("Zertifikat-Limit erreicht – entferne CI-Zertifikate älter als 30 Minuten und versuche es erneut")
+        purge(max_age_seconds=1800)
+        cert = api("POST", "/v1/certificates", body)["data"]
     open(f"{workdir}/cert.der", "wb").write(base64.b64decode(cert["attributes"]["certificateContent"]))
     print("Zertifikat:", cert["attributes"].get("name"), cert["attributes"].get("expirationDate"))
 

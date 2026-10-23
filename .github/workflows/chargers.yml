@@ -36,5 +36,6 @@ jobs:
           git config user.email "github-actions@users.noreply.github.com"
           git add Meeterz/Resources/chargers-de.json Meeterz/Resources/chargers-eu.json
           git diff --cached --quiet && echo "Keine Änderung" && exit 0
-          git commit -m "Ladesäulen (Bundesnetzagentur) aktualisiert"
+          git commit -m "Ladesäulen aktualisiert (BNetzA, IRVE, BFE, OpenStreetMap)"
+          git pull --rebase origin main
           git push

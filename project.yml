@@ -136,6 +136,22 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: YES
 
+  MeeterzTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: MeeterzTests
+    dependencies:
+      - target: Meeterz
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: de.koeven.meeterz.tests
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
+        GENERATE_INFOPLIST_FILE: YES
+        BUNDLE_LOADER: "$(TEST_HOST)"
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Meeterz.app/Meeterz"
+
 schemes:
   Meeterz:
     build:
@@ -147,3 +163,4 @@ schemes:
       config: Debug
       targets:
         - MeeterzUITests
+        - MeeterzTests

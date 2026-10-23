@@ -21,6 +21,8 @@ struct FriendsView: View {
     @State private var appearance = AppAppearance.current
     @State private var evRange = EVSettings.rangeKm
     @State private var evVehicle = EVSettings.vehicle
+    @State private var evArrival = EVSettings.arrivalPercent
+    @State private var evMinCharger = EVSettings.minAtChargerPercent
 
     private struct InviteTarget: Identifiable {
         let id = UUID()
@@ -427,6 +429,14 @@ struct FriendsView: View {
                 .accessibilityIdentifier("ev-live")
                 if let vehicle = evVehicle {
                     LabeledContent("Reichweite bei 100 %", value: "ca. \(Int(vehicle.rangeKm)) km")
+                    Stepper(value: Binding(get: { evArrival }, set: { evArrival = $0; EVSettings.arrivalPercent = $0 }),
+                            in: 5...60, step: 5) {
+                        LabeledContent("Ankunft mit mindestens", value: "\(Int(evArrival)) %")
+                    }
+                    Stepper(value: Binding(get: { evMinCharger }, set: { evMinCharger = $0; EVSettings.minAtChargerPercent = $0 }),
+                            in: 5...30, step: 5) {
+                        LabeledContent("An der Ladesäule mindestens", value: "\(Int(evMinCharger)) %")
+                    }
                 } else {
                     Stepper(value: Binding(get: { evRange }, set: { evRange = $0; EVSettings.rangeKm = $0 }),
                             in: 100...800, step: 10) {

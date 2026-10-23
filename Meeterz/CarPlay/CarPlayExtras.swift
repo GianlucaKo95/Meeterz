@@ -366,6 +366,11 @@ enum EVSettings {
 extension CarPlayController {
     /// Nach dem Start der Navigation: reicht der Akku bis zum Ziel? Sonst Hinweis mit Ladesäulen.
     func checkCharge() {
+        // Mit gewähltem Fahrzeug: richtiger Ladeplan (wie ABRP) statt grober Reichweitenprüfung
+        if EVSettings.enabled, EVSettings.vehicle != nil {
+            Task { @MainActor in await self.offerChargePlan() }
+            return
+        }
         guard EVSettings.enabled, let remaining = AppModel.shared.navigation.remaining?.distance else { return }
         let usable = EVSettings.usableMeters
         guard remaining > usable else { return }
@@ -381,6 +386,52 @@ extension CarPlayController {
             image: UIImage(systemName: "bolt.car.fill"),
             primaryAction: show, secondaryAction: later, duration: 15)
         template.present(navigationAlert: alert, animated: true)
+    }
+
+    /// Nach dem Start: Ladeplan für die laufende Route; fehlen Ladestopps, mit einem Tipp übernehmen
+    func offerChargePlan() async {
+        guard let routes = navigationProvider.mapboxNavigation.tripSession().currentNavigationRoutes,
+              routes.mainRoute.route.legs.count == 1,                         // führt schon über Zwischenziele
+              let result = await EVSettings.plan(for: routes.mainRoute.route) else { return }
+        guard let template = alertTemplate, template.currentNavigationAlert == nil else { return }
+        switch result {
+        case .success(let plan) where plan.direct:
+            Diag.log("Ladeplan: \(plan.summary)")
+        case .success(let plan):
+            Diag.log("Ladeplan: \(plan.summary) – \(plan.stops.map { "\($0.site.title) \(Int($0.arrivalPercent))→\(Int($0.departurePercent)) %" })")
+            let take = CPAlertAction(title: "Übernehmen", style: .default) { _ in
+                Task { @MainActor in await Self.adoptChargePlan(plan) }
+            }
+            let later = CPAlertAction(title: "Nein", style: .cancel) { _ in }
+            let first = plan.stops[0]
+            let alert = CPNavigationAlert(
+                titleVariants: [plan.summary, "\(plan.stops.count) Ladestopp\(plan.stops.count == 1 ? "" : "s") nötig"],
+                subtitleVariants: ["Erster: \(first.site.title), \(Int(first.site.maxKW)) kW, \(Int((first.chargeTime / 60).rounded())) Min."],
+                image: UIImage(systemName: "bolt.car.fill"),
+                primaryAction: take, secondaryAction: later, duration: 20)
+            template.present(navigationAlert: alert, animated: true)
+        case .failure(.unreachable(let km)):
+            let ok = CPAlertAction(title: "Ladesäulen", style: .default) { [weak self] _ in
+                Task { @MainActor in self?.showChargingStops() }
+            }
+            let alert = CPNavigationAlert(
+                titleVariants: ["Kein Ladeplan möglich – Reichweite ca. \(Int(km)) km"],
+                subtitleVariants: ["Keine passenden Schnelllader mit Leistungsangabe entlang der Route"],
+                image: UIImage(systemName: "bolt.car.fill"),
+                primaryAction: ok, secondaryAction: nil, duration: 15)
+            template.present(navigationAlert: alert, animated: true)
+        case .failure(.noVehicle):
+            break
+        }
+    }
+
+    /// Ladestopps als Zwischenziele in die laufende Navigation einbauen
+    static func adoptChargePlan(_ plan: ChargePlanner.Plan) async {
+        let nav = AppModel.shared.navigation
+        guard let destination = nav.destination,
+              let routes = await nav.calculate(to: destination, via: plan.stops.map(\.place), mode: .car) else { return }
+        navigationProvider.mapboxNavigation.tripSession().startActiveGuidance(with: routes, startLegIndex: 0)
+        Diag.log("Ladeplan übernommen (CarPlay): \(plan.summary)")
     }
 
     /// Ladesäulen entlang der Route, bis zu dem Punkt, an dem der Akku knapp wird

@@ -73,9 +73,12 @@ log ""
 log "== Warnungen (Auswahl) =="
 grep -E "warning:" build.log | sed 's#/Users/runner/work/[^/]*/[^/]*/##' | awk '!seen[$0]++' | head -30 >> "$REPORT"
 
+if [ $RC -eq 0 ]; then
+  ./ci/unittest.sh || RC=22
+fi
 if [ $RC -eq 0 ] && [ "${RUN_TESTS:-1}" = "0" ]; then
   log ""
-  log "== Tests übersprungen (nur Compile-Check) =="
+  log "== UI-Tests übersprungen (nur Compile-Check) =="
 elif [ $RC -eq 0 ]; then
   ./ci/smoke.sh
   SMOKE=$?

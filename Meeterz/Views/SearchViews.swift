@@ -220,6 +220,8 @@ struct RoutePreviewView: View {
     @State private var showInvite = false
     @State private var showFavoriteAlert = false
     @State private var favoriteName = ""
+    /// Übernommener Ladeplan (Route führt dann über die Säulen)
+    @State private var adoptedPlan: ChargePlanner.Plan?
 
     #if DEBUG
     @State private var simulate = NavigationCoordinator.simulate
@@ -327,6 +329,12 @@ struct RoutePreviewView: View {
                 stat("Strecke", Format.distance(shown.distance))
             }
 
+            if current.mode == .car, EVSettings.enabled {
+                ChargePlanCard(route: shown, adopted: adoptedPlan) { plan in
+                    await adoptCharging(plan)
+                }
+            }
+
             Text(current.mode == .car ? "Inklusive aktueller Verkehrslage. Deine Freunde sehen deine Route, solange du teilst." : "Deine Freunde sehen deine Route, solange du teilst.")
                 .font(.footnote).foregroundStyle(Theme.muted)
 
@@ -370,6 +378,19 @@ struct RoutePreviewView: View {
         } message: {
             Text(current.destination.address ?? "")
         }
+    }
+
+    /// Route neu über die Ladesäulen berechnen
+    private func adoptCharging(_ plan: ChargePlanner.Plan) async {
+        guard let routes = await app.navigation.calculate(to: current.destination, via: plan.stops.map(\.place), mode: .car) else {
+            app.show("Route über die Ladesäulen konnte nicht berechnet werden.")
+            return
+        }
+        current = .init(destination: current.destination, routes: routes, mode: .car)
+        selected = 0
+        chosen = nil
+        adoptedPlan = plan
+        Diag.log("Ladeplan übernommen: \(plan.summary)")
     }
 
     private func stat(_ title: String, _ value: String, highlight: Bool = false) -> some View {

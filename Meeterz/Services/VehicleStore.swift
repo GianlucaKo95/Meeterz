@@ -88,6 +88,9 @@ final class VehicleStore {
         if new != status, let soc = new?.soc {
             Diag.log("Fahrzeug: \(Int(soc)) %\(new?.charging == true ? ", lädt" : ""), Messung \(Int(new?.age ?? 0)) s alt")
         }
+        if let old = status, let new, new.measuredAt > old.measuredAt {
+            ConsumptionLearner.record(previous: old, current: new)
+        }
         status = new
         loaded = true
     }

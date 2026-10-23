@@ -63,6 +63,24 @@ final class ChargePlannerTests: XCTestCase {
         XCTAssertEqual(fast / 60, 15.7, accuracy: 1)
     }
 
+    func testReplanFromMidRoute() throws {
+        let full = profile(km: 600)
+        let rest = full.suffix(from: 300_000)
+        XCTAssertEqual(rest.dist.last ?? 0, 300_000, accuracy: 1)
+        XCTAssertEqual(rest.energy(from: 0, to: 100_000), full.energy(from: 300_000, to: 400_000), accuracy: 0.01)
+        let plan = try ChargePlanner.plan(profile: rest, vehicle: vehicle, startPercent: 50, settings: .init(),
+                                          sites: sites(every: 50, upTo: 600)).get()
+        XCTAssertTrue(plan.stops.allSatisfy { $0.distanceFromStart >= 0 && $0.distanceFromStart <= 300_000 })
+        XCTAssertGreaterThanOrEqual(plan.arrivalPercent, 19)
+    }
+
+    func testLearnedFactorRaisesConsumption() {
+        var s = ChargePlanner.Settings()
+        s.factors = [1, 1, 1.2]
+        XCTAssertEqual(s.factor(kmh: 130), 1.2)
+        XCTAssertEqual(s.factor(kmh: 50), 1)
+    }
+
     func testBundledData() {
         XCTAssertGreaterThan(ChargeSites.all.count, 5_000)
         XCTAssertGreaterThan(EVCatalog.all.count, 500)

@@ -52,6 +52,10 @@ struct MeeterzApp: App {
 
     init() {
         _ = CarPlayFlyoverMirror.isEnabled   // einmalige Umstellung auf Satellit als Standard, bevor Einstellungen gelesen werden
+        // Ladesäulen und Fahrzeuge im Hintergrund einlesen (gut 1 s) – nicht erst, wenn die Vorschau darauf wartet
+        if EVSettings.enabled {
+            Task.detached(priority: .background) { _ = ChargeSites.all.count; _ = EVCatalog.all.count }
+        }
         #if DEBUG
         // UI-Tests starten immer abgemeldet, auch wenn ein früherer Lauf eine Sitzung hinterlassen hat
         if CommandLine.arguments.contains("-ui.reset") {

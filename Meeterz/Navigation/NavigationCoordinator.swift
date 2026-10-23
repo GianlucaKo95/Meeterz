@@ -313,6 +313,7 @@ final class NavigationCoordinator: NSObject {
         phoneController?.dismiss(animated: true)
         phoneController = nil
         isNavigating = false
+        ChargeMonitor.shared.stop()
         NavigationLiveActivityController.shared.end()
         AppModel.shared.location.setNavigating(false)
         destination = nil
@@ -326,6 +327,7 @@ final class NavigationCoordinator: NSObject {
 
     private func beginTracking() {
         isNavigating = true
+        ChargeMonitor.shared.start()
         AppModel.shared.location.setNavigating(true)
         subscriptions.removeAll()
 

@@ -23,6 +23,22 @@ struct VehicleLiveView: View {
                 .listRowBackground(Theme.panel)
             }
 
+            if let vehicle = EVSettings.vehicle {
+                let buckets = ConsumptionLearner.buckets(for: vehicle)
+                Section {
+                    ForEach(0..<3, id: \.self) { i in
+                        let b = buckets[i]
+                        LabeledContent(ConsumptionLearner.bandNames[i],
+                                       value: b.per100.map { String(format: "%.1f kWh/100 km · %.0f km", $0, b.km).replacingOccurrences(of: ".", with: ",") } ?? "noch keine Daten")
+                    }
+                } header: {
+                    Text("Dein Verbrauch")
+                } footer: {
+                    Text("Gelernt aus deinen Fahrten mit Live-Daten. Ab \(Int(ConsumptionLearner.minKm)) km je Bereich rechnet die Ladeplanung damit statt mit dem Durchschnittswert (\(String(format: "%.1f", vehicle.consumption).replacingOccurrences(of: ".", with: ",")) kWh/100 km).")
+                }
+                .listRowBackground(Theme.panel)
+            }
+
             if let token = store.token {
                 Section {
                     copyRow("Server-Adresse", VehicleStore.telemetryURL, id: "vehicle-url")

@@ -78,6 +78,12 @@ enum ChargePlanner {
         /// Feste Zeit je Stopp (Abfahrt, Anschließen, Bezahlen)
         var stopOverhead: TimeInterval = 4 * 60
         var temperature: Double?
+        /// Aus eigenen Fahrten gelernte Korrektur je Tempobereich (Stadt < 60, Land 60–100, Autobahn > 100 km/h)
+        var factors: [Double] = [1, 1, 1]
+
+        func factor(kmh: Double) -> Double {
+            factors[ConsumptionLearner.band(kmh: kmh)]
+        }
     }
 
     struct Stop: Identifiable, Hashable {
@@ -125,6 +131,20 @@ enum ChargePlanner {
         var time: [Double] = []
 
         func energy(from a: Double, to b: Double) -> Double { value(energy, at: b) - value(energy, at: a) }
+
+        /// Restliche Strecke ab `d` Metern (für Neuplanung unterwegs)
+        func suffix(from d: Double) -> Profile {
+            guard d > 0, let i = dist.firstIndex(where: { $0 >= d }) else { return self }
+            var p = Profile()
+            let e0 = value(energy, at: d), t0 = value(time, at: d)
+            p.coords = Array(coords[i...]); p.dist = dist[i...].map { $0 - d }
+            p.energy = energy[i...].map { $0 - e0 }; p.time = time[i...].map { $0 - t0 }
+            if let first = p.dist.first, first > 0 {   // Startpunkt bei 0
+                p.coords.insert(coords[max(0, i - 1)], at: 0); p.dist.insert(0, at: 0)
+                p.energy.insert(0, at: 0); p.time.insert(0, at: 0)
+            }
+            return p
+        }
         func time(from a: Double, to b: Double) -> Double { value(time, at: b) - value(time, at: a) }
 
         private func value(_ arr: [Double], at d: Double) -> Double {
@@ -146,7 +166,7 @@ enum ChargePlanner {
         return c
     }
 
-    static func profile(of route: Route, vehicle: EVVehicle, temperature: Double?) -> Profile {
+    static func profile(of route: Route, vehicle: EVVehicle, temperature: Double?, factors: [Double] = [1, 1, 1]) -> Profile {
         var p = Profile()
         var d = 0.0, e = 0.0, t = 0.0
         for leg in route.legs {
@@ -154,6 +174,7 @@ enum ChargePlanner {
                 guard let shape = step.shape?.coordinates, shape.count > 1, step.distance > 0 else { continue }
                 let kmh = step.expectedTravelTime > 0 ? step.distance / step.expectedTravelTime * 3.6 : 50
                 let perMeter = consumption(kmh: kmh, base: vehicle.consumption, temperature: temperature) / 1000
+                    * factors[ConsumptionLearner.band(kmh: kmh)]
                 let secondsPerMeter = step.expectedTravelTime / step.distance
                 // Formlänge auf die Schrittlänge normieren
                 var shapeLen = 0.0
@@ -267,7 +288,7 @@ enum ChargePlanner {
 
     static func plan(route: Route, vehicle: EVVehicle, startPercent: Double, settings: Settings,
                      sites: [ChargeSite]) -> Result<Plan, Failure> {
-        plan(profile: profile(of: route, vehicle: vehicle, temperature: settings.temperature),
+        plan(profile: profile(of: route, vehicle: vehicle, temperature: settings.temperature, factors: settings.factors),
              vehicle: vehicle, startPercent: startPercent, settings: settings, sites: sites)
     }
 
@@ -377,6 +398,7 @@ extension EVSettings {
         var s = ChargePlanner.Settings()
         s.arrivalPercent = arrivalPercent
         s.minAtChargerPercent = minAtChargerPercent
+        if let vehicle { s.factors = ConsumptionLearner.factors(for: vehicle) }
         // Außentemperatur nur aus frischen Fahrdaten (geparkt liefert das Auto teils 0 °C)
         if let status = AppModel.shared.vehicle.status, status.parked != true, status.age < 3 * 3600 {
             s.temperature = status.extTemp

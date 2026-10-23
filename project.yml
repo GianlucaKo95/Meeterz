@@ -73,6 +73,10 @@ targets:
         NSLocationAlwaysAndWhenInUseUsageDescription: "Damit Freunde dich auch sehen, wenn Meeterz im Hintergrund läuft (z. B. während der Fahrt)."
         NSLocationTemporaryUsageDescriptionDictionary:
           LocationAccuracyAuthorizationDescription: "Für die Navigation braucht Meeterz deinen genauen Standort."
+        # meeterz://carplay/route – das Dashboard öffnet damit die große CarPlay-Ansicht
+        CFBundleURLTypes:
+          - CFBundleURLName: de.koeven.meeterz
+            CFBundleURLSchemes: [meeterz]
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: true
           CPSupportsDashboardNavigationScene: true

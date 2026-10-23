@@ -303,6 +303,8 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
     /// Den Standortpfeil genau dorthin legen, wo Mapbox ihn zeigt – Maßstab und Rand der beiden Karten
     /// stimmen nie ganz überein. Nie tiefer als knapp über dem Straßennamen am unteren Rand.
     private func alignPuck(camera: MKMapCamera, size: CGSize) {
+        // Nur in 2D: in 3D passte die Position schon, das Angleichen hob den Pfeil weit ins Bild (wirkte wie Fliegen)
+        guard camera.pitch < 10 else { return }
         guard let mapboxMap = mapbox?.mapView.mapboxMap, let coord = puck?.coordinate else { return }
         let target = mapboxMap.point(for: coord)
         guard target.x >= 0, target.y >= 0, target.x <= size.width, target.y <= size.height else { return }

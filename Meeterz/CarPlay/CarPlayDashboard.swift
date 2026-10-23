@@ -18,6 +18,7 @@ final class CarPlayDashboardSceneDelegate: NSObject, CPTemplateApplicationDashbo
             Diag.log("Dashboard verbunden: Fenster \(Int(window.bounds.width))x\(Int(window.bounds.height)), Szene=\(templateApplicationDashboardScene.activationState.rawValue)")
             CarPlayDashboard.shared.connect(window: window)
             CarPlayDashboard.shared.dashboardController = dashboardController
+            CarPlayDashboard.shared.scene = templateApplicationDashboardScene
             CarPlayDashboard.shared.updateShortcuts()
         }
     }
@@ -117,6 +118,7 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
     private var mapView: MKMapView?
     /// Schnellwahl-Knöpfe im Dashboard (ohne laufende Navigation)
     var dashboardController: CPDashboardController?
+    weak var scene: CPTemplateApplicationDashboardScene?
     private var distance: CLLocationDistance = 900
     private var subscriptions = Set<AnyCancellable>()
     private var timer: Timer?
@@ -224,7 +226,7 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
         controller.shortcutButtons = shortcuts.map { s in
             let place = s.place
             return CPDashboardButton(titleVariants: [s.title], subtitleVariants: [s.subtitle], image: s.image) { _ in
-                Task { @MainActor in CarPlayController.shared.startGuidance(to: place) }
+                Task { @MainActor in CarPlayController.shared.openFromDashboard(place, scene: CarPlayDashboard.shared.scene) }
             }
         }
     }

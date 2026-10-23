@@ -30,6 +30,14 @@ final class CarPlaySceneDelegate: NSObject, CPTemplateApplicationSceneDelegate {
             CarPlayController.shared.disconnect(scene: templateApplicationScene, interfaceController: interfaceController, window: window)
         }
     }
+
+    /// Vom Dashboard geöffnet (meeterz://carplay/route): die große Ansicht ist jetzt vorn – Fahrt starten
+    func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+        MainActor.assumeIsolated {
+            guard URLContexts.contains(where: { $0.url.host == "carplay" }) else { return }
+            CarPlayController.shared.consumeDashboardRequest()
+        }
+    }
 }
 
 /// Karte mit Freunden, Navigation (über Mapbox CarPlayManager), Freundesliste als Ziele.
@@ -486,13 +494,57 @@ final class CarPlayController: NSObject {
     private var autoStart = false
     private var previewTrip: CPTrip?
 
-    /// Route berechnen und sofort starten, ohne Vorschau
-    func startGuidance(to place: Place) {
+    /// Wartende Fahrt aus dem Dashboard (Freund oder Favorit angetippt)
+    private var dashboardRequest: Place?
+    /// Läuft gerade ein Start? Mehrfaches Tippen startete mehrere Berechnungen parallel – die App stürzte ab.
+    private var guidanceStarting: Date?
+
+    /// Dashboard-Knopf: sofort die große Meeterz-Ansicht öffnen (mit Ladeanzeige), dann die Fahrt starten
+    func openFromDashboard(_ place: Place, scene: UIScene?) {
         guard isConnected else { return }
-        if AppModel.shared.navigation.isNavigating { go(to: place); return }
+        if let started = guidanceStarting, Date().timeIntervalSince(started) < 20 { return }
+        guidanceStarting = Date()
+        dashboardRequest = place
+        Diag.log("Dashboard: \(place.name) angetippt – öffne Meeterz")
+        if let scene, let url = URL(string: "meeterz://carplay/route") {
+            scene.open(url, options: nil) { [weak self] ok in
+                Task { @MainActor in
+                    if !ok { Diag.log("Dashboard: Meeterz ließ sich nicht öffnen – starte trotzdem") }
+                    self?.consumeDashboardRequest()
+                }
+            }
+        } else {
+            consumeDashboardRequest()
+        }
+        // Falls die Rückmeldung ausbleibt, trotzdem starten
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            self?.consumeDashboardRequest()
+        }
+    }
+
+    func consumeDashboardRequest() {
+        guard let place = dashboardRequest else { return }
+        dashboardRequest = nil
+        startGuidance(to: place, showProgress: true)
+    }
+
+    /// Route berechnen und sofort starten, ohne Vorschau
+    func startGuidance(to place: Place, showProgress: Bool = false) {
+        guard isConnected else { return }
+        if AppModel.shared.navigation.isNavigating { guidanceStarting = nil; go(to: place); return }
+        guidanceStarting = guidanceStarting ?? Date()
         autoStart = true
+        if showProgress {
+            manager.interfaceController?.popToRootTemplate(animated: false, completion: nil)
+            showLoading(at: place)
+        }
         preview(to: place.coordinate, name: place.name) { [weak self] in
-            MainActor.assumeIsolated { self?.startPendingTrip() }
+            MainActor.assumeIsolated {
+                self?.hideLoading()
+                self?.startPendingTrip()
+                self?.guidanceStarting = nil
+            }
         }
     }
 

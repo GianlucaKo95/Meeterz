@@ -179,6 +179,7 @@ for job, fn in [("FR", france), ("CH", switzerland)] + [(c, lambda c=c: osm(c)) 
         print(f"!! {job} fehlgeschlagen: {e}", file=sys.stderr)
         stats[job] = f"Fehler: {e}"
 
+stats.pop("CH_SAMPLE", None)
 out = sorted(sites.values())
 per = defaultdict(int)
 for s in out:

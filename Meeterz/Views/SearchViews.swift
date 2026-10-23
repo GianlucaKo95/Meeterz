@@ -390,6 +390,7 @@ struct RoutePreviewView: View {
         selected = 0
         chosen = nil
         adoptedPlan = plan
+        ChargingSession.shared.plan = plan
         Diag.log("Ladeplan übernommen: \(plan.summary)")
     }
 

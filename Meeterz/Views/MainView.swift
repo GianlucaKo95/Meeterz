@@ -59,6 +59,9 @@ struct MainView: View {
                 if let banner = app.banner {
                     BannerView(banner: banner) { app.dismissBanner() }
                 }
+                if ChargingSession.shared.active {
+                    ChargingCard()
+                }
             }
             .padding(.horizontal, 16)
             .chromeVisibility(hidden: chromeHidden)

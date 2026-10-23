@@ -93,6 +93,7 @@ final class VehicleStore {
         }
         status = new
         loaded = true
+        ChargingSession.shared.update(new)
     }
 
     /// Neues Gerätetoken anlegen (ein altes wird ungültig)

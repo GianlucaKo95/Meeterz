@@ -245,6 +245,11 @@ final class CarPlayController: NSObject {
     func connect(scene: CPTemplateApplicationScene, interfaceController: CPInterfaceController, window: CPWindow) {
         DriveHealth.shared.start()
         manager.delegate = self
+        // Lädt das Auto schon (z. B. CarPlay an der Säule neu verbunden): Ladeanzeige zeigen, sobald die Karte steht
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1.5))
+            if ChargingSession.shared.active { CarPlayChargingOverlay.shared.show() }
+        }
         manager.templateApplicationScene(scene, didConnect: interfaceController, to: window)
         isConnected = true
         let config = CPSessionConfiguration(delegate: self)
@@ -264,6 +269,7 @@ final class CarPlayController: NSObject {
     func disconnect(scene: CPTemplateApplicationScene, interfaceController: CPInterfaceController, window: CPWindow) {
         DriveHealth.shared.stop()
         Passengers.shared.reset()   // Fahrt vorbei: Mitfahrer wieder sichtbar
+        CarPlayChargingOverlay.shared.hide()
         browseOverlay?.stop()
         navigationOverlay?.stop()
         browseOverlay = nil

@@ -432,6 +432,7 @@ extension CarPlayController {
         guard let destination = nav.destination,
               let routes = await nav.calculate(to: destination, via: plan.stops.map(\.place), mode: .car) else { return }
         navigationProvider.mapboxNavigation.tripSession().startActiveGuidance(with: routes, startLegIndex: 0)
+        ChargingSession.shared.plan = plan
         Diag.log("Ladeplan übernommen (CarPlay): \(plan.summary)")
     }
 

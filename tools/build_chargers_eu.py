@@ -101,29 +101,47 @@ def france():
 # --- Schweiz: BFE (OICP) ------------------------------------------------------------------------
 def switzerland():
     data = json.loads(get("https://data.geo.admin.ch/ch.bfe.ladestellen-elektromobilitaet/data/oicp/ch.bfe.ladestellen-elektromobilitaet.json"))
-    records = []
-    for block in data.get("EVSEData", []):
-        records += block.get("EVSEDataRecord", [])
-        op = block.get("OperatorName")
-        for rec in block.get("EVSEDataRecord", []):
-            rec.setdefault("_op", op)
-    n = 0
-    for rec in records:
-        plugs = " ".join(rec.get("Plugs") or []).lower()
-        if "ccs" not in plugs and "combo" not in plugs:
-            continue
-        g = (rec.get("GeoCoordinates") or {}).get("Google") or ""
-        parts = re.findall(r"-?\d+\.\d+", g)
-        if len(parts) < 2:
-            continue
-        lat, lng = float(parts[0]), float(parts[1])
-        power = max([num(f.get("Power")) or 0 for f in rec.get("ChargingFacilities") or []] or [0])
-        names = rec.get("ChargingStationNames") or []
-        name = names[0].get("value") if names and isinstance(names[0], dict) else rec.get("ChargingStationId")
-        addr = rec.get("Address") or {}
-        add("CH", lat, lng, power, 1, name, rec.get("_op"), addr.get("City"))
-        n += 1
+    blocks = data.get("EVSEData", []) if isinstance(data, dict) else data
+    n = errors = 0
+    for block in blocks:
+        op_name = block.get("OperatorName") if isinstance(block, dict) else None
+        for rec in (block.get("EVSEDataRecord") or []) if isinstance(block, dict) else []:
+            try:
+                if "CH_SAMPLE" not in stats:
+                    stats["CH_SAMPLE"] = json.dumps(rec, ensure_ascii=False)[:1500]
+                plugs = json.dumps(rec.get("Plugs") or rec.get("plugs") or "").lower()
+                if "ccs" not in plugs and "combo" not in plugs:
+                    continue
+                geo = rec.get("GeoCoordinates") or {}
+                g = geo.get("Google") or geo.get("DecimalDegree") or geo
+                parts = re.findall(r"-?\d+\.\d+", json.dumps(g))
+                if len(parts) < 2:
+                    continue
+                lat, lng = float(parts[0]), float(parts[1])
+                if isinstance(g, dict) and "Longitude" in g and "Latitude" in g:
+                    lat, lng = float(g["Latitude"]), float(g["Longitude"])
+                power = 0.0
+                for f in rec.get("ChargingFacilities") or []:
+                    if isinstance(f, dict):
+                        power = max(power, kw(f.get("Power") or f.get("power")) or 0)
+                    else:
+                        power = max(power, kw(f) or 0)
+                names = rec.get("ChargingStationNames") or rec.get("ChargingStationName") or []
+                if isinstance(names, list) and names:
+                    first = names[0]
+                    name = first.get("value") if isinstance(first, dict) else str(first)
+                elif isinstance(names, dict):
+                    name = names.get("value")
+                else:
+                    name = str(names) if names else rec.get("ChargingStationId")
+                addr = rec.get("Address") or {}
+                add("CH", lat, lng, power, 1, name, op_name, addr.get("City") if isinstance(addr, dict) else "")
+                n += 1
+            except Exception as e:
+                errors += 1
+                stats.setdefault("CH_ERROR", repr(e))
     stats["CH"] = n
+    stats["CH_ERRORS"] = errors
 
 # --- OpenStreetMap ----------------------------------------------------------------------------
 OSM_COUNTRIES = ["NL", "BE", "LU", "AT", "CZ", "PL", "DK", "IT"]

@@ -8,9 +8,9 @@ on:
   workflow_dispatch:
     inputs:
       carplay:
-        description: "Mit CarPlay-Entitlement bauen (erst nach Freigabe durch Apple)"
+        description: "Mit CarPlay-Entitlement bauen (von Apple freigegeben)"
         type: boolean
-        default: false
+        default: true
 
 concurrency:
   group: testflight

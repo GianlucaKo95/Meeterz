@@ -47,6 +47,8 @@ final class CarPlayController: NSObject {
 
     private(set) var isConnected = false
     private var friendsVisible = true
+    /// Bis wann keine Hinweise auf der Karte erscheinen (siehe alertTemplate)
+    var alertsPausedUntil = Date.distantPast
     private var _lastMapInteraction = Date.distantPast
     private var userPanning = false
     private var browseOverlay: FriendOverlay?
@@ -956,6 +958,7 @@ extension CarPlayController: CarPlayManagerDelegate {
         didPresent navigationViewController: CarPlayNavigationViewController
     ) {
         MainActor.assumeIsolated {
+            pauseAlerts()
             navigationViewController.routeLineTracksTraversal = true
             guard let mapView = navigationViewController.navigationMapView?.mapView else { return }
             navigationOverlay?.stop()
@@ -1070,6 +1073,7 @@ extension CarPlayController: CarPlayManagerDelegate {
 
     nonisolated func carPlayManagerDidBeginNavigation(_ carPlayManager: CarPlayManager) {
         MainActor.assumeIsolated {
+            pauseAlerts()
             let coordinator = AppModel.shared.navigation
             if !coordinator.isNavigating {
                 coordinator.didBeginOnCarPlay(destination: pendingDestination)
@@ -1091,6 +1095,7 @@ extension CarPlayController: CarPlayManagerDelegate {
 
     nonisolated func carPlayManagerDidEndNavigation(_ carPlayManager: CarPlayManager, byCanceling canceled: Bool) {
         MainActor.assumeIsolated {
+            pauseAlerts()
             navigationOverlay?.stop()
             navigationOverlay = nil
             navRecenter?.cancel(); navRecenter = nil

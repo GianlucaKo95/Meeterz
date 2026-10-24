@@ -37,21 +37,25 @@ final class Passengers {
         together = [:]
     }
 
-    /// Alle 30 s aus CarPlay: wer ist seit ≥ 1 Minute während der Fahrt höchstens 80 m entfernt?
-    func check(ask: (FriendRow) -> Void) {
+    /// Alle 30 s aus CarPlay: wer fährt seit ≥ 1,5 Minuten dicht bei mir in dieselbe Richtung?
+    /// (Vorher genügte „in der Nähe“ – ein Freund, der vorbeifuhr oder dessen Position veraltet war, löste die Frage aus.)
+    func check(ask: (FriendRow) -> Bool) {
         let app = AppModel.shared
-        guard let me = app.location.lastLocation, me.speed > 4 else { return }   // nur in Bewegung (> ~15 km/h)
+        guard let me = app.location.lastLocation, me.speed > 4, me.course >= 0 else { return }   // nur in Fahrt (> ~15 km/h)
         var seen: Set<UUID> = []
         for item in app.friendsOnMapIncludingPassengers {
             let id = item.friend.friendId
-            guard !self.riding.contains(id), !asked.contains(id), item.position.age < 90 else { continue }
-            let close = item.position.coordinate.distance(to: me.coordinate) < 80
-            guard close else { continue }
+            let p = item.position
+            guard !self.riding.contains(id), !asked.contains(id), p.age < 45 else { continue }   // nur frische Positionen
+            guard p.coordinate.distance(to: me.coordinate) < 80, (p.speed ?? 0) > 4 else { continue }   // nah und selbst in Fahrt
+            if let heading = p.heading, heading >= 0 {
+                let diff = abs((heading - me.course + 540).truncatingRemainder(dividingBy: 360) - 180)
+                guard diff < 45 else { continue }   // gleiche Richtung
+            }
             seen.insert(id)
             together[id, default: 0] += 1
-            if together[id]! >= 2 {
+            if together[id]! >= 3, ask(item.friend) {   // nur als „gefragt“ merken, wenn die Frage auch erschien
                 asked.insert(id)
-                ask(item.friend)
             }
         }
         together = together.filter { seen.contains($0.key) }
@@ -65,8 +69,10 @@ final class Passengers {
 
 extension CarPlayController {
     /// „Fährt Annika bei dir mit?“ – Ja blendet sie für die Fahrt aus
-    func askPassenger(_ friend: FriendRow) {
-        guard let template = alertTemplate, template.currentNavigationAlert == nil else { return }
+    @discardableResult
+    func askPassenger(_ friend: FriendRow) -> Bool {
+        guard let template = alertTemplate, template.currentNavigationAlert == nil else { return false }
+        Diag.log("Mitfahrer-Frage: \(friend.displayName)")
         let first = friend.displayName.split(separator: " ").first.map(String.init) ?? friend.displayName
         let yes = CPAlertAction(title: "Ja, ausblenden", style: .default) { [weak self] _ in
             Task { @MainActor in
@@ -82,5 +88,6 @@ extension CarPlayController {
             subtitleVariants: ["Dann blende ich \(first) für diese Fahrt aus"],
             image: image, primaryAction: yes, secondaryAction: no, duration: 20)
         template.present(navigationAlert: alert, animated: true)
+        return true
     }
 }

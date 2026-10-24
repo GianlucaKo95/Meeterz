@@ -11,10 +11,24 @@ extension CarPlayController {
 
     // MARK: Hinweise auf der Karte
 
-    /// Die gerade sichtbare Karten-Vorlage (während der Fahrt ersetzt Mapbox die Wurzel durch die Fahrt-Vorlage)
+    /// Die Karten-Vorlage, auf der ein Hinweis gefahrlos erscheinen darf – sonst nil.
+    ///
+    /// Ein Hinweis auf eine Vorlage, die gerade ausgetauscht wird (Mapbox baut beim Start und Ende der Navigation
+    /// und am Ziel neue Vorlagen) oder die unter einer Liste bzw. einem Ankunftsfenster liegt, legte die große
+    /// CarPlay-Ansicht lahm – das Dashboard lief weiter. Deshalb nur, wenn die Karte ganz oben liegt und gerade
+    /// kein Vorlagenwechsel läuft.
     var alertTemplate: CPMapTemplate? {
-        guard isConnected, let controller = manager.interfaceController else { return nil }
-        return (controller.rootTemplate as? CPMapTemplate) ?? (controller.topTemplate as? CPMapTemplate)
+        guard isConnected, let controller = manager.interfaceController,
+              Date() >= alertsPausedUntil,
+              let root = controller.rootTemplate as? CPMapTemplate,
+              controller.topTemplate === root,
+              controller.presentedTemplate == nil else { return nil }
+        return root
+    }
+
+    /// Hinweise kurz zurückhalten (Vorlagenwechsel der Navigation)
+    func pauseAlerts(seconds: TimeInterval = 5) {
+        alertsPausedUntil = Date().addingTimeInterval(seconds)
     }
 
     /// Kurzer Hinweis, der von selbst wieder verschwindet. Eine offene Frage (schnellere Route) hat Vorrang.

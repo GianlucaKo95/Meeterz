@@ -224,6 +224,7 @@ struct MeetupPlannerView: View {
         }
         .background(Theme.ink)
         .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
         .onAppear { if !categories.contains(category) { category = categories.first ?? .coffee } }
         .task(id: category) { await loadPlaces() }
     }
@@ -386,6 +387,7 @@ struct InviteFriendsView: View {
         .padding(20)
         .background(Theme.ink)
         .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
         .onAppear { if let preselected { selected = [preselected] } }
     }
 }

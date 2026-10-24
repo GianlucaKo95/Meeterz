@@ -67,6 +67,7 @@ struct SearchView: View {
         .padding(20)
         .background(Theme.ink)
         .presentationDetents([.large])
+        .presentationDragIndicator(.visible)   // zeigt, dass man das Fenster nach unten wegwischen kann
         .onAppear { focused = true }
         .task(id: query) { await search() }
         .sheet(item: $detail) { item in
@@ -390,6 +391,7 @@ struct RoutePreviewView: View {
         .padding(20)
         .background(Theme.ink)
         .presentationDetents([.large])
+        .presentationDragIndicator(.visible)   // zeigt, dass man das Fenster nach unten wegwischen kann
         .sheet(isPresented: $showInvite) { InviteFriendsView(place: current.destination) }
         .alert("Favorit speichern", isPresented: $showFavoriteAlert) {
             TextField("Name, z. B. Oma", text: $favoriteName)

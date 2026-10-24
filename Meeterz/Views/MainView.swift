@@ -607,6 +607,7 @@ struct UnterwegsSheet: View {
             }
         }
         .presentationDetents([fitted, .large], selection: $detent)
+        .presentationDragIndicator(.visible)
         .presentationBackgroundInteraction(.enabled(upThrough: fitted))
         .presentationBackground(Theme.ink)
     }

@@ -47,6 +47,8 @@ final class CarPlayController: NSObject {
 
     private(set) var isConnected = false
     private var friendsVisible = true
+    private var _lastMapInteraction = Date.distantPast
+    private var userPanning = false
     private var browseOverlay: FriendOverlay?
     private var navigationOverlay: FriendOverlay?
     private var shownInvites = Set<UUID>()
@@ -138,6 +140,7 @@ final class CarPlayController: NSObject {
     }
 
     private func toggleThreeD() {
+        lastMapInteraction = Date()
         threeD.toggle()
         configureCamera(browseMap, navigating: false)
         configureCamera(navMap, navigating: true)
@@ -146,6 +149,7 @@ final class CarPlayController: NSObject {
 
     /// +/−: ändert den Zoom der Folgekamera statt die Kamera anzuhalten – so springt nichts zurück
     private func zoom(by delta: Double) {
+        lastMapInteraction = Date()
         if manager.currentActivity == .navigating, let map = navMap {
             overviewChosen = false
             refreshFriends()
@@ -189,20 +193,24 @@ final class CarPlayController: NSObject {
 
     /// Kehrt nach 4 s zum Standort zurück, wenn man die Karte von Hand weggeschoben hat.
     /// Nur dann: In Routenvorschau und Routenübersicht bleibt die Kamera, wo sie ist.
+    /// Letzte Bedienung der Karte (Verschieben, Zoom, 3D) und ob gerade verschoben wird
+    private var lastMapInteraction: Date {
+        get { _lastMapInteraction }
+        set { _lastMapInteraction = newValue }
+    }
+
     private func startAutoRecenter(_ navigationMapView: NavigationMapView) -> Task<Void, Never> {
         Task { @MainActor [weak self, weak navigationMapView] in
-            var idle = 0
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(1))
                 guard let self, let camera = navigationMapView?.navigationCamera else { return }
                 let activity = manager.currentActivity
                 let returnToMe = (activity == .browsing && !isLoadingPreview) || (activity == .navigating && !overviewChosen)
-                if camera.currentCameraState == .idle, returnToMe {
-                    idle += 1
-                    if idle >= 4 { camera.update(cameraState: .following); idle = 0 }
-                } else {
-                    idle = 0
-                }
+                // Erst zurück zu mir, wenn 15 s lang niemand die Karte bewegt hat. Vorher zählte die Uhr ab dem
+                // ersten Verschieben weiter – wer länger schob, wurde nach 4 s mitten im Verschieben zurückgeholt.
+                guard camera.currentCameraState == .idle, returnToMe, !userPanning,
+                      Date().timeIntervalSince(lastMapInteraction) >= 15 else { continue }
+                camera.update(cameraState: .following)
             }
         }
     }
@@ -794,6 +802,14 @@ extension CarPlayController: CPSearchTemplateDelegate {
 }
 
 extension CarPlayController: CarPlayManagerDelegate {
+    nonisolated func carPlayManager(_ carPlayManager: CarPlayManager, didBeginPanGesture template: CPMapTemplate) {
+        MainActor.assumeIsolated { userPanning = true; lastMapInteraction = Date() }
+    }
+
+    nonisolated func carPlayManager(_ carPlayManager: CarPlayManager, didEndPanGesture template: CPMapTemplate) {
+        MainActor.assumeIsolated { userPanning = false; lastMapInteraction = Date() }
+    }
+
     nonisolated func carPlayManager(_ carPlayManager: CarPlayManager, willPreview trip: CPTrip) -> CPTrip {
         MainActor.assumeIsolated {
             let shown = Self.withBatteryForecast(trip)

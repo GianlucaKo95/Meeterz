@@ -311,20 +311,33 @@ final class CarPlayController: NSObject {
     // MARK: Freunde-Schaltfläche und Freundesliste
 
     private func friendsButton() -> CPMapButton {
-        let button = CPMapButton { [weak self] _ in
-            guard let self else { return }
-            friendsVisible.toggle()
-            refreshFriends()
-            // Symbol sofort umschalten. (Vorher lief das über resetPanButtons – das tut nur bei
-            // eingeblendeter Verschiebe-Ansicht etwas, darum blieb der Knopf scheinbar ohne Funktion.)
-            let controller = manager.interfaceController
-            if let template = (controller?.topTemplate as? CPMapTemplate) ?? (controller?.rootTemplate as? CPMapTemplate) {
-                template.mapButtons = manager.currentActivity == .navigating ? navigationMapButtons() : mapButtons()
-            }
-        }
+        let button = CPMapButton { [weak self] _ in self?.showFriendsMenu() }
         let symbol = friendsVisible ? "person.2.fill" : "person.2.slash"
         button.image = UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold))
         return button
+    }
+
+    /// Alle Freunde ein-/ausblenden (Symbol des Kartenknopfs mit umschalten)
+    func setAllFriendsVisible(_ visible: Bool) {
+        friendsVisible = visible
+        refreshFriends()
+        let controller = manager.interfaceController
+        if let template = (controller?.rootTemplate as? CPMapTemplate) {
+            template.mapButtons = manager.currentActivity == .navigating ? navigationMapButtons() : mapButtons()
+        }
+    }
+
+    var allFriendsVisible: Bool { friendsVisible }
+
+    /// Kurz zum Freund schwenken, nach 8 s zurück zu mir
+    func focusFriend(_ coordinate: CLLocationCoordinate2D) {
+        guard let map = displayedMap else { return }
+        map.navigationCamera.stop()
+        map.mapView.camera.ease(to: CameraOptions(center: coordinate, zoom: 15, bearing: 0, pitch: 0), duration: 0.8)
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(8))
+            map.navigationCamera.update(cameraState: .following)
+        }
     }
 
     /// Ziele aus Meeterz: vereinbarte Treffpunkte und Freunde

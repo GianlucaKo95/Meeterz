@@ -2,22 +2,37 @@ import Foundation
 import UIKit
 import CarPlay
 import CoreLocation
+import Observation
 
 /// Mitfahrer: Ein Freund, der dicht bei mir mitfährt, wird nach Rückfrage für diese Fahrt ausgeblendet
 /// (bis CarPlay getrennt wird) – sonst klebt sein Bild am eigenen Pfeil und löst Konvoi-Hinweise aus.
-@MainActor
+@MainActor @Observable
 final class Passengers {
     static let shared = Passengers()
 
-    /// Für diese Fahrt ausgeblendete Freunde
-    private(set) var riding: Set<UUID> = []
+    /// Für diese Fahrt ausgeblendete Freunde (Mitfahrer)
+    private(set) var ridingNow: Set<UUID> = []
+    /// Auf meiner Karte ausgeblendet, bis ich sie wieder einblende. Nur für mich: Teilen läuft in beide Richtungen weiter.
+    private(set) var hiddenForMe: Set<UUID> = Set((UserDefaults.standard.array(forKey: "map.hiddenFriends") as? [String] ?? []).compactMap(UUID.init))
+    /// Alles, was auf meinen Karten nicht erscheint
+    var riding: Set<UUID> { ridingNow.union(hiddenForMe) }
+
+    func isHiddenForMe(_ id: UUID) -> Bool { hiddenForMe.contains(id) }
+
+    func setHiddenForMe(_ id: UUID, _ hidden: Bool) {
+        if hidden { hiddenForMe.insert(id) } else { hiddenForMe.remove(id); ridingNow.remove(id) }
+        UserDefaults.standard.set(hiddenForMe.map(\.uuidString), forKey: "map.hiddenFriends")
+        Diag.log("Auf meiner Karte \(hidden ? "ausgeblendet" : "eingeblendet"): \(AppModel.shared.friend(id)?.displayName ?? "?")")
+    }
+    @ObservationIgnored
     /// Schon gefragt (Antwort „Nein“ oder offen) – nicht noch einmal
     private var asked: Set<UUID> = []
+    @ObservationIgnored
     /// Wie oft hintereinander (je 30 s) jemand dicht dabei war
     private var together: [UUID: Int] = [:]
 
     func reset() {
-        riding = []
+        ridingNow = []
         asked = []
         together = [:]
     }
@@ -29,7 +44,7 @@ final class Passengers {
         var seen: Set<UUID> = []
         for item in app.friendsOnMapIncludingPassengers {
             let id = item.friend.friendId
-            guard !riding.contains(id), !asked.contains(id), item.position.age < 90 else { continue }
+            guard !self.riding.contains(id), !asked.contains(id), item.position.age < 90 else { continue }
             let close = item.position.coordinate.distance(to: me.coordinate) < 80
             guard close else { continue }
             seen.insert(id)
@@ -43,7 +58,7 @@ final class Passengers {
     }
 
     func setRiding(_ id: UUID, _ riding: Bool) {
-        if riding { self.riding.insert(id) } else { self.riding.remove(id) }
+        if riding { ridingNow.insert(id) } else { ridingNow.remove(id) }
         Diag.log("Mitfahrer \(riding ? "ausgeblendet" : "eingeblendet"): \(AppModel.shared.friend(id)?.displayName ?? "?")")
     }
 }

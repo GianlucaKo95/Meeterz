@@ -560,14 +560,14 @@ struct UnterwegsSheet: View {
                     } else {
                         Text("\(app.friendsOnMap.count) von \(app.friends.accepted.count) sichtbar")
                             .font(.footnote).foregroundStyle(Theme.muted)
-                        ForEach(app.friendsOnMap) { item in
+                        ForEach(app.friendsOnMapIncludingPassengers) { item in
                             FriendRowView(item: item) { showRoute in
                                 // Fenster schließen: die Karte zeigt den Freund frei in der Bildmitte
                                 app.mapFocus = .init(friendId: item.friend.friendId, showRoute: showRoute)
                                 dismiss()
                             }
                         }
-                        if app.friendsOnMap.isEmpty {
+                        if app.friendsOnMapIncludingPassengers.isEmpty {
                             Text("Gerade teilt niemand seinen Standort.")
                                 .font(.subheadline).foregroundStyle(Theme.muted)
                         }
@@ -634,6 +634,12 @@ private struct FriendRowView: View {
                     id: "friend-\(item.friend.friendId)", name: item.friend.displayName,
                     address: nil, coordinate: item.position.coordinate))
             }
+            let hiddenForMe = Passengers.shared.riding.contains(item.friend.friendId)
+            Button(hiddenForMe ? "Auf meiner Karte einblenden" : "Auf meiner Karte ausblenden",
+                   systemImage: hiddenForMe ? "eye" : "eye.slash") {
+                Passengers.shared.setHiddenForMe(item.friend.friendId, !hiddenForMe)
+                CarPlayController.shared.refreshFriendsAfterPassengerChange()
+            }
             if let route {
                 Button("Zum Ziel von \(item.friend.displayName) navigieren", systemImage: "flag.checkered") {
                     go(to: Place(
@@ -643,7 +649,8 @@ private struct FriendRowView: View {
             }
         } label: {
             HStack(spacing: 12) {
-                Avatar(initials: item.friend.initials, color: FriendPalette.color(for: item.friend.friendId), userId: item.friend.friendId)
+                Avatar(initials: item.friend.initials, color: FriendPalette.color(for: item.friend.friendId),
+                       faded: Passengers.shared.riding.contains(item.friend.friendId), userId: item.friend.friendId)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.friend.displayName).font(Theme.title(15))
                     Text(statusText(route: route))
@@ -670,6 +677,7 @@ private struct FriendRowView: View {
     }
 
     private func statusText(route: FriendRoute?) -> String {
+        if Passengers.shared.riding.contains(item.friend.friendId) { return "Auf deiner Karte ausgeblendet" }
         if let route {
             let dest = route.destinationName.map { "Nach \($0)" } ?? "Unterwegs"
             return "\(dest) · an \(Format.time.string(from: route.eta))"

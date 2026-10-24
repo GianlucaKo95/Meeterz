@@ -18,6 +18,7 @@ struct FriendsView: View {
     @State private var showSettings = false
     @State private var autoDelay = MessagesStore.autoDelay
     @State private var evEnabled = EVSettings.enabled
+    @State private var parkingEnabled = ParkingStore.enabled
     @State private var appearance = AppAppearance.current
     @State private var evRange = EVSettings.rangeKm
     @State private var evVehicle = EVSettings.vehicle
@@ -412,6 +413,8 @@ struct FriendsView: View {
             )) {
                 ForEach(AppAppearance.allCases) { Text($0.title).tag($0) }
             }
+            Toggle("Geparktes Auto merken", isOn: Binding(get: { parkingEnabled }, set: { parkingEnabled = $0; ParkingStore.enabled = $0 }))
+                .tint(Theme.accent)
             Toggle("E-Auto", isOn: Binding(get: { evEnabled }, set: { evEnabled = $0; EVSettings.enabled = $0 }))
                 .tint(Theme.accent)
             if evEnabled {

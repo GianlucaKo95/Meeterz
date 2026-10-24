@@ -15,12 +15,23 @@ final class ParkingStore {
     }
 
     private(set) var spot: Spot? = {
-        guard let data = UserDefaults.standard.data(forKey: "parking.spot") else { return nil }
+        guard UserDefaults.standard.bool(forKey: "parking.enabled"),
+              let data = UserDefaults.standard.data(forKey: "parking.spot") else { return nil }
         return try? JSONDecoder().decode(Spot.self, from: data)
     }()
 
-    /// Nur speichern, wenn der Standort frisch und genau genug ist
+    /// Einstellung „Geparktes Auto merken“ (Standard: aus)
+    static var enabled: Bool {
+        get { UserDefaults.standard.bool(forKey: "parking.enabled") }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "parking.enabled")
+            if !newValue { AppModel.shared.parking.clear() }   // ausgeschaltet: gemerkten Platz verwerfen
+        }
+    }
+
+    /// Nur speichern, wenn eingeschaltet und der Standort frisch und genau genug ist
     func save(_ location: CLLocation) {
+        guard Self.enabled else { return }
         guard Date().timeIntervalSince(location.timestamp) < 5 * 60, location.horizontalAccuracy < 100 else {
             Diag.log("Parkplatz nicht gemerkt: Standort zu alt oder ungenau")
             return

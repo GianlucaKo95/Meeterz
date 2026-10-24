@@ -223,6 +223,7 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
         guard let loc = locations.last, loc.horizontalAccuracy >= 0, loc.horizontalAccuracy < 100 else { return }
         Task { @MainActor in
             self.lastLocation = loc
+            self.recordTrack(loc)
             ParkingDetector.shared.record(loc)
             self.resolveWaiters(with: loc)
             if loc.speed > Self.movingSpeed {
@@ -232,6 +233,37 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
             }
             self.onUpdate?(loc)
         }
+    }
+
+    // MARK: Eigene Spur (für den zeitgleichen Vergleich mit Freundespositionen)
+
+    /// Eigene Positionen der letzten 15 Minuten. Freundespositionen kommen verzögert an –
+    /// verglichen wird darum mit der Stelle, an der ich zu *deren* Zeitpunkt war, nicht mit jetzt.
+    @ObservationIgnored private var track: [CLLocation] = []
+
+    private func recordTrack(_ loc: CLLocation) {
+        if let last = track.last, loc.timestamp <= last.timestamp { return }
+        track.append(loc)
+        let cutoff = loc.timestamp.addingTimeInterval(-15 * 60)
+        if let first = track.first, first.timestamp < cutoff { track.removeAll { $0.timestamp < cutoff } }
+    }
+
+    /// Wo war ich zum Zeitpunkt `date`? Zwischen zwei Meldungen linear eingepasst; nil, wenn dort eine Lücke > 20 s ist.
+    func location(at date: Date) -> CLLocation? {
+        guard let i = track.firstIndex(where: { $0.timestamp >= date }) else {
+            if let last = track.last, date.timeIntervalSince(last.timestamp) < 10 { return last }
+            return nil
+        }
+        let b = track[i]
+        guard i > 0 else { return b.timestamp.timeIntervalSince(date) < 10 ? b : nil }
+        let a = track[i - 1]
+        let span = b.timestamp.timeIntervalSince(a.timestamp)
+        guard span < 20 else { return nil }
+        let t = span > 0 ? date.timeIntervalSince(a.timestamp) / span : 0
+        return CLLocation(coordinate: .init(latitude: a.coordinate.latitude + (b.coordinate.latitude - a.coordinate.latitude) * t,
+                                            longitude: a.coordinate.longitude + (b.coordinate.longitude - a.coordinate.longitude) * t),
+                          altitude: 0, horizontalAccuracy: max(a.horizontalAccuracy, b.horizontalAccuracy), verticalAccuracy: -1,
+                          course: t < 0.5 ? a.course : b.course, speed: a.speed + (b.speed - a.speed) * t, timestamp: date)
     }
 
     nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {

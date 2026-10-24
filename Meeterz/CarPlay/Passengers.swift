@@ -27,38 +27,72 @@ final class Passengers {
     @ObservationIgnored
     /// Schon gefragt (Antwort „Nein“ oder offen) – nicht noch einmal
     private var asked: Set<UUID> = []
-    @ObservationIgnored
-    /// Wie oft hintereinander (je 30 s) jemand dicht dabei war
-    private var together: [UUID: Int] = [:]
+    /// Zeitgleicher Abstand je Freund: Freundesposition gegen meine Position *zu ihrem Zeitstempel*
+    struct Sample {
+        let ts: TimeInterval
+        let distance: Double
+        /// Gleiche Fahrtrichtung (nil = Richtung unbekannt)
+        let sameDirection: Bool?
+        let moving: Bool
+        /// Freund selbst in Fahrt
+        let friendMoving: Bool
+    }
+    @ObservationIgnored private var samples: [UUID: [Sample]] = [:]
 
     func reset() {
         ridingNow = []
         asked = []
-        together = [:]
+        samples = [:]
     }
 
-    /// Alle 30 s aus CarPlay: wer fährt seit ≥ 1,5 Minuten dicht bei mir in dieselbe Richtung?
-    /// (Vorher genügte „in der Nähe“ – ein Freund, der vorbeifuhr oder dessen Position veraltet war, löste die Frage aus.)
+    /// Neue Freundesposition einordnen (bei jeder eigenen Meldung aufgerufen; je Zeitstempel nur einmal).
+    /// Gibt den neuen Messpunkt zurück – nil, wenn die Position nicht neu ist oder meine Spur zu der Zeit fehlt.
+    @discardableResult
+    func observe(_ id: UUID, _ p: LivePosition) -> Sample? {
+        var list = samples[id] ?? []
+        guard list.last.map({ p.ts > $0.ts + 1 }) ?? true,
+              let me = AppModel.shared.location.location(at: p.date) else { return nil }
+        var same: Bool?
+        if let heading = p.heading, heading >= 0, me.course >= 0, me.speed > 2 {
+            let diff = abs((heading - me.course + 540).truncatingRemainder(dividingBy: 360) - 180)
+            same = diff < 50
+        }
+        let sample = Sample(ts: p.ts, distance: p.coordinate.distance(to: me.coordinate), sameDirection: same, moving: me.speed > 4,
+                            friendMoving: (p.speed ?? 0) > 3)
+        list.append(sample)
+        list.removeAll { p.ts - $0.ts > 10 * 60 }
+        samples[id] = list
+        return sample
+    }
+
+    /// Fährt dicht mit mir: die letzten zeitgleichen Messpunkte (≥ 2) alle unter 150 m, während ich fahre
+    func isCompanion(_ id: UUID, minSamples: Int = 2, minSpan: TimeInterval = 0) -> Bool {
+        guard let list = samples[id] else { return false }
+        let close = list.reversed().prefix { $0.distance < 150 && $0.moving && $0.sameDirection != false }
+        guard close.count >= minSamples, let newest = close.first, let oldest = close.last else { return false }
+        return newest.ts - oldest.ts >= minSpan
+    }
+
+    /// „Fährt vorbei“: zeitgleich < 300 m, aber kein Mitfahrer – Gegenverkehr/kreuzend,
+    /// oder vorher fahrend deutlich weiter weg (wirklich herangekommen – nicht: wartet und steigt zu). Wer von Anfang an dicht dabei ist, fährt nicht vorbei.
+    func isPassing(_ id: UUID) -> Bool {
+        guard let list = samples[id], let now = list.last, now.distance < 300, now.moving,
+              !isCompanion(id) else { return false }
+        if now.sameDirection == false { return true }
+        return list.dropLast().contains { now.ts - $0.ts < 5 * 60 && $0.distance > 800 && $0.friendMoving }
+    }
+
+    /// Alle 30 s aus CarPlay: wer fährt seit ≥ 1,5 Minuten zeitgleich dicht bei mir?
+    /// Freundespositionen kommen verzögert – darum zählt der Abstand zu meiner Position zu ihrem Zeitstempel.
     func check(ask: (FriendRow) -> Bool) {
         let app = AppModel.shared
-        guard let me = app.location.lastLocation, me.speed > 4, me.course >= 0 else { return }   // nur in Fahrt (> ~15 km/h)
-        var seen: Set<UUID> = []
         for item in app.friendsOnMapIncludingPassengers {
             let id = item.friend.friendId
-            let p = item.position
-            guard !self.riding.contains(id), !asked.contains(id), p.age < 45 else { continue }   // nur frische Positionen
-            guard p.coordinate.distance(to: me.coordinate) < 80, (p.speed ?? 0) > 4 else { continue }   // nah und selbst in Fahrt
-            if let heading = p.heading, heading >= 0 {
-                let diff = abs((heading - me.course + 540).truncatingRemainder(dividingBy: 360) - 180)
-                guard diff < 45 else { continue }   // gleiche Richtung
-            }
-            seen.insert(id)
-            together[id, default: 0] += 1
-            if together[id]! >= 3, ask(item.friend) {   // nur als „gefragt“ merken, wenn die Frage auch erschien
-                asked.insert(id)
-            }
+            observe(id, item.position)
+            guard !riding.contains(id), !asked.contains(id),
+                  isCompanion(id, minSamples: 3, minSpan: 90) else { continue }
+            if ask(item.friend) { asked.insert(id) }   // nur als „gefragt“ merken, wenn die Frage auch erschien
         }
-        together = together.filter { seen.contains($0.key) }
     }
 
     func setRiding(_ id: UUID, _ riding: Bool) {

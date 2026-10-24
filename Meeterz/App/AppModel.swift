@@ -198,12 +198,13 @@ final class AppModel {
         let myMoving = loc.speed > 3          // > ~11 km/h
 
         for f in friendsOnMap where f.position.age < 45 {
-            let friendPos = CLLocation(latitude: f.position.lat, longitude: f.position.lng)
-            let dist = loc.distance(from: friendPos)
             let friendSpeed = f.position.speed ?? 0
+            Passengers.shared.observe(f.friend.friendId, f.position)
 
-            // 1. Freund fährt an mir vorbei: beide unterwegs, < 300 m, höchstens alle 15 Min.
-            if myMoving, friendSpeed > 3, dist < 300, !announced.contains(passKey(f.friend.friendId)) {
+            // 1. Freund fährt an mir vorbei: zeitgleich < 300 m, aber kein Mitfahrer (Gegenrichtung oder
+            //    vorher weit weg), höchstens alle 15 Min. Wer von Anfang an dicht dabei ist, fährt nicht „vorbei“.
+            if myMoving, friendSpeed > 3, Passengers.shared.isPassing(f.friend.friendId),
+               !announced.contains(passKey(f.friend.friendId)) {
                 announced.insert(passKey(f.friend.friendId))
                 CarPlayController.shared.friendNotice(.pass, friend: f.friend)
                 await sounds.trigger(.pass, friend: f.friend, cooldown: 15 * 60)

@@ -25,12 +25,9 @@ struct FlyoverMapView: View {
 
     var body: some View {
         MapReader { proxy in
+            // Kein „nächsten Ort suchen“ beim Tipp mehr: Die Flyover-Karte zeichnet keine POI-Symbole, ein Tipp
+            // öffnete so Orte, die man gar nicht sehen konnte. Ortsdetails gibt es über sichtbare POIs und die Suche.
             mapContent
-                // Tipp aufs Kartenbild: nächstgelegenen Ort in der Nähe suchen und Apples Ortsdetails zeigen
-                .onTapGesture(count: 1, coordinateSpace: .local) { point in
-                    guard let coordinate = proxy.convert(point, from: .local) else { return }
-                    openPlace(near: coordinate)
-                }
                 .simultaneousGesture(
                     LongPressGesture(minimumDuration: 0.6)
                         .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .local))

@@ -190,16 +190,19 @@ final class CarPlayController: NSObject {
     }
 
     /// +/−: ändert den Zoom der Folgekamera statt die Kamera anzuhalten – so springt nichts zurück
+    /// Flyover kann nicht so nah heran wie Mapbox – dort weniger weit hineinzoomen lassen
+    private var maxZoom: Double { CarPlayFlyoverMirror.isEnabled ? 17.5 : 19 }
+
     private func zoom(by delta: Double) {
         lastMapInteraction = Date()
         if manager.currentActivity == .navigating, let map = navMap {
             overviewChosen = false
             refreshFriends()
             let now = navZoom ?? map.mapView.mapboxMap?.cameraState.zoom ?? 16
-            navZoom = min(max(now + delta, 10), 19)
+            navZoom = min(max(now + delta, 10), maxZoom)
             configureCamera(map, navigating: true)
         } else {
-            browseZoom = min(max(browseZoom + delta, 10), 19)
+            browseZoom = min(max(browseZoom + delta, 10), maxZoom)
             configureCamera(browseMap, navigating: false)
         }
     }

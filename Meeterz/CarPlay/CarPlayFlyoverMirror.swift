@@ -568,8 +568,8 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
         let navigating = activeRoutes != nil
         // Verkehrslage je Abschnitt; ändert sich mit der Routenaktualisierung (alle ~2 Min.)
         let withTraffic = Self.traffic(routes.mainRoute.route)
-        let main = withTraffic?.coords ?? shape
-        let levels = withTraffic?.levels ?? Array(repeating: CongestionLevel.unknown, count: main.count)
+        let main = (withTraffic?.coords.count ?? 0) > 1 ? withTraffic!.coords : shape   // nie leer
+        let levels = (withTraffic?.coords.count ?? 0) > 1 ? withTraffic!.levels : Array(repeating: CongestionLevel.unknown, count: main.count)
         var hasher = Hasher()
         levels.forEach { hasher.combine($0.rawValue) }
         let identity = "\(navigating)-\(main.count)-\(main.first!.latitude)-\(main.last!.latitude)-\(routes.alternativeRoutes.count)-\(hasher.finalize())"

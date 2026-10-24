@@ -29,6 +29,7 @@ extension CarPlayController {
     /// Hinweise kurz zurückhalten (Vorlagenwechsel der Navigation)
     func pauseAlerts(seconds: TimeInterval = 5) {
         alertsPausedUntil = Date().addingTimeInterval(seconds)
+        CarPlayUI.shared.clearAlerts()
     }
 
     /// Kurzer Hinweis, der von selbst wieder verschwindet. Eine offene Frage (schnellere Route) hat Vorrang.
@@ -37,7 +38,7 @@ extension CarPlayController {
         let ok = CPAlertAction(title: "OK", style: .cancel) { _ in }
         let alert = CPNavigationAlert(titleVariants: title, subtitleVariants: subtitle, image: image,
                                       primaryAction: ok, secondaryAction: nil, duration: seconds)
-        template.present(navigationAlert: alert, animated: true)
+        CarPlayUI.shared.alert(alert)
     }
 
     // MARK: Schnellere Route (wie Google Maps: fragen statt still wechseln)
@@ -69,7 +70,10 @@ extension CarPlayController {
                 },
                 duration: 12
             )
-            template.present(navigationAlert: alert, animated: true)
+            guard CarPlayUI.shared.alert(alert, replacing: true) else {
+                answerFasterRoute(true, onlyFor: id)   // Frage konnte nicht erscheinen: wie ohne CarPlay wechseln
+                return
+            }
             Task { @MainActor [weak self] in
                 try? await Task.sleep(for: .seconds(13))
                 self?.answerFasterRoute(false, onlyFor: id)
@@ -211,7 +215,7 @@ extension CarPlayController {
             CPListSection(items: [search]),
             CPListSection(items: categories, header: navigating ? "Unterwegs" : "Kategorien", sectionIndexTitle: nil),
         ])
-        manager.interfaceController?.pushTemplate(template, animated: true, completion: nil)
+        CarPlayUI.shared.push(template, animated: true)
     }
 
     /// `limitMeters`: nur Orte bis zu diesem Punkt der Route (z. B. so weit der Akku reicht)
@@ -219,7 +223,7 @@ extension CarPlayController {
         let template = CPListTemplate(title: title ?? kind.title, sections: [
             CPListSection(items: [CPListItem(text: "Wird gesucht …", detailText: nil)]),
         ])
-        manager.interfaceController?.pushTemplate(template, animated: true, completion: nil)
+        CarPlayUI.shared.push(template, animated: true)
 
         Task { @MainActor [weak self, weak template] in
             guard let self, let template else { return }
@@ -314,7 +318,7 @@ extension CarPlayController {
             item.handler = { [weak self] _, done in
                 Task { @MainActor in
                     let sent = await AppModel.shared.messages.send(text, to: ids, meetupId: meetupId)
-                    self?.manager.interfaceController?.popToRootTemplate(animated: true, completion: nil)
+                    CarPlayUI.shared.popToRoot(animated: true)
                     done()
                     self?.showNotice(title: [sent > 0 ? "Gesendet: „\(text)“" : "Nachricht nicht gesendet"])
                 }
@@ -324,7 +328,7 @@ extension CarPlayController {
         let names = ids.compactMap { AppModel.shared.friend($0)?.displayName.split(separator: " ").first.map(String.init) }
         let template = CPListTemplate(title: names.isEmpty ? "Bescheid geben" : "An " + names.joined(separator: ", "),
                                       sections: [CPListSection(items: items)])
-        manager.interfaceController?.pushTemplate(template, animated: true, completion: nil)
+        CarPlayUI.shared.push(template, animated: true)
     }
 
     /// Eingehende Nachricht: kurzer Hinweis mit „Antworten“
@@ -341,7 +345,7 @@ extension CarPlayController {
         let alert = CPNavigationAlert(titleVariants: ["\(m.firstName): \(m.body)", m.firstName],
                                       subtitleVariants: m.automatic ? ["Automatische Nachricht"] : nil,
                                       image: image, primaryAction: reply, secondaryAction: ok, duration: 12)
-        template.present(navigationAlert: alert, animated: true)
+        CarPlayUI.shared.alert(alert)
     }
 }
 
@@ -400,7 +404,7 @@ extension CarPlayController {
             subtitleVariants: ["Bei \(Int(EVSettings.chargePercent)) % Akku und 10 % Reserve"],
             image: UIImage(systemName: "bolt.car.fill"),
             primaryAction: show, secondaryAction: later, duration: 15)
-        template.present(navigationAlert: alert, animated: true)
+        CarPlayUI.shared.alert(alert)
     }
 
     /// Nach dem Start: Ladeplan für die laufende Route; fehlen Ladestopps, mit einem Tipp übernehmen
@@ -424,7 +428,7 @@ extension CarPlayController {
                 subtitleVariants: ["Erster: \(first.site.title), \(first.site.powerKnown ? "\(Int(first.site.maxKW)) kW, " : "")\(Int((first.chargeTime / 60).rounded())) Min."],
                 image: UIImage(systemName: "bolt.car.fill"),
                 primaryAction: take, secondaryAction: later, duration: 20)
-            template.present(navigationAlert: alert, animated: true)
+            CarPlayUI.shared.alert(alert)
         case .failure(.unreachable(let km)):
             let ok = CPAlertAction(title: "Ladesäulen", style: .default) { [weak self] _ in
                 Task { @MainActor in self?.showChargingStops() }
@@ -434,7 +438,7 @@ extension CarPlayController {
                 subtitleVariants: ["Keine passenden Schnelllader mit Leistungsangabe entlang der Route"],
                 image: UIImage(systemName: "bolt.car.fill"),
                 primaryAction: ok, secondaryAction: nil, duration: 15)
-            template.present(navigationAlert: alert, animated: true)
+            CarPlayUI.shared.alert(alert)
         case .failure(.noVehicle):
             break
         }
@@ -463,14 +467,13 @@ extension CarPlayController {
             let item = CPListItem(text: "\(value) %", detailText: current ? "aktuell" : "ca. \(Int(EVSettings.rangeKm * Double(value) / 100)) km")
             item.handler = { [weak self] _, done in
                 EVSettings.chargePercent = Double(value)
-                self?.manager.interfaceController?.popTemplate(animated: true, completion: nil)
+                CarPlayUI.shared.pop(animated: true)
                 done()
                 self?.checkCharge()
             }
             return item
         }
-        manager.interfaceController?.pushTemplate(
-            CPListTemplate(title: "Akkustand", sections: [CPListSection(items: items)]), animated: true, completion: nil)
+        CarPlayUI.shared.push(CPListTemplate(title: "Akkustand", sections: [CPListSection(items: items)]), animated: true)
     }
 
     /// Abschnitt „E-Auto“ für die „Mehr“-Liste

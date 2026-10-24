@@ -106,6 +106,7 @@ extension CarPlayController {
     @discardableResult
     func askPassenger(_ friend: FriendRow) -> Bool {
         guard let template = alertTemplate, template.currentNavigationAlert == nil else { return false }
+        _ = template
         Diag.log("Mitfahrer-Frage: \(friend.displayName)")
         let first = friend.displayName.split(separator: " ").first.map(String.init) ?? friend.displayName
         let yes = CPAlertAction(title: "Ja, ausblenden", style: .default) { [weak self] _ in
@@ -121,7 +122,6 @@ extension CarPlayController {
             titleVariants: ["Fährt \(first) bei dir mit?", "\(first) fährt mit?"],
             subtitleVariants: ["Dann blende ich \(first) für diese Fahrt aus"],
             image: image, primaryAction: yes, secondaryAction: no, duration: 20)
-        template.present(navigationAlert: alert, animated: true)
-        return true
+        return CarPlayUI.shared.alert(alert)
     }
 }

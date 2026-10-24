@@ -166,7 +166,7 @@ final class CarPlayController: NSObject {
                 if key != "flyover" { d.set(key == "satellite", forKey: "carplay.satellite") }
                 self?.applyMapStyle()
                 done()
-                self?.manager.interfaceController?.popTemplate(animated: true, completion: nil)
+                CarPlayUI.shared.pop(animated: true)
             }
             return item
         }
@@ -177,7 +177,7 @@ final class CarPlayController: NSObject {
             item.handler = { [weak self] _, done in
                 if let self, threeD != three { toggleThreeD() }
                 done()
-                self?.manager.interfaceController?.popTemplate(animated: true, completion: nil)
+                CarPlayUI.shared.pop(animated: true)
             }
             return item
         }
@@ -188,7 +188,7 @@ final class CarPlayController: NSObject {
                           header: "Karte", sectionIndexTitle: nil),
             CPListSection(items: [viewItem(true), viewItem(false)], header: "Ansicht", sectionIndexTitle: nil),
         ])
-        manager.interfaceController?.pushTemplate(template, animated: true, completion: nil)
+        CarPlayUI.shared.push(template, animated: true)
     }
 
     /// +/−: ändert den Zoom der Folgekamera statt die Kamera anzuhalten – so springt nichts zurück
@@ -325,6 +325,7 @@ final class CarPlayController: NSObject {
     func disconnect(scene: CPTemplateApplicationScene, interfaceController: CPInterfaceController, window: CPWindow) {
         DriveHealth.shared.stop()
         Passengers.shared.reset()   // Fahrt vorbei: Mitfahrer wieder sichtbar
+        CarPlayUI.shared.reset()
         CarPlayChargingOverlay.shared.hide()
         browseOverlay?.stop()
         navigationOverlay?.stop()
@@ -356,11 +357,13 @@ final class CarPlayController: NSObject {
         guard isConnected, manager.currentActivity != .navigating,
               let location = AppModel.shared.location.lastLocation
         else { return }
+        pauseAlerts()   // Mapbox tauscht gleich die Ansicht
         manager.beginNavigationWithCarPlay(using: location.coordinate)
     }
 
     func endNavigationIfNeeded() {
         guard isConnected, manager.currentActivity == .navigating else { return }
+        pauseAlerts()   // Mapbox tauscht gleich die Ansicht
         manager.carPlayNavigationViewController?.exitNavigation(byCanceling: true)
     }
 
@@ -499,12 +502,12 @@ final class CarPlayController: NSObject {
         if AppModel.shared.navigation.isNavigating {
             Task { @MainActor in
                 await AppModel.shared.navigation.addStop(place)   // läuft schon eine Fahrt: Zwischenstopp
-                manager.interfaceController?.popToRootTemplate(animated: true, completion: nil)
+                CarPlayUI.shared.popToRoot(animated: true)
                 done()
             }
             return
         }
-        manager.interfaceController?.popToRootTemplate(animated: true, completion: nil)
+        CarPlayUI.shared.popToRoot(animated: true)
         done()
         showLoading(at: place)
         preview(to: place.coordinate, name: place.name) { [weak self] in
@@ -617,7 +620,7 @@ final class CarPlayController: NSObject {
         guidanceStarting = guidanceStarting ?? Date()
         autoStart = true
         if showProgress {
-            manager.interfaceController?.popToRootTemplate(animated: false, completion: nil)
+            CarPlayUI.shared.popToRoot(animated: false)
             showLoading(at: place)
         }
         preview(to: place.coordinate, name: place.name) { [weak self] in
@@ -634,6 +637,7 @@ final class CarPlayController: NSObject {
         autoStart = false
         guard let trip = previewTrip, let choice = trip.routeChoices.first,
               let template = manager.interfaceController?.topTemplate as? CPMapTemplate else { return }
+        pauseAlerts()   // Mapbox tauscht gleich die Ansicht
         manager.mapTemplate(template, startedTrip: trip, using: choice)
     }
 
@@ -691,19 +695,19 @@ final class CarPlayController: NSObject {
             titleVariants: ["\(meetup.otherName) lädt dich ein: \(meetup.placeName)", "\(meetup.otherName) lädt dich ein"],
             actions: [
                 CPAlertAction(title: "Annehmen", style: .default) { [weak self] _ in
-                    self?.manager.interfaceController?.dismissTemplate(animated: true, completion: nil)
+                    CarPlayUI.shared.dismiss(animated: true)
                     Task { @MainActor in
                         await AppModel.shared.meetups.respond(meetup, accept: true)
                         self?.go(to: meetup.place)
                     }
                 },
                 CPAlertAction(title: "Ablehnen", style: .cancel) { [weak self] _ in
-                    self?.manager.interfaceController?.dismissTemplate(animated: true, completion: nil)
+                    CarPlayUI.shared.dismiss(animated: true)
                     Task { @MainActor in await AppModel.shared.meetups.respond(meetup, accept: false) }
                 },
             ]
         )
-        controller.presentTemplate(alert, animated: true, completion: nil)
+        CarPlayUI.shared.present(alert, animated: true)
     }
 
     /// Läuft schon eine Navigation, wird der Ort Zwischenstopp, sonst Routenvorschau
@@ -728,7 +732,7 @@ final class CarPlayController: NSObject {
         let stop = CPListItem(text: "Stopp hinzufügen", detailText: nil,
                               image: UIImage(systemName: "plus.circle.fill"))
         stop.handler = { [weak self] _, done in
-            self?.manager.interfaceController?.popTemplate(animated: false, completion: nil)
+            CarPlayUI.shared.pop(animated: false)
             self?.showSearchHub()
             done()
         }
@@ -754,7 +758,7 @@ final class CarPlayController: NSObject {
             let all = CPListItem(text: "Alle einladen", detailText: nil)
             all.handler = { [weak self] _, done in
                 self?.sendInvites(to: friends.map(\.friendId), place: place)
-                self?.manager.interfaceController?.popTemplate(animated: true, completion: nil)
+                CarPlayUI.shared.pop(animated: true)
                 done()
             }
             items.append(all)
@@ -764,14 +768,14 @@ final class CarPlayController: NSObject {
             let item = CPListItem(text: friend.displayName, detailText: detail)
             item.handler = { [weak self] _, done in
                 self?.sendInvites(to: [friend.friendId], place: place)
-                self?.manager.interfaceController?.popTemplate(animated: true, completion: nil)
+                CarPlayUI.shared.pop(animated: true)
                 done()
             }
             items.append(item)
         }
         if !items.isEmpty { sections.append(CPListSection(items: items, header: "Einladen", sectionIndexTitle: nil)) }
         let template = CPListTemplate(title: place.name, sections: sections)
-        manager.interfaceController?.pushTemplate(template, animated: true, completion: nil)
+        CarPlayUI.shared.push(template, animated: true)
     }
 
     private func sendInvites(to ids: [UUID], place: Place) {
@@ -787,10 +791,10 @@ final class CarPlayController: NSObject {
         guard let controller = manager.interfaceController, controller.presentedTemplate == nil else { return }
         let alert = CPAlertTemplate(titleVariants: [text], actions: [
             CPAlertAction(title: "OK", style: .default) { [weak self] _ in
-                self?.manager.interfaceController?.dismissTemplate(animated: true, completion: nil)
+                CarPlayUI.shared.dismiss(animated: true)
             }
         ])
-        controller.presentTemplate(alert, animated: true, completion: nil)
+        CarPlayUI.shared.present(alert, animated: true)
     }
 
     // MARK: Suche (Tastatur im Stand, Diktat beim Fahren – das entscheidet CarPlay selbst)
@@ -799,7 +803,7 @@ final class CarPlayController: NSObject {
         Diag.log("CarPlay-Suche geöffnet, vom Auto gesperrt: \(Self.describe(session?.limitedUserInterfaces ?? []))")
         let template = CPSearchTemplate()
         template.delegate = self
-        manager.interfaceController?.pushTemplate(template, animated: true, completion: nil)
+        CarPlayUI.shared.push(template, animated: true)
     }
 }
 
@@ -866,20 +870,52 @@ extension CarPlayController: CarPlayManagerDelegate {
         }
     }
 
-    /// E-Auto: unter jeder Routen-Option „Ankunft mit 54 %“ bzw. „1 Ladestopp · Ankunft 21 %“
+    /// Zuletzt berechnete Prognosen je Route (Schlüssel: Länge + Fahrzeit + Akkustand)
+    private static var forecastCache: [String: String] = [:]
+
+    /// E-Auto: unter jeder Routen-Option „Ankunft mit 54 %“ bzw. „1 Ladestopp · Ankunft 21 %“.
+    /// Mapbox wartet synchron auf diese Antwort, und CarPlay friert so lange ein. Darum wird im Hintergrund
+    /// gerechnet und höchstens 0,4 s gewartet. Ist es bis dahin nicht fertig (lange Route, Ladesäulen noch nicht
+    /// eingelesen), erscheint die Vorschau ohne Prognose. Das Ergebnis landet im Zwischenspeicher für die nächste Vorschau.
     private static func withBatteryForecast(_ trip: CPTrip) -> CPTrip {
         guard EVSettings.enabled, let vehicle = EVSettings.vehicle else { return trip }
         let settings = EVSettings.plannerSettings
         let start = EVSettings.chargePercent
-        var changed = false
-        let choices: [CPRouteChoice] = trip.routeChoices.map { choice in
-            guard let route = mainRoute(in: choice.userInfo) else { return choice }
-            let text: String
-            switch ChargePlanner.plan(route: route, vehicle: vehicle, startPercent: start, settings: settings, sites: ChargeSites.all) {
-            case .success(let plan) where plan.direct: text = "Ankunft mit \(Int(plan.arrivalPercent.rounded())) %"
-            case .success(let plan): text = "\(plan.stops.count == 1 ? "1 Ladestopp" : "\(plan.stops.count) Ladestopps") · Ankunft \(Int(plan.arrivalPercent.rounded())) %"
-            case .failure: text = "Akku reicht nicht – kein Ladeplan"
+        let routes = trip.routeChoices.map { mainRoute(in: $0.userInfo) }
+        let keys = routes.map { r in r.map { "\(Int($0.distance))-\(Int($0.expectedTravelTime))-\(Int(start))" } }
+        let missing = zip(routes, keys).compactMap { r, k -> (Route, String)? in
+            guard let r, let k, forecastCache[k] == nil else { return nil }
+            return (r, k)
+        }
+        if !missing.isEmpty {
+            let done = DispatchSemaphore(value: 0)
+            let box = ForecastBox()
+            Task.detached(priority: .userInitiated) {
+                var texts: [String: String] = [:]
+                for (route, key) in missing {
+                    let text: String
+                    switch ChargePlanner.plan(route: route, vehicle: vehicle, startPercent: start, settings: settings, sites: ChargeSites.all) {
+                    case .success(let plan) where plan.direct: text = "Ankunft mit \(Int(plan.arrivalPercent.rounded())) %"
+                    case .success(let plan): text = "\(plan.stops.count == 1 ? "1 Ladestopp" : "\(plan.stops.count) Ladestopps") · Ankunft \(Int(plan.arrivalPercent.rounded())) %"
+                    case .failure: text = "Akku reicht nicht – kein Ladeplan"
+                    }
+                    texts[key] = text
+                }
+                box.set(texts)
+                done.signal()
+                // Kam es zu spät, steht es so bei der nächsten Vorschau bereit
+                let result = texts
+                await MainActor.run { forecastCache.merge(result) { $1 } }
             }
+            if done.wait(timeout: .now() + 0.4) == .timedOut {
+                Diag.log("Akku-Prognose in der Vorschau ausgelassen (Berechnung > 0,4 s)")
+                return trip
+            }
+            forecastCache.merge(box.get()) { $1 }
+        }
+        var changed = false
+        let choices: [CPRouteChoice] = zip(trip.routeChoices, keys).map { choice, key in
+            guard let key, let text = forecastCache[key] else { return choice }
             changed = true
             let info = (choice.additionalInformationVariants ?? []).map { "\(text) · \($0)" }
             let copy = CPRouteChoice(summaryVariants: choice.summaryVariants,
@@ -888,6 +924,7 @@ extension CarPlayController: CarPlayManagerDelegate {
             copy.userInfo = choice.userInfo
             return copy
         }
+        if forecastCache.count > 30 { forecastCache = [:] }
         guard changed else { return trip }
         let copy = CPTrip(origin: trip.origin, destination: trip.destination, routeChoices: choices)
         copy.userInfo = trip.userInfo
@@ -1034,7 +1071,7 @@ extension CarPlayController: CarPlayManagerDelegate {
                 let search = CPBarButton(title: "Suche") { [weak self] _ in self?.showSearchHub() }
                 let goals = CPBarButton(title: "Ziele") { [weak self] _ in
                     guard let self else { return }
-                    manager.interfaceController?.pushTemplate(destinationsTemplate(), animated: true, completion: nil)
+                    CarPlayUI.shared.push(destinationsTemplate(), animated: true)
                 }
                 return [search, goals]
             case .navigating:
@@ -1167,4 +1204,12 @@ final class RouteLoadingView: UIView {
     }
 
     required init?(coder: NSCoder) { nil }
+}
+
+/// Ergebnis der Vorschau-Prognose zwischen Hintergrund und wartendem Hauptthread
+private final class ForecastBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var texts: [String: String] = [:]
+    func set(_ t: [String: String]) { lock.lock(); texts = t; lock.unlock() }
+    func get() -> [String: String] { lock.lock(); defer { lock.unlock() }; return texts }
 }

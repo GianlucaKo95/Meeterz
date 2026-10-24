@@ -6,7 +6,7 @@ import CarPlay
 /// hinfahren, Bescheid geben oder nur auf meiner Karte ausblenden.
 extension CarPlayController {
     func showFriendsMenu() {
-        manager.interfaceController?.pushTemplate(friendsMenuTemplate(), animated: true, completion: nil)
+        CarPlayUI.shared.push(friendsMenuTemplate(), animated: true)
     }
 
     private func friendsMenuTemplate() -> CPListTemplate {
@@ -24,7 +24,7 @@ extension CarPlayController {
             guard let self else { done(); return }
             setAllFriendsVisible(!allFriendsVisible)
             done()
-            manager.interfaceController?.popTemplate(animated: true, completion: nil)
+            CarPlayUI.shared.pop(animated: true)
         }
 
         let me = app.location.lastLocation
@@ -63,18 +63,18 @@ extension CarPlayController {
         let first = f.displayName.split(separator: " ").first.map(String.init) ?? f.displayName
         let hidden = Passengers.shared.riding.contains(f.friendId)
         let controller = manager.interfaceController
-        let close: () -> Void = { controller?.dismissTemplate(animated: true, completion: nil) }
+        let close: () -> Void = { CarPlayUI.shared.dismiss(animated: true) }
 
         let show = CPAlertAction(title: "Auf Karte zeigen", style: .default) { [weak self] _ in
             close()
-            controller?.popToRootTemplate(animated: true, completion: nil)
+            CarPlayUI.shared.popToRoot(animated: true)
             if hidden { Passengers.shared.setHiddenForMe(f.friendId, false); self?.refreshFriendsAfterPassengerChange() }
             if self?.allFriendsVisible == false { self?.setAllFriendsVisible(true) }
             self?.focusFriend(item.position.coordinate)
         }
         let drive = CPAlertAction(title: "Hinfahren", style: .default) { [weak self] _ in
             close()
-            controller?.popToRootTemplate(animated: true, completion: nil)
+            CarPlayUI.shared.popToRoot(animated: true)
             self?.startGuidance(to: Place(id: "friend-\(f.friendId)", name: f.displayName, address: nil,
                                           coordinate: item.position.coordinate), showProgress: true)
         }
@@ -87,11 +87,11 @@ extension CarPlayController {
             close()
             Passengers.shared.setHiddenForMe(f.friendId, !hidden)
             self?.refreshFriendsAfterPassengerChange()
-            controller?.popTemplate(animated: true, completion: nil)
+            CarPlayUI.shared.pop(animated: true)
         }
         let cancel = CPAlertAction(title: "Abbrechen", style: .cancel) { _ in close() }
         let sheet = CPActionSheetTemplate(title: first, message: hidden ? "Auf deiner Karte ausgeblendet – \(first) sieht dich weiterhin" : nil,
                                           actions: [show, drive, message, toggle, cancel])
-        controller?.presentTemplate(sheet, animated: true, completion: nil)
+        CarPlayUI.shared.present(sheet, animated: true)
     }
 }

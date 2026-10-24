@@ -144,7 +144,49 @@ final class CarPlayController: NSObject {
         threeD.toggle()
         configureCamera(browseMap, navigating: false)
         configureCamera(navMap, navigating: true)
-        threeDMapButton?.image = Self.textImage(threeD ? "2D" : "3D")
+    }
+
+    /// Menü „Kartenansicht“
+    private func showMapStyleMenu() {
+        lastMapInteraction = Date()
+        let d = UserDefaults.standard
+        let flyover = CarPlayFlyoverMirror.isEnabled
+        let satellite = d.object(forKey: "carplay.satellite") as? Bool ?? true
+        let current = flyover ? "flyover" : (satellite ? "satellite" : "classic")
+        let check = UIImage(systemName: "checkmark")
+        let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold)
+
+        func styleItem(_ key: String, _ title: String, _ symbol: String) -> CPListItem {
+            let item = CPListItem(text: title, detailText: nil, image: UIImage(systemName: symbol, withConfiguration: config),
+                                  accessoryImage: key == current ? check : nil, accessoryType: .none)
+            item.handler = { [weak self] _, done in
+                d.set(key == "flyover", forKey: "carplay.flyover")
+                if key != "flyover" { d.set(key == "satellite", forKey: "carplay.satellite") }
+                self?.applyMapStyle()
+                done()
+                self?.manager.interfaceController?.popTemplate(animated: true, completion: nil)
+            }
+            return item
+        }
+        func viewItem(_ three: Bool) -> CPListItem {
+            let item = CPListItem(text: three ? "3D" : "2D", detailText: three ? "Geneigt, mit Gebäuden" : "Von oben",
+                                  image: UIImage(systemName: three ? "view.3d" : "map", withConfiguration: config),
+                                  accessoryImage: threeD == three ? check : nil, accessoryType: .none)
+            item.handler = { [weak self] _, done in
+                if let self, threeD != three { toggleThreeD() }
+                done()
+                self?.manager.interfaceController?.popTemplate(animated: true, completion: nil)
+            }
+            return item
+        }
+        let template = CPListTemplate(title: "Kartenansicht", sections: [
+            CPListSection(items: [styleItem("satellite", "Satellit", "globe.europe.africa.fill"),
+                                  styleItem("classic", "Klassisch", "map.fill"),
+                                  styleItem("flyover", "Apple Flyover (experimentell)", "building.2.fill")],
+                          header: "Karte", sectionIndexTitle: nil),
+            CPListSection(items: [viewItem(true), viewItem(false)], header: "Ansicht", sectionIndexTitle: nil),
+        ])
+        manager.interfaceController?.pushTemplate(template, animated: true, completion: nil)
     }
 
     /// +/−: ändert den Zoom der Folgekamera statt die Kamera anzuhalten – so springt nichts zurück
@@ -166,8 +208,9 @@ final class CarPlayController: NSObject {
     /// Zentrieren braucht es nicht – die Karte kehrt nach 4 s von selbst zum Standort zurück.
     private func mapButtons() -> [CPMapButton] {
         let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold)
-        let three = CPMapButton { [weak self] _ in self?.toggleThreeD() }
-        three.image = Self.textImage(threeD ? "2D" : "3D")
+        // Kartenansicht: Stil (Satellit/Klassisch/Flyover) und 2D/3D in einem Menü – wie in der App
+        let three = CPMapButton { [weak self] _ in self?.showMapStyleMenu() }
+        three.image = UIImage(systemName: "square.3.layers.3d", withConfiguration: config)
         threeDMapButton = three
         let plus = CPMapButton { [weak self] _ in self?.zoom(by: 1) }
         plus.image = UIImage(systemName: "plus", withConfiguration: config)

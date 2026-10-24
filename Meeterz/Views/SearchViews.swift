@@ -222,6 +222,9 @@ struct RoutePreviewView: View {
     @State private var favoriteName = ""
     /// Übernommener Ladeplan (Route führt dann über die Säulen)
     @State private var adoptedPlan: ChargePlanner.Plan?
+    /// Weitere Aktionen aufgeklappt (nur E-Auto; startet immer eingeklappt)
+    @State private var actionsOpen = false
+    private var compactActions: Bool { EVSettings.enabled && current.mode == .car }
 
     #if DEBUG
     @State private var simulate = NavigationCoordinator.simulate
@@ -348,21 +351,41 @@ struct RoutePreviewView: View {
           }
           .scrollIndicators(.hidden)
 
-          // Aktionen bleiben unten sichtbar, der Rest darüber scrollt
+          // Aktionen bleiben unten sichtbar, der Rest darüber scrollt.
+          // E-Auto: nur „Losfahren“ – die übrigen Knöpfe per Hochwischen am Greifer, damit der Ladeplan Platz hat.
           VStack(spacing: 10) {
+            if compactActions {
+                Capsule().fill(Theme.muted.opacity(0.6))
+                    .frame(width: 40, height: 5)
+                    .frame(maxWidth: .infinity, minHeight: 18)
+                    .contentShape(Rectangle())
+                    .onTapGesture { withAnimation(.snappy) { actionsOpen.toggle() } }
+                    .accessibilityLabel(actionsOpen ? "Weitere Aktionen ausblenden" : "Weitere Aktionen")
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityIdentifier("preview-actions-grabber")
+            }
             Button("Losfahren") {
                 app.navigation.start(.init(destination: current.destination, routes: chosen ?? current.routes, mode: current.mode))
             }
                 .buttonStyle(PrimaryButtonStyle())
-            if !app.friends.accepted.isEmpty {
-                Button { showInvite = true } label: {
-                    Label("Freunde einladen", systemImage: "person.2.fill")
+            if !compactActions || actionsOpen {
+                if !app.friends.accepted.isEmpty {
+                    Button { showInvite = true } label: {
+                        Label("Freunde einladen", systemImage: "person.2.fill")
+                    }
+                    .buttonStyle(SecondaryButtonStyle())
                 }
-                .buttonStyle(SecondaryButtonStyle())
+                Button("Abbrechen") { dismiss() }
+                    .buttonStyle(SecondaryButtonStyle())
             }
-            Button("Abbrechen") { dismiss() }
-                .buttonStyle(SecondaryButtonStyle())
           }
+          .gesture(DragGesture(minimumDistance: 12).onEnded { g in
+              guard compactActions else { return }
+              withAnimation(.snappy) {
+                  if g.translation.height < -20 { actionsOpen = true }
+                  if g.translation.height > 20 { actionsOpen = false }
+              }
+          })
         }
         .padding(20)
         .background(Theme.ink)

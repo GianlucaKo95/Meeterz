@@ -69,6 +69,7 @@ final class AppModel {
         await meetups.startListening(userId: profile.id)
         await messages.startListening(userId: profile.id)
         await vehicle.startListening(userId: profile.id)
+        ParkingDetector.shared.start()
         await push.registerIfPossible()
 
         refreshLoop?.cancel()

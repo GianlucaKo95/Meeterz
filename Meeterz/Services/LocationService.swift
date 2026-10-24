@@ -223,6 +223,7 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
         guard let loc = locations.last, loc.horizontalAccuracy >= 0, loc.horizontalAccuracy < 100 else { return }
         Task { @MainActor in
             self.lastLocation = loc
+            ParkingDetector.shared.record(loc)
             self.resolveWaiters(with: loc)
             if loc.speed > Self.movingSpeed {
                 self.lastMovingAt = Date()

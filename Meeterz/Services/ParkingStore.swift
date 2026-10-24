@@ -25,20 +25,24 @@ final class ParkingStore {
         get { UserDefaults.standard.bool(forKey: "parking.enabled") }
         set {
             UserDefaults.standard.set(newValue, forKey: "parking.enabled")
-            if !newValue { AppModel.shared.parking.clear() }   // ausgeschaltet: gemerkten Platz verwerfen
+            if !newValue { AppModel.shared.parking.clear(); ParkingDetector.shared.stop() }   // aus: Platz verwerfen
+            else { ParkingDetector.shared.start() }
         }
     }
 
     /// Nur speichern, wenn eingeschaltet und der Standort frisch und genau genug ist
-    func save(_ location: CLLocation) {
+    func save(_ location: CLLocation, source: String = "CarPlay") {
         guard Self.enabled else { return }
+        // Schon ein frischer Platz ganz in der Nähe (z. B. CarPlay-Trennen und Bewegung erkennen dasselbe Parken)?
+        if let spot, Date().timeIntervalSince(spot.date) < 10 * 60,
+           spot.coordinate.distance(to: location.coordinate) < 150, source != "Auto" { return }
         guard Date().timeIntervalSince(location.timestamp) < 5 * 60, location.horizontalAccuracy < 100 else {
             Diag.log("Parkplatz nicht gemerkt: Standort zu alt oder ungenau")
             return
         }
         spot = Spot(lat: location.coordinate.latitude, lng: location.coordinate.longitude, date: Date())
         persist()
-        Diag.log("Parkplatz gemerkt")
+        Diag.log("Parkplatz gemerkt (\(source))")
     }
 
     func clear() {

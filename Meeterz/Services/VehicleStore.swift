@@ -15,11 +15,13 @@ final class VehicleStore {
         let odometerKm: Double?
         let speedKmh: Double?
         let parked: Bool?
+        let lat: Double?
+        let lng: Double?
         let reportedAt: Date?
         let updatedAt: Date
 
         enum CodingKeys: String, CodingKey {
-            case soc, charging, parked
+            case soc, charging, parked, lat, lng
             case rangeKm = "range_km"
             case powerKw = "power_kw"
             case extTemp = "ext_temp"
@@ -94,6 +96,7 @@ final class VehicleStore {
         status = new
         loaded = true
         ChargingSession.shared.update(new)
+        ParkingDetector.shared.vehicleUpdate(new)
         if AppModel.shared.navigation.isNavigating { ChargeMonitor.shared.updateForecast() }
     }
 

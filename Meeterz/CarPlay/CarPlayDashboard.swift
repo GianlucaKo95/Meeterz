@@ -38,7 +38,25 @@ final class CarPlayDashboardSceneDelegate: NSObject, CPTemplateApplicationDashbo
     func sceneDidBecomeActive(_ scene: UIScene) { MainActor.assumeIsolated { Diag.log("Dashboard-Szene: aktiv") } }
     func sceneWillResignActive(_ scene: UIScene) { MainActor.assumeIsolated { Diag.log("Dashboard-Szene: wird inaktiv") } }
     func sceneWillEnterForeground(_ scene: UIScene) { MainActor.assumeIsolated { Diag.log("Dashboard-Szene: Vordergrund") } }
-    func sceneDidEnterBackground(_ scene: UIScene) { MainActor.assumeIsolated { Diag.log("Dashboard-Szene: Hintergrund") } }
+    func sceneDidEnterBackground(_ scene: UIScene) { MainActor.assumeIsolated { Diag.log("Dashboard-Szene: Hintergrund (\(Self.context))") } }
+
+    /// Wer hat die Dashboard-Szene in den Hintergrund geschickt? Zustand aller Szenen und ob das iPhone gesperrt ist
+    @MainActor static var context: String {
+        let app = UIApplication.shared
+        let scenes = app.connectedScenes.map { scene -> String in
+            let role = scene.session.role.rawValue.replacingOccurrences(of: "UIWindowSceneSessionRole", with: "")
+                .replacingOccurrences(of: "CPTemplateApplication", with: "CP")
+            let state: String
+            switch scene.activationState {
+            case .foregroundActive: state = "aktiv"
+            case .foregroundInactive: state = "inaktiv"
+            case .background: state = "Hintergrund"
+            default: state = "getrennt"
+            }
+            return "\(role)=\(state)"
+        }.sorted().joined(separator: ", ")
+        return "iPhone gesperrt: \(app.isProtectedDataAvailable ? "nein" : "ja"), Szenen: \(scenes)"
+    }
 }
 
 /// Misst nach dem Verbinden mit CarPlay 60 s lang, ob der Hauptthread hängt (Dashboard wartet sonst auf uns)

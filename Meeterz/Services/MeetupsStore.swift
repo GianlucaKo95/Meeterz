@@ -82,6 +82,7 @@ final class MeetupsStore {
             let changed = meetups != rows
             meetups = rows
             if changed { WidgetSnapshotWriter.shared.update(force: true) }
+            Task { await DepartureReminder.shared.refresh() }
         }
     }
 
@@ -91,12 +92,13 @@ final class MeetupsStore {
 
     // MARK: Aktionen
 
-    func propose(to friendId: UUID, place: Place, silent: Bool = false) async -> Bool {
-        struct Params: Encodable { let to_user_id: UUID; let place_name: String; let lat: Double; let lng: Double }
+    func propose(to friendId: UUID, place: Place, at meetAt: Date? = nil, silent: Bool = false) async -> Bool {
+        // meet_at nur mitschicken, wenn gesetzt (synthetisiertes Encodable lässt nil weg)
+        struct Params: Encodable { let to_user_id: UUID; let place_name: String; let lat: Double; let lng: Double; let meet_at: Date? }
         do {
             let id: UUID = try await client.rpc("propose_meetup", params: Params(
                 to_user_id: friendId, place_name: place.name,
-                lat: place.coordinate.latitude, lng: place.coordinate.longitude
+                lat: place.coordinate.latitude, lng: place.coordinate.longitude, meet_at: meetAt
             )).execute().value
             AppModel.shared.push.notify(.meetupProposed, to: friendId, meetupId: id)
             await refreshMeetups()

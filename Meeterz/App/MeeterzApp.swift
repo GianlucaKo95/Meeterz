@@ -122,5 +122,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
         await AppModel.shared.refreshSocial()
+        let info = response.notification.request.content.userInfo
+        if info["type"] as? String == "depart", let id = info["meetup"] as? String {
+            await DepartureReminder.shared.open(meetupId: id)
+        }
     }
 }

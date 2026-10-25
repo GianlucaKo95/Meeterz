@@ -129,6 +129,9 @@ private struct MeetupCard: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(meetup.placeName).font(Theme.title(17)).foregroundStyle(Theme.text)
+                    if let at = meetup.meetAt {
+                        Label(Meetup.timeText(at), systemImage: "clock").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.text)
+                    }
                     Text(entry.accepted ? "Zugesagt" : (meetup.incoming ? "Einladung an dich" : "Wartet auf Zusage"))
                         .font(.caption.weight(.bold))
                         .foregroundStyle(entry.accepted ? Theme.accent : Theme.muted)

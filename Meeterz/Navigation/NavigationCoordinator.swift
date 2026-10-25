@@ -128,6 +128,17 @@ final class NavigationCoordinator: NSObject {
         }
     }
 
+    /// Auto-Route zu einem Ort ohne Berechnen-Anzeige; mit `departing` Verkehrsprognose für diese Abfahrtszeit
+    func driveRoute(to coordinate: CLLocationCoordinate2D, departing: Date? = nil) async -> Route? {
+        guard let origin = AppModel.shared.location.lastLocation?.coordinate else { return nil }
+        let options = NavigationRouteOptions(waypoints: [Waypoint(coordinate: origin), Waypoint(coordinate: coordinate)],
+                                             profileIdentifier: .automobileAvoidingTraffic,
+                                             locale: Locale.navigation, distanceUnit: .kilometer)
+        options.departAt = departing
+        RoutePreferences.apply(to: options)
+        return try? await core.routingProvider().calculateRoutes(options: options).value.mainRoute.route
+    }
+
     /// Fahrzeit mit dem Auto zu einem Ort, ohne die Berechnen-Anzeige der App (z. B. für die Zielliste auf CarPlay)
     func driveTime(to coordinate: CLLocationCoordinate2D) async -> TimeInterval? {
         guard let origin = AppModel.shared.location.lastLocation?.coordinate else { return nil }

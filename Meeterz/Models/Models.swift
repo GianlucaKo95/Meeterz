@@ -150,6 +150,8 @@ struct Meetup: Codable, Identifiable, Equatable {
     /// Gruppen-Treffen: gemeinsame ID aller Einladungen und Zahl der Beteiligten (inkl. Einladendem)
     var groupId: UUID? = nil
     var groupSize: Int? = nil
+    /// Verabredete Uhrzeit (nil = „jetzt“)
+    var meetAt: Date? = nil
 
     var coordinate: CLLocationCoordinate2D { .init(latitude: lat, longitude: lng) }
     var isGroup: Bool { groupId != nil }
@@ -158,7 +160,15 @@ struct Meetup: Codable, Identifiable, Equatable {
         let others = max(0, (groupSize ?? 2) - 2)
         return others == 0 ? otherName : "\(otherName) und \(others) weiteren"
     }
-    var isPending: Bool { status == "pending" }
+    /// „heute 18:30“, „morgen 9:00“, „Sa., 26.10. 14:00“
+    static func timeText(_ date: Date) -> String {
+        let cal = Calendar.current
+        let time = date.formatted(date: .omitted, time: .shortened)
+        if cal.isDateInToday(date) { return "heute \(time)" }
+        if cal.isDateInTomorrow(date) { return "morgen \(time)" }
+        return date.formatted(.dateTime.weekday(.abbreviated).day().month(.twoDigits).locale(Locale(identifier: "de_DE"))) + " \(time)"
+    }
+        var isPending: Bool { status == "pending" }
     var isAccepted: Bool { status == "accepted" }
     var place: Place { Place(id: id.uuidString, name: placeName, address: nil, coordinate: coordinate) }
 
@@ -172,6 +182,7 @@ struct Meetup: Codable, Identifiable, Equatable {
         case createdAt = "created_at"
         case groupId = "group_id"
         case groupSize = "group_size"
+        case meetAt = "meet_at"
     }
 }
 

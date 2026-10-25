@@ -60,13 +60,19 @@ private struct IncomingMeetupCard: View {
                  : "\(meetup.otherName) möchte sich treffen")
                 .font(.caption.weight(.bold)).foregroundStyle(Theme.accent).textCase(.uppercase)
             Text(meetup.placeName).font(Theme.display(22))
+            if let at = meetup.meetAt {
+                Label(Meetup.timeText(at), systemImage: "clock").font(.headline).foregroundStyle(Theme.text)
+            }
             HStack(spacing: 10) {
                 Button("Ablehnen") { Task { await app.meetups.respond(meetup, accept: false) } }
                     .buttonStyle(SecondaryButtonStyle())
                 Button("Annehmen") {
                     Task {
                         await app.meetups.respond(meetup, accept: true)
-                        await app.navigation.addStop(meetup.place)
+                        // Treffen später: nicht gleich als Ziel – die Losfahren-Erinnerung meldet sich rechtzeitig
+                        if (meetup.meetAt?.timeIntervalSinceNow ?? 0) < 45 * 60 {
+                            await app.navigation.addStop(meetup.place)
+                        }
                     }
                 }
                 .buttonStyle(PrimaryButtonStyle())
@@ -86,6 +92,9 @@ private struct AcceptedMeetupCard: View {
                     Text("Treffen mit \(meetup.incoming ? meetup.withText : meetup.otherName)")
                         .font(.caption.weight(.bold)).foregroundStyle(Theme.accent).textCase(.uppercase)
                     Text(meetup.placeName).font(Theme.title(18))
+                    if let at = meetup.meetAt {
+                        Text(Meetup.timeText(at)).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
+                    }
                 }
                 Spacer()
                 Menu {
@@ -329,6 +338,9 @@ struct InviteFriendsView: View {
 
     @State private var selected: Set<UUID> = []
     @State private var sending = false
+    /// Optional: verabredete Uhrzeit (sonst „jetzt“)
+    @State private var withTime = false
+    @State private var meetAt = Date().addingTimeInterval(3600).roundedToQuarterHour
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -361,6 +373,21 @@ struct InviteFriendsView: View {
                 }
             }
 
+            VStack(alignment: .leading, spacing: 8) {
+                Toggle("Uhrzeit festlegen", isOn: $withTime.animation()).tint(Theme.accent)
+                    .font(Theme.title(15)).foregroundStyle(Theme.text)
+                if withTime {
+                    DatePicker("Treffen um", selection: $meetAt,
+                               in: Date().addingTimeInterval(10 * 60)...Date().addingTimeInterval(14 * 86_400),
+                               displayedComponents: [.date, .hourAndMinute])
+                        .tint(Theme.accent)
+                    Text("Meeterz erinnert alle rechtzeitig ans Losfahren – mit aktuellem Verkehr.")
+                        .font(.footnote).foregroundStyle(Theme.muted)
+                }
+            }
+            .padding(12)
+            .background(RoundedRectangle(cornerRadius: 16).fill(Theme.panel))
+
             Text("Die Eingeladenen können zusagen oder ablehnen. Bei einer Zusage wird der Ort bei ihnen als Ziel vorgeschlagen.")
                 .font(.footnote).foregroundStyle(Theme.muted)
 
@@ -368,7 +395,7 @@ struct InviteFriendsView: View {
                 Task {
                     sending = true
                     var sent = 0
-                    for id in selected where await app.meetups.propose(to: id, place: place, silent: true) {
+                    for id in selected where await app.meetups.propose(to: id, place: place, at: withTime ? meetAt : nil, silent: true) {
                         sent += 1
                     }
                     sending = false
@@ -389,5 +416,13 @@ struct InviteFriendsView: View {
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
         .onAppear { if let preselected { selected = [preselected] } }
+    }
+}
+
+extension Date {
+    /// Auf die nächste Viertelstunde aufgerundet
+    var roundedToQuarterHour: Date {
+        let q: TimeInterval = 15 * 60
+        return Date(timeIntervalSinceReferenceDate: (timeIntervalSinceReferenceDate / q).rounded(.up) * q)
     }
 }

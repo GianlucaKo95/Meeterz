@@ -140,6 +140,8 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
     private var distance: CLLocationDistance = 900
     private var subscriptions = Set<AnyCancellable>()
     private var timer: Timer?
+    private var connectedAt = Date()
+    private var renderedLogged = false
     private var pins: [UUID: MapPin] = [:]
     private var routeOverlays: [MKOverlay] = []
 
@@ -167,19 +169,27 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
         let controller = UIViewController()
         controller.view = map
         window.rootViewController = controller
+        window.isHidden = false
         mapView = map
+        connectedAt = Date()
+        renderedLogged = false
 
-        // Laufende Route
-        navigationProvider.mapboxNavigation.tripSession().navigationRoutes
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] routes in self?.drawRoute(routes?.mainRoute.route.shape?.coordinates) }
-            .store(in: &subscriptions)
+        // Erst die Karte zeigen, dann den Rest: Beim Kaltstart (CarPlay startet Meeterz im Hintergrund) soll das
+        // Dashboard nicht darauf warten, dass die Mapbox-Navigation hochfährt oder Freunde geladen sind.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.mapView === map else { return }
+            // Laufende Route
+            navigationProvider.mapboxNavigation.tripSession().navigationRoutes
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] routes in self?.drawRoute(routes?.mainRoute.route.shape?.coordinates) }
+                .store(in: &self.subscriptions)
 
-        // Freunde alle 3 s abgleichen
-        timer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.refreshFriends() }
+            // Freunde alle 3 s abgleichen
+            self.timer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
+                MainActor.assumeIsolated { self?.refreshFriends() }
+            }
+            self.refreshFriends()
         }
-        refreshFriends()
 
         Task { @MainActor [weak self, weak map, weak window] in
             try? await Task.sleep(for: .seconds(5))
@@ -317,6 +327,17 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
     }
 
     // MARK: MKMapViewDelegate
+
+    /// Diagnose: Wann hat die Karte ihr erstes Bild fertig? Zeigt, ob Meeterz gezeichnet hat, während CarPlay
+    /// noch den Platzhalter zeigt (dann liegt es an iOS) – oder ob die Karte selbst zu spät kam.
+    nonisolated func mapViewDidFinishRenderingMap(_ mapView: MKMapView, fullyRendered: Bool) {
+        MainActor.assumeIsolated {
+            guard !renderedLogged else { return }
+            renderedLogged = true
+            let seconds = Date().timeIntervalSince(connectedAt)
+            Diag.log("\(name): Karte gezeichnet nach \(String(format: "%.1f", seconds)) s (vollständig: \(fullyRendered), iPhone gesperrt: \(UIApplication.shared.isProtectedDataAvailable ? "nein" : "ja"))")
+        }
+    }
 
     nonisolated func mapView(_ mapView: MKMapView, didUpdate userLocation: MKUserLocation) {
         MainActor.assumeIsolated {

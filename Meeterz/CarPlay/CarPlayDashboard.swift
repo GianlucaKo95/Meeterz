@@ -158,7 +158,8 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
         let map = MKMapView(frame: window.bounds)
         map.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         map.delegate = self
-        map.mapType = Self.mapType
+        Self.applyStyle(to: map)
+        map.isPitchEnabled = true
         map.showsUserLocation = true
         map.showsCompass = false
         map.showsScale = false
@@ -198,15 +199,33 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
         }
     }
 
-    private static var mapType: MKMapType {
-        CarPlayFlyoverMirror.isEnabled ? .hybridFlyover
-            : (UserDefaults.standard.object(forKey: "carplay.satellite") as? Bool ?? true) ? .hybrid : .standard
+    /// Kartenstil sofort übernehmen (Einstellung „Karte in CarPlay“ bzw. 2D/3D)
+    func applyMapType() {
+        guard let map = mapView else { return }
+        Self.applyStyle(to: map)
+        if let here = map.userLocation.location ?? AppModel.shared.location.lastLocation { follow(here, map: map, animated: true) }
     }
 
-    /// Kartenstil sofort übernehmen (Einstellung „Karte in CarPlay“)
-    func applyMapType() {
-        mapView?.mapType = Self.mapType
+    /// Kartenart mit Höhenmodell: Mit dem bloßen `mapType` zeichnet MapKit flach (elevationStyle .flat),
+    /// eine geneigte Kamera wirkt dann wie 2D. In 3D darum Gelände und Gebäude realistisch.
+    private static func applyStyle(to map: MKMapView) {
+        if CarPlayFlyoverMirror.isEnabled {
+            map.mapType = .hybridFlyover
+            return
+        }
+        let satellite = UserDefaults.standard.object(forKey: "carplay.satellite") as? Bool ?? true
+        let elevation: MKMapConfiguration.ElevationStyle = CarPlayController.threeDEnabled ? .realistic : .flat
+        if satellite {
+            map.preferredConfiguration = MKHybridMapConfiguration(elevationStyle: elevation)
+        } else {
+            let standard = MKStandardMapConfiguration(elevationStyle: elevation)
+            standard.pointOfInterestFilter = MKPointOfInterestFilter(including: [.gasStation, .parking, .evCharger])
+            map.preferredConfiguration = standard
+        }
     }
+
+    /// Neigung wie in der großen CarPlay-Karte: 3D geneigt, 2D von oben
+    private static var pitch: CGFloat { CarPlayController.threeDEnabled ? 60 : 0 }
 
     /// Zuletzt gesetzte Knöpfe (nur bei Änderung neu setzen, sonst flackert die Kachel)
     private var shortcutKey = ""
@@ -281,7 +300,7 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
 
     private func follow(_ location: CLLocation, map: MKMapView, animated: Bool) {
         let heading = location.course >= 0 ? location.course : map.camera.heading
-        let camera = MKMapCamera(lookingAtCenter: location.coordinate, fromDistance: distance, pitch: 55, heading: heading)
+        let camera = MKMapCamera(lookingAtCenter: location.coordinate, fromDistance: distance, pitch: Self.pitch, heading: heading)
         map.setCamera(camera, animated: animated)
     }
 

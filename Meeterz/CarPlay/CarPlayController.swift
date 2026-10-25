@@ -80,9 +80,14 @@ final class CarPlayController: NSObject {
 
     /// 3D (geneigte Karte) auf CarPlay; Standard an
     private var threeD: Bool {
-        get { UserDefaults.standard.object(forKey: "carplay.3d") as? Bool ?? true }
-        set { UserDefaults.standard.set(newValue, forKey: "carplay.3d") }
+        get { Self.threeDEnabled }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "carplay.3d")
+            CarPlayDashboard.shared.applyMapType()   // Dashboard und Kombiinstrument folgen der Einstellung
+            CarPlayDashboard.cluster.applyMapType()
+        }
     }
+    static var threeDEnabled: Bool { UserDefaults.standard.object(forKey: "carplay.3d") as? Bool ?? true }
 
     private static func textImage(_ text: String) -> UIImage {
         let size = CGSize(width: 44, height: 44)

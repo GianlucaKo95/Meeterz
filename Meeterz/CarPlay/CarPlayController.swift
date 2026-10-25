@@ -1153,15 +1153,23 @@ extension CarPlayController: CarPlayManagerDelegate {
     }
 
     /// Ankunft: Mapbox blendet dafür eine Auswahl ein (schließt eine offene, öffnet sofort die neue – ohne auf CarPlay
-    /// zu warten, an unserer Warteschlange vorbei). Am Ziel bleibt das so (dort endet die Navigation ohnehin),
-    /// Hinweise pausieren aber. Am Zwischenziel (Ladestopp) zeigen wir einen eigenen, kurzen Hinweis über die
+    /// zu warten, an unserer Warteschlange vorbei). Am Ziel beenden wir die Navigation stattdessen direkt (ohne
+    /// Klick und ohne Feedback-Frage). Am Zwischenziel (Ladestopp) zeigen wir einen eigenen, kurzen Hinweis über die
     /// Warteschlange – der verdeckt auch die Ladeanzeige nicht, bis man „Weiter“ tippt.
     nonisolated func carPlayManager(_ carPlayManager: CarPlayManager, shouldPresentArrivalUIFor waypoint: Waypoint) -> Bool {
         MainActor.assumeIsolated {
             let final = AppModel.shared.navigation.destination.map { $0.coordinate.distance(to: waypoint.coordinate) < 150 } ?? true
             if final {
+                // Am Ziel: Navigation direkt beenden – ohne Auswahl „Navigation beenden / Fahrt bewerten“
+                Diag.log("Ziel erreicht – Navigation beendet")
                 pauseAlerts()
-                return true
+                Task { @MainActor [weak self] in
+                    try? await Task.sleep(for: .seconds(1.5))   // Mapbox die Ankunftsansage zu Ende bringen lassen
+                    guard let self, self.manager.currentActivity == .navigating else { return }
+                    self.pauseAlerts()
+                    self.manager.carPlayNavigationViewController?.exitNavigation(byCanceling: false)
+                }
+                return false
             }
             presentStopArrival(waypoint)
             return false

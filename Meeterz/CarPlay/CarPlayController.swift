@@ -754,7 +754,6 @@ final class CarPlayController: NSObject {
         }
         if let convoy = convoySection() { sections.append(convoy) }
         if let charge = chargeSection() { sections.append(charge) }
-        sections.append(routeOptionsSection())
         sections.append(CPListSection(items: [stop]))
 
         var items: [CPListItem] = []

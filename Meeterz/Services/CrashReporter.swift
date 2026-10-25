@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import MetricKit
 
 /// Abstürze und Hänger im Diagnose-Log festhalten, damit wir Ursachen statt Vermutungen haben.
@@ -13,6 +14,13 @@ final class CrashReporter: NSObject, MXMetricManagerSubscriber {
         NSSetUncaughtExceptionHandler { exception in
             Diag.log("ABSTURZ: \(exception.name.rawValue) – \(exception.reason ?? "?") | \(exception.callStackSymbols.prefix(6).joined(separator: " / "))")
             UserDefaults.standard.synchronize()
+        }
+        // Jeder Start der App ins Log: zeigt, ob iOS die App neu starten musste (z. B. nach Beenden im Hintergrund)
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?"
+        DispatchQueue.main.async {
+            let state = UIApplication.shared.applicationState == .background ? "im Hintergrund" : "im Vordergrund"
+            let locked = UIApplication.shared.isProtectedDataAvailable ? "" : ", Daten noch gesperrt (iPhone nicht entsperrt)"
+            Diag.log("App gestartet (Build \(build), \(state)\(locked))")
         }
         MXMetricManager.shared.add(self)
         StallLogger.shared.start()

@@ -1152,8 +1152,35 @@ extension CarPlayController: CarPlayManagerDelegate {
         }
     }
 
+    /// Ankunft: Mapbox blendet dafür eine Auswahl ein (schließt eine offene, öffnet sofort die neue – ohne auf CarPlay
+    /// zu warten, an unserer Warteschlange vorbei). Am Ziel bleibt das so (dort endet die Navigation ohnehin),
+    /// Hinweise pausieren aber. Am Zwischenziel (Ladestopp) zeigen wir einen eigenen, kurzen Hinweis über die
+    /// Warteschlange – der verdeckt auch die Ladeanzeige nicht, bis man „Weiter“ tippt.
     nonisolated func carPlayManager(_ carPlayManager: CarPlayManager, shouldPresentArrivalUIFor waypoint: Waypoint) -> Bool {
-        true
+        MainActor.assumeIsolated {
+            let final = AppModel.shared.navigation.destination.map { $0.coordinate.distance(to: waypoint.coordinate) < 150 } ?? true
+            if final {
+                pauseAlerts()
+                return true
+            }
+            presentStopArrival(waypoint)
+            return false
+        }
+    }
+
+    private func presentStopArrival(_ waypoint: Waypoint) {
+        let stop = ChargingSession.shared.plan?.stops.first { $0.site.coordinate.distance(to: waypoint.coordinate) < 300 }
+        let title = stop.map { "Ladestopp erreicht: \($0.site.title)" } ?? "Angekommen: \(waypoint.name ?? "Zwischenziel")"
+        let subtitle = stop.map { "Laden bis \(Int($0.departurePercent.rounded(.up)) + 1) % · ca. \(Int(($0.chargeTime / 60).rounded())) Min." }
+        Diag.log(title)
+        Task { @MainActor in
+            guard await self.waitForAlertSlot(timeout: 20) else { return }
+            let ok = CPAlertAction(title: "OK", style: .cancel) { _ in }
+            let alert = CPNavigationAlert(titleVariants: [title], subtitleVariants: subtitle.map { [$0] },
+                                          image: UIImage(systemName: stop != nil ? "bolt.car.fill" : "mappin.circle.fill"),
+                                          primaryAction: ok, secondaryAction: nil, duration: 10)
+            CarPlayUI.shared.alert(alert)
+        }
     }
 }
 

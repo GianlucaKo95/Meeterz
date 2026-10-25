@@ -92,7 +92,7 @@ final class IncidentWatcher {
     }
 
     /// „3 Kilometern“, „800 Metern“ – für die Ansage
-    static func spoken(_ meters: Double) -> String {
+    nonisolated static func spoken(_ meters: Double) -> String {
         if meters >= 1_000 {
             let km = (meters / 1_000).rounded()
             return km == 1 ? "einem Kilometer" : "\(Int(km)) Kilometern"

@@ -89,6 +89,16 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing, AVSpeechSynt
         synthesizer.speak(utterance)
     }
 
+    /// Eigene Ansage (z. B. „Unfall in 3 Kilometern“) in der Navigationsstimme. Unterbricht keine Abbiegeansage,
+    /// sondern reiht sich dahinter ein.
+    func announce(_ text: String) {
+        guard !muted else { return }
+        let utterance = AVSpeechUtterance(string: text)
+        utterance.voice = VoiceCatalog.selected ?? AVSpeechSynthesisVoice(language: "de-DE")
+        activateAudio()
+        synthesizer.speak(utterance)
+    }
+
     func stopSpeaking() { synthesizer.stopSpeaking(at: .word) }
     func interruptSpeaking() { synthesizer.stopSpeaking(at: .immediate) }
 
@@ -112,7 +122,11 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing, AVSpeechSynt
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
         let text = utterance.speechString
         Task { @MainActor in
-            guard let current = self.current, current.text == text else { return }
+            guard let current = self.current, current.text == text else {
+                // Eigene Ansage fertig: Musik wieder lauter, wenn nichts mehr läuft
+                if !self.synthesizer.isSpeaking { self.deactivateAudio() }
+                return
+            }
             self.current = nil
             self.subject.send(VoiceInstructionEvents.DidSpeak(instruction: current.instruction))
             if !self.synthesizer.isSpeaking { self.deactivateAudio() }

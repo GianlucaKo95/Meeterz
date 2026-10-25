@@ -376,6 +376,16 @@ final class NavigationCoordinator: NSObject {
             }
             .store(in: &subscriptions)
 
+        // Unfälle, Sperrungen, schwere Staus voraus (einmal je Ereignis)
+        IncidentWatcher.shared.reset()
+        core.navigation().routeProgress
+            .compactMap { $0?.routeProgress }
+            .throttle(for: .seconds(5), scheduler: RunLoop.main, latest: true)
+            .sink { progress in
+                Task { @MainActor in IncidentWatcher.shared.check(progress) }
+            }
+            .store(in: &subscriptions)
+
         Task { await applyArrivalSharing() }
     }
 

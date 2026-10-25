@@ -979,6 +979,7 @@ extension CarPlayController: CarPlayManagerDelegate {
             let overlay = FriendOverlay(mapView: navigationMapView.mapView) { [weak self] in self?.friendsShown ?? true }
             overlay.start()
             browseOverlay = overlay
+            navigationMapView.navigationCamera.cameraStateTransition = SmoothCameraTransition(navigationMapView.mapView)
             configureCamera(navigationMapView, navigating: false)
             autoHideButtons()
             browseRecenter?.cancel()
@@ -1011,6 +1012,7 @@ extension CarPlayController: CarPlayManagerDelegate {
             if let navMap = navigationViewController.navigationMapView {
                 navZoom = nil
                 overviewChosen = false
+                navMap.navigationCamera.cameraStateTransition = SmoothCameraTransition(navMap.mapView)
                 configureCamera(navMap, navigating: true)
                 autoHideButtons()
                 navRecenter?.cancel()

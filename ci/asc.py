@@ -151,7 +151,9 @@ def status(bundle_identifier):
         bundle = next((b for b in ids if b["attributes"]["identifier"] == ident), None)
         if not bundle:
             print(f"App-ID {ident}: nicht gefunden"); continue
-        caps = safe(f"/v1/bundleIds/{bundle['id']}/bundleIdCapabilities?limit=50").get("data", [])
+        full = safe(f"/v1/bundleIds/{bundle['id']}?include=bundleIdCapabilities")
+        caps = [x for x in full.get("included", []) if x.get("type") == "bundleIdCapabilities"]
+        if not full: print("  (Abfrage fehlgeschlagen)")
         print(f"App-ID {ident}:")
         for c in caps:
             a = c["attributes"]

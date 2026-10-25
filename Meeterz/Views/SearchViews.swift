@@ -279,6 +279,43 @@ struct RoutePreviewView: View {
         }
     }
 
+    /// Maut / Autobahn / Fähre meiden – gilt dauerhaft und berechnet die Vorschau gleich neu
+    @State private var avoidRevision = 0
+    private var routeOptionsMenu: some View {
+        Menu {
+            ForEach(RoutePreferences.Option.allCases) { option in
+                Toggle(isOn: Binding(
+                    get: { _ = avoidRevision; return RoutePreferences.isOn(option) },
+                    set: { RoutePreferences.set(option, $0); avoidRevision += 1; reloadForOptions() }
+                )) { Label(option.title, systemImage: option.symbol) }
+            }
+        } label: {
+            Image(systemName: "slider.horizontal.3")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(RoutePreferences.active.isEmpty ? Theme.text : Theme.accent)
+                .frame(width: 42, height: 42)
+                .background(Circle().fill(Theme.panel))
+                .overlay(Circle().stroke(Theme.stroke, lineWidth: 1))
+        }
+        .id(avoidRevision)
+        .disabled(switching)
+        .accessibilityLabel("Routenoptionen")
+    }
+
+    private func reloadForOptions() {
+        guard !switching else { return }
+        switching = true
+        Task {
+            if let next = await app.navigation.recalculate(current, mode: current.mode) {
+                current = next
+                selected = 0
+                chosen = nil
+                adoptedPlan = nil
+            }
+            switching = false
+        }
+    }
+
     private func switchMode(_ m: TravelMode) {
         guard m != current.mode, !switching else { return }
         switching = true
@@ -318,7 +355,14 @@ struct RoutePreviewView: View {
                     .padding(8)
                     .accessibilityLabel(saved ? "Als Favorit gespeichert" : "Als Favorit speichern")
                 }
+                .overlay(alignment: .topLeading) {
+                    if current.mode == .car { routeOptionsMenu.padding(8) }
+                }
             if current.options.count > 1 { routeChoices }
+            if current.mode == .car, let avoid = RoutePreferences.summary {
+                Label("Route \(avoid)", systemImage: "slider.horizontal.3")
+                    .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+            }
             VStack(alignment: .leading, spacing: 4) {
                 Text("Ziel").font(.caption.weight(.bold)).foregroundStyle(Theme.accent).textCase(.uppercase)
                 Text(current.destination.name).font(Theme.display(26))

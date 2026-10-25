@@ -105,9 +105,20 @@ final class NavigationCoordinator: NSObject {
             + [Waypoint(coordinate: place.coordinate, name: place.name)]
         let options = NavigationRouteOptions(waypoints: waypoints, profileIdentifier: mode.profile,
                                              locale: Locale.navigation, distanceUnit: .kilometer)
+        RoutePreferences.apply(to: options)
 
         do {
             return try await core.routingProvider().calculateRoutes(options: options).value
+        } catch where !options.roadClassesToAvoid.isEmpty {
+            // Ohne Maut/Autobahn/Fähre nicht erreichbar (z. B. Insel nur per Fähre): dann normal, mit Hinweis
+            let plain = NavigationRouteOptions(waypoints: waypoints, profileIdentifier: mode.profile,
+                                               locale: Locale.navigation, distanceUnit: .kilometer)
+            if let routes = try? await core.routingProvider().calculateRoutes(options: plain).value {
+                if !silent { AppModel.shared.show("Nicht möglich \(RoutePreferences.summary ?? "") – Route ohne Einschränkung", isError: false) }
+                return routes
+            }
+            if !silent { AppModel.shared.show(Self.friendly(error)) }
+            return nil
         } catch {
             if !silent {
                 AppModel.shared.show(mode == .car ? Self.friendly(error)
@@ -123,6 +134,7 @@ final class NavigationCoordinator: NSObject {
         let options = NavigationRouteOptions(waypoints: [Waypoint(coordinate: origin), Waypoint(coordinate: coordinate)],
                                              profileIdentifier: .automobileAvoidingTraffic,
                                              locale: Locale.navigation, distanceUnit: .kilometer)
+        RoutePreferences.apply(to: options)
         let routes = try? await core.routingProvider().calculateRoutes(options: options).value
         return routes?.mainRoute.route.expectedTravelTime
     }

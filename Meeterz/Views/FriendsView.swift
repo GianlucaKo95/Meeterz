@@ -34,6 +34,9 @@ struct FriendsView: View {
     @AppStorage("carplay.flyover") private var carPlayFlyover = false
     @State private var diagText = Diag.text
     @State private var voiceOn = !MeeterzSpeechSynthesizer.shared.muted
+    @AppStorage("route.avoid.tolls") private var avoidTolls = false
+    @AppStorage("route.avoid.motorways") private var avoidMotorways = false
+    @AppStorage("route.avoid.ferries") private var avoidFerries = false
     #if DEBUG
     @State private var simulate = NavigationCoordinator.simulate
     #endif
@@ -479,6 +482,13 @@ struct FriendsView: View {
                 .tint(Theme.accent)
                 .onChange(of: simulate) { _, v in NavigationCoordinator.simulate = v }
             #endif
+            DisclosureGroup("Routenoptionen (Auto)") {
+                Toggle("Maut meiden", isOn: $avoidTolls).tint(Theme.accent)
+                Toggle("Autobahnen meiden", isOn: $avoidMotorways).tint(Theme.accent)
+                Toggle("Fähren meiden", isOn: $avoidFerries).tint(Theme.accent)
+                Text("Gilt für alle Routen, auch in CarPlay und für den Ladeplan. Geht ein Ziel nur mit Maut oder Fähre, nimmt Meeterz die normale Route und sagt Bescheid.")
+                    .font(.footnote).foregroundStyle(Theme.muted)
+            }
             Toggle("Sprachansagen", isOn: $voiceOn)
                 .tint(Theme.accent)
                 .onChange(of: voiceOn) { _, v in MeeterzSpeechSynthesizer.shared.muted = !v }

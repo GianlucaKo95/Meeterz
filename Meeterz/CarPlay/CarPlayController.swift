@@ -492,6 +492,7 @@ final class CarPlayController: NSObject {
             profileIdentifier: .automobileAvoidingTraffic,
             locale: Locale.navigation,
             distanceUnit: .kilometer)
+        RoutePreferences.apply(to: options)
         manager.previewRoutes(for: options, completionHandler: completion)
     }
 
@@ -753,6 +754,7 @@ final class CarPlayController: NSObject {
         }
         if let convoy = convoySection() { sections.append(convoy) }
         if let charge = chargeSection() { sections.append(charge) }
+        sections.append(routeOptionsSection())
         sections.append(CPListSection(items: [stop]))
 
         var items: [CPListItem] = []
@@ -866,10 +868,26 @@ extension CarPlayController: CarPlayManagerDelegate {
 
     nonisolated func carPlayManager(_ carPlayManager: CarPlayManager, willPreview trip: CPTrip) -> CPTrip {
         MainActor.assumeIsolated {
-            let shown = Self.withBatteryForecast(trip)
+            let shown = Self.withRouteOptions(Self.withBatteryForecast(trip))
             previewTrip = shown
             return shown
         }
+    }
+
+    /// „ohne Maut“ unter jeder Routen-Option, wenn Routenoptionen aktiv sind
+    private static func withRouteOptions(_ trip: CPTrip) -> CPTrip {
+        guard let summary = RoutePreferences.summary else { return trip }
+        let choices = trip.routeChoices.map { choice -> CPRouteChoice in
+            let info = (choice.additionalInformationVariants ?? []).map { "\($0) · \(summary)" }
+            let copy = CPRouteChoice(summaryVariants: choice.summaryVariants,
+                                     additionalInformationVariants: info.isEmpty ? [summary] : info,
+                                     selectionSummaryVariants: choice.selectionSummaryVariants ?? [])
+            copy.userInfo = choice.userInfo
+            return copy
+        }
+        let copy = CPTrip(origin: trip.origin, destination: trip.destination, routeChoices: choices)
+        copy.userInfo = trip.userInfo
+        return copy
     }
 
     /// Zuletzt berechnete Prognosen je Route (Schlüssel: Länge + Fahrzeit + Akkustand)

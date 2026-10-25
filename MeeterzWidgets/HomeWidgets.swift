@@ -15,6 +15,9 @@ struct SnapshotProvider: TimelineProvider {
     func placeholder(in context: Context) -> SnapshotEntry { SnapshotEntry(date: Date(), snapshot: .preview) }
 
     func getSnapshot(in context: Context, completion: @escaping (SnapshotEntry) -> Void) {
+        if !context.isPreview {
+            WidgetSnapshotStore.appendLog("Momentaufnahme \(context.family) \(Int(context.displaySize.width))x\(Int(context.displaySize.height)), Daten: \(WidgetSnapshotStore.loadStatus())")
+        }
         completion(SnapshotEntry(date: Date(), snapshot: context.isPreview ? .preview : (WidgetSnapshotStore.load() ?? .empty)))
     }
 

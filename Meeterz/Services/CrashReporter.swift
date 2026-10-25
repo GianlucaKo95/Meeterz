@@ -20,10 +20,25 @@ final class CrashReporter: NSObject, MXMetricManagerSubscriber {
         DispatchQueue.main.async {
             let state = UIApplication.shared.applicationState == .background ? "im Hintergrund" : "im Vordergrund"
             let locked = UIApplication.shared.isProtectedDataAvailable ? "" : ", Daten noch gesperrt (iPhone nicht entsperrt)"
-            Diag.log("App gestartet (Build \(build), \(state)\(locked))")
+            Diag.log("App gestartet (Build \(build), \(state)\(locked), Dateischutz: \(CrashReporter.fileProtection()))")
         }
         MXMetricManager.shared.add(self)
         StallLogger.shared.start()
+    }
+
+    /// Mit welcher Schutzklasse legt iOS Dateien der App an? „complete“ hieße: bei gesperrtem iPhone unlesbar –
+    /// dann könnte CarPlay die App nach einem Kaltstart im gesperrten Zustand nicht richtig anzeigen.
+    static func fileProtection() -> String {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("protection-probe")
+        do {
+            try Data("x".utf8).write(to: url)
+            defer { try? FileManager.default.removeItem(at: url) }
+            let attrs = try FileManager.default.attributesOfItem(atPath: url.path)
+            let value = (attrs[.protectionKey] as? FileProtectionType)?.rawValue ?? "keine Angabe"
+            return value.replacingOccurrences(of: "NSFileProtection", with: "")
+        } catch {
+            return "Datei nicht anlegbar (\((error as NSError).code))"
+        }
     }
 
     func didReceive(_ payloads: [MXDiagnosticPayload]) {

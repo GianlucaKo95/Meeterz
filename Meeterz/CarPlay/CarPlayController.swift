@@ -49,6 +49,8 @@ final class CarPlayController: NSObject {
     private var friendsVisible = true
     /// Bis wann keine Hinweise auf der Karte erscheinen (siehe alertTemplate)
     var alertsPausedUntil = Date.distantPast
+    /// Ende der letzten Routenführung (Mitfahrer-Frage erst mit Abstand dazu)
+    var navigationEndedAt = Date.distantPast
     private var _lastMapInteraction = Date.distantPast
     private var userPanning = false
     private var browseOverlay: FriendOverlay?
@@ -1133,6 +1135,7 @@ extension CarPlayController: CarPlayManagerDelegate {
     nonisolated func carPlayManagerDidEndNavigation(_ carPlayManager: CarPlayManager, byCanceling canceled: Bool) {
         MainActor.assumeIsolated {
             pauseAlerts()
+            navigationEndedAt = Date()
             navigationOverlay?.stop()
             navigationOverlay = nil
             navRecenter?.cancel(); navRecenter = nil

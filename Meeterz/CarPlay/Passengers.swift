@@ -105,6 +105,11 @@ extension CarPlayController {
     /// „Fährt Annika bei dir mit?“ – Ja blendet sie für die Fahrt aus
     @discardableResult
     func askPassenger(_ friend: FriendRow) -> Bool {
+        // Nicht während der Routenführung (Freunde sind dort ohnehin ausgeblendet) und erst 60 s nach ihrem Ende:
+        // Die Erkennung läuft im Hintergrund weiter und wäre beim Beenden sofort fertig – die Frage käme dann
+        // mitten in den Ansichtswechsel. Fährt die Person danach noch mit, kommt die Frage eine Minute später.
+        guard manager.currentActivity != .navigating, !AppModel.shared.navigation.isNavigating,
+              Date().timeIntervalSince(navigationEndedAt) > 60 else { return false }
         guard let template = alertTemplate, template.currentNavigationAlert == nil else { return false }
         _ = template
         Diag.log("Mitfahrer-Frage: \(friend.displayName)")

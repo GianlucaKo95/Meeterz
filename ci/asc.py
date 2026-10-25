@@ -145,6 +145,18 @@ def status(bundle_identifier):
     for u in safe(f"/v1/apps/{app_id}/buildUploads?limit=6").get("data", []):
         a = u["attributes"]
         print(f"Upload {a.get('cfBundleVersion')}: {json.dumps(a.get('state'), ensure_ascii=False)}")
+    # Fähigkeiten der App-IDs (u. a. Dateischutz „Data Protection“ – nur lesen)
+    for ident in (bundle_identifier, bundle_identifier + ".widgets"):
+        ids = safe(f"/v1/bundleIds?filter[identifier]={ident}&limit=50").get("data", [])
+        bundle = next((b for b in ids if b["attributes"]["identifier"] == ident), None)
+        if not bundle:
+            print(f"App-ID {ident}: nicht gefunden"); continue
+        caps = safe(f"/v1/bundleIds/{bundle['id']}/bundleIdCapabilities?limit=50").get("data", [])
+        print(f"App-ID {ident}:")
+        for c in caps:
+            a = c["attributes"]
+            settings = json.dumps(a.get("settings"), ensure_ascii=False) if a.get("settings") else ""
+            print(f"  {a.get('capabilityType')} {settings}")
 
 if __name__ == "__main__":
     cmd = sys.argv[1]

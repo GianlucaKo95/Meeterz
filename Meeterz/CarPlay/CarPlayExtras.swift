@@ -26,6 +26,17 @@ extension CarPlayController {
         return root
     }
 
+    /// Wartet (höchstens `timeout` s), bis ein Hinweis erscheinen darf: Karte oben, kein Wechsel, kein anderer Hinweis offen.
+    /// Für Hinweise, die nicht verloren gehen dürfen (Ladeplan nach dem Start der Route).
+    func waitForAlertSlot(timeout: TimeInterval = 30) async -> Bool {
+        let end = Date().addingTimeInterval(timeout)
+        while Date() < end {
+            if let t = alertTemplate, t.currentNavigationAlert == nil { return true }
+            try? await Task.sleep(for: .seconds(1))
+        }
+        return false
+    }
+
     /// Hinweise kurz zurückhalten (Vorlagenwechsel der Navigation)
     func pauseAlerts(seconds: TimeInterval = 5) {
         alertsPausedUntil = Date().addingTimeInterval(seconds)
@@ -394,7 +405,13 @@ extension CarPlayController {
         let usable = EVSettings.usableMeters
         guard remaining > usable else { return }
         Diag.log("E-Auto: Route \(Int(remaining / 1000)) km, Akku reicht ca. \(Int(usable / 1000)) km")
-        guard let template = alertTemplate, template.currentNavigationAlert == nil else { return }
+        Task { @MainActor in
+            guard await self.waitForAlertSlot() else { return }
+            self.presentRangeWarning(usable: usable)
+        }
+    }
+
+    private func presentRangeWarning(usable: Double) {
         let show = CPAlertAction(title: "Ladesäulen", style: .default) { [weak self] _ in
             Task { @MainActor in self?.showChargingStops() }
         }
@@ -412,7 +429,11 @@ extension CarPlayController {
         guard let routes = navigationProvider.mapboxNavigation.tripSession().currentNavigationRoutes,
               routes.mainRoute.route.legs.count == 1,                         // führt schon über Zwischenziele
               let result = await EVSettings.plan(for: routes.mainRoute.route) else { return }
-        guard let template = alertTemplate, template.currentNavigationAlert == nil else { return }
+        // Kurz nach dem Start hält CarPlay Hinweise noch zurück (Ansichtswechsel) – warten statt den Plan zu verlieren
+        guard await waitForAlertSlot() else {
+            if case .success(let plan) = result, !plan.direct { AppModel.shared.show("Ladeplan: \(plan.summary)", isError: false) }
+            return
+        }
         switch result {
         case .success(let plan) where plan.direct:
             Diag.log("Ladeplan: \(plan.summary)")
@@ -449,6 +470,7 @@ extension CarPlayController {
         let nav = AppModel.shared.navigation
         guard let destination = nav.destination,
               let routes = await nav.calculate(to: destination, via: plan.stops.map(\.place), mode: .car) else { return }
+        CarPlayController.shared.pauseAlerts()   // neue Route mit Ladestopps: Navigationsansicht wird neu aufgebaut
         navigationProvider.mapboxNavigation.tripSession().startActiveGuidance(with: routes, startLegIndex: 0)
         ChargingSession.shared.plan = plan
         Diag.log("Ladeplan übernommen (CarPlay): \(plan.summary)")

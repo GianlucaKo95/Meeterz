@@ -10,11 +10,15 @@ class MeeterzTestBase: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         app = XCUIApplication()
-        app.launchArguments += ["-ui.reset"]
+        app.launchArguments += ["-ui.reset"] + Self.german
 
         // Systemdialoge (Ortung, Mitteilungen) werden gezielt über dismissSystemDialogs() weggetippt
         app.launch()
     }
+
+    /// Die Tests suchen Knöpfe über ihre deutschen Texte – die App läuft im Test daher immer auf Deutsch,
+    /// egal welche Sprache der Simulator hat.
+    static let german = ["-AppleLanguages", "(de)", "-AppleLocale", "de_DE"]
 
     // MARK: Hilfen
 

@@ -1,0 +1,2672 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff xmlns="urn:oasis:names:tc:xliff:document:1.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="1.2" xsi:schemaLocation="urn:oasis:names:tc:xliff:document:1.2 http://docs.oasis-open.org/xliff/v1.2/os/xliff-core-1.2-strict.xsd">
+  <file original="Meeterz/AppShortcuts.xcstrings" source-language="de" target-language="en" datatype="plaintext">
+    <header>
+      <tool tool-id="com.apple.dt.xcode" tool-name="Xcode" tool-version="27.2" build-num="27B48"/>
+    </header>
+    <body>
+      <trans-unit id="${applicationName} Inkognito" xml:space="preserve">
+        <source>
+          <mrk mtype="x-set" mid="0">${applicationName} Inkognito</mrk>
+          <mrk mtype="x-set" mid="1">Inkognito in ${applicationName}</mrk>
+        </source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="${applicationName} Teilen pausieren" xml:space="preserve">
+        <source>
+          <mrk mtype="x-set" mid="0">${applicationName} Teilen pausieren</mrk>
+          <mrk mtype="x-set" mid="1">Teilen in ${applicationName} pausieren</mrk>
+        </source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Navigiere mit ${applicationName} zu ${favorite}" xml:space="preserve">
+        <source>
+          <mrk mtype="x-set" mid="0">Navigiere mit ${applicationName} zu ${favorite}</mrk>
+          <mrk mtype="x-set" mid="1">Mit ${applicationName} nach ${favorite}</mrk>
+          <mrk mtype="x-set" mid="2">Mit ${applicationName} zur ${favorite}</mrk>
+        </source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Navigiere mit ${applicationName} zu ${friend}" xml:space="preserve">
+        <source>
+          <mrk mtype="x-set" mid="0">Navigiere mit ${applicationName} zu ${friend}</mrk>
+          <mrk mtype="x-set" mid="1">Mit ${applicationName} zu ${friend}</mrk>
+          <mrk mtype="x-set" mid="2">Fahr mit ${applicationName} zu ${friend}</mrk>
+        </source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Standort mit ${applicationName} teilen" xml:space="preserve">
+        <source>
+          <mrk mtype="x-set" mid="0">Standort mit ${applicationName} teilen</mrk>
+          <mrk mtype="x-set" mid="1">${applicationName} Standort teilen</mrk>
+        </source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Wo ist ${friend} in ${applicationName}" xml:space="preserve">
+        <source>
+          <mrk mtype="x-set" mid="0">Wo ist ${friend} in ${applicationName}</mrk>
+          <mrk mtype="x-set" mid="1">Wo ist ${friend} bei ${applicationName}</mrk>
+          <mrk mtype="x-set" mid="2">${applicationName} wo ist ${friend}</mrk>
+        </source>
+        <note/>
+      </trans-unit>
+    </body>
+  </file>
+  <file original="Meeterz/Resources/de.lproj/InfoPlist.strings" source-language="de" target-language="en" datatype="plaintext">
+    <header>
+      <tool tool-id="com.apple.dt.xcode" tool-name="Xcode" tool-version="27.2" build-num="27B48"/>
+    </header>
+    <body>
+      <trans-unit id="CFBundleDisplayName" xml:space="preserve">
+        <source>Meeterz</source>
+        <note>Bundle display name</note>
+      </trans-unit>
+      <trans-unit id="CFBundleName" xml:space="preserve">
+        <source>Meeterz</source>
+        <note>Bundle name</note>
+      </trans-unit>
+      <trans-unit id="LocationAccuracyAuthorizationDescription" xml:space="preserve">
+        <source>Für die Navigation braucht Meeterz deinen genauen Standort.</source>
+        <target>Meeterz needs your precise location for navigation.</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="NSCameraUsageDescription" xml:space="preserve">
+        <source>Meeterz nutzt die Kamera, damit du ein Profilfoto aufnehmen kannst, das nur deine Freunde sehen.</source>
+        <target>Meeterz uses the camera so you can take a profile photo that only your friends can see.</target>
+        <note>Privacy - Camera Usage Description</note>
+      </trans-unit>
+      <trans-unit id="NSLocationAlwaysAndWhenInUseUsageDescription" xml:space="preserve">
+        <source>Damit Freunde dich auch sehen, wenn Meeterz im Hintergrund läuft (z. B. während der Fahrt).</source>
+        <target>So friends can see you even when Meeterz is running in the background (e.g. while driving).</target>
+        <note>Privacy - Location Always and When In Use Usage Description</note>
+      </trans-unit>
+      <trans-unit id="NSLocationWhenInUseUsageDescription" xml:space="preserve">
+        <source>Meeterz zeigt deinen Standort auf der Karte, navigiert dich und teilt deinen Standort mit Freunden, die du freigegeben hast.</source>
+        <target>Meeterz shows your location on the map, navigates you and shares your location with friends you have approved.</target>
+        <note>Privacy - Location When In Use Usage Description</note>
+      </trans-unit>
+      <trans-unit id="NSMicrophoneUsageDescription" xml:space="preserve">
+        <source>Meeterz nutzt das Mikrofon, damit du kurze Sprachschnipsel für deine Freunde aufnehmen kannst (max. 5 Sekunden).</source>
+        <target>Meeterz uses the microphone so you can record short voice clips for your friends (max. 5 seconds).</target>
+        <note>Privacy - Microphone Usage Description</note>
+      </trans-unit>
+      <trans-unit id="NSMotionUsageDescription" xml:space="preserve">
+        <source>Meeterz erkennt am Wechsel vom Auto zum Gehen, wo du geparkt hast (nur wenn „Geparktes Auto merken“ an ist).</source>
+        <target>Meeterz detects where you parked when you switch from driving to walking (only if “Remember parked car” is on).</target>
+        <note>Privacy - Motion Usage Description</note>
+      </trans-unit>
+    </body>
+  </file>
+  <file original="Shared/InfoPlist.xcstrings" source-language="de" target-language="en" datatype="plaintext">
+    <header>
+      <tool tool-id="com.apple.dt.xcode" tool-name="Xcode" tool-version="27.2" build-num="27B48"/>
+    </header>
+    <body>
+      <trans-unit id="CFBundleDisplayName" xml:space="preserve">
+        <source>Meeterz</source>
+        <note>Bundle display name</note>
+      </trans-unit>
+      <trans-unit id="CFBundleName" xml:space="preserve">
+        <source>MeeterzWidgets</source>
+        <note>Bundle name</note>
+      </trans-unit>
+    </body>
+  </file>
+  <file original="Shared/Localizable.xcstrings" source-language="de" target-language="en" datatype="plaintext">
+    <header>
+      <tool tool-id="com.apple.dt.xcode" tool-name="Xcode" tool-version="27.2" build-num="27B48"/>
+    </header>
+    <body>
+      <trans-unit id=" Mit „Routen verbergen“ sehen Freunde nie, wohin du fährst." xml:space="preserve">
+        <source> Mit „Routen verbergen“ sehen Freunde nie, wohin du fährst.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id=" inkl. %lld Ladestopps" xml:space="preserve">
+        <source> inkl. %lld Ladestopps</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id=" inkl. 1 Ladestopp" xml:space="preserve">
+        <source> inkl. 1 Ladestopp</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id=" · %lld Min. nach dir" xml:space="preserve">
+        <source> · %lld Min. nach dir</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id=" · %lld Min. vor dir" xml:space="preserve">
+        <source> · %lld Min. vor dir</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id=" · gleichzeitig mit dir" xml:space="preserve">
+        <source> · gleichzeitig mit dir</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@" xml:space="preserve">
+        <source>%@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ %@" xml:space="preserve">
+        <source>%1$@ %2$@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ Ankunft" xml:space="preserve">
+        <source>%@ Ankunft</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ abspielen" xml:space="preserve">
+        <source>%@ abspielen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ als Zwischenstopp hinzugefügt." xml:space="preserve">
+        <source>%@ als Zwischenstopp hinzugefügt.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ entfernt" xml:space="preserve">
+        <source>%@ entfernt</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ fährt auch hierher" xml:space="preserve">
+        <source>%@ fährt auch hierher</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ fährt eine andere Strecke" xml:space="preserve">
+        <source>%@ fährt eine andere Strecke</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ fährt gerade an dir vorbei" xml:space="preserve">
+        <source>%@ fährt gerade an dir vorbei</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ fährt mit?" xml:space="preserve">
+        <source>%@ fährt mit?</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ fährt vorbei" xml:space="preserve">
+        <source>%@ fährt vorbei</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ gesperrt" xml:space="preserve">
+        <source>%@ gesperrt</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ hat dein Treffen angenommen" xml:space="preserve">
+        <source>%@ hat dein Treffen angenommen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ hat dein Treffen angenommen." xml:space="preserve">
+        <source>%@ hat dein Treffen angenommen.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ hält gerade an" xml:space="preserve">
+        <source>%@ hält gerade an</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ hinter dir" xml:space="preserve">
+        <source>%@ hinter dir</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ in %@" xml:space="preserve">
+        <source>%1$@ in %2$@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ in 5 Min. da" xml:space="preserve">
+        <source>%@ in 5 Min. da</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ ist %@ entfernt" xml:space="preserve">
+        <source>%1$@ ist %2$@ entfernt</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ ist %@ hinter dir" xml:space="preserve">
+        <source>%1$@ ist %2$@ hinter dir</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ ist am Treffpunkt angekommen" xml:space="preserve">
+        <source>%@ ist am Treffpunkt angekommen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ ist am Treffpunkt angekommen." xml:space="preserve">
+        <source>%@ ist am Treffpunkt angekommen.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ ist auf der Karte" xml:space="preserve">
+        <source>%@ ist auf der Karte</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ ist da" xml:space="preserve">
+        <source>%@ ist da</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ ist gerade an dir vorbeigefahren." xml:space="preserve">
+        <source>%@ ist gerade an dir vorbeigefahren.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ ist in ca. 5 Min. am Treffpunkt" xml:space="preserve">
+        <source>%@ ist in ca. 5 Min. am Treffpunkt</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ ist in etwa fünf Minuten am Treffpunkt." xml:space="preserve">
+        <source>%@ ist in etwa fünf Minuten am Treffpunkt.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ kW DC" xml:space="preserve">
+        <source>%@ kW DC</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ kWh" xml:space="preserve">
+        <source>%@ kWh</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ kWh/100 km" xml:space="preserve">
+        <source>%@ kWh/100 km</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ kommt" xml:space="preserve">
+        <source>%@ kommt</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ kommt %@" xml:space="preserve">
+        <source>%1$@ kommt %2$@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ kommt auch" xml:space="preserve">
+        <source>%@ kommt auch</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ kopiert" xml:space="preserve">
+        <source>%@ kopiert</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ kreuzt deinen Weg" xml:space="preserve">
+        <source>%@ kreuzt deinen Weg</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ lang" xml:space="preserve">
+        <source>%@ lang</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ lädt %lld Freunde ein" xml:space="preserve">
+        <source>%1$@ lädt %2$lld Freunde ein</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ lädt dich ein" xml:space="preserve">
+        <source>%@ lädt dich ein</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ lädt dich ein: %@" xml:space="preserve">
+        <source>%1$@ lädt dich ein: %2$@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ möchte sich treffen" xml:space="preserve">
+        <source>%@ möchte sich treffen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ schreibt: %@" xml:space="preserve">
+        <source>%1$@ schreibt: %2$@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ teilt gerade keinen Standort." xml:space="preserve">
+        <source>%@ teilt gerade keinen Standort.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ und %lld weiteren" xml:space="preserve">
+        <source>%1$@ und %2$lld weiteren</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ vor dir" xml:space="preserve">
+        <source>%@ vor dir</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ · %@" xml:space="preserve">
+        <source>%1$@ · %2$@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ · %lld Min. laden · Ankunft mit %lld %%" xml:space="preserve">
+        <source>%1$@ · %2$lld Min. laden · Ankunft mit %3$lld %%</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ · an %@" xml:space="preserve">
+        <source>%1$@ · an %2$@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@, %@" xml:space="preserve">
+        <source>%1$@, %2$@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@." xml:space="preserve">
+        <source>%@.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@. Werte sind Durchschnittswerte; Meeterz lernt mit der Zeit aus deinen Fahrten." xml:space="preserve">
+        <source>%@. Werte sind Durchschnittswerte; Meeterz lernt mit der Zeit aus deinen Fahrten.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%lld %%" xml:space="preserve">
+        <source>%lld %%</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%lld %% · Ziel %lld %%" xml:space="preserve">
+        <source>%1$lld %% · Ziel %2$lld %%</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%lld Einladungen gesendet." xml:space="preserve">
+        <source>%lld Einladungen gesendet.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%lld Fahrstreifen blockiert" xml:space="preserve">
+        <source>%lld Fahrstreifen blockiert</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%lld Fahrstreifen gesperrt" xml:space="preserve">
+        <source>%lld Fahrstreifen gesperrt</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%lld Freunde nach %@ eingeladen." xml:space="preserve">
+        <source>%1$lld Freunde nach %2$@ eingeladen.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%lld Kilometern" xml:space="preserve">
+        <source>%lld Kilometern</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%lld Ladestopps" xml:space="preserve">
+        <source>%lld Ladestopps</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%lld Ladestopps nötig" xml:space="preserve">
+        <source>%lld Ladestopps nötig</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%lld Metern" xml:space="preserve">
+        <source>%lld Metern</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%lld Min" xml:space="preserve">
+        <source>%lld Min</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%lld Min." xml:space="preserve">
+        <source>%lld Min.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%lld Min. schneller" xml:space="preserve">
+        <source>%lld Min. schneller</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%lld Std %lld Min" xml:space="preserve">
+        <source>%1$lld Std %2$lld Min</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%lld Std. %lld Min." xml:space="preserve">
+        <source>%1$lld Std. %2$lld Min.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%lld Treffen" xml:space="preserve">
+        <source>%lld Treffen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%lld kW" xml:space="preserve">
+        <source>%lld kW</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%lld km" xml:space="preserve">
+        <source>%lld km</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%lld km/h" xml:space="preserve">
+        <source>%lld km/h</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%lld m" xml:space="preserve">
+        <source>%lld m</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%lld sichtbar" xml:space="preserve">
+        <source>%lld sichtbar</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%lld von %lld frei" xml:space="preserve">
+        <source>%1$lld von %2$lld frei</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%lld von %lld sichtbar" xml:space="preserve">
+        <source>%1$lld von %2$lld sichtbar</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="1 Ladestopp" xml:space="preserve">
+        <source>1 Ladestopp</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="1 Ladestopp nötig" xml:space="preserve">
+        <source>1 Ladestopp nötig</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="1 Std." xml:space="preserve">
+        <source>1 Std.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="1 Stunde" xml:space="preserve">
+        <source>1 Stunde</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="1 Treffen" xml:space="preserve">
+        <source>1 Treffen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="2D" xml:space="preserve">
+        <source>2D</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="3 Stunden" xml:space="preserve">
+        <source>3 Stunden</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="3D" xml:space="preserve">
+        <source>3D</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="3D-Ansicht" xml:space="preserve">
+        <source>3D-Ansicht</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="15 Min." xml:space="preserve">
+        <source>15 Min.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="15 Minuten" xml:space="preserve">
+        <source>15 Minuten</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="@%@" xml:space="preserve">
+        <source>@%@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="@benutzername" xml:space="preserve">
+        <source>@benutzername</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Abbrechen" xml:space="preserve">
+        <source>Abbrechen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ablehnen" xml:space="preserve">
+        <source>Ablehnen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Abmelden" xml:space="preserve">
+        <source>Abmelden</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Abspielen: %@" xml:space="preserve">
+        <source>Abspielen: %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Abstand" xml:space="preserve">
+        <source>Abstand</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Achtung, %@ in %@." xml:space="preserve">
+        <source>Achtung, %1$@ in %2$@.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Adresse ändern" xml:space="preserve">
+        <source>Adresse ändern</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Adresse für „Arbeit“ suchen" xml:space="preserve">
+        <source>Adresse für „Arbeit“ suchen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Adresse für „Zuhause“ suchen" xml:space="preserve">
+        <source>Adresse für „Zuhause“ suchen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Adresse oder Ort" xml:space="preserve">
+        <source>Adresse oder Ort</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Adresse oder Ort eingeben" xml:space="preserve">
+        <source>Adresse oder Ort eingeben</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Adresse suchen und speichern" xml:space="preserve">
+        <source>Adresse suchen und speichern</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Akku (live): %lld %%" xml:space="preserve">
+        <source>Akku (live): %lld %%</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Akku beim Losfahren: %lld %%" xml:space="preserve">
+        <source>Akku beim Losfahren: %lld %%</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Akku reicht nicht bis zum Ziel" xml:space="preserve">
+        <source>Akku reicht nicht bis zum Ziel</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Akku reicht nicht – kein Ladeplan" xml:space="preserve">
+        <source>Akku reicht nicht – kein Ladeplan</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Akkustand" xml:space="preserve">
+        <source>Akkustand</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Aktualisieren" xml:space="preserve">
+        <source>Aktualisieren</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Aktuell" xml:space="preserve">
+        <source>Aktuell</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Aktueller Standort" xml:space="preserve">
+        <source>Aktueller Standort</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Alle ausblenden" xml:space="preserve">
+        <source>Alle ausblenden</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Alle einblenden" xml:space="preserve">
+        <source>Alle einblenden</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Alle einladen" xml:space="preserve">
+        <source>Alle einladen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Alle hierher einladen" xml:space="preserve">
+        <source>Alle hierher einladen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Alles klar 👍" xml:space="preserve">
+        <source>Alles klar 👍</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Als Favorit gespeichert" xml:space="preserve">
+        <source>Als Favorit gespeichert</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Als Favorit speichern" xml:space="preserve">
+        <source>Als Favorit speichern</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Als Zwischenstopp" xml:space="preserve">
+        <source>Als Zwischenstopp</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Alternative %lld" xml:space="preserve">
+        <source>Alternative %lld</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Alternativroute %lld" xml:space="preserve">
+        <source>Alternativroute %lld</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Am Treffpunkt angekommen" xml:space="preserve">
+        <source>Am Treffpunkt angekommen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="An " xml:space="preserve">
+        <source>An </source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="An der Ladesäule mindestens" xml:space="preserve">
+        <source>An der Ladesäule mindestens</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Andere" xml:space="preserve">
+        <source>Andere</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Anfragen" xml:space="preserve">
+        <source>Anfragen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Angekommen: %@" xml:space="preserve">
+        <source>Angekommen: %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ankunft" xml:space="preserve">
+        <source>Ankunft</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ankunft %@" xml:space="preserve">
+        <source>Ankunft %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ankunft %lld %%" xml:space="preserve">
+        <source>Ankunft %lld %%</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ankunft mit %lld %%" xml:space="preserve">
+        <source>Ankunft mit %lld %%</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ankunft mit %lld %% auch ohne Laden" xml:space="preserve">
+        <source>Ankunft mit %lld %% auch ohne Laden</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ankunft mit mindestens" xml:space="preserve">
+        <source>Ankunft mit mindestens</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Anmelden" xml:space="preserve">
+        <source>Anmelden</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Annehmen" xml:space="preserve">
+        <source>Annehmen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ansicht" xml:space="preserve">
+        <source>Ansicht</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Antwort konnte nicht gesendet werden." xml:space="preserve">
+        <source>Antwort konnte nicht gesendet werden.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Antworten" xml:space="preserve">
+        <source>Antworten</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Anzeigename" xml:space="preserve">
+        <source>Anzeigename</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="App" xml:space="preserve">
+        <source>App</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Apple Flyover (experimentell)" xml:space="preserve">
+        <source>Apple Flyover (experimentell)</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Arbeit" xml:space="preserve">
+        <source>Arbeit</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Arbeit festlegen" xml:space="preserve">
+        <source>Arbeit festlegen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Auch im Hintergrund teilen" xml:space="preserve">
+        <source>Auch im Hintergrund teilen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Auf Karte anzeigen" xml:space="preserve">
+        <source>Auf Karte anzeigen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Auf Karte zeigen" xml:space="preserve">
+        <source>Auf Karte zeigen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Auf deiner Karte ausgeblendet" xml:space="preserve">
+        <source>Auf deiner Karte ausgeblendet</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Auf deiner Karte ausgeblendet – %@ sieht dich weiterhin" xml:space="preserve">
+        <source>Auf deiner Karte ausgeblendet – %@ sieht dich weiterhin</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Auf die schnellere Route wechseln?" xml:space="preserve">
+        <source>Auf die schnellere Route wechseln?</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Auf meiner Karte ausblenden" xml:space="preserve">
+        <source>Auf meiner Karte ausblenden</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Auf meiner Karte einblenden" xml:space="preserve">
+        <source>Auf meiner Karte einblenden</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Aufnahme konnte nicht gestartet werden." xml:space="preserve">
+        <source>Aufnahme konnte nicht gestartet werden.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Aufnehmen: %@" xml:space="preserve">
+        <source>Aufnehmen: %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Aus" xml:space="preserve">
+        <source>Aus</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Aus Mediathek wählen" xml:space="preserve">
+        <source>Aus Mediathek wählen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ausblenden" xml:space="preserve">
+        <source>Ausblenden</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ausschnitt wählen" xml:space="preserve">
+        <source>Ausschnitt wählen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Auswählen" xml:space="preserve">
+        <source>Auswählen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Auto" xml:space="preserve">
+        <source>Auto</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Autobahn" xml:space="preserve">
+        <source>Autobahn</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Autobahnen meiden" xml:space="preserve">
+        <source>Autobahnen meiden</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Automatisch" xml:space="preserve">
+        <source>Automatisch</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Automatische Nachricht" xml:space="preserve">
+        <source>Automatische Nachricht</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Außentemperatur" xml:space="preserve">
+        <source>Außentemperatur</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Baustelle" xml:space="preserve">
+        <source>Baustelle</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Beenden" xml:space="preserve">
+        <source>Beenden</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Behalten" xml:space="preserve">
+        <source>Behalten</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Bei %lld %% Akku und 10 %% Reserve" xml:space="preserve">
+        <source>Bei %lld %% Akku und 10 %% Reserve</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Bei Verspätung automatisch Bescheid geben" xml:space="preserve">
+        <source>Bei Verspätung automatisch Bescheid geben</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Benutzername" xml:space="preserve">
+        <source>Benutzername</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Berechne …" xml:space="preserve">
+        <source>Berechne …</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Bescheid geben" xml:space="preserve">
+        <source>Bescheid geben</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Bessere Stimme laden" xml:space="preserve">
+        <source>Bessere Stimme laden</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Bin da – wo seid ihr?" xml:space="preserve">
+        <source>Bin da – wo seid ihr?</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Bin gleich da" xml:space="preserve">
+        <source>Bin gleich da</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Bin um %@ da" xml:space="preserve">
+        <source>Bin um %@ da</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Bin unterwegs" xml:space="preserve">
+        <source>Bin unterwegs</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Bis %lld %%" xml:space="preserve">
+        <source>Bis %lld %%</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Bis Ankunft" xml:space="preserve">
+        <source>Bis Ankunft</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Bis ich es ausschalte" xml:space="preserve">
+        <source>Bis ich es ausschalte</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Café" xml:space="preserve">
+        <source>Café</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="CarPlay" xml:space="preserve">
+        <source>CarPlay</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Dann blende ich %@ für diese Fahrt aus" xml:space="preserve">
+        <source>Dann blende ich %@ für diese Fahrt aus</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Darstellung" xml:space="preserve">
+        <source>Darstellung</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Darüber finden dich Freunde. 3–20 Zeichen: a–z, 0–9, _" xml:space="preserve">
+        <source>Darüber finden dich Freunde. 3–20 Zeichen: a–z, 0–9, _</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Das Foto konnte nicht geladen werden." xml:space="preserve">
+        <source>Das Foto konnte nicht geladen werden.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Das Navigationskontingent ist für diesen Monat aufgebraucht." xml:space="preserve">
+        <source>Das Navigationskontingent ist für diesen Monat aufgebraucht.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Das Suchkontingent ist für diesen Monat aufgebraucht." xml:space="preserve">
+        <source>Das Suchkontingent ist für diesen Monat aufgebraucht.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Das Teilen endet 15 Minuten nach der Ankunft deiner nächsten Fahrt." xml:space="preserve">
+        <source>Das Teilen endet 15 Minuten nach der Ankunft deiner nächsten Fahrt.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Das Teilen endet automatisch nach 15 Minuten." xml:space="preserve">
+        <source>Das Teilen endet automatisch nach 15 Minuten.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Das Teilen endet automatisch nach einer Stunde." xml:space="preserve">
+        <source>Das Teilen endet automatisch nach einer Stunde.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Das hat nicht geklappt – ist die Datenbank-Änderung eingespielt?" xml:space="preserve">
+        <source>Das hat nicht geklappt – ist die Datenbank-Änderung eingespielt?</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Das hat nicht geklappt. Öffne Meeterz und versuche es dort." xml:space="preserve">
+        <source>Das hat nicht geklappt. Öffne Meeterz und versuche es dort.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Datenschutz" xml:space="preserve">
+        <source>Datenschutz</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Datenschutzerklärung" xml:space="preserve">
+        <source>Datenschutzerklärung</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Dauer" xml:space="preserve">
+        <source>Dauer</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Dein Auto" xml:space="preserve">
+        <source>Dein Auto</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Dein Auto fehlt? Batterie, Verbrauch und Ladeleistung selbst eintragen." xml:space="preserve">
+        <source>Dein Auto fehlt? Batterie, Verbrauch und Ladeleistung selbst eintragen.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Dein Auto · %@" xml:space="preserve">
+        <source>Dein Auto · %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Dein Benutzername: @%@" xml:space="preserve">
+        <source>Dein Benutzername: @%@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Dein Foto sehen nur Freunde, deren Anfrage du angenommen hast. Ohne Foto erscheinen deine Initialen." xml:space="preserve">
+        <source>Dein Foto sehen nur Freunde, deren Anfrage du angenommen hast. Ohne Foto erscheinen deine Initialen.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Dein Standort ist für diesen Freund verborgen." xml:space="preserve">
+        <source>Dein Standort ist für diesen Freund verborgen.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Dein Standort ist gerade nicht bekannt." xml:space="preserve">
+        <source>Dein Standort ist gerade nicht bekannt.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Dein Standort ist noch nicht bekannt." xml:space="preserve">
+        <source>Dein Standort ist noch nicht bekannt.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Dein Standort ist wieder sichtbar." xml:space="preserve">
+        <source>Dein Standort ist wieder sichtbar.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Dein Verbrauch" xml:space="preserve">
+        <source>Dein Verbrauch</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Deine Freunde" xml:space="preserve">
+        <source>Deine Freunde</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Deine Freunde sehen deine Route, solange du teilst." xml:space="preserve">
+        <source>Deine Freunde sehen deine Route, solange du teilst.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Den Akkustand stellst du beim Losfahren in CarPlay unter „Mehr“ ein. Reicht er nicht bis zum Ziel, schlägt Meeterz Ladesäulen entlang der Route vor (mit 10 % Reserve)." xml:space="preserve">
+        <source>Den Akkustand stellst du beim Losfahren in CarPlay unter „Mehr“ ein. Reicht er nicht bis zum Ziel, schlägt Meeterz Ladesäulen entlang der Route vor (mit 10 % Reserve).</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Details zu %@" xml:space="preserve">
+        <source>Details zu %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Diagnose" xml:space="preserve">
+        <source>Diagnose</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Die Eingeladenen können zusagen oder ablehnen. Bei einer Zusage wird der Ort bei ihnen als Ziel vorgeschlagen." xml:space="preserve">
+        <source>Die Eingeladenen können zusagen oder ablehnen. Bei einer Zusage wird der Ort bei ihnen als Ziel vorgeschlagen.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Die Fahrzeiten konnten gerade nicht berechnet werden." xml:space="preserve">
+        <source>Die Fahrzeiten konnten gerade nicht berechnet werden.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Die Fortbewegungsart kannst du je Person ändern – zu Fuß oder mit dem Rad kommen nur Orte ohne Autobahn infrage." xml:space="preserve">
+        <source>Die Fortbewegungsart kannst du je Person ändern – zu Fuß oder mit dem Rad kommen nur Orte ohne Autobahn infrage.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Die Geräte-ID wird ungültig, gespeicherte Werte werden gelöscht." xml:space="preserve">
+        <source>Die Geräte-ID wird ungültig, gespeicherte Werte werden gelöscht.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Die Suche ist gerade nicht erreichbar." xml:space="preserve">
+        <source>Die Suche ist gerade nicht erreichbar.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Diesen Benutzernamen gibt es nicht." xml:space="preserve">
+        <source>Diesen Benutzernamen gibt es nicht.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Diesen Favoriten gibt es nicht mehr." xml:space="preserve">
+        <source>Diesen Favoriten gibt es nicht mehr.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Dieser Benutzername ist schon vergeben." xml:space="preserve">
+        <source>Dieser Benutzername ist schon vergeben.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Dorthin gibt es für „%@“ keine Route. Wähle einen anderen Ort." xml:space="preserve">
+        <source>Dorthin gibt es für „%@“ keine Route. Wähle einen anderen Ort.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Du" xml:space="preserve">
+        <source>Du</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Du %@" xml:space="preserve">
+        <source>Du %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Du bist an %@" xml:space="preserve">
+        <source>Du bist an %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Du bist da" xml:space="preserve">
+        <source>Du bist da</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Du kannst dich nicht selbst hinzufügen." xml:space="preserve">
+        <source>Du kannst dich nicht selbst hinzufügen.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Du: %@ entfernt" xml:space="preserve">
+        <source>Du: %@ entfernt</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Dunkel" xml:space="preserve">
+        <source>Dunkel</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="E-Auto" xml:space="preserve">
+        <source>E-Auto</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="E-Mail" xml:space="preserve">
+        <source>E-Mail</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Eigenes Fahrzeug" xml:space="preserve">
+        <source>Eigenes Fahrzeug</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ein Freund ist unterwegs" xml:space="preserve">
+        <source>Ein Freund ist unterwegs</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Einblenden" xml:space="preserve">
+        <source>Einblenden</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Eine neue Geräte-ID macht die alte ungültig." xml:space="preserve">
+        <source>Eine neue Geräte-ID macht die alte ungültig.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Eingabe löschen" xml:space="preserve">
+        <source>Eingabe löschen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Einladen" xml:space="preserve">
+        <source>Einladen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Einladen nach" xml:space="preserve">
+        <source>Einladen nach</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Einladung an dich" xml:space="preserve">
+        <source>Einladung an dich</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Einladung fehlgeschlagen." xml:space="preserve">
+        <source>Einladung fehlgeschlagen.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Einladung gesendet." xml:space="preserve">
+        <source>Einladung gesendet.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Einladung konnte nicht gesendet werden." xml:space="preserve">
+        <source>Einladung konnte nicht gesendet werden.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Einladung senden" xml:space="preserve">
+        <source>Einladung senden</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Einladung von %@" xml:space="preserve">
+        <source>Einladung von %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Einladungen" xml:space="preserve">
+        <source>Einladungen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Einstellungen" xml:space="preserve">
+        <source>Einstellungen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Einstellungen öffnen" xml:space="preserve">
+        <source>Einstellungen öffnen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Entfernen" xml:space="preserve">
+        <source>Entfernen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Entfernung" xml:space="preserve">
+        <source>Entfernung</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Entlang der Route" xml:space="preserve">
+        <source>Entlang der Route</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Erster: %@" xml:space="preserve">
+        <source>Erster: %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Erweitert" xml:space="preserve">
+        <source>Erweitert</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Es ist nur die einfache Standardstimme installiert. Eine natürlichere Stimme lädst du unter Einstellungen → Bedienungshilfen → Gesprochene Inhalte → Stimmen → deine Sprache (Premium oder Erweitert). Danach erscheint sie hier." xml:space="preserve">
+        <source>Es ist nur die einfache Standardstimme installiert. Eine natürlichere Stimme lädst du unter Einstellungen → Bedienungshilfen → Gesprochene Inhalte → Stimmen → deine Sprache (Premium oder Erweitert). Danach erscheint sie hier.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Essen" xml:space="preserve">
+        <source>Essen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Eure Wege kreuzen sich" xml:space="preserve">
+        <source>Eure Wege kreuzen sich</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Eure Wege kreuzen sich – du %@, %@ %@" xml:space="preserve">
+        <source>Eure Wege kreuzen sich – du %1$@, %2$@ %3$@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Fahrrad" xml:space="preserve">
+        <source>Fahrrad</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Fahrzeug" xml:space="preserve">
+        <source>Fahrzeug</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Fahrzeugdaten: Open EV Data (github.com/KilowattApp/open-ev-data)" xml:space="preserve">
+        <source>Fahrzeugdaten: Open EV Data (github.com/KilowattApp/open-ev-data)</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Fairen Treffpunkt finden" xml:space="preserve">
+        <source>Fairen Treffpunkt finden</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Fangt schon ohne mich an" xml:space="preserve">
+        <source>Fangt schon ohne mich an</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Favorit" xml:space="preserve">
+        <source>Favorit</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Favorit hinzufügen" xml:space="preserve">
+        <source>Favorit hinzufügen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Favorit speichern" xml:space="preserve">
+        <source>Favorit speichern</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Favorit umbenennen" xml:space="preserve">
+        <source>Favorit umbenennen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Favoriten" xml:space="preserve">
+        <source>Favoriten</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Fähren meiden" xml:space="preserve">
+        <source>Fähren meiden</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Fährt %@ bei dir mit?" xml:space="preserve">
+        <source>Fährt %@ bei dir mit?</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Fährt an dir vorbei" xml:space="preserve">
+        <source>Fährt an dir vorbei</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Fertig" xml:space="preserve">
+        <source>Fertig</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Flyover (experimentell)" xml:space="preserve">
+        <source>Flyover (experimentell)</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Fortbewegung: %@" xml:space="preserve">
+        <source>Fortbewegung: %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Fortbewegungsart %@" xml:space="preserve">
+        <source>Fortbewegungsart %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Foto aufnehmen" xml:space="preserve">
+        <source>Foto aufnehmen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Foto ändern" xml:space="preserve">
+        <source>Foto ändern</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Foto entfernen" xml:space="preserve">
+        <source>Foto entfernen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Foto hinzufügen" xml:space="preserve">
+        <source>Foto hinzufügen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Freund" xml:space="preserve">
+        <source>Freund</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Freund hinzufügen" xml:space="preserve">
+        <source>Freund hinzufügen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Freunde" xml:space="preserve">
+        <source>Freunde</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Freunde &amp; Profil" xml:space="preserve">
+        <source>Freunde &amp; Profil</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Freunde einladen" xml:space="preserve">
+        <source>Freunde einladen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Freunde hinzufügen" xml:space="preserve">
+        <source>Freunde hinzufügen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Freunde sehen deinen Standort nicht mehr, bis du wieder teilst." xml:space="preserve">
+        <source>Freunde sehen deinen Standort nicht mehr, bis du wieder teilst.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Freunde sehen dich, bis du das Teilen pausierst." xml:space="preserve">
+        <source>Freunde sehen dich, bis du das Teilen pausierst.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Freunde sehen weder deinen Standort noch deine Route – und erfahren nicht, dass du inkognito bist." xml:space="preserve">
+        <source>Freunde sehen weder deinen Standort noch deine Route – und erfahren nicht, dass du inkognito bist.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Freunde sehen weder deinen Standort noch deine Route. Nochmal aufrufen beendet es." xml:space="preserve">
+        <source>Freunde sehen weder deinen Standort noch deine Route. Nochmal aufrufen beendet es.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Gefahr auf der Fahrbahn" xml:space="preserve">
+        <source>Gefahr auf der Fahrbahn</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Gelernt aus deinen Fahrten mit Live-Daten. Ab %lld km je Bereich rechnet die Ladeplanung damit statt mit dem Durchschnittswert (%@ kWh/100 km)." xml:space="preserve">
+        <source>Gelernt aus deinen Fahrten mit Live-Daten. Ab %1$lld km je Bereich rechnet die Ladeplanung damit statt mit dem Durchschnittswert (%2$@ kWh/100 km).</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Geneigt, mit Gebäuden" xml:space="preserve">
+        <source>Geneigt, mit Gebäuden</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Genug geladen" xml:space="preserve">
+        <source>Genug geladen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Genug geladen: %lld %% – weiter geht's" xml:space="preserve">
+        <source>Genug geladen: %lld %% – weiter geht's</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Geparktes Auto merken" xml:space="preserve">
+        <source>Geparktes Auto merken</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Gerade ist niemand unterwegs" xml:space="preserve">
+        <source>Gerade ist niemand unterwegs</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Gerade teilt niemand" xml:space="preserve">
+        <source>Gerade teilt niemand</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Gerade teilt niemand seinen Standort." xml:space="preserve">
+        <source>Gerade teilt niemand seinen Standort.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Gerade teilt niemand seinen Standort. Für einen fairen Treffpunkt braucht Meeterz die Standorte." xml:space="preserve">
+        <source>Gerade teilt niemand seinen Standort. Für einen fairen Treffpunkt braucht Meeterz die Standorte.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Geräte-ID" xml:space="preserve">
+        <source>Geräte-ID</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Gesendet" xml:space="preserve">
+        <source>Gesendet</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Gesendet: „%@“" xml:space="preserve">
+        <source>Gesendet: „%@“</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Gesetzter Pin" xml:space="preserve">
+        <source>Gesetzter Pin</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Gilt für alle Routen, auch in CarPlay und für den Ladeplan. Geht ein Ziel nur mit Maut oder Fähre, nimmt Meeterz die normale Route und sagt Bescheid." xml:space="preserve">
+        <source>Gilt für alle Routen, auch in CarPlay und für den Ladeplan. Geht ein Ziel nur mit Maut oder Fähre, nimmt Meeterz die normale Route und sagt Bescheid.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Gilt für iPhone und CarPlay gleichermaßen und sofort, auch während der Fahrt – egal wo du umschaltest. Satellit: Luftbild mit 3D-Gebäuden. Flyover (experimentell) zeigt Apples fotorealistisches 3D-Bild, kann aber ruckeln und Route oder Pfeil leicht versetzt zeigen." xml:space="preserve">
+        <source>Gilt für iPhone und CarPlay gleichermaßen und sofort, auch während der Fahrt – egal wo du umschaltest. Satellit: Luftbild mit 3D-Gebäuden. Flyover (experimentell) zeigt Apples fotorealistisches 3D-Bild, kann aber ruckeln und Route oder Pfeil leicht versetzt zeigen.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Gruppen-Treffen" xml:space="preserve">
+        <source>Gruppen-Treffen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Gruppen-Treffen konnte nicht gesendet werden." xml:space="preserve">
+        <source>Gruppen-Treffen konnte nicht gesendet werden.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Gruppen-Treffen planen" xml:space="preserve">
+        <source>Gruppen-Treffen planen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Hallo" xml:space="preserve">
+        <source>Hallo</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Hallo %@" xml:space="preserve">
+        <source>Hallo %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Hell" xml:space="preserve">
+        <source>Hell</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Hierhin navigieren" xml:space="preserve">
+        <source>Hierhin navigieren</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Hinfahren" xml:space="preserve">
+        <source>Hinfahren</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Hinweis ausblenden" xml:space="preserve">
+        <source>Hinweis ausblenden</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Hinweis schließen" xml:space="preserve">
+        <source>Hinweis schließen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Hinzufügen" xml:space="preserve">
+        <source>Hinzufügen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Home Assistant → Add-ons → „MG to ABRP Bridge“ → Konfiguration: „meeterz_url“ und „meeterz_device_id“ einfügen und das Add-on neu starten. Beim Fahren kommt etwa alle 30 Sekunden ein neuer Wert, geparkt seltener." xml:space="preserve">
+        <source>Home Assistant → Add-ons → „MG to ABRP Bridge“ → Konfiguration: „meeterz_url“ und „meeterz_device_id“ einfügen und das Add-on neu starten. Beim Fahren kommt etwa alle 30 Sekunden ein neuer Wert, geparkt seltener.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ich komme ca. %lld Min. später – neue Ankunft %@" xml:space="preserve">
+        <source>Ich komme ca. %1$lld Min. später – neue Ankunft %2$@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Im Add-on eintragen" xml:space="preserve">
+        <source>Im Add-on eintragen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Immer" xml:space="preserve">
+        <source>Immer</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="In %@ seid ihr nah beieinander" xml:space="preserve">
+        <source>In %@ seid ihr nah beieinander</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="In 10 Min. losfahren" xml:space="preserve">
+        <source>In 10 Min. losfahren</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="In 300 Metern links abbiegen, dann haben Sie Ihr Ziel erreicht." xml:space="preserve">
+        <source>In 300 Metern links abbiegen, dann haben Sie Ihr Ziel erreicht.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="In der Mitte wurde kein passender Ort gefunden." xml:space="preserve">
+        <source>In der Mitte wurde kein passender Ort gefunden.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="In der Nähe" xml:space="preserve">
+        <source>In der Nähe</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Inklusive aktueller Verkehrslage. Deine Freunde sehen deine Route, solange du teilst." xml:space="preserve">
+        <source>Inklusive aktueller Verkehrslage. Deine Freunde sehen deine Route, solange du teilst.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Inkog." xml:space="preserve">
+        <source>Inkog.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Inkognito" xml:space="preserve">
+        <source>Inkognito</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Inkognito aktiv – Freunde sehen weder deinen Standort noch deine Route." xml:space="preserve">
+        <source>Inkognito aktiv – Freunde sehen weder deinen Standort noch deine Route.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Inkognito beenden" xml:space="preserve">
+        <source>Inkognito beenden</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Inkognito beendet – du bist für Freunde wieder sichtbar." xml:space="preserve">
+        <source>Inkognito beendet – du bist für Freunde wieder sichtbar.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Inkognito beendet – du bist wieder sichtbar." xml:space="preserve">
+        <source>Inkognito beendet – du bist wieder sichtbar.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Inkognito bis %@" xml:space="preserve">
+        <source>Inkognito bis %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Inkognito für eine Stunde." xml:space="preserve">
+        <source>Inkognito für eine Stunde.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Inkognito …" xml:space="preserve">
+        <source>Inkognito …</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ja, ausblenden" xml:space="preserve">
+        <source>Ja, ausblenden</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Jetzt losfahren" xml:space="preserve">
+        <source>Jetzt losfahren</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Jetzt losfahren – ca. %lld Min. zu spät" xml:space="preserve">
+        <source>Jetzt losfahren – ca. %lld Min. zu spät</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Karte" xml:space="preserve">
+        <source>Karte</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Kartenansicht" xml:space="preserve">
+        <source>Kartenansicht</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Kategorien" xml:space="preserve">
+        <source>Kategorien</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Kein Ladeplan möglich – Reichweite ca. %lld km" xml:space="preserve">
+        <source>Kein Ladeplan möglich – Reichweite ca. %lld km</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Kein Ladestopp nötig · Ankunft mit %lld %%" xml:space="preserve">
+        <source>Kein Ladestopp nötig · Ankunft mit %lld %%</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Kein Treffen geplant" xml:space="preserve">
+        <source>Kein Treffen geplant</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Keine Internetverbindung – Route kann nicht berechnet werden." xml:space="preserve">
+        <source>Keine Internetverbindung – Route kann nicht berechnet werden.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Keine Route" xml:space="preserve">
+        <source>Keine Route</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Keine Route %@ gefunden – für lange Strecken auf „Auto“ umstellen." xml:space="preserve">
+        <source>Keine Route %@ gefunden – für lange Strecken auf „Auto“ umstellen.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Keine Treffen geplant" xml:space="preserve">
+        <source>Keine Treffen geplant</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Keine passenden Orte in der Nähe." xml:space="preserve">
+        <source>Keine passenden Orte in der Nähe.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Keine passenden Schnelllader mit Leistungsangabe entlang der Route" xml:space="preserve">
+        <source>Keine passenden Schnelllader mit Leistungsangabe entlang der Route</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Klassisch" xml:space="preserve">
+        <source>Klassisch</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Klassische Karte" xml:space="preserve">
+        <source>Klassische Karte</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Komme ca. 10 Min. später" xml:space="preserve">
+        <source>Komme ca. 10 Min. später</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Kommt auch hierher · an %@" xml:space="preserve">
+        <source>Kommt auch hierher · an %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Konto" xml:space="preserve">
+        <source>Konto</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Konto löschen" xml:space="preserve">
+        <source>Konto löschen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Konto und alle Daten löschen" xml:space="preserve">
+        <source>Konto und alle Daten löschen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Konto wirklich löschen?" xml:space="preserve">
+        <source>Konto wirklich löschen?</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Konvoi" xml:space="preserve">
+        <source>Konvoi</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Kurz Bescheid geben" xml:space="preserve">
+        <source>Kurz Bescheid geben</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ladeanzeige schließen" xml:space="preserve">
+        <source>Ladeanzeige schließen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Laden" xml:space="preserve">
+        <source>Laden</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Laden bis %lld %% · ca. %lld Min." xml:space="preserve">
+        <source>Laden bis %1$lld %% · ca. %2$lld Min.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Laden bis km %lld" xml:space="preserve">
+        <source>Laden bis km %lld</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ladeplan" xml:space="preserve">
+        <source>Ladeplan</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ladeplan: %@" xml:space="preserve">
+        <source>Ladeplan: %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ladesäulen" xml:space="preserve">
+        <source>Ladesäulen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ladesäulen: Bundesnetzagentur.de (CC BY 4.0), data.gouv.fr IRVE, Bundesamt für Energie, Open Charge Map (CC BY 4.0), © OpenStreetMap-Mitwirkende (ODbL)" xml:space="preserve">
+        <source>Ladesäulen: Bundesnetzagentur.de (CC BY 4.0), data.gouv.fr IRVE, Bundesamt für Energie, Open Charge Map (CC BY 4.0), © OpenStreetMap-Mitwirkende (ODbL)</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ladestation" xml:space="preserve">
+        <source>Ladestation</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ladestopp erreicht: %@" xml:space="preserve">
+        <source>Ladestopp erreicht: %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ladestopp nicht mehr nötig" xml:space="preserve">
+        <source>Ladestopp nicht mehr nötig</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ladestopp nötig" xml:space="preserve">
+        <source>Ladestopp nötig</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ladestopp nötig – Akku reicht ca. %@" xml:space="preserve">
+        <source>Ladestopp nötig – Akku reicht ca. %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ladestopps sind in der Route" xml:space="preserve">
+        <source>Ladestopps sind in der Route</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ladestopps übernehmen" xml:space="preserve">
+        <source>Ladestopps übernehmen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ladeziel ändern" xml:space="preserve">
+        <source>Ladeziel ändern</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Landstraße" xml:space="preserve">
+        <source>Landstraße</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Lädt" xml:space="preserve">
+        <source>Lädt</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Leeren" xml:space="preserve">
+        <source>Leeren</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Leistung unbekannt" xml:space="preserve">
+        <source>Leistung unbekannt</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Liegengebliebenes Fahrzeug" xml:space="preserve">
+        <source>Liegengebliebenes Fahrzeug</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Listen" xml:space="preserve">
+        <source>Listen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Live" xml:space="preserve">
+        <source>Live</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Live-Daten" xml:space="preserve">
+        <source>Live-Daten</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Live-Daten trennen" xml:space="preserve">
+        <source>Live-Daten trennen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Live-Daten trennen?" xml:space="preserve">
+        <source>Live-Daten trennen?</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Live-Daten verbinden" xml:space="preserve">
+        <source>Live-Daten verbinden</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Los geht's" xml:space="preserve">
+        <source>Los geht's</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Losfahren" xml:space="preserve">
+        <source>Losfahren</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Löschen" xml:space="preserve">
+        <source>Löschen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Marke oder Modell" xml:space="preserve">
+        <source>Marke oder Modell</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Maut meiden" xml:space="preserve">
+        <source>Maut meiden</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Max. Schnellladen (DC)" xml:space="preserve">
+        <source>Max. Schnellladen (DC)</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Meeterz" xml:space="preserve">
+        <source>Meeterz</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Meeterz erinnert alle rechtzeitig ans Losfahren – mit aktuellem Verkehr." xml:space="preserve">
+        <source>Meeterz erinnert alle rechtzeitig ans Losfahren – mit aktuellem Verkehr.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Meeterz übernimmt Akkustand, Reichweite und Ladezustand live aus deinem Auto – über das Home-Assistant-Add-on „MG to ABRP Bridge“ (iSMART). Damit entfällt die Akku-Eingabe in CarPlay, und die Ladeplanung rechnet mit echten Werten." xml:space="preserve">
+        <source>Meeterz übernimmt Akkustand, Reichweite und Ladezustand live aus deinem Auto – über das Home-Assistant-Add-on „MG to ABRP Bridge“ (iSMART). Damit entfällt die Akku-Eingabe in CarPlay, und die Ladeplanung rechnet mit echten Werten.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Meeterz: Inkognito" xml:space="preserve">
+        <source>Meeterz: Inkognito</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Mehr" xml:space="preserve">
+        <source>Mehr</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Meine Routen für Freunde verbergen" xml:space="preserve">
+        <source>Meine Routen für Freunde verbergen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Mikrofon-Zugriff fehlt (Einstellungen → Meeterz)." xml:space="preserve">
+        <source>Mikrofon-Zugriff fehlt (Einstellungen → Meeterz).</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Mit den Ladesäulen entlang der Route nicht planbar (Reichweite ca. %lld km). Meeterz kennt Schnelllader in Deutschland, den Nachbarländern und Italien." xml:space="preserve">
+        <source>Mit den Ladesäulen entlang der Route nicht planbar (Reichweite ca. %lld km). Meeterz kennt Schnelllader in Deutschland, den Nachbarländern und Italien.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Mit zwei Fingern zoomen, zum Verschieben ziehen." xml:space="preserve">
+        <source>Mit zwei Fingern zoomen, zum Verschieben ziehen.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Möglicher Treffpunkt" xml:space="preserve">
+        <source>Möglicher Treffpunkt</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Nach %@" xml:space="preserve">
+        <source>Nach %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Nachricht nicht gesendet" xml:space="preserve">
+        <source>Nachricht nicht gesendet</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Name" xml:space="preserve">
+        <source>Name</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Name, z. B. Oma" xml:space="preserve">
+        <source>Name, z. B. Oma</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Navigation konnte nicht gestartet werden (%@)." xml:space="preserve">
+        <source>Navigation konnte nicht gestartet werden (%@).</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Navigationsstimme" xml:space="preserve">
+        <source>Navigationsstimme</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Nächster Stopp: %@ in %lld km" xml:space="preserve">
+        <source>Nächster Stopp: %1$@ in %2$lld km</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Nächstes Treffen" xml:space="preserve">
+        <source>Nächstes Treffen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Nein" xml:space="preserve">
+        <source>Nein</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Neue Geräte-ID erzeugen" xml:space="preserve">
+        <source>Neue Geräte-ID erzeugen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Neuer Ladeplan: %@" xml:space="preserve">
+        <source>Neuer Ladeplan: %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Nicht möglich %@ – Route ohne Einschränkung" xml:space="preserve">
+        <source>Nicht möglich %@ – Route ohne Einschränkung</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Nichts gefunden" xml:space="preserve">
+        <source>Nichts gefunden</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Nichts gefunden." xml:space="preserve">
+        <source>Nichts gefunden.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Niemand teilt" xml:space="preserve">
+        <source>Niemand teilt</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Nimm bis zu 5 Sekunden auf. Nur Freunde, deren Anfrage du angenommen hast, hören sie – zum passenden Moment, auch im Auto. Ohne Aufnahme sagt Apples Stimme Bescheid." xml:space="preserve">
+        <source>Nimm bis zu 5 Sekunden auf. Nur Freunde, deren Anfrage du angenommen hast, hören sie – zum passenden Moment, auch im Auto. Ohne Aufnahme sagt Apples Stimme Bescheid.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Nimmt dein Treffen an" xml:space="preserve">
+        <source>Nimmt dein Treffen an</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Nimmt immer die beste auf dem iPhone installierte deutsche Stimme." xml:space="preserve">
+        <source>Nimmt immer die beste auf dem iPhone installierte deutsche Stimme.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Noch 5 Minuten bis zum Treffpunkt" xml:space="preserve">
+        <source>Noch 5 Minuten bis zum Treffpunkt</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Noch keine Einträge." xml:space="preserve">
+        <source>Noch keine Einträge.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Noch keine Freunde – füge jemanden über den Benutzernamen hinzu." xml:space="preserve">
+        <source>Noch keine Freunde – füge jemanden über den Benutzernamen hinzu.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Noch keine Freunde. Füge jemanden über den Benutzernamen hinzu." xml:space="preserve">
+        <source>Noch keine Freunde. Füge jemanden über den Benutzernamen hinzu.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Nur bei offener App sichtbar" xml:space="preserve">
+        <source>Nur bei offener App sichtbar</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Nutzbare Batterie" xml:space="preserve">
+        <source>Nutzbare Batterie</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ob du gerade deinen Standort teilst – und wie lange noch." xml:space="preserve">
+        <source>Ob du gerade deinen Standort teilst – und wie lange noch.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Optionen" xml:space="preserve">
+        <source>Optionen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ort für neuen Favoriten suchen" xml:space="preserve">
+        <source>Ort für neuen Favoriten suchen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ort suchen und mit Namen speichern" xml:space="preserve">
+        <source>Ort suchen und mit Namen speichern</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Öffnet die Optionen zum Teilen und Inkognito" xml:space="preserve">
+        <source>Öffnet die Optionen zum Teilen und Inkognito</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Park" xml:space="preserve">
+        <source>Park</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Parken" xml:space="preserve">
+        <source>Parken</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Parkplatz" xml:space="preserve">
+        <source>Parkplatz</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Parkplatz vergessen" xml:space="preserve">
+        <source>Parkplatz vergessen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Passwort (mind. 6 Zeichen)" xml:space="preserve">
+        <source>Passwort (mind. 6 Zeichen)</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Plane ein Treffen über einen Freund oder „Gruppen-Treffen planen“." xml:space="preserve">
+        <source>Plane ein Treffen über einen Freund oder „Gruppen-Treffen planen“.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Plant eine Route nach Hause, zur Arbeit oder zu einem Favoriten." xml:space="preserve">
+        <source>Plant eine Route nach Hause, zur Arbeit oder zu einem Favoriten.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Plant eine Route zum aktuellen Standort eines Freundes." xml:space="preserve">
+        <source>Plant eine Route zum aktuellen Standort eines Freundes.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Premium" xml:space="preserve">
+        <source>Premium</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Profil" xml:space="preserve">
+        <source>Profil</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Profil anzeigen" xml:space="preserve">
+        <source>Profil anzeigen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Profil, Freundschaften, Standorte, Routen und Treffen werden endgültig gelöscht." xml:space="preserve">
+        <source>Profil, Freundschaften, Standorte, Routen und Treffen werden endgültig gelöscht.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Profilbild" xml:space="preserve">
+        <source>Profilbild</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Profilbild konnte nicht entfernt werden." xml:space="preserve">
+        <source>Profilbild konnte nicht entfernt werden.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Profilbild konnte nicht gespeichert werden." xml:space="preserve">
+        <source>Profilbild konnte nicht gespeichert werden.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Prüfe die Internetverbindung und versuche es erneut." xml:space="preserve">
+        <source>Prüfe die Internetverbindung und versuche es erneut.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Raststätte" xml:space="preserve">
+        <source>Raststätte</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Registrieren" xml:space="preserve">
+        <source>Registrieren</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Reicht ca. %@" xml:space="preserve">
+        <source>Reicht ca. %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Reichweite bei 100 %" xml:space="preserve">
+        <source>Reichweite bei 100 %</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Reichweite bei 100 %%: ca. %lld km" xml:space="preserve">
+        <source>Reichweite bei 100 %%: ca. %lld km</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Reichweite ca. %lld km – Ladesäulen unter „Mehr“" xml:space="preserve">
+        <source>Reichweite ca. %lld km – Ladesäulen unter „Mehr“</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Reichweite laut Auto" xml:space="preserve">
+        <source>Reichweite laut Auto</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Restaurant" xml:space="preserve">
+        <source>Restaurant</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Route %@" xml:space="preserve">
+        <source>Route %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Route anzeigen" xml:space="preserve">
+        <source>Route anzeigen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Route konnte nicht berechnet werden" xml:space="preserve">
+        <source>Route konnte nicht berechnet werden</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Route konnte nicht berechnet werden." xml:space="preserve">
+        <source>Route konnte nicht berechnet werden.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Route über die Ladesäulen konnte nicht berechnet werden." xml:space="preserve">
+        <source>Route über die Ladesäulen konnte nicht berechnet werden.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Route wird berechnet …" xml:space="preserve">
+        <source>Route wird berechnet …</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Route wird gestartet" xml:space="preserve">
+        <source>Route wird gestartet</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Route zu %@." xml:space="preserve">
+        <source>Route zu %@.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Routenoptionen (Auto)" xml:space="preserve">
+        <source>Routenoptionen (Auto)</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Sagt, wie weit ein Freund entfernt ist und wohin er fährt." xml:space="preserve">
+        <source>Sagt, wie weit ein Freund entfernt ist und wohin er fährt.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Satellit" xml:space="preserve">
+        <source>Satellit</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Schnellere Route – %lld Min. sparen" xml:space="preserve">
+        <source>Schnellere Route – %lld Min. sparen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Schnellste" xml:space="preserve">
+        <source>Schnellste</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Schnellste Route" xml:space="preserve">
+        <source>Schnellste Route</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Schnellziele" xml:space="preserve">
+        <source>Schnellziele</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Schnipsel konnte nicht entfernt werden." xml:space="preserve">
+        <source>Schnipsel konnte nicht entfernt werden.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Schnipsel konnte nicht gespeichert werden." xml:space="preserve">
+        <source>Schnipsel konnte nicht gespeichert werden.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Server-Adresse" xml:space="preserve">
+        <source>Server-Adresse</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Sieh, wo deine Freunde unterwegs sind –&#10;und triff sie auf dem Weg." xml:space="preserve">
+        <source>Sieh, wo deine Freunde unterwegs sind –
+und triff sie auf dem Weg.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Sortiert nach der längsten Anfahrt: Niemand soll viel weiter fahren als die anderen." xml:space="preserve">
+        <source>Sortiert nach der längsten Anfahrt: Niemand soll viel weiter fahren als die anderen.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Sound-Pack" xml:space="preserve">
+        <source>Sound-Pack</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Später" xml:space="preserve">
+        <source>Später</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Speichern" xml:space="preserve">
+        <source>Speichern</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Sperrung" xml:space="preserve">
+        <source>Sperrung</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Sprachansagen" xml:space="preserve">
+        <source>Sprachansagen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Stadt" xml:space="preserve">
+        <source>Stadt</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Stand" xml:space="preserve">
+        <source>Stand</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Stand %@" xml:space="preserve">
+        <source>Stand %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Standard" xml:space="preserve">
+        <source>Standard</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Standort" xml:space="preserve">
+        <source>Standort</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Standort %@" xml:space="preserve">
+        <source>Standort %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Standort Immer erlauben" xml:space="preserve">
+        <source>Standort Immer erlauben</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Standort nicht geteilt" xml:space="preserve">
+        <source>Standort nicht geteilt</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Standort teilen" xml:space="preserve">
+        <source>Standort teilen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Standort teilen für" xml:space="preserve">
+        <source>Standort teilen für</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Standort unbekannt" xml:space="preserve">
+        <source>Standort unbekannt</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Standort verborgen" xml:space="preserve">
+        <source>Standort verborgen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Standort vor %@ verbergen" xml:space="preserve">
+        <source>Standort vor %@ verbergen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Standort wieder zeigen" xml:space="preserve">
+        <source>Standort wieder zeigen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Standort-Einstellung öffnen („Immer“ wählen)" xml:space="preserve">
+        <source>Standort-Einstellung öffnen („Immer“ wählen)</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Start" xml:space="preserve">
+        <source>Start</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Start %lld %%" xml:space="preserve">
+        <source>Start %lld %%</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Start %lld %% (live)" xml:space="preserve">
+        <source>Start %lld %% (live)</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Stau" xml:space="preserve">
+        <source>Stau</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Stehe im Stau" xml:space="preserve">
+        <source>Stehe im Stau</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Stimmen" xml:space="preserve">
+        <source>Stimmen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Stimmen von Freunden abspielen" xml:space="preserve">
+        <source>Stimmen von Freunden abspielen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Stopp" xml:space="preserve">
+        <source>Stopp</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Stopp hinzufügen" xml:space="preserve">
+        <source>Stopp hinzufügen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Straße gesperrt" xml:space="preserve">
+        <source>Straße gesperrt</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Strecke" xml:space="preserve">
+        <source>Strecke</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Suche" xml:space="preserve">
+        <source>Suche</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Suche fehlgeschlagen." xml:space="preserve">
+        <source>Suche fehlgeschlagen.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Suchen" xml:space="preserve">
+        <source>Suchen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Systemstimme" xml:space="preserve">
+        <source>Systemstimme</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="TEST-LOGIN" xml:space="preserve">
+        <source>TEST-LOGIN</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Tanken" xml:space="preserve">
+        <source>Tanken</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Tankstelle" xml:space="preserve">
+        <source>Tankstelle</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Tastatur" xml:space="preserve">
+        <source>Tastatur</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Teilen" xml:space="preserve">
+        <source>Teilen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Teilen für" xml:space="preserve">
+        <source>Teilen für</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Teilen pausieren" xml:space="preserve">
+        <source>Teilen pausieren</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Teilen pausiert" xml:space="preserve">
+        <source>Teilen pausiert</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Teilen pausiert." xml:space="preserve">
+        <source>Teilen pausiert.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Teilst live" xml:space="preserve">
+        <source>Teilst live</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Teilst live bis %@" xml:space="preserve">
+        <source>Teilst live bis %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Teilt deinen Standort mit deinen Freunden für eine bestimmte Zeit." xml:space="preserve">
+        <source>Teilt deinen Standort mit deinen Freunden für eine bestimmte Zeit.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Tempo" xml:space="preserve">
+        <source>Tempo</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Tippen: Standort „Immer“ erlauben" xml:space="preserve">
+        <source>Tippen: Standort „Immer“ erlauben</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Treffen" xml:space="preserve">
+        <source>Treffen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Treffen absagen" xml:space="preserve">
+        <source>Treffen absagen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Treffen mit %@" xml:space="preserve">
+        <source>Treffen mit %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Treffen planen" xml:space="preserve">
+        <source>Treffen planen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Treffen um" xml:space="preserve">
+        <source>Treffen um</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Treffen vorschlagen" xml:space="preserve">
+        <source>Treffen vorschlagen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Treffen: %@" xml:space="preserve">
+        <source>Treffen: %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Treffpunkt auf der Route" xml:space="preserve">
+        <source>Treffpunkt auf der Route</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Treffpunkte" xml:space="preserve">
+        <source>Treffpunkte</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Trennen" xml:space="preserve">
+        <source>Trennen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Uhrzeit festlegen" xml:space="preserve">
+        <source>Uhrzeit festlegen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Um %@ bei %@ (%@) · ca. %lld Min. Fahrt%@" xml:space="preserve">
+        <source>Um %1$@ bei %2$@ (%3$@) · ca. %4$lld Min. Fahrt%5$@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Umbenennen" xml:space="preserve">
+        <source>Umbenennen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Unfall" xml:space="preserve">
+        <source>Unfall</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Unterwegs" xml:space="preserve">
+        <source>Unterwegs</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Unterwegs nach %@" xml:space="preserve">
+        <source>Unterwegs nach %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Übernehmen" xml:space="preserve">
+        <source>Übernehmen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Verbergen" xml:space="preserve">
+        <source>Verbergen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Verbinden fehlgeschlagen: %@" xml:space="preserve">
+        <source>Verbinden fehlgeschlagen: %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Verbrauch" xml:space="preserve">
+        <source>Verbrauch</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Verbunden" xml:space="preserve">
+        <source>Verbunden</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Version" xml:space="preserve">
+        <source>Version</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Von oben" xml:space="preserve">
+        <source>Von oben</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Vorschlag an %@ gesendet." xml:space="preserve">
+        <source>Vorschlag an %@ gesendet.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Vorschlag konnte nicht gesendet werden." xml:space="preserve">
+        <source>Vorschlag konnte nicht gesendet werden.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Vorschläge – fair für alle" xml:space="preserve">
+        <source>Vorschläge – fair für alle</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Warte auf %@" xml:space="preserve">
+        <source>Warte auf %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Wartet auf Zusage" xml:space="preserve">
+        <source>Wartet auf Zusage</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Wähle in den Einstellungen dein Fahrzeug." xml:space="preserve">
+        <source>Wähle in den Einstellungen dein Fahrzeug.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Wähle mindestens einen Freund mit sichtbarem Standort." xml:space="preserve">
+        <source>Wähle mindestens einen Freund mit sichtbarem Standort.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Wechseln" xml:space="preserve">
+        <source>Wechseln</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Weitere Aktionen" xml:space="preserve">
+        <source>Weitere Aktionen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Weitere Aktionen ausblenden" xml:space="preserve">
+        <source>Weitere Aktionen ausblenden</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Wer in deiner Nähe ist und wer gerade unterwegs ist." xml:space="preserve">
+        <source>Wer in deiner Nähe ist und wer gerade unterwegs ist.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Wer kommt mit?" xml:space="preserve">
+        <source>Wer kommt mit?</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Wettergefahr" xml:space="preserve">
+        <source>Wettergefahr</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Wie System" xml:space="preserve">
+        <source>Wie System</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Wie sollen dich&#10;deine Freunde sehen?" xml:space="preserve">
+        <source>Wie sollen dich
+deine Freunde sehen?</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Wird gesendet …" xml:space="preserve">
+        <source>Wird gesendet …</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Wird gesucht …" xml:space="preserve">
+        <source>Wird gesucht …</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Wo ihr euch trefft und wann dein Freund ankommt." xml:space="preserve">
+        <source>Wo ihr euch trefft und wann dein Freund ankommt.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Wo ist ein Freund?" xml:space="preserve">
+        <source>Wo ist ein Freund?</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Wo ist …?" xml:space="preserve">
+        <source>Wo ist …?</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Wo wollt ihr euch treffen?" xml:space="preserve">
+        <source>Wo wollt ihr euch treffen?</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Wohin?" xml:space="preserve">
+        <source>Wohin?</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Zeigen" xml:space="preserve">
+        <source>Zeigen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ziel" xml:space="preserve">
+        <source>Ziel</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ziel %lld %%" xml:space="preserve">
+        <source>Ziel %lld %%</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ziel suchen" xml:space="preserve">
+        <source>Ziel suchen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ziel von %@" xml:space="preserve">
+        <source>Ziel von %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ziele" xml:space="preserve">
+        <source>Ziele</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Zu %@ navigieren" xml:space="preserve">
+        <source>Zu %@ navigieren</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Zu Favorit" xml:space="preserve">
+        <source>Zu Favorit</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Zu Favorit navigieren" xml:space="preserve">
+        <source>Zu Favorit navigieren</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Zu Freund" xml:space="preserve">
+        <source>Zu Freund</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Zu Freund navigieren" xml:space="preserve">
+        <source>Zu Freund navigieren</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Zu Fuß" xml:space="preserve">
+        <source>Zu Fuß</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Zu Fuß hinführen" xml:space="preserve">
+        <source>Zu Fuß hinführen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Zu einem Ort einladen" xml:space="preserve">
+        <source>Zu einem Ort einladen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Zu „%@“ hat Apple keine Details." xml:space="preserve">
+        <source>Zu „%@“ hat Apple keine Details.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Zugesagt" xml:space="preserve">
+        <source>Zugesagt</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Zuhause" xml:space="preserve">
+        <source>Zuhause</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Zuhause festlegen" xml:space="preserve">
+        <source>Zuhause festlegen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Zuletzt" xml:space="preserve">
+        <source>Zuletzt</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Zuletzt %@" xml:space="preserve">
+        <source>Zuletzt %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Zum Treffpunkt navigieren" xml:space="preserve">
+        <source>Zum Treffpunkt navigieren</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Zum Ziel von %@ navigieren" xml:space="preserve">
+        <source>Zum Ziel von %@ navigieren</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Zum aktuellen Standort" xml:space="preserve">
+        <source>Zum aktuellen Standort</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Zurückziehen" xml:space="preserve">
+        <source>Zurückziehen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Zusagen" xml:space="preserve">
+        <source>Zusagen</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Zwischenziel" xml:space="preserve">
+        <source>Zwischenziel</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="alle ausgeblendet" xml:space="preserve">
+        <source>alle ausgeblendet</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="an " xml:space="preserve">
+        <source>an </source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="an %@" xml:space="preserve">
+        <source>an %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="andere Strecke" xml:space="preserve">
+        <source>andere Strecke</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="außer Betrieb" xml:space="preserve">
+        <source>außer Betrieb</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="bis zur Ankunft" xml:space="preserve">
+        <source>bis zur Ankunft</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="ca. %lld km" xml:space="preserve">
+        <source>ca. %lld km</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="direkt bei dir" xml:space="preserve">
+        <source>direkt bei dir</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="einem Kilometer" xml:space="preserve">
+        <source>einem Kilometer</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="fährt mit" xml:space="preserve">
+        <source>fährt mit</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="fährt nach %@" xml:space="preserve">
+        <source>fährt nach %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="hält gerade" xml:space="preserve">
+        <source>hält gerade</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="heute %@" xml:space="preserve">
+        <source>heute %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="ist da" xml:space="preserve">
+        <source>ist da</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="ja" xml:space="preserve">
+        <source>ja</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="kW unbekannt" xml:space="preserve">
+        <source>kW unbekannt</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="lädt …" xml:space="preserve">
+        <source>lädt …</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="live" xml:space="preserve">
+        <source>live</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="max. %@" xml:space="preserve">
+        <source>max. %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="mit %@" xml:space="preserve">
+        <source>mit %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="mit dem Auto" xml:space="preserve">
+        <source>mit dem Auto</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="mit dem Fahrrad" xml:space="preserve">
+        <source>mit dem Fahrrad</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="morgen %@" xml:space="preserve">
+        <source>morgen %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="nach %@" xml:space="preserve">
+        <source>nach %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="noch %@" xml:space="preserve">
+        <source>noch %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="noch %@ · fertig %@" xml:space="preserve">
+        <source>noch %1$@ · fertig %2$@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="noch keine Daten" xml:space="preserve">
+        <source>noch keine Daten</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="noch nicht zugesagt" xml:space="preserve">
+        <source>noch nicht zugesagt</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="ohne Autobahn" xml:space="preserve">
+        <source>ohne Autobahn</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="ohne Fähre" xml:space="preserve">
+        <source>ohne Fähre</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="ohne Maut" xml:space="preserve">
+        <source>ohne Maut</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="teilt nicht" xml:space="preserve">
+        <source>teilt nicht</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="unbegrenzt" xml:space="preserve">
+        <source>unbegrenzt</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="unterwegs %@, Ankunft %@" xml:space="preserve">
+        <source>unterwegs %1$@, Ankunft %2$@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="unterwegs · an %@" xml:space="preserve">
+        <source>unterwegs · an %@</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="vor %lld Min." xml:space="preserve">
+        <source>vor %lld Min.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="vor %lld Std." xml:space="preserve">
+        <source>vor %lld Std.</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="z. B. Luca" xml:space="preserve">
+        <source>z. B. Luca</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="zu Fuß" xml:space="preserve">
+        <source>zu Fuß</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="zu einem Ziel" xml:space="preserve">
+        <source>zu einem Ziel</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="„Bin gleich da, bestell schon mal!“" xml:space="preserve">
+        <source>„Bin gleich da, bestell schon mal!“</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="„Deal, wir sehen uns!“" xml:space="preserve">
+        <source>„Deal, wir sehen uns!“</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="„Hup mal, ich bin's!“" xml:space="preserve">
+        <source>„Hup mal, ich bin's!“</source>
+        <note/>
+      </trans-unit>
+      <trans-unit id="„Wo bleibst du denn?“" xml:space="preserve">
+        <source>„Wo bleibst du denn?“</source>
+        <note/>
+      </trans-unit>
+    </body>
+  </file>
+</xliff>

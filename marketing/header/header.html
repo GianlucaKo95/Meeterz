@@ -16,14 +16,14 @@ body{font-family:Jakarta,system-ui,sans-serif;color:#fff;position:relative;
   background:radial-gradient(1200px 900px at 78% 45%,#0E9584 0%,transparent 70%),linear-gradient(135deg,#0B7F70 0%,#064A42 60%,#043630 100%)}
 /* feine Straßenlinien im Hintergrund */
 .bg{position:absolute;inset:0;opacity:.13}
-/* iPhone zeigt im Kopfbereich nur die mittleren ~60 % der Breite, und das untere Viertel liegt unter dem App-Infoblatt –
-   alles Wichtige liegt daher zwischen x 560–2060 und y 150–975 */
-.stage{position:absolute;left:560px;right:560px;top:150px;bottom:500px;display:flex;align-items:center;justify-content:space-between;gap:70px}
+/* Im App Store auf dem iPhone sichtbar (aus der Vorschau vermessen): x 543–2024, y 0–963 CSS-px.
+   Oben links/rechts liegen Zurück- und Teilen-Knopf (bis y ≈ 420). Alles Wichtige daher in x 640–1940, y 360–910. */
+.stage{position:absolute;left:640px;right:682px;top:360px;height:550px;display:flex;align-items:center;justify-content:space-between;gap:60px}
 .copy{flex:1;min-width:0}
-h1{font-weight:800;font-size:104px;line-height:1.02;letter-spacing:-.025em;margin:0 0 36px;max-width:900px;text-wrap:balance}
-.sub{font-weight:600;font-size:38px;color:var(--mint);letter-spacing:.005em}
+h1{font-weight:800;font-size:92px;line-height:1.02;letter-spacing:-.025em;margin:0 0 30px;max-width:960px;text-wrap:balance}
+.sub{font-weight:600;font-size:34px;color:var(--mint);letter-spacing:.005em}
 .phone{flex:none;width:520px;height:1080px;border-radius:84px;background:#0A0F0E;padding:18px;
-  box-shadow:0 60px 120px rgba(0,20,17,.55),0 0 0 3px #2C3B38 inset;transform:rotate(-4deg);zoom:.7}
+  box-shadow:0 60px 120px rgba(0,20,17,.55),0 0 0 3px #2C3B38 inset;transform:rotate(-4deg);zoom:.5}
 .screen{position:relative;width:100%;height:100%;border-radius:68px;overflow:hidden;background:var(--map)}
 .island{position:absolute;top:22px;left:50%;transform:translateX(-50%);width:150px;height:44px;border-radius:22px;background:#000;z-index:5}
 .screen svg{position:absolute;inset:0}

@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from asc import api
 
 # Displaygrößen in App Store Connect – mehrere Namen probieren (Apple benennt sie je nach API-Stand anders)
-DISPLAY = {"pro": ["APP_IPHONE_63", "APP_IPHONE_61"], "promax": ["APP_IPHONE_69", "APP_IPHONE_67"]}
+DISPLAY = {"pro": ["APP_IPHONE_61"], "promax": ["APP_IPHONE_67"]}   # 6,1/6,3 bzw. 6,7/6,9 Zoll (API-Namen)
 
 def safe(method, path, body=None):
     try: return api(method, path, body)

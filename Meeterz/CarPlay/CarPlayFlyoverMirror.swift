@@ -133,14 +133,15 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
         attachTask?.cancel()
         attachTask = Task { @MainActor [weak self] in
             // Die Ansicht hängt kurz nach dem Aufbau noch nicht im Fenster
-            for _ in 0..<20 {
+            for _ in 0..<40 {
                 guard let self, !Task.isCancelled else { return }
-                if let parent = navigationMapView.superview {
+                if let parent = navigationMapView.superview, navigationMapView.window != nil {
                     self.install(in: parent, above: navigationMapView)
                     return
                 }
                 try? await Task.sleep(for: .milliseconds(250))
             }
+            Diag.log("Flyover: Mapbox-Karte nach 10 s nicht im Fenster – nicht eingehängt")
         }
     }
 

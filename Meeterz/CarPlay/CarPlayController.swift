@@ -678,7 +678,10 @@ final class CarPlayController: NSObject {
         for map in [browseMap, navMap].compactMap({ $0 }) {
             Satellite3DBuildings.install(on: map.mapView, satellite: satellite)
         }
-        let current = manager.currentActivity == .navigating ? (navMap ?? browseMap) : (browseMap ?? navMap)
+        // Die Karte, die gerade wirklich im Fenster ist. Vorher entschied `currentActivity`: meldete CarPlay während der
+        // Fahrt etwas anderes als `.navigating`, hängte sich Flyover an die verdeckte Browse-Karte (ohne Fenster) –
+        // und blieb unsichtbar, bis zufällig ein anderer Weg neu einhängte (Fahrt am 27.10.: 7 Minuten).
+        let current = displayedMap
         if CarPlayFlyoverMirror.isEnabled {
             let mirror = flyover ?? CarPlayFlyoverMirror(friendsVisible: { [weak self] in self?.friendsShown ?? true },
                                                        currentMap: { [weak self] in self?.displayedMap })

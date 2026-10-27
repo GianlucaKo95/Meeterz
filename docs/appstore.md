@@ -63,6 +63,8 @@ Keine Daten werden zum Tracking verwendet. Alle Daten sind mit dem Nutzer verkn�
 | Textnachrichten (Kurznachrichten an Freunde) | ja | ja | nein |
 | Sonstige Daten (Fahrzeugdaten, optional bei eingerichteter E-Auto-Verbindung) | ja | ja | nein |
 
+Beim genauen Standort zusätzlich den Zweck **Analysen** ankreuzen: Das deckt die freiwillige, anonymisierte Mapbox-Telemetrie ab (Einstellungen → „Mapbox beim Verbessern der Karten helfen“, standardmäßig aus).
+
 Entspricht der Datei `Meeterz/PrivacyInfo.xcprivacy`. Favoriten, geparktes Auto, gelernter Verbrauch und das Diagnoseprotokoll liegen nur auf dem Gerät und werden nicht erfasst.
 
 ## Exportvorschriften

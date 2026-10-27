@@ -110,11 +110,12 @@ final class CarPlayController: NSObject {
 
     /// Neigung für 3D. MapKit (Flyover) übernimmt sie 1:1 von der Mapbox-Kamera; das Dashboard nutzt dieselbe.
     /// Vorher 65°: zusammen mit dem weiten Zoom auf der Autobahn sah man Horizont und Himmel (Fahrt am 27.10.).
-    static let tilt3D: Double = 45
+    static let tilt3D: Double = 53
 
-    /// Zoombereich während der Navigation. Mapbox' Vorgabe (10,5…16,35) zoomt bei Autobahntempo bis auf Stadtgröße
-    /// heraus; enger gefasst bleibt die Karte wie ein Navi nah an der Straße.
-    static let navigationZoomRange: ClosedRange<Double> = 15.0...17.5
+    /// Zoombereich während der Navigation. Mapbox zoomt weiter selbst (auf der Autobahn weiter heraus, vor Abbiegungen
+    /// heran); manueller Zoom hat Vorrang. Mapbox' Vorgabe (ab 10,5) ging aber bis auf Stadtgröße – mit der Neigung
+    /// sah man dann Himmel. Die Untergrenze 13,5 hält die Autobahn im Blick, ohne bis zum Horizont zu reichen.
+    static let navigationZoomRange: ClosedRange<Double> = 13.5...17.5
 
     /// Zoom außerhalb der Fahrt (mit +/− gewählt, bleibt gespeichert)
     var browseZoom: Double {

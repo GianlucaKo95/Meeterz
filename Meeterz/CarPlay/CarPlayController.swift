@@ -81,11 +81,16 @@ final class CarPlayController: NSObject {
     /// 3D (geneigte Karte) auf CarPlay; Standard an
     private var threeD: Bool {
         get { Self.threeDEnabled }
-        set {
-            UserDefaults.standard.set(newValue, forKey: "carplay.3d")
-            CarPlayDashboard.shared.applyMapType()   // Dashboard und Kombiinstrument folgen der Einstellung
-            CarPlayDashboard.cluster.applyMapType()
-        }
+        set { MapPreferences.setThreeD(newValue) }   // gemeinsam mit der iPhone-Karte
+    }
+
+    /// 2D/3D wurde umgeschaltet (hier oder auf dem iPhone): Kameras und Dashboard nachziehen
+    func applyThreeD() {
+        CarPlayDashboard.shared.applyMapType()   // Dashboard und Kombiinstrument folgen der Einstellung
+        CarPlayDashboard.cluster.applyMapType()
+        guard isConnected else { return }
+        configureCamera(browseMap, navigating: false)
+        configureCamera(navMap, navigating: true)
     }
     static var threeDEnabled: Bool { UserDefaults.standard.object(forKey: "carplay.3d") as? Bool ?? true }
 
@@ -168,9 +173,7 @@ final class CarPlayController: NSObject {
 
     private func toggleThreeD() {
         lastMapInteraction = Date()
-        threeD.toggle()
-        configureCamera(browseMap, navigating: false)
-        configureCamera(navMap, navigating: true)
+        threeD.toggle()   // zieht über applyThreeD() Kameras und Dashboard nach
     }
 
     /// Menü „Kartenansicht“
@@ -187,9 +190,8 @@ final class CarPlayController: NSObject {
             let item = CPListItem(text: title, detailText: nil, image: UIImage(systemName: symbol, withConfiguration: config),
                                   accessoryImage: key == current ? check : nil, accessoryType: .none)
             item.handler = { [weak self] _, done in
-                d.set(key == "flyover", forKey: "carplay.flyover")
-                if key != "flyover" { d.set(key == "satellite", forKey: "carplay.satellite") }
-                self?.applyMapStyle()
+                _ = self
+                MapPreferences.setStyle(MapPreferences.Style(rawValue: key) ?? .satellite)   // gilt auch auf dem iPhone
                 done()
                 CarPlayUI.shared.pop(animated: true)
             }

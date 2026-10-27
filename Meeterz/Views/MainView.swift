@@ -10,9 +10,7 @@ struct MainView: View {
     @AppStorage("map.style") private var mapStyleKey = "satellite"
     private var flyover: Bool { mapStyleKey == "flyover" }
     private func setMapStyle(_ key: String) {
-        mapStyleKey = key
-        // Die iPhone-Navigation wählt danach ihren Stil (Luftbild oder Karte)
-        UserDefaults.standard.set(key != "classic", forKey: "map.satellite")
+        MapPreferences.setStyle(MapPreferences.Style(rawValue: key) ?? .satellite)   // gilt auch in CarPlay
     }
     @AppStorage("map.3d") private var threeD = true
 
@@ -356,8 +354,8 @@ struct MainView: View {
                     }
                 }
                 Section("Ansicht") {
-                    Button { threeD = true } label: { Label("3D", systemImage: threeD ? "checkmark" : "cube") }
-                    Button { threeD = false } label: { Label("2D", systemImage: threeD ? "square" : "checkmark") }
+                    Button { MapPreferences.setThreeD(true) } label: { Label("3D", systemImage: threeD ? "checkmark" : "cube") }
+                    Button { MapPreferences.setThreeD(false) } label: { Label("2D", systemImage: threeD ? "square" : "checkmark") }
                 }
             } label: {
                 Image(systemName: "square.3.layers.3d")

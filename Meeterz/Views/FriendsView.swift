@@ -30,8 +30,8 @@ struct FriendsView: View {
         let place: Place
         let friendId: UUID
     }
-    @AppStorage("carplay.satellite") private var carPlaySatellite = true
-    @AppStorage("carplay.flyover") private var carPlayFlyover = false
+    @AppStorage("map.style") private var mapStyleKey = "satellite"
+    @AppStorage("map.3d") private var mapThreeD = true
     @State private var diagText = Diag.text
     @State private var voiceOn = !MeeterzSpeechSynthesizer.shared.muted
     @AppStorage("route.avoid.tolls") private var avoidTolls = false
@@ -452,19 +452,15 @@ struct FriendsView: View {
                 Text("Den Akkustand stellst du beim Losfahren in CarPlay unter „Mehr“ ein. Reicht er nicht bis zum Ziel, schlägt Meeterz Ladesäulen entlang der Route vor (mit 10 % Reserve).")
                     .font(.footnote).foregroundStyle(Theme.muted)
             }
-            Picker("Karte in CarPlay", selection: Binding<String>(
-                get: { carPlayFlyover ? "flyover" : (carPlaySatellite ? "satellite" : "classic") },
-                set: { value in
-                    carPlayFlyover = value == "flyover"
-                    if value != "flyover" { carPlaySatellite = value == "satellite" }
-                    CarPlayController.shared.applyMapStyle()   // gilt sofort, auch während der Fahrt
-                }
+            Picker("Karte", selection: Binding<String>(
+                get: { mapStyleKey },
+                set: { MapPreferences.setStyle(MapPreferences.Style(rawValue: $0) ?? .satellite) }
             )) {
-                Text("Satellit").tag("satellite")
-                Text("Klassisch").tag("classic")
-                Text("Apple Flyover (experimentell)").tag("flyover")
+                ForEach(MapPreferences.Style.allCases) { Text($0.title).tag($0.rawValue) }
             }
-            Text("Gilt sofort, auch während der Fahrt. Satellit: Luftbild mit 3D-Gebäuden. Flyover (experimentell) zeigt Apples fotorealistisches 3D-Bild, kann aber ruckeln und Route oder Pfeil leicht versetzt zeigen.")
+            Toggle("3D-Ansicht", isOn: Binding(get: { mapThreeD }, set: { MapPreferences.setThreeD($0) }))
+                .tint(Theme.accent)
+            Text("Gilt für iPhone und CarPlay gleichermaßen und sofort, auch während der Fahrt – egal wo du umschaltest. Satellit: Luftbild mit 3D-Gebäuden. Flyover (experimentell) zeigt Apples fotorealistisches 3D-Bild, kann aber ruckeln und Route oder Pfeil leicht versetzt zeigen.")
                 .font(.footnote).foregroundStyle(Theme.muted)
             DisclosureGroup("Diagnose") {
                 Text(diagText.isEmpty ? "Noch keine Einträge." : diagText)

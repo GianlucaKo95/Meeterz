@@ -188,7 +188,8 @@ enum SearchService {
     private static func request(path: String, items: [URLQueryItem]) async throws -> [Place] {
         var comps = URLComponents(string: "https://api.mapbox.com/search/searchbox/v1/\(path)")!
         comps.queryItems = items + [
-            URLQueryItem(name: "language", value: "de"),
+            // Ergebnisse in der Sprache der App (vorher fest Deutsch: „Rom, Italien“ auch in der italienischen App)
+            URLQueryItem(name: "language", value: Bundle.main.preferredLocalizations.first ?? "en"),
             URLQueryItem(name: "access_token", value: AppConfig.mapboxToken),
         ]
         let (data, response) = try await URLSession.shared.data(for: URLRequest(url: comps.url!))

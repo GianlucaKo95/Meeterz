@@ -1,0 +1,56 @@
+name: App-Store-Screenshots
+# Erfundene Daten (Testkonten Alex, Anna, Ben, Mia in Köln), echte App-Bildschirme, alle Sprachen, 6,3" und 6,9".
+# Ergebnis als Artefakt "storeshots"; Bericht ebenfalls im Artefakt.
+on:
+  workflow_dispatch:
+    inputs:
+      langs:
+        description: "Sprachen"
+        default: "de en fr es pt tr it"
+      sizes:
+        description: "Displaygrößen (pro = 6,3 Zoll, promax = 6,9 Zoll)"
+        default: "pro promax"
+
+permissions:
+  contents: read
+
+jobs:
+  shots:
+    runs-on: xcode-27
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build-Cache laden
+        uses: actions/cache@v4
+        with:
+          path: build/dd
+          key: dd-${{ hashFiles('project.yml') }}-shots-${{ github.run_id }}
+          restore-keys: |
+            dd-${{ hashFiles('project.yml') }}-
+            dd-
+      - name: Bauen und aufnehmen
+        id: build
+        continue-on-error: true
+        env:
+          MAPBOX_DOWNLOADS_TOKEN: ${{ secrets.MAPBOX_DOWNLOADS_TOKEN }}
+          CI_SUPABASE_REF: jgtkyxlzroajtxboqgcn
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          MAPBOX_PUBLIC_TOKEN: ${{ secrets.MAPBOX_PUBLIC_TOKEN }}
+          STORE_SHOTS: "1"
+          SHOT_LANGS: ${{ inputs.langs }}
+          SHOT_SIZES: ${{ inputs.sizes }}
+        run: ./ci/build.sh
+      - name: Ergebnis sichern
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: storeshots
+          path: |
+            storeshots
+            screenshots
+            report.txt
+            shots-*.log
+          if-no-files-found: warn
+      - name: Ergebnis
+        if: steps.build.outcome == 'failure'
+        run: exit 1

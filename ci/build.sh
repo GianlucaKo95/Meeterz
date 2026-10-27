@@ -88,6 +88,10 @@ fi
 if [ $RC -eq 0 ]; then
   ./ci/unittest.sh || RC=22
 fi
+if [ $RC -eq 0 ] && [ "${STORE_SHOTS:-0}" = "1" ]; then
+  ./ci/storeshots.sh
+  exit $?
+fi
 if [ $RC -eq 0 ] && [ "${RUN_TESTS:-1}" = "0" ]; then
   log ""
   log "== UI-Tests übersprungen (nur Compile-Check) =="

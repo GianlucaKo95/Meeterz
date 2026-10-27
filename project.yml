@@ -140,13 +140,16 @@ targets:
     platform: iOS
     sources:
       - path: MeeterzUITests
+      # Übersetzungen der App: die Screenshot-Fahrt findet Knöpfe in jeder Sprache
+      - path: Shared/Localizable.xcstrings
+        buildPhase: resources
     dependencies:
       - target: Meeterz
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: de.koeven.meeterz.uitests
         SWIFT_VERSION: "5.0"
-        SWIFT_EMIT_LOC_STRINGS: YES
+        SWIFT_EMIT_LOC_STRINGS: NO
         LOCALIZATION_PREFERS_STRING_CATALOGS: YES
         TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: YES

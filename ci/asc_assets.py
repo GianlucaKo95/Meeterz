@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Lädt Kopfbild und Suchergebnis-Bild je Sprache in die App Asset Library und setzt sie auf die Produktseite
 der Version in Vorbereitung (ersetzt vorhandene Platzierungen gleicher Art).
-Ordner: <dir>/header/<sprache>.jpg und <dir>/search/<sprache>.jpg (Branch „store-assets“).
+Ordner: <dir>/header/<sprache>.png und <dir>/search/<sprache>.png (Apple verlangt PNG) (Branch „store-assets“).
 Aufruf: asc_assets.py <bundle-id> <dir>"""
 import json, os, sys, time, urllib.request
 sys.path.insert(0, os.path.dirname(__file__))
@@ -24,7 +24,7 @@ def upload(library_id, path):
         urllib.request.urlopen(req, timeout=180).read()
     api("PATCH", f"/v1/appAssetLibraryImages/{r['id']}", {"data": {"type": "appAssetLibraryImages", "id": r["id"],
         "attributes": {"uploaded": True}}})
-    for _ in range(60):
+    for _ in range(24):
         state = api("GET", f"/v1/appAssetLibraryImages/{r['id']}")["data"]["attributes"].get("state")
         if state not in ("AWAITING_UPLOAD", "UPLOAD_COMPLETE"): break
         time.sleep(5)
@@ -41,7 +41,7 @@ def main(bundle, root):
     failed = 0
     for lang, info in listing["languages"].items():
         for kind, placement in KINDS.items():
-            path = next((os.path.join(root, kind, f"{lang}.{ext}") for ext in ("jpg", "png")
+            path = next((os.path.join(root, kind, f"{lang}.{ext}") for ext in ("png",)
                          if os.path.exists(os.path.join(root, kind, f"{lang}.{ext}"))), None)
             if not path: print(f"{lang} {kind}: keine Datei"); continue
             try:

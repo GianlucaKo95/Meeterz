@@ -25,6 +25,12 @@ struct RootView: View {
         // Standortdienst sparsam: volles GPS nur bei sichtbarer App (siehe LocationService)
         .onChange(of: scenePhase, initial: true) { _, phase in
             AppModel.shared.location.setForeground(phase != .background)
+            if phase == .active {
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(600))   // Hauptansicht erst aufbauen lassen
+                    AppModel.shared.navigation.showCarPlayDriveOnPhoneIfNeeded()
+                }
+            }
         }
     }
 }

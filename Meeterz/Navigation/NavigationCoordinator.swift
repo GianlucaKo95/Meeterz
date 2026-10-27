@@ -314,6 +314,17 @@ final class NavigationCoordinator: NSObject {
         }
     }
 
+    /// iPhone-App kommt in den Vordergrund, während CarPlay navigiert, die Fahrt auf dem iPhone aber nicht zu sehen ist.
+    /// Fall: CarPlay hat Meeterz frisch gestartet (App war ganz geschlossen) – dann gab es beim Start der Route noch
+    /// gar kein iPhone-Fenster, in dem die Navigation hätte erscheinen können. Jetzt nachholen.
+    func showCarPlayDriveOnPhoneIfNeeded() {
+        guard isNavigating, phoneController == nil, CarPlayController.shared.isConnected,
+              let routes = core.tripSession().currentNavigationRoutes else { return }
+        Diag.log("iPhone geöffnet während CarPlay-Fahrt – zeige Navigation auch hier")
+        preview = nil
+        presentPhone(routes: routes, fromCarPlay: true)
+    }
+
     /// Zwischenstopp (z. B. Treffpunkt) in die laufende Navigation einfügen
     func addStop(_ stop: Place) async {
         guard isNavigating, let destination else {

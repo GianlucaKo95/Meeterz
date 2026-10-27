@@ -28,16 +28,23 @@ def main(bundle, dry):
     print(f"App-Informationen {info['id']} ({info['attributes'].get('appStoreState') or info['attributes'].get('state')})")
     existing = {l["attributes"]["locale"]: l for l in api("GET", f"/v1/appInfos/{info['id']}/appInfoLocalizations?limit=50")["data"]}
     for loc, f in wanted.items():
-        attrs = {"name": data["name"], "subtitle": f["subtitle"], "privacyPolicyUrl": f["privacyPolicyUrl"]}
-        if loc in existing:
-            print(f"  {loc}: App-Informationen aktualisieren")
-            if not dry: api("PATCH", f"/v1/appInfoLocalizations/{existing[loc]['id']}",
-                            {"data": {"type": "appInfoLocalizations", "id": existing[loc]["id"], "attributes": attrs}})
-        else:
-            print(f"  {loc}: Sprache anlegen (App-Informationen)")
-            if not dry: api("POST", "/v1/appInfoLocalizations", {"data": {"type": "appInfoLocalizations",
-                            "attributes": {"locale": loc, **attrs},
-                            "relationships": {"appInfo": {"data": {"type": "appInfos", "id": info["id"]}}}}})
+        # Namen sind je Sprache eindeutig im ganzen Store – ist einer vergeben, kommt der nächste Vorschlag
+        for i, name in enumerate(f["names"]):
+            attrs = {"name": name, "subtitle": f["subtitle"], "privacyPolicyUrl": f["privacyPolicyUrl"]}
+            try:
+                if loc in existing:
+                    print(f"  {loc}: App-Informationen aktualisieren ({name})")
+                    if not dry: api("PATCH", f"/v1/appInfoLocalizations/{existing[loc]['id']}",
+                                    {"data": {"type": "appInfoLocalizations", "id": existing[loc]["id"], "attributes": attrs}})
+                else:
+                    print(f"  {loc}: Sprache anlegen (App-Informationen, {name})")
+                    if not dry: api("POST", "/v1/appInfoLocalizations", {"data": {"type": "appInfoLocalizations",
+                                    "attributes": {"locale": loc, **attrs},
+                                    "relationships": {"appInfo": {"data": {"type": "appInfos", "id": info["id"]}}}}})
+                break
+            except SystemExit:
+                if i == len(f["names"]) - 1: raise
+                print(f"    Name „{name}“ nicht möglich – nächster Vorschlag")
 
     # --- Version in Vorbereitung ---
     versions = api("GET", f"/v1/apps/{app_id}/appStoreVersions?filter[platform]=IOS&limit=10")["data"]

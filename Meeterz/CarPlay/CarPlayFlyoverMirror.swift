@@ -267,13 +267,14 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
             DriveHealth.shared.frame()
             // Die Karte, der wir folgen, ist nicht mehr auf dem Display (z. B. Navigation am Ziel beendet, ohne
             // dass CarPlay das meldet): sie bewegt sich nicht mehr, das Flyover-Bild stand still. Neu einhängen.
-            if mapbox?.window == nil, Date().timeIntervalSince(lastReattach) > 1 {
+            // Ebenso, wenn eine andere Karte die sichtbare ist: Beim Start einer Route hängt die Navigationskarte erst
+            // einen Moment später im Fenster. Hatte sich Flyover bis dahin an die Browse-Karte gehängt (die verdeckt im
+            // Fenster bleibt), folgte es der falschen Kamera – Pfeil am Rand, Route schief (Fahrt am 27.10., 18:18).
+            if Date().timeIntervalSince(lastReattach) > 1, let map = currentMap(), map.window != nil, map !== mapbox {
                 lastReattach = Date()
-                if let map = currentMap(), map.window != nil, map !== mapbox {
-                    Diag.log("Flyover: Karte war nicht mehr auf dem Display – folge jetzt der aktuellen Karte")
-                    attach(to: map)
-                    return
-                }
+                Diag.log("Flyover: folge jetzt der sichtbaren Karte (\(mapbox?.window == nil ? "bisherige nicht mehr im Fenster" : "bisherige verdeckt"))")
+                attach(to: map)
+                return
             }
             // Rückfall, falls einmal kein Kamera-Ereignis kommt (z. B. direkt nach dem Einhängen)
             syncCamera()

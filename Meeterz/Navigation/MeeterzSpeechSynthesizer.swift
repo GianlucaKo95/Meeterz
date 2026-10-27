@@ -1,4 +1,5 @@
 import AVFoundation
+import CallKit
 import Combine
 import MapboxDirections
 import MapboxNavigationCore
@@ -76,12 +77,22 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing, AVSpeechSynt
     override private init() {
         super.init()
         synthesizer.delegate = self
+        callObserver.setDelegate(self, queue: .main)
     }
+
+    // MARK: Telefonat
+
+    /// Während eines Telefonats (auch FaceTime/WhatsApp über CallKit) schweigt die Navigation – wie bei Apple Karten.
+    /// Unsere Audiositzung mischt sich mit anderen (damit Musik nur leiser wird); deshalb unterbricht iOS sie bei einem
+    /// Anruf nicht von selbst, und die Ansage lief mitten ins Gespräch.
+    private let callObserver = CXCallObserver()
+    var inCall: Bool { callObserver.calls.contains { !$0.hasEnded } }
 
     func prepareIncomingSpokenInstructions(_ instructions: [SpokenInstruction], locale: Locale?) {}
 
     func speak(_ instruction: SpokenInstruction, during legProgress: RouteLegProgress, locale: Locale?) {
-        guard !muted else {
+        guard !muted, !inCall else {
+            if inCall { Diag.log("Ansage ausgelassen (Telefonat): \(instruction.text.prefix(40))") }
             subject.send(VoiceInstructionEvents.DidSpeak(instruction: instruction))
             return
         }
@@ -104,7 +115,7 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing, AVSpeechSynt
     /// Eigene Ansage (z. B. „Unfall in 3 Kilometern“) in der Navigationsstimme. Unterbricht keine Abbiegeansage,
     /// sondern reiht sich dahinter ein.
     func announce(_ text: String) {
-        guard !muted else { return }
+        guard !muted, !inCall else { return }
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = VoiceCatalog.selected ?? AVSpeechSynthesisVoice(language: VoiceCatalog.language)
         speakAfterWarmup(utterance)
@@ -180,5 +191,20 @@ final class VoicePreview {
         let utterance = AVSpeechUtterance(string: String(localized: "In 300 Metern links abbiegen, dann haben Sie Ihr Ziel erreicht."))
         utterance.voice = voice ?? VoiceCatalog.best ?? AVSpeechSynthesisVoice(language: VoiceCatalog.language)
         synthesizer.speak(utterance)
+    }
+}
+
+extension MeeterzSpeechSynthesizer: CXCallObserverDelegate {
+    nonisolated func callObserver(_ callObserver: CXCallObserver, callChanged call: CXCall) {
+        guard !call.hasEnded else { return }
+        MainActor.assumeIsolated {
+            // Anruf beginnt (eingehend oder ausgehend): laufende und wartende Ansage sofort beenden
+            pendingSpeech?.cancel()
+            pendingSpeech = nil
+            if synthesizer.isSpeaking {
+                synthesizer.stopSpeaking(at: .immediate)
+                Diag.log("Ansage wegen Telefonat abgebrochen")
+            }
+        }
     }
 }

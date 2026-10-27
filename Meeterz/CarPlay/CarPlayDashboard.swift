@@ -307,7 +307,17 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
         let heading = location.course >= 0 ? location.course : map.camera.heading
         let camera = MKMapCamera(lookingAtCenter: location.coordinate, fromDistance: distance, pitch: Self.pitch, heading: heading)
         map.setCamera(camera, animated: animated)
+        // MapKit begrenzt die Neigung je nach Abstand (am 27.10.: 34° statt 60° bei ~1 km) – protokollieren, um die
+        // Grenze zu kennen, statt zu raten
+        if Self.pitch > 0, Date().timeIntervalSince(lastPitchLog) > 60 {
+            lastPitchLog = Date()
+            let actual = map.camera.pitch
+            if abs(actual - Self.pitch) > 3 {
+                Diag.log("\(name): Neigung \(Int(actual))° statt \(Int(Self.pitch))° bei \(Int(distance)) m Abstand (Höhe \(Int(map.camera.altitude)) m)")
+            }
+        }
     }
+    private var lastPitchLog = Date.distantPast
 
     // MARK: Route und Freunde
 

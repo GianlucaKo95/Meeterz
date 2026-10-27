@@ -1,0 +1,36 @@
+name: Kopf- und Suchbilder hochladen
+# Lädt die Kopfbild und Suchergebnis-Bild (Branch „store-assets“) je Sprache in die App Asset Library und auf die Produktseite.
+# Bericht: Branch „asc-report“, report.txt.
+on: workflow_dispatch
+
+permissions:
+  contents: write
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bilder holen
+        run: |
+          git fetch -q origin store-assets
+          mkdir -p /tmp/assets && git archive origin/store-assets | tar -x -C /tmp/assets
+      - name: Hochladen
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          printf '%s' "$ASC_KEY_P8" > "$RUNNER_TEMP/key.p8"
+          export ASC_KEY_PATH="$RUNNER_TEMP/key.p8"
+          python3 ci/asc_assets.py de.koeven.meeterz /tmp/assets > /tmp/report.txt 2>&1 || echo "Exit $?" >> /tmp/report.txt
+      - name: Bericht veröffentlichen
+        run: |
+          git config user.name "meeterz-ci"
+          git config user.email "ci@users.noreply.github.com"
+          git checkout --orphan asc-report
+          git rm -rf . >/dev/null 2>&1 || true
+          cp /tmp/report.txt report.txt
+          git add report.txt
+          git commit -q -m "Kopf- und Suchbilder hochladen"
+          git push -f origin asc-report

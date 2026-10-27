@@ -384,8 +384,6 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
         // zeichnen lassen und beim Aktivwerden der Szene neu einhängen (dann erkennt Mapbox die Szene).
         nav.mapView.displayState = [.foregroundActive, .foregroundInactive, .background]
         nav.puckType = .puck2D(.navigationCarPlayDefault)
-        nav.mapView.ornaments.options.logo.visibility = .hidden
-        nav.mapView.ornaments.options.attributionButton.visibility = .hidden
         nav.mapView.ornaments.options.compass.visibility = .hidden
         nav.mapView.ornaments.options.scaleBar.visibility = .hidden
         nav.isUserInteractionEnabled = false

@@ -61,6 +61,9 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing, AVSpeechSynt
 
     private let synthesizer = AVSpeechSynthesizer()
     private var current: (text: String, instruction: SpokenInstruction)?
+    /// Audiositzung gerade aktiv (Navigationskanal im Auto offen)
+    private var audioActive = false
+    private var pendingSpeech: DispatchWorkItem?
 
     override private init() {
         super.init()
@@ -87,8 +90,7 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing, AVSpeechSynt
             synthesizer.stopSpeaking(at: .immediate)
         }
         current = (text, instruction)
-        activateAudio()
-        synthesizer.speak(utterance)
+        speakAfterWarmup(utterance)
     }
 
     /// Eigene Ansage (z. B. „Unfall in 3 Kilometern“) in der Navigationsstimme. Unterbricht keine Abbiegeansage,
@@ -97,8 +99,24 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing, AVSpeechSynt
         guard !muted else { return }
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = VoiceCatalog.selected ?? AVSpeechSynthesisVoice(language: "de-DE")
+        speakAfterWarmup(utterance)
+    }
+
+    /// Ursache für „erste Ansage fehlt“: War die Audiositzung aus (z. B. direkt nach dem Start der Route), schaltet
+    /// das Auto beim Aktivieren erst auf den Navigationskanal um (Musik leiser, Quelle wechseln). Was in dieser Zeit
+    /// gesprochen wird, kommt im Auto nicht an – bei der ersten Ansage oft der ganze Satz. Darum nach dem Aktivieren
+    /// kurz warten; läuft die Sitzung schon, sofort sprechen.
+    private func speakAfterWarmup(_ utterance: AVSpeechUtterance) {
+        pendingSpeech?.cancel()   // eine neuere Ansage ersetzt eine noch wartende
+        pendingSpeech = nil
+        let wasActive = audioActive
         activateAudio()
-        synthesizer.speak(utterance)
+        guard managesAudioSession, !wasActive else { synthesizer.speak(utterance); return }
+        let warmup: TimeInterval = CarPlayController.shared.isConnected ? 1.0 : 0.4
+        Diag.log("Ansage nach \(warmup) s Vorlauf (Audio war aus): \(utterance.speechString.prefix(40))")
+        let work = DispatchWorkItem { [weak self] in self?.synthesizer.speak(utterance) }
+        pendingSpeech = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + warmup, execute: work)
     }
 
     func stopSpeaking() { synthesizer.stopSpeaking(at: .word) }
@@ -112,11 +130,13 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing, AVSpeechSynt
         let session = AVAudioSession.sharedInstance()
         try? session.setCategory(.playback, mode: .voicePrompt, options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers])
         try? session.setActive(true)
+        audioActive = true
     }
 
     private func deactivateAudio() {
         guard managesAudioSession else { return }
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        audioActive = false
     }
 
     // MARK: AVSpeechSynthesizerDelegate

@@ -65,7 +65,8 @@ targets:
         UILaunchScreen:
           UIColorName: LaunchBackground
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
-        UIUserInterfaceStyle: Dark
+        # Kein UIUserInterfaceStyle: Das erzwang Dunkel für die ganze App – „Wie System“ blieb dadurch immer dunkel.
+        # Hell/Dunkel steuert die Einstellung „Darstellung“ (AppAppearance).
         UIBackgroundModes: [location, audio, remote-notification]
         NSMotionUsageDescription: "Meeterz erkennt am Wechsel vom Auto zum Gehen, wo du geparkt hast (nur wenn „Geparktes Auto merken“ an ist)."
         NSMicrophoneUsageDescription: "Meeterz nutzt das Mikrofon, damit du kurze Sprachschnipsel für deine Freunde aufnehmen kannst (max. 5 Sekunden)."

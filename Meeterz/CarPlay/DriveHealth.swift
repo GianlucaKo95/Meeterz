@@ -20,6 +20,9 @@ final class DriveHealth {
     private var summaryTimer: Timer?
     private var progressCheck: Timer?
     private var flyoverFrames = 0
+    private var courseSub: AnyCancellable?
+    private var lastMatched: (course: Double, at: Date)?
+    private var lastFlipLog = Date.distantPast
 
     func start() {
         guard !running else { return }
@@ -57,6 +60,13 @@ final class DriveHealth {
         summaryTimer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { _ in
             MainActor.assumeIsolated { DriveHealth.shared.summary() }
         }
+        // Pfeil dreht sich um (wirkt wie rückwärts fahren): Springt die Richtung des Pfeils in kurzer Zeit um mehr als
+        // 150°, festhalten, ob das GPS selbst so meldet oder Mapbox' Straßenzuordnung die Richtung umdreht.
+        courseSub = navigationProvider.mapboxNavigation.navigation().locationMatching
+            .receive(on: DispatchQueue.main)
+            .sink { state in
+                MainActor.assumeIsolated { DriveHealth.shared.checkCourse(state.enhancedLocation) }
+            }
         watchMainThread(generation)
     }
 
@@ -65,8 +75,23 @@ final class DriveHealth {
         summary()
         running = false
         progressSub = nil
+        courseSub = nil
+        lastMatched = nil
         summaryTimer?.invalidate(); summaryTimer = nil
         progressCheck?.invalidate(); progressCheck = nil
+    }
+
+    private func checkCourse(_ matched: CLLocation) {
+        guard matched.course >= 0 else { return }
+        defer { lastMatched = (matched.course, Date()) }
+        guard let last = lastMatched, Date().timeIntervalSince(last.at) < 3 else { return }
+        let jump = abs((matched.course - last.course + 540).truncatingRemainder(dividingBy: 360) - 180)
+        guard jump > 150, Date().timeIntervalSince(lastFlipLog) > 10 else { return }
+        lastFlipLog = Date()
+        let raw = AppModel.shared.location.lastLocation
+        let rawText = raw.map { String(format: "GPS-Richtung %.0f°, %.0f km/h, ±%.0f m", $0.course, max($0.speed, 0) * 3.6, $0.horizontalAccuracy) } ?? "GPS unbekannt"
+        Diag.log(String(format: "Pfeil dreht um: %.0f° → %.0f° (Mapbox, %.0f km/h) · %@ · %@", last.course, matched.course,
+                        max(matched.speed, 0) * 3.6, rawText, AppModel.shared.navigation.isNavigating ? "mit Route" : "ohne Route"))
     }
 
     /// Von der Flyover-Karte pro Bild gemeldet

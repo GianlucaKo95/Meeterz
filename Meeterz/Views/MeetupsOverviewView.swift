@@ -87,7 +87,7 @@ private struct MeetupCard: View {
             : members.filter { $0.userId != me }.map { ($0.userId, $0.displayName, $0.status == "accepted" || $0.organizer) }
         return base.map { id, name, accepted in
             let (status, arrived) = state(of: id)
-            return Participant(id: id, name: name, status: accepted ? status : "noch nicht zugesagt", arrived: arrived, accepted: accepted)
+            return Participant(id: id, name: name, status: accepted ? status : String(localized: "noch nicht zugesagt"), arrived: arrived, accepted: accepted)
         }
     }
 
@@ -96,24 +96,24 @@ private struct MeetupCard: View {
         let target = meetup.coordinate
         if let pos = app.hub.positions[id] {
             let d = pos.coordinate.distance(to: target)
-            if d < 150, pos.age < 600 { return ("ist da", true) }
+            if d < 150, pos.age < 600 { return (String(localized: "ist da"), true) }
             if let route = app.routes.friendRoutes[id], route.destination.distance(to: target) < 300 {
-                return ("unterwegs · an \(Format.time.string(from: route.eta))", false)
+                return (String(localized: "unterwegs · an \(Format.time.string(from: route.eta))"), false)
             }
-            return ("\(Format.distance(d)) entfernt", false)
+            return (String(localized: "\(Format.distance(d)) entfernt"), false)
         }
-        return ("Standort nicht geteilt", false)
+        return (String(localized: "Standort nicht geteilt"), false)
     }
 
     private var myStatus: String? {
         guard let here = app.location.lastLocation?.coordinate else { return nil }
         let d = here.distance(to: meetup.coordinate)
-        if d < 150 { return "Du bist da" }
+        if d < 150 { return String(localized: "Du bist da") }
         if app.navigation.isNavigating, let dest = app.navigation.destination,
            dest.coordinate.distance(to: meetup.coordinate) < 300, let eta = app.navigation.eta {
-            return "Du bist an \(Format.time.string(from: eta))"
+            return String(localized: "Du bist an \(Format.time.string(from: eta))")
         }
-        return "Du: \(Format.distance(d)) entfernt"
+        return String(localized: "Du: \(Format.distance(d)) entfernt")
     }
 
     private var recentMessages: [MessagesStore.Message] {
@@ -132,7 +132,7 @@ private struct MeetupCard: View {
                     if let at = meetup.meetAt {
                         Label(Meetup.timeText(at), systemImage: "clock").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.text)
                     }
-                    Text(entry.accepted ? "Zugesagt" : (meetup.incoming ? "Einladung an dich" : "Wartet auf Zusage"))
+                    Text(entry.accepted ? String(localized: "Zugesagt") : (meetup.incoming ? String(localized: "Einladung an dich") : String(localized: "Wartet auf Zusage")))
                         .font(.caption.weight(.bold))
                         .foregroundStyle(entry.accepted ? Theme.accent : Theme.muted)
                 }
@@ -225,7 +225,7 @@ private struct MeetupCard: View {
         Task {
             let n = await app.messages.send(text, to: ids, meetupId: entry.meetups.first(where: \.isAccepted)?.id)
             sending = false
-            app.show(n > 0 ? "Gesendet" : "Nachricht nicht gesendet", isError: n == 0)
+            app.show(n > 0 ? String(localized: "Gesendet") : String(localized: "Nachricht nicht gesendet"), isError: n == 0)
         }
     }
 

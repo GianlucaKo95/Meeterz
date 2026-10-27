@@ -15,7 +15,7 @@ struct VehicleLiveView: View {
                     if let soc = status.soc { LabeledContent("Akkustand", value: "\(Int(soc.rounded())) %") }
                     if let range = status.rangeKm { LabeledContent("Reichweite laut Auto", value: "\(Int(range)) km") }
                     if status.charging == true {
-                        LabeledContent("Lädt", value: status.powerKw.map { "\(Int(abs($0).rounded())) kW" } ?? "ja")
+                        LabeledContent("Lädt", value: status.powerKw.map { "\(Int(abs($0).rounded())) kW" } ?? String(localized: "ja"))
                     }
                     if let t = status.extTemp { LabeledContent("Außentemperatur", value: "\(Int(t.rounded())) °C") }
                     LabeledContent("Stand", value: Self.relative(status.measuredAt))
@@ -29,20 +29,20 @@ struct VehicleLiveView: View {
                     ForEach(0..<3, id: \.self) { i in
                         let b = buckets[i]
                         LabeledContent(ConsumptionLearner.bandNames[i],
-                                       value: b.per100.map { String(format: "%.1f kWh/100 km · %.0f km", $0, b.km).replacingOccurrences(of: ".", with: ",") } ?? "noch keine Daten")
+                                       value: b.per100.map { String(format: "%.1f kWh/100 km · %.0f km", locale: .current, $0, b.km) } ?? String(localized: "noch keine Daten"))
                     }
                 } header: {
                     Text("Dein Verbrauch")
                 } footer: {
-                    Text("Gelernt aus deinen Fahrten mit Live-Daten. Ab \(Int(ConsumptionLearner.minKm)) km je Bereich rechnet die Ladeplanung damit statt mit dem Durchschnittswert (\(String(format: "%.1f", vehicle.consumption).replacingOccurrences(of: ".", with: ",")) kWh/100 km).")
+                    Text("Gelernt aus deinen Fahrten mit Live-Daten. Ab \(Int(ConsumptionLearner.minKm)) km je Bereich rechnet die Ladeplanung damit statt mit dem Durchschnittswert (\(String(format: "%.1f", locale: .current, vehicle.consumption)) kWh/100 km).")
                 }
                 .listRowBackground(Theme.panel)
             }
 
             if let token = store.token {
                 Section {
-                    copyRow("Server-Adresse", VehicleStore.telemetryURL, id: "vehicle-url")
-                    copyRow("Geräte-ID", token, id: "vehicle-token")
+                    copyRow(String(localized: "Server-Adresse"), VehicleStore.telemetryURL, id: "vehicle-url")
+                    copyRow(String(localized: "Geräte-ID"), token, id: "vehicle-token")
                 } header: {
                     Text("Im Add-on eintragen")
                 } footer: {
@@ -86,7 +86,7 @@ struct VehicleLiveView: View {
     private func copyRow(_ title: String, _ value: String, id: String) -> some View {
         Button {
             UIPasteboard.general.string = value
-            app.show("\(title) kopiert", isError: false)
+            app.show(String(localized: "\(title) kopiert"), isError: false)
         } label: {
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
@@ -102,7 +102,7 @@ struct VehicleLiveView: View {
 
     static func relative(_ date: Date) -> String {
         let f = RelativeDateTimeFormatter()
-        f.locale = Locale(identifier: "de_DE")
+        f.locale = .current
         f.unitsStyle = .full
         return f.localizedString(for: date, relativeTo: Date())
     }

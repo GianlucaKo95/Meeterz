@@ -3,37 +3,43 @@ import Combine
 import MapboxDirections
 import MapboxNavigationCore
 
-/// Deutsche Sprachstimmen auf dem Gerät. Siri-Stimmen stellt Apple Apps nicht zur Verfügung;
+/// Sprachstimmen in der Sprache der App auf dem Gerät. Siri-Stimmen stellt Apple Apps nicht zur Verfügung;
 /// wir nutzen die besten installierten Systemstimmen (Premium > Erweitert > Standard).
 enum VoiceCatalog {
     static let key = "nav.voice"          // leer = automatisch die beste Stimme
 
+    /// Sprache der Ansagen = Sprache der App (de, en, fr, es, pt, tr, it; sonst en)
+    static var language: String { Locale.navigation.language.languageCode?.identifier ?? "en" }
+
     /// Nur die normalen Systemstimmen – ohne Spaß-Stimmen wie „Eddy“ oder „Grandma“
-    static var germanVoices: [AVSpeechSynthesisVoice] {
+    static var voices: [AVSpeechSynthesisVoice] {
         AVSpeechSynthesisVoice.speechVoices()
-            .filter { $0.language.hasPrefix("de") }
+            .filter { $0.language.hasPrefix(language) }
             .filter { $0.identifier.contains("com.apple.voice") || $0.identifier.contains("ttsbundle") }
             .sorted { ($0.quality.rawValue, $1.name) > ($1.quality.rawValue, $0.name) }
     }
 
     static var best: AVSpeechSynthesisVoice? {
-        germanVoices.first(where: { $0.language == "de-DE" }) ?? germanVoices.first
+        // Bevorzugt die Variante der eigenen Region (z. B. de-DE, en-GB, pt-BR), sonst die beste der Sprache
+        let region = Locale.current.region?.identifier ?? ""
+        return voices.first(where: { $0.language == "\(language)-\(region)" }) ?? voices.first
     }
 
     /// Gewählte Stimme, sonst die beste verfügbare
     static var selected: AVSpeechSynthesisVoice? {
         if let id = UserDefaults.standard.string(forKey: key), !id.isEmpty,
-           let voice = AVSpeechSynthesisVoice(identifier: id) { return voice }
+           let voice = AVSpeechSynthesisVoice(identifier: id),
+           voice.language.hasPrefix(language) { return voice }   // gewählte Stimme passt nicht mehr zur Sprache → automatisch
         return best
     }
 
-    static var hasBetterThanDefault: Bool { germanVoices.contains { $0.quality.rawValue >= AVSpeechSynthesisVoiceQuality.enhanced.rawValue } }
+    static var hasBetterThanDefault: Bool { voices.contains { $0.quality.rawValue >= AVSpeechSynthesisVoiceQuality.enhanced.rawValue } }
 
     static func label(for quality: AVSpeechSynthesisVoiceQuality) -> String {
         switch quality {
-        case .premium: "Premium"
-        case .enhanced: "Erweitert"
-        default: "Standard"
+        case .premium: String(localized: "Premium")
+        case .enhanced: String(localized: "Erweitert")
+        default: String(localized: "Standard")
         }
     }
 }
@@ -84,7 +90,7 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing, AVSpeechSynt
         // Wie Apple: „An der nächsten Ampel rechts abbiegen“, wenn die Abbiegung an einer Ampel/einem Stoppschild liegt
         let text = LandmarkInstructions.rewrite(instruction, legProgress: legProgress) ?? instruction.text
         let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = VoiceCatalog.selected ?? AVSpeechSynthesisVoice(language: "de-DE")
+        utterance.voice = VoiceCatalog.selected ?? AVSpeechSynthesisVoice(language: VoiceCatalog.language)
 
         if let previous = current, synthesizer.isSpeaking {
             subject.send(VoiceInstructionEvents.DidInterrupt(
@@ -100,7 +106,7 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing, AVSpeechSynt
     func announce(_ text: String) {
         guard !muted else { return }
         let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = VoiceCatalog.selected ?? AVSpeechSynthesisVoice(language: "de-DE")
+        utterance.voice = VoiceCatalog.selected ?? AVSpeechSynthesisVoice(language: VoiceCatalog.language)
         speakAfterWarmup(utterance)
     }
 
@@ -171,8 +177,8 @@ final class VoicePreview {
 
     func play(_ voice: AVSpeechSynthesisVoice?) {
         synthesizer.stopSpeaking(at: .immediate)
-        let utterance = AVSpeechUtterance(string: "In 300 Metern links abbiegen, dann haben Sie Ihr Ziel erreicht.")
-        utterance.voice = voice ?? VoiceCatalog.best ?? AVSpeechSynthesisVoice(language: "de-DE")
+        let utterance = AVSpeechUtterance(string: String(localized: "In 300 Metern links abbiegen, dann haben Sie Ihr Ziel erreicht."))
+        utterance.voice = voice ?? VoiceCatalog.best ?? AVSpeechSynthesisVoice(language: VoiceCatalog.language)
         synthesizer.speak(utterance)
     }
 }

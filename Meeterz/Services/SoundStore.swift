@@ -10,29 +10,29 @@ enum SoundMoment: String, CaseIterable, Codable, Identifiable {
 
     var title: String {
         switch self {
-        case .pass: "Fährt an dir vorbei"
-        case .soon: "Noch 5 Minuten bis zum Treffpunkt"
-        case .arrived: "Am Treffpunkt angekommen"
-        case .accepted: "Nimmt dein Treffen an"
+        case .pass: String(localized: "Fährt an dir vorbei")
+        case .soon: String(localized: "Noch 5 Minuten bis zum Treffpunkt")
+        case .arrived: String(localized: "Am Treffpunkt angekommen")
+        case .accepted: String(localized: "Nimmt dein Treffen an")
         }
     }
 
     var example: String {
         switch self {
-        case .pass: "„Hup mal, ich bin's!“"
-        case .soon: "„Bin gleich da, bestell schon mal!“"
-        case .arrived: "„Wo bleibst du denn?“"
-        case .accepted: "„Deal, wir sehen uns!“"
+        case .pass: String(localized: "„Hup mal, ich bin's!“")
+        case .soon: String(localized: "„Bin gleich da, bestell schon mal!“")
+        case .arrived: String(localized: "„Wo bleibst du denn?“")
+        case .accepted: String(localized: "„Deal, wir sehen uns!“")
         }
     }
 
     /// Apple-Ansage, falls der Freund nichts aufgenommen hat
     func fallback(name: String) -> String {
         switch self {
-        case .pass: "\(name) ist gerade an dir vorbeigefahren."
-        case .soon: "\(name) ist in etwa fünf Minuten am Treffpunkt."
-        case .arrived: "\(name) ist am Treffpunkt angekommen."
-        case .accepted: "\(name) hat dein Treffen angenommen."
+        case .pass: String(localized: "\(name) ist gerade an dir vorbeigefahren.")
+        case .soon: String(localized: "\(name) ist in etwa fünf Minuten am Treffpunkt.")
+        case .arrived: String(localized: "\(name) ist am Treffpunkt angekommen.")
+        case .accepted: String(localized: "\(name) hat dein Treffen angenommen.")
         }
     }
 }
@@ -113,7 +113,7 @@ final class SoundStore: NSObject {
     func startRecording(_ moment: SoundMoment) async {
         guard !isRecording else { return }
         guard await requestMicrophone() else {
-            AppModel.shared.show("Mikrofon-Zugriff fehlt (Einstellungen → Meeterz).")
+            AppModel.shared.show(String(localized: "Mikrofon-Zugriff fehlt (Einstellungen → Meeterz)."))
             return
         }
         stopPlayback()
@@ -141,7 +141,7 @@ final class SoundStore: NSObject {
                 if !Task.isCancelled { await self?.finishRecording(upload: true) }
             }
         } catch {
-            AppModel.shared.show("Aufnahme konnte nicht gestartet werden.")
+            AppModel.shared.show(String(localized: "Aufnahme konnte nicht gestartet werden."))
         }
     }
 
@@ -173,7 +173,7 @@ final class SoundStore: NSObject {
             Self.writeCache(data, id: userId, moment: moment, version: version)
             versions[userId, default: [:]][moment] = version
         } catch {
-            AppModel.shared.show("Schnipsel konnte nicht gespeichert werden.")
+            AppModel.shared.show(String(localized: "Schnipsel konnte nicht gespeichert werden."))
         }
     }
 
@@ -185,7 +185,7 @@ final class SoundStore: NSObject {
             let _: Int = try await client.rpc("set_sound", params: ["p_moment": moment.rawValue, "remove": "true"] as [String: String]).execute().value
             versions[userId]?[moment] = nil
         } catch {
-            AppModel.shared.show("Schnipsel konnte nicht entfernt werden.")
+            AppModel.shared.show(String(localized: "Schnipsel konnte nicht entfernt werden."))
         }
     }
 
@@ -252,7 +252,7 @@ final class SoundStore: NSObject {
         try? session.setCategory(.playback, mode: .voicePrompt, options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers])
         try? session.setActive(true)
         let u = AVSpeechUtterance(string: text)
-        u.voice = AVSpeechSynthesisVoice(language: "de-DE")
+        u.voice = VoiceCatalog.selected ?? AVSpeechSynthesisVoice(language: VoiceCatalog.language)
         synth.speak(u)
     }
 

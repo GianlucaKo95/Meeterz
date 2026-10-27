@@ -4,7 +4,7 @@ import Foundation
 /// Akkustand-Differenz, eingeordnet nach Tempobereich. Ergebnis ist ein Korrekturfaktor gegenüber dem
 /// Verbrauchsmodell (Fahrzeugprofil × Tempo × Temperatur), den die Ladeplanung anwendet.
 enum ConsumptionLearner {
-    static let bandNames = ["Stadt", "Landstraße", "Autobahn"]
+    static let bandNames = [String(localized: "Stadt"), String(localized: "Landstraße"), String(localized: "Autobahn")]
     /// Ab so vielen Kilometern in einem Bereich gilt der gelernte Wert
     static let minKm: Double = 25
 

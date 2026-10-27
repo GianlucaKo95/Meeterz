@@ -117,7 +117,7 @@ struct MainView: View {
         .sheet(item: $navigation.preview) { RoutePreviewView(preview: $0) }
         .overlay {
             if navigation.isCalculating {
-                ProgressView("Route wird berechnet …")
+                ProgressView(String(localized: "Route wird berechnet …"))
                     .padding(20)
                     .background(RoundedRectangle(cornerRadius: 16).fill(Theme.panel))
             }
@@ -288,7 +288,7 @@ struct MainView: View {
     /// Pin setzen und Adresse nachladen
     private func dropPin(at coordinate: CLLocationCoordinate2D) {
         let id = "pin-\(coordinate.latitude),\(coordinate.longitude)"
-        droppedPin = Place(id: id, name: "Gesetzter Pin", address: nil, coordinate: coordinate)
+        droppedPin = Place(id: id, name: String(localized: "Gesetzter Pin"), address: nil, coordinate: coordinate)
         setChrome(hidden: false)
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         Task {
@@ -297,7 +297,7 @@ struct MainView: View {
             guard let mark = marks?.first, droppedPin?.id == id else { return }
             let street = [mark.thoroughfare, mark.subThoroughfare].compactMap { $0 }.joined(separator: " ")
             let city = [mark.postalCode, mark.locality].compactMap { $0 }.joined(separator: " ")
-            let name = mark.name ?? (street.isEmpty ? "Gesetzter Pin" : street)
+            let name = mark.name ?? (street.isEmpty ? String(localized: "Gesetzter Pin") : street)
             let address = [street, city].filter { !$0.isEmpty }.joined(separator: ", ")
             droppedPin = Place(id: id, name: name, address: address.isEmpty ? nil : address, coordinate: coordinate)
         }
@@ -330,7 +330,7 @@ struct MainView: View {
 
             CircleIconButton(
                 systemName: "person.2.fill",
-                label: "Freunde",
+                label: String(localized: "Freunde"),
                 badge: !app.friends.incoming.isEmpty,
                 activeDot: !app.routes.friendRoutes.isEmpty
             ) { showUnterwegs = true }
@@ -494,12 +494,12 @@ struct SharingPill: View {
 
     private func label(_ profile: Profile?) -> String {
         if let profile, profile.isIncognito {
-            if profile.isIncognitoIndefinitely { return "Inkognito" }
-            if let until = profile.incognitoUntil { return "Inkognito bis \(Format.time.string(from: until))" }
+            if profile.isIncognitoIndefinitely { return String(localized: "Inkognito") }
+            if let until = profile.incognitoUntil { return String(localized: "Inkognito bis \(Format.time.string(from: until))") }
         }
-        guard let profile, profile.isSharingNow else { return "Teilen pausiert" }
-        if let until = profile.sharingUntil { return "Teilst live bis \(Format.time.string(from: until))" }
-        return "Teilst live"
+        guard let profile, profile.isSharingNow else { return String(localized: "Teilen pausiert") }
+        if let until = profile.sharingUntil { return String(localized: "Teilst live bis \(Format.time.string(from: until))") }
+        return String(localized: "Teilst live")
     }
 }
 
@@ -591,7 +591,7 @@ struct UnterwegsSheet: View {
                         .buttonStyle(SecondaryButtonStyle())
                         .padding(.top, 8)
                     }
-                    Button(app.friends.accepted.isEmpty ? "Freunde hinzufügen" : "Freunde & Profil") {
+                    Button(app.friends.accepted.isEmpty ? String(localized: "Freunde hinzufügen") : String(localized: "Freunde & Profil")) {
                         manageFriends()
                     }
                     .buttonStyle(PrimaryButtonStyle())
@@ -635,7 +635,7 @@ private struct FriendRowView: View {
         let distance = app.location.lastLocation.map { item.position.coordinate.distance(to: $0.coordinate) }
 
         Menu {
-            Button(route == nil ? "Auf Karte anzeigen" : "Route anzeigen",
+            Button(route == nil ? String(localized: "Auf Karte anzeigen") : String(localized: "Route anzeigen"),
                    systemImage: route == nil ? "mappin.and.ellipse" : "point.topleft.down.to.point.bottomright.curvepath") {
                 show(route != nil)
             }
@@ -645,7 +645,7 @@ private struct FriendRowView: View {
                     address: nil, coordinate: item.position.coordinate))
             }
             let hiddenForMe = Passengers.shared.riding.contains(item.friend.friendId)
-            Button(hiddenForMe ? "Auf meiner Karte einblenden" : "Auf meiner Karte ausblenden",
+            Button(hiddenForMe ? String(localized: "Auf meiner Karte einblenden") : String(localized: "Auf meiner Karte ausblenden"),
                    systemImage: hiddenForMe ? "eye" : "eye.slash") {
                 Passengers.shared.setHiddenForMe(item.friend.friendId, !hiddenForMe)
                 CarPlayController.shared.refreshFriendsAfterPassengerChange()
@@ -653,7 +653,7 @@ private struct FriendRowView: View {
             if let route {
                 Button("Zum Ziel von \(item.friend.displayName) navigieren", systemImage: "flag.checkered") {
                     go(to: Place(
-                        id: "dest-\(item.friend.friendId)", name: route.destinationName ?? "Ziel von \(item.friend.displayName)",
+                        id: "dest-\(item.friend.friendId)", name: route.destinationName ?? String(localized: "Ziel von \(item.friend.displayName)"),
                         address: nil, coordinate: route.destination))
                 }
             }
@@ -687,12 +687,12 @@ private struct FriendRowView: View {
     }
 
     private func statusText(route: FriendRoute?) -> String {
-        if Passengers.shared.riding.contains(item.friend.friendId) { return "Auf deiner Karte ausgeblendet" }
+        if Passengers.shared.riding.contains(item.friend.friendId) { return String(localized: "Auf deiner Karte ausgeblendet") }
         if let route {
-            let dest = route.destinationName.map { "Nach \($0)" } ?? "Unterwegs"
-            return "\(dest) · an \(Format.time.string(from: route.eta))"
+            let dest = route.destinationName.map { String(localized: "Nach \($0)") } ?? String(localized: "Unterwegs")
+            return String(localized: "\(dest) · an \(Format.time.string(from: route.eta))")
         }
-        return item.position.age < 60 ? "Live" : "Zuletzt \(Format.age(item.position.age))"
+        return item.position.age < 60 ? String(localized: "Live") : String(localized: "Zuletzt \(Format.age(item.position.age))")
     }
 }
 

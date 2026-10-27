@@ -28,12 +28,12 @@ struct EVVehicle: Codable, Identifiable, Hashable {
     /// „MG5 EV Long Range“
     var name: String { [model, variant].filter { !$0.isEmpty }.joined(separator: " ") }
     /// „MG MG5 EV Long Range (2022)“
-    var fullName: String { isCustom ? "Eigenes Fahrzeug" : "\(brand) \(name)" + (year.map { " (\($0))" } ?? "") }
+    var fullName: String { isCustom ? String(localized: "Eigenes Fahrzeug") : "\(brand) \(name)" + (year.map { " (\($0))" } ?? "") }
 
     /// „57 kWh · 17,5 kWh/100 km · 80 kW DC“
     var specs: String {
-        var parts = ["\(Self.number(battery)) kWh", "\(Self.number(consumption)) kWh/100 km"]
-        if let dcMax { parts.append("\(Self.number(dcMax)) kW DC") }
+        var parts = [String(localized: "\(Self.number(battery)) kWh"), String(localized: "\(Self.number(consumption)) kWh/100 km")]
+        if let dcMax { parts.append(String(localized: "\(Self.number(dcMax)) kW DC")) }
         return parts.joined(separator: " · ")
     }
 
@@ -53,7 +53,7 @@ struct EVVehicle: Codable, Identifiable, Hashable {
     }
 
     static func custom(battery: Double, consumption: Double, dcMax: Double) -> EVVehicle {
-        EVVehicle(id: customId, brand: "Andere", model: "Eigenes Fahrzeug", variant: "", year: nil,
+        EVVehicle(id: customId, brand: String(localized: "Andere"), model: String(localized: "Eigenes Fahrzeug"), variant: "", year: nil,
                   battery: battery, consumption: consumption, dcMax: dcMax,
                   // Typische Form: volle Leistung bis 50 %, dann abfallend
                   curve: [[0, dcMax], [50, dcMax], [80, dcMax * 0.55], [100, dcMax * 0.15]],
@@ -61,7 +61,7 @@ struct EVVehicle: Codable, Identifiable, Hashable {
     }
 
     private static func number(_ v: Double) -> String {
-        v.rounded() == v ? String(Int(v)) : String(format: "%.1f", v).replacingOccurrences(of: ".", with: ",")
+        v.rounded() == v ? String(Int(v)) : v.formatted(.number.precision(.fractionLength(1)))
     }
 }
 
@@ -83,5 +83,5 @@ enum EVCatalog {
             .sorted { $0.brand.localizedCaseInsensitiveCompare($1.brand) == .orderedAscending }
     }
 
-    static let attribution = "Fahrzeugdaten: Open EV Data (github.com/KilowattApp/open-ev-data)"
+    static let attribution = String(localized: "Fahrzeugdaten: Open EV Data (github.com/KilowattApp/open-ev-data)")
 }

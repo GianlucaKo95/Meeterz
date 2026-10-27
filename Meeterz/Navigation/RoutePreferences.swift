@@ -11,16 +11,16 @@ enum RoutePreferences {
         var id: String { rawValue }
         var title: String {
             switch self {
-            case .tolls: "Maut meiden"
-            case .motorways: "Autobahnen meiden"
-            case .ferries: "Fähren meiden"
+            case .tolls: String(localized: "Maut meiden")
+            case .motorways: String(localized: "Autobahnen meiden")
+            case .ferries: String(localized: "Fähren meiden")
             }
         }
         var shortTitle: String {
             switch self {
-            case .tolls: "ohne Maut"
-            case .motorways: "ohne Autobahn"
-            case .ferries: "ohne Fähre"
+            case .tolls: String(localized: "ohne Maut")
+            case .motorways: String(localized: "ohne Autobahn")
+            case .ferries: String(localized: "ohne Fähre")
             }
         }
         var symbol: String {

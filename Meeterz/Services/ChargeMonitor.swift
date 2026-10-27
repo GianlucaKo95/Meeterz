@@ -69,7 +69,7 @@ final class ChargeMonitor {
         let last = progress.legIndex >= route.legs.count - 1
         let arrival = now - pct(profile.energy(from: traveled, to: end))
         let limit = last ? EVSettings.arrivalPercent : EVSettings.minAtChargerPercent
-        CarPlayBatteryChip.shared.show(label: last ? "Ziel" : "Stopp", percent: arrival, low: arrival < limit, live: live != nil)
+        CarPlayBatteryChip.shared.show(label: last ? String(localized: "Ziel") : String(localized: "Stopp"), percent: arrival, low: arrival < limit, live: live != nil)
     }
 
     func check() async {
@@ -100,7 +100,7 @@ final class ChargeMonitor {
         let message: (title: String, subtitle: String, plan: ChargePlanner.Plan?)?
         switch result {
         case .failure(.unreachable(let km)):
-            message = ("Akku reicht nicht bis zum Ziel", "Reichweite ca. \(Int(km)) km – Ladesäulen unter „Mehr“", nil)
+            message = (String(localized: "Akku reicht nicht bis zum Ziel"), String(localized: "Reichweite ca. \(Int(km)) km – Ladesäulen unter „Mehr“"), nil)
         case .failure(.noVehicle):
             message = nil
         case .success(let plan):
@@ -110,11 +110,11 @@ final class ChargeMonitor {
             if matches || (plan.direct && upcoming.isEmpty) {
                 message = nil
             } else if plan.direct {
-                message = ("Ladestopp nicht mehr nötig", "Ankunft mit \(Int(plan.arrivalPercent.rounded())) % auch ohne Laden", plan)
+                message = (String(localized: "Ladestopp nicht mehr nötig"), String(localized: "Ankunft mit \(Int(plan.arrivalPercent.rounded())) % auch ohne Laden"), plan)
             } else {
                 let first = plan.stops[0]
-                message = ("Neuer Ladeplan: \(plan.summary)",
-                           "Nächster Stopp: \(first.site.title) in \(Int(first.distanceFromStart / 1000)) km", plan)
+                message = (String(localized: "Neuer Ladeplan: \(plan.summary)"),
+                           String(localized: "Nächster Stopp: \(first.site.title) in \(Int(first.distanceFromStart / 1000)) km"), plan)
             }
         }
         guard let message else { return }
@@ -135,18 +135,18 @@ final class ChargeMonitor {
         }
         let primary: CPAlertAction
         if let plan {
-            primary = CPAlertAction(title: "Übernehmen", style: .default) { _ in
+            primary = CPAlertAction(title: String(localized: "Übernehmen"), style: .default) { _ in
                 Task { @MainActor in await CarPlayController.adoptChargePlan(plan) }
             }
         } else {
-            primary = CPAlertAction(title: "Ladesäulen", style: .default) { _ in
+            primary = CPAlertAction(title: String(localized: "Ladesäulen"), style: .default) { _ in
                 Task { @MainActor in carPlay.showChargingStops() }
             }
         }
         let alert = CPNavigationAlert(titleVariants: [title], subtitleVariants: [subtitle],
                                       image: UIImage(systemName: "bolt.car.fill"),
                                       primaryAction: primary,
-                                      secondaryAction: CPAlertAction(title: "Nein", style: .cancel) { _ in },
+                                      secondaryAction: CPAlertAction(title: String(localized: "Nein"), style: .cancel) { _ in },
                                       duration: 20)
         if !CarPlayUI.shared.alert(alert) { AppModel.shared.show("\(title) – \(subtitle)", isError: plan == nil) }
     }

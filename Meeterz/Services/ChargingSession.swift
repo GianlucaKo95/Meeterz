@@ -68,7 +68,7 @@ final class ChargingSession {
             CarPlayChargingOverlay.shared.show()
             if done, !announcedDone {
                 announcedDone = true
-                let text = "Genug geladen: \(Int(percent.rounded())) % – weiter geht's"
+                let text = String(localized: "Genug geladen: \(Int(percent.rounded())) % – weiter geht's")
                 AppModel.shared.show(text, isError: false)
                 if CarPlayController.shared.isConnected { AppModel.shared.sounds.announce(text) }
             }
@@ -96,7 +96,7 @@ final class ChargingSession {
 
     static func minutes(_ t: TimeInterval) -> String {
         let m = Int((t / 60).rounded(.up))
-        return m < 60 ? "\(m) Min." : "\(m / 60) Std. \(m % 60) Min."
+        return m < 60 ? String(localized: "\(m) Min.") : String(localized: "\(m / 60) Std. \(m % 60) Min.")
     }
 }
 
@@ -193,9 +193,9 @@ final class ChargingRingView: UIView {
         bar.strokeEnd = CGFloat(progress)
         bar.strokeColor = (done ? UIColor(red: 1, green: 0.78, blue: 0.34, alpha: 1) : Theme.mintUI).cgColor
         CATransaction.commit()
-        percentLabel.text = "\(Int(percent.rounded())) %"
-        var lines = ["\(power > 0 ? "\(Int(power.rounded())) kW · " : "")Ziel \(Int(target)) %"]
-        lines.append(done ? "Genug geladen" : (remaining.map { "noch \(ChargingSession.minutes($0))" } ?? "lädt …"))
+        percentLabel.text = String(localized: "\(Int(percent.rounded())) %")
+        var lines = [(power > 0 ? "\(Int(power.rounded())) kW · " : "") + String(localized: "Ziel \(Int(target)) %")]
+        lines.append(done ? String(localized: "Genug geladen") : (remaining.map { String(localized: "noch \(ChargingSession.minutes($0))") } ?? String(localized: "lädt …")))
         detailLabel.text = lines.joined(separator: "\n")
     }
 }
@@ -249,9 +249,9 @@ struct ChargingCard: View {
 
     private var detail: String {
         var parts: [String] = []
-        if session.powerKW > 0 { parts.append("\(Int(session.powerKW.rounded())) kW") }
-        if session.done { parts.append("Genug geladen") }
-        else if let r = session.remaining { parts.append("noch \(ChargingSession.minutes(r)) · fertig \(Format.time.string(from: Date().addingTimeInterval(r)))") }
+        if session.powerKW > 0 { parts.append(String(localized: "\(Int(session.powerKW.rounded())) kW")) }
+        if session.done { parts.append(String(localized: "Genug geladen")) }
+        else if let r = session.remaining { parts.append(String(localized: "noch \(ChargingSession.minutes(r)) · fertig \(Format.time.string(from: Date().addingTimeInterval(r)))")) }
         return parts.joined(separator: " · ")
     }
 }

@@ -104,7 +104,7 @@ final class MeetupsStore {
             await refreshMeetups()
             return true
         } catch {
-            if !silent { AppModel.shared.show("Vorschlag konnte nicht gesendet werden.") }
+            if !silent { AppModel.shared.show(String(localized: "Vorschlag konnte nicht gesendet werden.")) }
             return false
         }
     }
@@ -124,7 +124,7 @@ final class MeetupsStore {
             }
             return true
         } catch {
-            AppModel.shared.show("Gruppen-Treffen konnte nicht gesendet werden.")
+            AppModel.shared.show(String(localized: "Gruppen-Treffen konnte nicht gesendet werden."))
             return false
         }
     }
@@ -151,7 +151,7 @@ final class MeetupsStore {
             AppModel.shared.push.notify(accept ? .meetupAccepted : .meetupDeclined, to: meetup.otherId, meetupId: meetup.id)
             await refreshMeetups()
         } catch {
-            AppModel.shared.show("Antwort konnte nicht gesendet werden.")
+            AppModel.shared.show(String(localized: "Antwort konnte nicht gesendet werden."))
         }
     }
 

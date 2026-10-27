@@ -29,7 +29,7 @@ struct PlaceDetailSheet: View {
             AppleDetailView(mapItem: item.mapItem)
             Button {
                 let coordinate = item.mapItem.coordinate
-                let place = Place(id: "apple-\(UUID().uuidString)", name: item.mapItem.name ?? "Ziel", address: nil, coordinate: coordinate)
+                let place = Place(id: "apple-\(UUID().uuidString)", name: item.mapItem.name ?? String(localized: "Ziel"), address: nil, coordinate: coordinate)
                 dismiss()
                 navigate(place)
             } label: {

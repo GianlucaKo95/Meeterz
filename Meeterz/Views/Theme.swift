@@ -57,9 +57,9 @@ enum AppAppearance: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .system: "Wie System"
-        case .light: "Hell"
-        case .dark: "Dunkel"
+        case .system: String(localized: "Wie System")
+        case .light: String(localized: "Hell")
+        case .dark: String(localized: "Dunkel")
         }
     }
     var style: UIUserInterfaceStyle {
@@ -185,7 +185,7 @@ struct CircleIconButton: View {
                 }
         }
         .accessibilityLabel(label)
-        .accessibilityValue(activeDot ? "Ein Freund ist unterwegs" : "")
+        .accessibilityValue(activeDot ? String(localized: "Ein Freund ist unterwegs") : "")
     }
 }
 
@@ -204,28 +204,28 @@ struct Card<Content: View>: View {
 enum Format {
     static let time: DateFormatter = {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "de_DE")
-        f.dateFormat = "HH:mm"
+        f.locale = .current                       // 24 h oder 12 h wie auf dem iPhone eingestellt
+        f.setLocalizedDateFormatFromTemplate("jmm")
         return f
     }()
 
     static func minutes(seconds: TimeInterval) -> String {
         let m = max(1, Int((seconds / 60).rounded()))
-        return m < 60 ? "\(m) Min" : "\(m / 60) Std \(m % 60) Min"
+        return m < 60 ? String(localized: "\(m) Min") : String(localized: "\(m / 60) Std \(m % 60) Min")
     }
 
     static func minutes(until date: Date) -> String {
         let m = max(0, Int(date.timeIntervalSinceNow / 60))
-        return m < 60 ? "\(m) Min" : "\(m / 60) Std \(m % 60) Min"
+        return m < 60 ? String(localized: "\(m) Min") : String(localized: "\(m / 60) Std \(m % 60) Min")
     }
 
     static func distance(_ meters: Double) -> String {
-        meters < 1000 ? "\(Int(meters.rounded())) m" : String(format: "%.1f km", meters / 1000).replacingOccurrences(of: ".", with: ",")
+        meters < 1000 ? "\(Int(meters.rounded())) m" : (meters / 1000).formatted(.number.precision(.fractionLength(1))) + " km"
     }
 
     static func age(_ seconds: TimeInterval) -> String {
-        if seconds < 60 { return "live" }
-        if seconds < 3600 { return "vor \(Int(seconds / 60)) Min." }
-        return "vor \(Int(seconds / 3600)) Std."
+        if seconds < 60 { return String(localized: "live") }
+        if seconds < 3600 { return String(localized: "vor \(Int(seconds / 60)) Min.") }
+        return String(localized: "vor \(Int(seconds / 3600)) Std.")
     }
 }

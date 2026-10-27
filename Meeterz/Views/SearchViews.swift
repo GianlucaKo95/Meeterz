@@ -53,7 +53,7 @@ struct SearchView: View {
                                     detail = PlaceDetailItem(mapItem: item)
                                 } else {
                                     Diag.log("Keine Apple-Details gefunden: \(place.name)")
-                                    app.show("Zu „\(place.name)“ hat Apple keine Details.")
+                                    app.show(String(localized: "Zu „\(place.name)“ hat Apple keine Details."))
                                 }
                             }
                         }) { choose(place) }
@@ -96,10 +96,10 @@ struct SearchView: View {
 
     private var assigningPrompt: String {
         switch assigning {
-        case .home: "Adresse für „Zuhause“ suchen"
-        case .work: "Adresse für „Arbeit“ suchen"
-        case .other: "Ort für neuen Favoriten suchen"
-        case nil: "Adresse oder Ort"
+        case .home: String(localized: "Adresse für „Zuhause“ suchen")
+        case .work: String(localized: "Adresse für „Arbeit“ suchen")
+        case .other: String(localized: "Ort für neuen Favoriten suchen")
+        case nil: String(localized: "Adresse oder Ort")
         }
     }
 
@@ -124,15 +124,15 @@ struct SearchView: View {
                 favoriteRow(fav)
             } else {
                 PlaceRow(
-                    place: Place(id: "set-\(kind.rawValue)", name: kind == .home ? "Zuhause festlegen" : "Arbeit festlegen",
-                                 address: "Adresse suchen und speichern", coordinate: .init()),
+                    place: Place(id: "set-\(kind.rawValue)", name: kind == .home ? String(localized: "Zuhause festlegen") : String(localized: "Arbeit festlegen"),
+                                 address: String(localized: "Adresse suchen und speichern"), coordinate: .init()),
                     distance: nil, selected: false, icon: kind == .home ? "house" : "briefcase"
                 ) { assigning = kind; focused = true }
             }
         }
         ForEach(app.favorites.others) { favoriteRow($0) }
         PlaceRow(
-            place: Place(id: "new-favorite", name: "Favorit hinzufügen", address: "Ort suchen und mit Namen speichern", coordinate: .init()),
+            place: Place(id: "new-favorite", name: String(localized: "Favorit hinzufügen"), address: String(localized: "Ort suchen und mit Namen speichern"), coordinate: .init()),
             distance: nil, selected: false, icon: "plus.circle"
         ) { assigning = .other; focused = true }
     }
@@ -154,7 +154,7 @@ struct SearchView: View {
         let meetupPlaces = app.meetups.accepted.map(\.place)
         let friendPlaces = app.friendsOnMap.map {
             Place(id: "friend-\($0.friend.friendId)", name: $0.friend.displayName,
-                  address: "Aktueller Standort", coordinate: $0.position.coordinate)
+                  address: String(localized: "Aktueller Standort"), coordinate: $0.position.coordinate)
         }
         if !meetupPlaces.isEmpty || !friendPlaces.isEmpty {
             Text("Schnellziele").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
@@ -178,7 +178,7 @@ struct SearchView: View {
         defer { loading = false }
         do {
             results = try await SearchService.search(q, near: app.location.lastLocation?.coordinate)
-            errorText = results.isEmpty ? "Nichts gefunden." : nil
+            errorText = results.isEmpty ? String(localized: "Nichts gefunden.") : nil
         } catch {
             errorText = error.localizedDescription
         }
@@ -188,8 +188,8 @@ struct SearchView: View {
         if let kind = assigning {
             // Auswahl speichern statt navigieren
             switch kind {
-            case .home: app.favorites.save(kind: .home, label: "Zuhause", place: place); finishAssigning()
-            case .work: app.favorites.save(kind: .work, label: "Arbeit", place: place); finishAssigning()
+            case .home: app.favorites.save(kind: .home, label: String(localized: "Zuhause"), place: place); finishAssigning()
+            case .work: app.favorites.save(kind: .work, label: String(localized: "Arbeit"), place: place); finishAssigning()
             case .other: askName(for: place)
             }
             return
@@ -240,7 +240,7 @@ struct RoutePreviewView: View {
             ForEach(Array(current.options.enumerated()), id: \.offset) { index, route in
                 Button { select(index) } label: {
                     VStack(spacing: 2) {
-                        Text(index == 0 ? "Schnellste" : "Alternative \(index)")
+                        Text(index == 0 ? String(localized: "Schnellste") : String(localized: "Alternative \(index)"))
                             .font(.caption.weight(.bold))
                         Text("\(Format.minutes(until: Date().addingTimeInterval(route.expectedTravelTime))) · \(Format.distance(route.distance))")
                             .font(.caption)
@@ -249,7 +249,7 @@ struct RoutePreviewView: View {
                     .background(RoundedRectangle(cornerRadius: 12).fill(index == selected ? Theme.accent : Theme.panel))
                     .foregroundStyle(index == selected ? Theme.ink : Theme.text)
                 }
-                .accessibilityLabel(index == 0 ? "Schnellste Route" : "Alternativroute \(index)")
+                .accessibilityLabel(index == 0 ? String(localized: "Schnellste Route") : String(localized: "Alternativroute \(index)"))
             }
         }
     }
@@ -316,7 +316,7 @@ struct RoutePreviewView: View {
                     }
                     .disabled(saved)
                     .padding(8)
-                    .accessibilityLabel(saved ? "Als Favorit gespeichert" : "Als Favorit speichern")
+                    .accessibilityLabel(saved ? String(localized: "Als Favorit gespeichert") : String(localized: "Als Favorit speichern"))
                 }
             if current.options.count > 1 { routeChoices }
             if current.mode == .car, let avoid = RoutePreferences.summary {
@@ -332,9 +332,9 @@ struct RoutePreviewView: View {
             }
 
             HStack(spacing: 10) {
-                stat("Ankunft", Format.time.string(from: eta), highlight: true)
-                stat("Dauer", Format.minutes(until: eta))
-                stat("Strecke", Format.distance(shown.distance))
+                stat(String(localized: "Ankunft"), Format.time.string(from: eta), highlight: true)
+                stat(String(localized: "Dauer"), Format.minutes(until: eta))
+                stat(String(localized: "Strecke"), Format.distance(shown.distance))
             }
 
             if current.mode == .car, EVSettings.enabled {
@@ -343,7 +343,7 @@ struct RoutePreviewView: View {
                 }
             }
 
-            Text(current.mode == .car ? "Inklusive aktueller Verkehrslage. Deine Freunde sehen deine Route, solange du teilst." : "Deine Freunde sehen deine Route, solange du teilst.")
+            Text(current.mode == .car ? String(localized: "Inklusive aktueller Verkehrslage. Deine Freunde sehen deine Route, solange du teilst.") : String(localized: "Deine Freunde sehen deine Route, solange du teilst."))
                 .font(.footnote).foregroundStyle(Theme.muted)
 
             #if DEBUG
@@ -365,7 +365,7 @@ struct RoutePreviewView: View {
                     .frame(maxWidth: .infinity, minHeight: 18)
                     .contentShape(Rectangle())
                     .onTapGesture { withAnimation(.snappy) { actionsOpen.toggle() } }
-                    .accessibilityLabel(actionsOpen ? "Weitere Aktionen ausblenden" : "Weitere Aktionen")
+                    .accessibilityLabel(actionsOpen ? String(localized: "Weitere Aktionen ausblenden") : String(localized: "Weitere Aktionen"))
                     .accessibilityAddTraits(.isButton)
                     .accessibilityIdentifier("preview-actions-grabber")
             }
@@ -412,7 +412,7 @@ struct RoutePreviewView: View {
     /// Route neu über die Ladesäulen berechnen
     private func adoptCharging(_ plan: ChargePlanner.Plan) async {
         guard let routes = await app.navigation.calculate(to: current.destination, via: plan.stops.map(\.place), mode: .car) else {
-            app.show("Route über die Ladesäulen konnte nicht berechnet werden.")
+            app.show(String(localized: "Route über die Ladesäulen konnte nicht berechnet werden."))
             return
         }
         current = .init(destination: current.destination, routes: routes, mode: .car)
@@ -453,7 +453,7 @@ struct RoutePreviewMap: View {
                 MapPolyline(coordinates: line)
                     .stroke(index == selected ? Color.blue : Color.gray.opacity(0.7), lineWidth: index == selected ? 6 : 4)
             }
-            Marker("Ziel", coordinate: destination)
+            Marker(String(localized: "Ziel"), coordinate: destination)
         }
         .mapStyle(.standard)
         .onAppear { fit() }

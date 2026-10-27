@@ -108,7 +108,7 @@ final class VehicleStore {
             token = t
             return t
         } catch {
-            AppModel.shared.show("Verbinden fehlgeschlagen: \(error.localizedDescription)")
+            AppModel.shared.show(String(localized: "Verbinden fehlgeschlagen: \(error.localizedDescription)"))
             return nil
         }
     }

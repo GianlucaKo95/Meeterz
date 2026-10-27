@@ -1,0 +1,6 @@
+"NSMotionUsageDescription" = "Meeterz, arabadan yürümeye geçtiğinde aracını nereye park ettiğini algılar (yalnızca “Park edilen arabayı hatırla” açıksa).";
+"NSMicrophoneUsageDescription" = "Meeterz, arkadaşların için kısa sesli mesajlar kaydedebilmen için mikrofonu kullanır (en fazla 5 saniye).";
+"NSCameraUsageDescription" = "Meeterz, yalnızca arkadaşlarının görebileceği bir profil fotoğrafı çekebilmen için kamerayı kullanır.";
+"NSLocationWhenInUseUsageDescription" = "Meeterz konumunu haritada gösterir, seni yönlendirir ve konumunu izin verdiğin arkadaşlarınla paylaşır.";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "Meeterz arka planda çalışırken de (ör. sürüş sırasında) arkadaşlarının seni görebilmesi için.";
+"LocationAccuracyAuthorizationDescription" = "Meeterz'in navigasyon için kesin konumuna ihtiyacı var.";

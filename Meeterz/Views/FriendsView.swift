@@ -88,7 +88,7 @@ struct FriendsView: View {
     /// „Hallo Luca“ statt „Profil“
     private var greeting: String {
         let first = (app.profile?.displayName ?? "").split(separator: " ").first.map(String.init) ?? ""
-        return first.isEmpty ? "Hallo" : "Hallo \(first)"
+        return first.isEmpty ? String(localized: "Hallo") : String(localized: "Hallo \(first)")
     }
 
     /// Einstellungen hinter dem Zahnrad: Teilen, Sound-Pack, App, Konto
@@ -104,7 +104,7 @@ struct FriendsView: View {
         .navigationTitle("Einstellungen")
         .navigationBarTitleDisplayMode(.inline)
         .confirmationDialog(
-            "Konto wirklich löschen?",
+            String(localized: "Konto wirklich löschen?"),
             isPresented: $confirmDelete,
             titleVisibility: .visible
         ) {
@@ -127,7 +127,7 @@ struct FriendsView: View {
             HStack(spacing: 16) {
                 Avatar(initials: myInitials, color: Theme.accent, size: 64, userId: app.profile?.id)
                 VStack(alignment: .leading, spacing: 10) {
-                    Menu(hasPhoto ? "Foto ändern" : "Foto hinzufügen") {
+                    Menu(hasPhoto ? String(localized: "Foto ändern") : String(localized: "Foto hinzufügen")) {
                         if CameraPicker.isAvailable {
                             Button("Foto aufnehmen", systemImage: "camera") { showCamera = true }
                         }
@@ -175,7 +175,7 @@ struct FriendsView: View {
         defer { pickedPhoto = nil }
         guard let data = try? await item.loadTransferable(type: Data.self),
               let image = UIImage(data: data) else {
-            app.show("Das Foto konnte nicht geladen werden.")
+            app.show(String(localized: "Das Foto konnte nicht geladen werden."))
             return
         }
         cropItem = AvatarCropItem(image: image)
@@ -258,12 +258,12 @@ struct FriendsView: View {
                     Button("Entfernen", role: .destructive) { Task { await friends.remove(row) } }
                     Button("Einladen") { inviteFriend = row }
                         .tint(Theme.accent)
-                    Button(hidden ? "Zeigen" : "Verbergen") { Task { await friends.setHidden(row.friendId, !hidden) } }
+                    Button(hidden ? String(localized: "Zeigen") : String(localized: "Verbergen")) { Task { await friends.setHidden(row.friendId, !hidden) } }
                         .tint(.gray)
                 }
                 .contextMenu {
                     Button("Zu einem Ort einladen", systemImage: "mappin.and.ellipse") { inviteFriend = row }
-                    Button(hidden ? "Standort wieder zeigen" : "Standort vor \(row.displayName) verbergen",
+                    Button(hidden ? String(localized: "Standort wieder zeigen") : String(localized: "Standort vor \(row.displayName) verbergen"),
                            systemImage: hidden ? "eye" : "eye.slash") {
                         Task { await friends.setHidden(row.friendId, !hidden) }
                     }
@@ -321,7 +321,7 @@ struct FriendsView: View {
             }
 
             if !app.location.canShareInBackground {
-                Button(app.location.alwaysAskedBefore ? "Standort-Einstellung öffnen („Immer“ wählen)" : "Auch im Hintergrund teilen") {
+                Button(app.location.alwaysAskedBefore ? String(localized: "Standort-Einstellung öffnen („Immer“ wählen)") : String(localized: "Auch im Hintergrund teilen")) {
                     app.location.requestAlways()
                 }
             }
@@ -404,8 +404,8 @@ struct FriendsView: View {
     }
 
     private var liveDataSummary: String {
-        if let soc = app.vehicle.liveSoc { return "\(Int(soc.rounded())) %" }
-        return app.vehicle.token == nil ? "Aus" : "Verbunden"
+        if let soc = app.vehicle.liveSoc { return String(localized: "\(Int(soc.rounded())) %") }
+        return app.vehicle.token == nil ? String(localized: "Aus") : String(localized: "Verbunden")
     }
 
     private var appSection: some View {
@@ -424,7 +424,7 @@ struct FriendsView: View {
                 NavigationLink {
                     VehiclePickerView(selection: $evVehicle)
                 } label: {
-                    LabeledContent("Fahrzeug", value: evVehicle?.fullName ?? "Auswählen")
+                    LabeledContent("Fahrzeug", value: evVehicle?.fullName ?? String(localized: "Auswählen"))
                 }
                 .accessibilityIdentifier("ev-vehicle")
                 NavigationLink {
@@ -434,7 +434,7 @@ struct FriendsView: View {
                 }
                 .accessibilityIdentifier("ev-live")
                 if let vehicle = evVehicle {
-                    LabeledContent("Reichweite bei 100 %", value: "ca. \(Int(vehicle.rangeKm)) km")
+                    LabeledContent("Reichweite bei 100 %", value: String(localized: "ca. \(Int(vehicle.rangeKm)) km"))
                     Stepper(value: Binding(get: { evArrival }, set: { evArrival = $0; EVSettings.arrivalPercent = $0 }),
                             in: 5...60, step: 5) {
                         LabeledContent("Ankunft mit mindestens", value: "\(Int(evArrival)) %")
@@ -463,7 +463,7 @@ struct FriendsView: View {
             Text("Gilt für iPhone und CarPlay gleichermaßen und sofort, auch während der Fahrt – egal wo du umschaltest. Satellit: Luftbild mit 3D-Gebäuden. Flyover (experimentell) zeigt Apples fotorealistisches 3D-Bild, kann aber ruckeln und Route oder Pfeil leicht versetzt zeigen.")
                 .font(.footnote).foregroundStyle(Theme.muted)
             DisclosureGroup("Diagnose") {
-                Text(diagText.isEmpty ? "Noch keine Einträge." : diagText)
+                Text(diagText.isEmpty ? String(localized: "Noch keine Einträge.") : diagText)
                     .font(.system(size: 10, design: .monospaced)).textSelection(.enabled)
                 HStack {
                     Button("Aktualisieren") { diagText = Diag.text }
@@ -519,7 +519,7 @@ struct FriendsView: View {
     }
 
     private var sharingFooter: String {
-        let routes = " Mit „Routen verbergen“ sehen Freunde nie, wohin du fährst."
+        let routes = String(localized: " Mit „Routen verbergen“ sehen Freunde nie, wohin du fährst.")
         return sharingBase + routes
     }
 
@@ -530,7 +530,7 @@ struct FriendsView: View {
     private func status(for row: FriendRow) -> String {
         if app.routes.friendRoutes[row.friendId] != nil { return "unterwegs" }
         if let pos = app.hub.positions[row.friendId] { return Format.age(pos.age) }
-        return "teilt nicht"
+        return String(localized: "teilt nicht")
     }
 }
 
@@ -553,12 +553,12 @@ private struct FriendLabel: View {
 /// Auswahl der Stimme für die Sprachansagen mit Hörprobe.
 struct VoicePickerView: View {
     @AppStorage(VoiceCatalog.key) private var selectedId = ""
-    @State private var voices = VoiceCatalog.germanVoices
+    @State private var voices = VoiceCatalog.voices
 
     var body: some View {
         List {
             Section {
-                row(title: "Automatisch", detail: VoiceCatalog.best.map { "\($0.name) · \(VoiceCatalog.label(for: $0.quality))" } ?? "Systemstimme",
+                row(title: String(localized: "Automatisch"), detail: VoiceCatalog.best.map { "\($0.name) · \(VoiceCatalog.label(for: $0.quality))" } ?? String(localized: "Systemstimme"),
                     selected: selectedId.isEmpty) {
                     selectedId = ""
                     VoicePreview.shared.play(VoiceCatalog.best)
@@ -568,7 +568,7 @@ struct VoicePickerView: View {
             }
             .listRowBackground(Theme.panel)
 
-            Section("Deutsche Stimmen") {
+            Section("Stimmen") {
                 ForEach(voices, id: \.identifier) { voice in
                     row(title: voice.name, detail: VoiceCatalog.label(for: voice.quality), selected: selectedId == voice.identifier) {
                         selectedId = voice.identifier
@@ -580,7 +580,7 @@ struct VoicePickerView: View {
 
             if !VoiceCatalog.hasBetterThanDefault {
                 Section {
-                    Text("Es ist nur die einfache Standardstimme installiert. Eine natürlichere Stimme lädst du unter Einstellungen → Bedienungshilfen → Gesprochene Inhalte → Stimmen → Deutsch (Premium oder Erweitert). Danach erscheint sie hier.")
+                    Text("Es ist nur die einfache Standardstimme installiert. Eine natürlichere Stimme lädst du unter Einstellungen → Bedienungshilfen → Gesprochene Inhalte → Stimmen → deine Sprache (Premium oder Erweitert). Danach erscheint sie hier.")
                         .font(.footnote).foregroundStyle(Theme.muted)
                     Button("Einstellungen öffnen") {
                         if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
@@ -595,7 +595,7 @@ struct VoicePickerView: View {
         .background(Theme.ink)
         .navigationTitle("Navigationsstimme")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { voices = VoiceCatalog.germanVoices }   // nach dem Laden einer Stimme aktualisieren
+        .onAppear { voices = VoiceCatalog.voices }   // nach dem Laden einer Stimme aktualisieren
     }
 
     private func row(title: String, detail: String, selected: Bool, action: @escaping () -> Void) -> some View {

@@ -84,7 +84,7 @@ final class MessagesStore {
         CarPlayController.shared.messageReceived(m)
         // Im Auto vorlesen (Musik wird kurz leiser, Navigationsansagen laufen weiter)
         if CarPlayController.shared.isConnected {
-            AppModel.shared.sounds.announce("\(m.firstName) schreibt: \(m.body)")
+            AppModel.shared.sounds.announce(String(localized: "\(m.firstName) schreibt: \(m.body)"))
         }
     }
 
@@ -111,15 +111,15 @@ final class MessagesStore {
     /// Vorgefertigte Antworten – mit Ankunftszeit, wenn gerade navigiert wird
     static func quickReplies(eta: Date?) -> [String] {
         var replies: [String] = []
-        if let eta { replies.append("Bin um \(Format.time.string(from: eta)) da") }
+        if let eta { replies.append(String(localized: "Bin um \(Format.time.string(from: eta)) da")) }
         replies += [
-            "Bin gleich da",
-            "Bin unterwegs",
-            "Komme ca. 10 Min. später",
-            "Stehe im Stau",
-            "Bin da – wo seid ihr?",
-            "Fangt schon ohne mich an",
-            "Alles klar 👍",
+            String(localized: "Bin gleich da"),
+            String(localized: "Bin unterwegs"),
+            String(localized: "Komme ca. 10 Min. später"),
+            String(localized: "Stehe im Stau"),
+            String(localized: "Bin da – wo seid ihr?"),
+            String(localized: "Fangt schon ohne mich an"),
+            String(localized: "Alles klar 👍"),
         ]
         return replies
     }

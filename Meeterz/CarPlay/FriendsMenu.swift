@@ -17,8 +17,8 @@ extension CarPlayController {
         let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold)
 
         let toggle = CPListItem(
-            text: allFriendsVisible ? "Alle ausblenden" : "Alle einblenden",
-            detailText: allFriendsVisible ? "\(visibleCount) sichtbar" : "alle ausgeblendet",
+            text: allFriendsVisible ? String(localized: "Alle ausblenden") : String(localized: "Alle einblenden"),
+            detailText: allFriendsVisible ? String(localized: "\(visibleCount) sichtbar") : String(localized: "alle ausgeblendet"),
             image: UIImage(systemName: allFriendsVisible ? "eye.slash" : "eye", withConfiguration: config))
         toggle.handler = { [weak self] _, done in
             guard let self else { done(); return }
@@ -33,9 +33,9 @@ extension CarPlayController {
             let hidden = passengers.riding.contains(f.friendId)
             let riding = hidden && !passengers.isHiddenForMe(f.friendId)
             var detail: [String] = []
-            if riding { detail.append("fährt mit") }
+            if riding { detail.append(String(localized: "fährt mit")) }
             else if let route = app.routes.friendRoutes[f.friendId] {
-                detail.append(route.destinationName.map { "fährt nach \($0)" } ?? "unterwegs")
+                detail.append(route.destinationName.map { String(localized: "fährt nach \($0)") } ?? "unterwegs")
             } else if let me {
                 detail.append(Format.distance(item.position.coordinate.distance(to: me.coordinate)))
             }
@@ -54,8 +54,8 @@ extension CarPlayController {
         }
 
         var sections = [CPListSection(items: [toggle])]
-        if !items.isEmpty { sections.append(CPListSection(items: items, header: "Freunde", sectionIndexTitle: nil)) }
-        return CPListTemplate(title: "Freunde", sections: sections)
+        if !items.isEmpty { sections.append(CPListSection(items: items, header: String(localized: "Freunde"), sectionIndexTitle: nil)) }
+        return CPListTemplate(title: String(localized: "Freunde"), sections: sections)
     }
 
     private func showFriendActions(_ item: AppModel.FriendOnMap) {
@@ -65,32 +65,32 @@ extension CarPlayController {
         let controller = manager.interfaceController
         let close: () -> Void = { CarPlayUI.shared.dismiss(animated: true) }
 
-        let show = CPAlertAction(title: "Auf Karte zeigen", style: .default) { [weak self] _ in
+        let show = CPAlertAction(title: String(localized: "Auf Karte zeigen"), style: .default) { [weak self] _ in
             close()
             CarPlayUI.shared.popToRoot(animated: true)
             if hidden { Passengers.shared.setHiddenForMe(f.friendId, false); self?.refreshFriendsAfterPassengerChange() }
             if self?.allFriendsVisible == false { self?.setAllFriendsVisible(true) }
             self?.focusFriend(item.position.coordinate)
         }
-        let drive = CPAlertAction(title: "Hinfahren", style: .default) { [weak self] _ in
+        let drive = CPAlertAction(title: String(localized: "Hinfahren"), style: .default) { [weak self] _ in
             close()
             CarPlayUI.shared.popToRoot(animated: true)
             self?.startGuidance(to: Place(id: "friend-\(f.friendId)", name: f.displayName, address: nil,
                                           coordinate: item.position.coordinate), showProgress: true)
         }
-        let message = CPAlertAction(title: "Kurz Bescheid geben", style: .default) { [weak self] _ in
+        let message = CPAlertAction(title: String(localized: "Kurz Bescheid geben"), style: .default) { [weak self] _ in
             close()
             self?.showQuickReplies(to: [f.friendId], meetupId: nil)
         }
-        let toggle = CPAlertAction(title: hidden ? "Einblenden" : "Auf meiner Karte ausblenden",
+        let toggle = CPAlertAction(title: hidden ? String(localized: "Einblenden") : String(localized: "Auf meiner Karte ausblenden"),
                                    style: hidden ? .default : .destructive) { [weak self] _ in
             close()
             Passengers.shared.setHiddenForMe(f.friendId, !hidden)
             self?.refreshFriendsAfterPassengerChange()
             CarPlayUI.shared.pop(animated: true)
         }
-        let cancel = CPAlertAction(title: "Abbrechen", style: .cancel) { _ in close() }
-        let sheet = CPActionSheetTemplate(title: first, message: hidden ? "Auf deiner Karte ausgeblendet – \(first) sieht dich weiterhin" : nil,
+        let cancel = CPAlertAction(title: String(localized: "Abbrechen"), style: .cancel) { _ in close() }
+        let sheet = CPActionSheetTemplate(title: first, message: hidden ? String(localized: "Auf deiner Karte ausgeblendet – \(first) sieht dich weiterhin") : nil,
                                           actions: [show, drive, message, toggle, cancel])
         CarPlayUI.shared.present(sheet, animated: true)
     }

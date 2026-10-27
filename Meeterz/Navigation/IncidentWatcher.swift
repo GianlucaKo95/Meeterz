@@ -29,11 +29,11 @@ final class IncidentWatcher {
                 if distance <= 300 { announced.insert(incident.identifier) }
                 continue
             }
-            let title = "\(message.title) in \(Format.distance(distance))"
+            let title = String(localized: "\(message.title) in \(Format.distance(distance))")
             if present(title: title, subtitle: message.subtitle, symbol: message.symbol) {
                 announced.insert(incident.identifier)
                 Diag.log("Verkehrsmeldung: \(title)\(message.subtitle.map { " – \($0)" } ?? "")")
-                MeeterzSpeechSynthesizer.shared.announce("Achtung, \(message.title) in \(Self.spoken(distance)).")
+                MeeterzSpeechSynthesizer.shared.announce(String(localized: "Achtung, \(message.title) in \(VoiceCatalog.language == "de" ? Self.spoken(distance) : Format.distance(distance))."))
             }
             return   // höchstens eine Meldung auf einmal
         }
@@ -64,28 +64,28 @@ final class IncidentWatcher {
     static func message(_ incident: Incident, length: Double?) -> Message? {
         let road = incident.affectedRoadNames?.first
         let lanes = incident.numberOfBlockedLanes ?? 0
-        let lengthText = length.flatMap { $0 > 300 ? "\(Format.distance($0)) lang" : nil }
+        let lengthText = length.flatMap { $0 > 300 ? String(localized: "\(Format.distance($0)) lang") : nil }
         let severe = incident.impact == .major || incident.impact == .critical
         if incident.roadIsClosed == true || incident.kind == .roadClosure {
-            return Message(title: "Sperrung", subtitle: road.map { "\($0) gesperrt" } ?? "Straße gesperrt",
+            return Message(title: String(localized: "Sperrung"), subtitle: road.map { String(localized: "\($0) gesperrt") } ?? String(localized: "Straße gesperrt"),
                            symbol: "xmark.octagon.fill", closure: true)
         }
         switch incident.kind {
         case .accident:
-            let detail = lanes > 0 ? "\(lanes) Fahrstreifen blockiert" : road
-            return Message(title: "Unfall", subtitle: detail, symbol: "car.side.rear.and.collision.and.car.side.front", closure: false)
+            let detail = lanes > 0 ? String(localized: "\(lanes) Fahrstreifen blockiert") : road
+            return Message(title: String(localized: "Unfall"), subtitle: detail, symbol: "car.side.rear.and.collision.and.car.side.front", closure: false)
         case .disabledVehicle:
-            return Message(title: "Liegengebliebenes Fahrzeug", subtitle: road, symbol: "exclamationmark.triangle.fill", closure: false)
+            return Message(title: String(localized: "Liegengebliebenes Fahrzeug"), subtitle: road, symbol: "exclamationmark.triangle.fill", closure: false)
         case .roadHazard:
-            return Message(title: "Gefahr auf der Fahrbahn", subtitle: road, symbol: "exclamationmark.triangle.fill", closure: false)
+            return Message(title: String(localized: "Gefahr auf der Fahrbahn"), subtitle: road, symbol: "exclamationmark.triangle.fill", closure: false)
         case .congestion where severe:
-            return Message(title: "Stau", subtitle: [lengthText, road].compactMap { $0 }.joined(separator: " · ").nilIfEmpty,
+            return Message(title: String(localized: "Stau"), subtitle: [lengthText, road].compactMap { $0 }.joined(separator: " · ").nilIfEmpty,
                            symbol: "car.2.fill", closure: false)
         case .construction where lanes > 0 || severe:
-            return Message(title: "Baustelle", subtitle: lanes > 0 ? "\(lanes) Fahrstreifen gesperrt" : road,
+            return Message(title: String(localized: "Baustelle"), subtitle: lanes > 0 ? String(localized: "\(lanes) Fahrstreifen gesperrt") : road,
                            symbol: "cone.fill", closure: false)
         case .weather where severe:
-            return Message(title: "Wettergefahr", subtitle: road, symbol: "cloud.bolt.rain.fill", closure: false)
+            return Message(title: String(localized: "Wettergefahr"), subtitle: road, symbol: "cloud.bolt.rain.fill", closure: false)
         default:
             return nil
         }
@@ -95,9 +95,9 @@ final class IncidentWatcher {
     nonisolated static func spoken(_ meters: Double) -> String {
         if meters >= 1_000 {
             let km = (meters / 1_000).rounded()
-            return km == 1 ? "einem Kilometer" : "\(Int(km)) Kilometern"
+            return km == 1 ? String(localized: "einem Kilometer") : String(localized: "\(Int(km)) Kilometern")
         }
-        return "\(Int((meters / 100).rounded()) * 100) Metern"
+        return String(localized: "\(Int((meters / 100).rounded()) * 100) Metern")
     }
 }
 

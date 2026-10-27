@@ -56,8 +56,8 @@ private struct IncomingMeetupCard: View {
     var body: some View {
         Card {
             Text(meetup.isGroup
-                 ? "\(meetup.otherName) lädt \(max(2, (meetup.groupSize ?? 3) - 1)) Freunde ein"
-                 : "\(meetup.otherName) möchte sich treffen")
+                 ? String(localized: "\(meetup.otherName) lädt \(max(2, (meetup.groupSize ?? 3) - 1)) Freunde ein")
+                 : String(localized: "\(meetup.otherName) möchte sich treffen"))
                 .font(.caption.weight(.bold)).foregroundStyle(Theme.accent).textCase(.uppercase)
             Text(meetup.placeName).font(Theme.display(22))
             if let at = meetup.meetAt {
@@ -106,7 +106,7 @@ private struct AcceptedMeetupCard: View {
                 }
                 .accessibilityLabel("Optionen")
             }
-            Button(app.navigation.isNavigating ? "Als Zwischenstopp" : "Hinfahren") {
+            Button(app.navigation.isNavigating ? String(localized: "Als Zwischenstopp") : String(localized: "Hinfahren")) {
                 Task { await app.navigation.addStop(meetup.place) }
             }
             .buttonStyle(PrimaryButtonStyle())
@@ -156,7 +156,7 @@ struct MeetupPlannerView: View {
     private var onRouteAllowed: Bool { TravelMode.canMeetOnRoute(myMode, candidate.friendMode) }
 
     private var exactSpot: Place {
-        Place(id: "spot", name: "Treffpunkt auf der Route", address: nil, coordinate: candidate.coordinate)
+        Place(id: "spot", name: String(localized: "Treffpunkt auf der Route"), address: nil, coordinate: candidate.coordinate)
     }
 
     var body: some View {
@@ -168,17 +168,17 @@ struct MeetupPlannerView: View {
                         Avatar(initials: friend.initials, color: FriendPalette.color(for: friend.friendId), size: 48, userId: friend.friendId)
                     }
                     VStack(alignment: .leading) {
-                        Text("Treffen mit \(friend?.displayName ?? "Freund")").font(Theme.display(24))
-                        Text(onRouteAllowed ? "Eure Wege kreuzen sich"
-                             : "Eure Wege kreuzen sich – du \(myMode.activity), \(friend?.displayName ?? "Freund") \(candidate.friendMode.activity)")
+                        Text("Treffen mit \(friend?.displayName ?? String(localized: "Freund"))").font(Theme.display(24))
+                        Text(onRouteAllowed ? String(localized: "Eure Wege kreuzen sich")
+                             : String(localized: "Eure Wege kreuzen sich – du \(myMode.activity), \(friend?.displayName ?? String(localized: "Freund")) \(candidate.friendMode.activity)"))
                             .foregroundStyle(Theme.muted)
                     }
                 }
 
                 HStack(spacing: 10) {
-                    TimeTile(title: "Du", value: Format.time.string(from: candidate.myEta), highlight: true)
-                    TimeTile(title: friend?.displayName ?? "Freund", value: Format.time.string(from: candidate.friendEta))
-                    TimeTile(title: "Abstand", value: Format.distance(candidate.distanceM))
+                    TimeTile(title: String(localized: "Du"), value: Format.time.string(from: candidate.myEta), highlight: true)
+                    TimeTile(title: friend?.displayName ?? String(localized: "Freund"), value: Format.time.string(from: candidate.friendEta))
+                    TimeTile(title: String(localized: "Abstand"), value: Format.distance(candidate.distanceM))
                 }
 
                 Text("Wo wollt ihr euch treffen?").font(Theme.title())
@@ -208,18 +208,18 @@ struct MeetupPlannerView: View {
                     }
                 }
 
-                Button(sending ? "Wird gesendet …" : "Treffen vorschlagen") {
+                Button(sending ? String(localized: "Wird gesendet …") : String(localized: "Treffen vorschlagen")) {
                     guard let selected else { return }
                     Task {
                         sending = true
                         // Der Ort muss für mich mit meiner Fortbewegungsart erreichbar sein
                         guard await app.navigation.canReach(selected, mode: myMode) else {
-                            app.show("Dorthin gibt es für „\(myMode.title)“ keine Route. Wähle einen anderen Ort.")
+                            app.show(String(localized: "Dorthin gibt es für „\(myMode.title)“ keine Route. Wähle einen anderen Ort."))
                             sending = false
                             return
                         }
                         if await app.meetups.propose(to: candidate.friendId, place: selected) {
-                            app.show("Vorschlag an \(friend?.displayName ?? "Freund") gesendet.", isError: false)
+                            app.show(String(localized: "Vorschlag an \(friend?.displayName ?? String(localized: "Freund")) gesendet."), isError: false)
                             dismiss()
                         }
                         sending = false
@@ -247,7 +247,7 @@ struct MeetupPlannerView: View {
                 // Zu Fuß / mit dem Rad: nur Orte in Reichweite des Treffpunkts
                 places = places.filter { $0.coordinate.distance(to: candidate.coordinate) < 2_500 }
             }
-            if places.isEmpty { errorText = "Keine passenden Orte in der Nähe." }
+            if places.isEmpty { errorText = String(localized: "Keine passenden Orte in der Nähe.") }
         } catch {
             places = []
             errorText = error.localizedDescription
@@ -377,7 +377,7 @@ struct InviteFriendsView: View {
                 Toggle("Uhrzeit festlegen", isOn: $withTime.animation()).tint(Theme.accent)
                     .font(Theme.title(15)).foregroundStyle(Theme.text)
                 if withTime {
-                    DatePicker("Treffen um", selection: $meetAt,
+                    DatePicker(String(localized: "Treffen um"), selection: $meetAt,
                                in: Date().addingTimeInterval(10 * 60)...Date().addingTimeInterval(14 * 86_400),
                                displayedComponents: [.date, .hourAndMinute])
                         .tint(Theme.accent)
@@ -391,7 +391,7 @@ struct InviteFriendsView: View {
             Text("Die Eingeladenen können zusagen oder ablehnen. Bei einer Zusage wird der Ort bei ihnen als Ziel vorgeschlagen.")
                 .font(.footnote).foregroundStyle(Theme.muted)
 
-            Button(sending ? "Wird gesendet …" : "Einladung senden") {
+            Button(sending ? String(localized: "Wird gesendet …") : String(localized: "Einladung senden")) {
                 Task {
                     sending = true
                     var sent = 0
@@ -400,10 +400,10 @@ struct InviteFriendsView: View {
                     }
                     sending = false
                     if sent > 0 {
-                        app.show(sent == 1 ? "Einladung gesendet." : "\(sent) Einladungen gesendet.", isError: false)
+                        app.show(sent == 1 ? String(localized: "Einladung gesendet.") : String(localized: "\(sent) Einladungen gesendet."), isError: false)
                         dismiss()
                     } else {
-                        app.show("Einladung konnte nicht gesendet werden.")
+                        app.show(String(localized: "Einladung konnte nicht gesendet werden."))
                     }
                 }
             }

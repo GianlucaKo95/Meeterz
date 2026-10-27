@@ -1,0 +1,6 @@
+"NSMotionUsageDescription" = "Meeterz rileva dove hai parcheggiato quando passi dall’auto a piedi (solo se «Ricorda auto parcheggiata» è attivo).";
+"NSMicrophoneUsageDescription" = "Meeterz usa il microfono per permetterti di registrare brevi messaggi vocali per i tuoi amici (max. 5 secondi).";
+"NSCameraUsageDescription" = "Meeterz usa la fotocamera per permetterti di scattare una foto profilo visibile solo ai tuoi amici.";
+"NSLocationWhenInUseUsageDescription" = "Meeterz mostra la tua posizione sulla mappa, ti guida e condivide la tua posizione con gli amici che hai autorizzato.";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "Così i tuoi amici possono vederti anche quando Meeterz è in background (ad es. durante la guida).";
+"LocationAccuracyAuthorizationDescription" = "Meeterz ha bisogno della tua posizione precisa per la navigazione.";

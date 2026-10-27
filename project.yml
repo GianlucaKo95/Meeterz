@@ -56,8 +56,9 @@ targets:
       path: Meeterz/Info.plist
       properties:
         CFBundleDisplayName: Meeterz
-        CFBundleDevelopmentRegion: de
-        CFBundleLocalizations: [de, en]
+        # Sprache folgt dem System; nicht unterstützte Sprachen fallen auf Englisch zurück
+        CFBundleDevelopmentRegion: en
+        CFBundleLocalizations: [de, en, fr, es, pt, tr, it]
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         ITSAppUsesNonExemptEncryption: false
@@ -123,6 +124,8 @@ targets:
       path: MeeterzWidgets/Info.plist
       properties:
         CFBundleDisplayName: Meeterz
+        CFBundleDevelopmentRegion: en
+        CFBundleLocalizations: [de, en, fr, es, pt, tr, it]
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         NSExtension:

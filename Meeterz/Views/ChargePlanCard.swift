@@ -65,7 +65,7 @@ struct ChargePlanCard: View {
 
     private var startLabel: String {
         let soc = Int(EVSettings.chargePercent.rounded())
-        return app.vehicle.liveSoc != nil ? "Start \(soc) % (live)" : "Start \(soc) %"
+        return app.vehicle.liveSoc != nil ? String(localized: "Start \(soc) % (live)") : String(localized: "Start \(soc) %")
     }
 
     private func summary(_ plan: ChargePlanner.Plan) -> some View {
@@ -86,7 +86,7 @@ struct ChargePlanCard: View {
                                 .font(.caption2.weight(.semibold))
                                 .foregroundStyle(a.free > 0 ? Theme.go : Theme.danger)
                         }
-                        Text("\(stop.site.powerKnown ? "\(Int(stop.site.maxKW)) kW" : "kW unbekannt") · \(Int(stop.arrivalPercent)) → \(Int(stop.departurePercent.rounded())) % · \(Int((stop.chargeTime / 60).rounded())) Min.")
+                        Text(verbatim: (stop.site.powerKnown ? "\(Int(stop.site.maxKW)) kW" : String(localized: "kW unbekannt")) + " · \(Int(stop.arrivalPercent)) → \(Int(stop.departurePercent.rounded())) % · " + String(localized: "\(Int((stop.chargeTime / 60).rounded())) Min."))
                             .font(.caption).foregroundStyle(Theme.muted)
                     }
                 }
@@ -109,13 +109,13 @@ struct ChargeTimeline: View {
     }
 
     private var nodes: [Node] {
-        var n = [Node(id: 0, title: "Start", value: "\(Int(plan.startPercent.rounded())) %", low: false, charge: false)]
+        var n = [Node(id: 0, title: String(localized: "Start"), value: "\(Int(plan.startPercent.rounded())) %", low: false, charge: false)]
         for (i, stop) in plan.stops.enumerated() {
-            n.append(Node(id: i + 1, title: "\(Int(stop.distanceFromStart / 1000)) km",
+            n.append(Node(id: i + 1, title: String(localized: "\(Int(stop.distanceFromStart / 1000)) km"),
                           value: "\(Int(stop.arrivalPercent)) → \(Int(stop.departurePercent.rounded())) %",
                           low: stop.arrivalPercent < 12, charge: true))
         }
-        n.append(Node(id: 99, title: "Ziel", value: "\(Int(plan.arrivalPercent.rounded())) %",
+        n.append(Node(id: 99, title: String(localized: "Ziel"), value: "\(Int(plan.arrivalPercent.rounded())) %",
                       low: plan.arrivalPercent < 15, charge: false))
         return n
     }

@@ -46,7 +46,7 @@ final class WidgetSnapshotWriter {
                 name: item.friend.displayName.split(separator: " ").first.map(String.init) ?? item.friend.displayName,
                 initials: item.friend.initials,
                 distance: me.map { item.position.coordinate.distance(to: $0) },
-                heading: route.map { r in r.destinationName.map { "nach \($0)" } ?? "unterwegs" },
+                heading: route.map { r in r.destinationName.map { String(localized: "nach \($0)") } ?? "unterwegs" },
                 arrival: route?.eta,
                 seen: Date().addingTimeInterval(-item.position.age))
         }

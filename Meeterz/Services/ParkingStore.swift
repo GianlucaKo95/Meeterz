@@ -11,7 +11,7 @@ final class ParkingStore {
         let lng: Double
         let date: Date
         var coordinate: CLLocationCoordinate2D { .init(latitude: lat, longitude: lng) }
-        var place: Place { Place(id: "parked-car", name: "Dein Auto", address: nil, coordinate: coordinate) }
+        var place: Place { Place(id: "parked-car", name: String(localized: "Dein Auto"), address: nil, coordinate: coordinate) }
     }
 
     private(set) var spot: Spot? = {
@@ -31,7 +31,7 @@ final class ParkingStore {
     }
 
     /// Nur speichern, wenn eingeschaltet und der Standort frisch und genau genug ist
-    func save(_ location: CLLocation, source: String = "CarPlay") {
+    func save(_ location: CLLocation, source: String = String(localized: "CarPlay")) {
         guard Self.enabled else { return }
         // Schon ein frischer Platz ganz in der Nähe (z. B. CarPlay-Trennen und Bewegung erkennen dasselbe Parken)?
         if let spot, Date().timeIntervalSince(spot.date) < 10 * 60,

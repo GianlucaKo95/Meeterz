@@ -73,7 +73,7 @@ final class AvatarStore {
             versions[userId] = version
             return version
         } catch {
-            AppModel.shared.show("Profilbild konnte nicht gespeichert werden.")
+            AppModel.shared.show(String(localized: "Profilbild konnte nicht gespeichert werden."))
             return nil
         }
     }
@@ -89,7 +89,7 @@ final class AvatarStore {
             versions[userId] = nil
             return true
         } catch {
-            AppModel.shared.show("Profilbild konnte nicht entfernt werden.")
+            AppModel.shared.show(String(localized: "Profilbild konnte nicht entfernt werden."))
             return false
         }
     }

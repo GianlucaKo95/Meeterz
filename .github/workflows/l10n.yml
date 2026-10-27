@@ -1,0 +1,42 @@
+name: Texte exportieren
+# Exportiert alle übersetzbaren Texte (XLIFF) auf den Branch "l10n-export" – Grundlage für Localizable.xcstrings.
+on: workflow_dispatch
+
+permissions:
+  contents: write
+
+jobs:
+  export:
+    runs-on: xcode-27
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build-Cache laden
+        uses: actions/cache@v4
+        with:
+          path: build/dd
+          key: dd-${{ hashFiles('project.yml') }}-${{ github.run_id }}
+          restore-keys: |
+            dd-${{ hashFiles('project.yml') }}-
+            dd-
+      - name: Bauen und exportieren
+        continue-on-error: true
+        env:
+          MAPBOX_DOWNLOADS_TOKEN: ${{ secrets.MAPBOX_DOWNLOADS_TOKEN }}
+          RUN_TESTS: '0'
+          EXPORT_L10N: '1'
+        run: ./ci/build.sh
+      - name: Veröffentlichen
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"
+          find build/l10n -name "*.xliff" -exec cp {} "$RUNNER_TEMP/out/" \; 2>/dev/null || true
+          cp report.txt "$RUNNER_TEMP/out/report.txt" 2>/dev/null || true
+          git config user.name "meeterz-ci"
+          git config user.email "ci@users.noreply.github.com"
+          git checkout --orphan l10n-export
+          git rm -rf . >/dev/null 2>&1 || true
+          cp "$RUNNER_TEMP"/out/* . 2>/dev/null || true
+          git add -A
+          git commit -q -m "Texte ${GITHUB_SHA}" || true
+          git push -f origin l10n-export

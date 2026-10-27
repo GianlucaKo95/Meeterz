@@ -46,8 +46,8 @@ private func distance(_ m: Double?) -> String {
 private func seen(_ date: Date) -> String {
     let s = Date().timeIntervalSince(date)
     if s < 120 { return "live" }
-    if s < 3600 { return "vor \(Int(s / 60)) Min." }
-    return "vor \(Int(s / 3600)) Std."
+    if s < 3600 { return String(localized: "vor \(Int(s / 60)) Min.") }
+    return String(localized: "vor \(Int(s / 3600)) Std.")
 }
 
 private struct Avatar: View {
@@ -177,7 +177,7 @@ private struct MeetupWidgetView: View {
         if let m = snapshot.meetup {
             switch family {
             case .accessoryInline:
-                Text(m.friendArrival.map { "\(m.with) \(ActivityFormat.time($0)) · \(m.place)" } ?? "Treffen: \(m.place)")
+                Text(m.friendArrival.map { "\(m.with) \(ActivityFormat.time($0)) · \(m.place)" } ?? String(localized: "Treffen: \(m.place)"))
             case .accessoryRectangular:
                 VStack(alignment: .leading, spacing: 1) {
                     Text(m.place).font(.headline).widgetAccentable().lineLimit(1)
@@ -246,7 +246,7 @@ private struct SharingWidgetView: View {
             } else if active, let until = snapshot.sharingUntil {
                 Text("Teilst live bis \(ActivityFormat.time(until))")
             } else {
-                Text(active ? "Teilst live" : "Teilen pausiert")
+                Text(active ? String(localized: "Teilst live") : String(localized: "Teilen pausiert"))
             }
         default:
             ZStack {

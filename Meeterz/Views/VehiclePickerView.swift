@@ -64,7 +64,7 @@ struct VehiclePickerView: View {
             }
             .listRowBackground(Theme.panel)
         }
-        .searchable(text: $query, prompt: "Marke oder Modell")
+        .searchable(text: $query, prompt: String(localized: "Marke oder Modell"))
         .scrollContentBackground(.hidden)
         .background(Theme.ink)
         .navigationTitle("Fahrzeug")
@@ -96,7 +96,7 @@ private struct CustomVehicleForm: View {
                     LabeledContent("Nutzbare Batterie", value: "\(Int(battery)) kWh")
                 }
                 Stepper(value: $consumption, in: 10...40, step: 0.5) {
-                    LabeledContent("Verbrauch", value: String(format: "%.1f kWh/100 km", consumption).replacingOccurrences(of: ".", with: ","))
+                    LabeledContent("Verbrauch", value: String(format: "%.1f kWh/100 km", locale: .current, consumption))
                 }
                 Stepper(value: $dcMax, in: 20...350, step: 5) {
                     LabeledContent("Max. Schnellladen (DC)", value: "\(Int(dcMax)) kW")

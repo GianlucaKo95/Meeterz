@@ -184,10 +184,10 @@ struct GroupMeetupView: View {
         error = nil
         options = []
         guard let me = app.location.lastLocation?.coordinate else {
-            error = "Dein Standort ist gerade nicht bekannt."
+            error = String(localized: "Dein Standort ist gerade nicht bekannt.")
             return
         }
-        var list = [FairMeetupFinder.Participant(id: myId, name: "Du", coordinate: me,
+        var list = [FairMeetupFinder.Participant(id: myId, name: String(localized: "Du"), coordinate: me,
                                                  mode: modes[myId] ?? app.navigation.travelMode)]
         for item in app.friendsOnMap where selected.contains(item.friend.friendId) {
             let first = item.friend.displayName.split(separator: " ").first.map(String.init) ?? item.friend.displayName
@@ -200,7 +200,7 @@ struct GroupMeetupView: View {
         do {
             options = try await FairMeetupFinder.find(for: list)
         } catch {
-            self.error = (error as? LocalizedError)?.errorDescription ?? "Suche fehlgeschlagen."
+            self.error = (error as? LocalizedError)?.errorDescription ?? String(localized: "Suche fehlgeschlagen.")
         }
     }
 
@@ -208,7 +208,7 @@ struct GroupMeetupView: View {
         sending = option.id
         defer { sending = nil }
         if await app.meetups.proposeGroup(to: Array(selected), place: option.place) {
-            app.show("\(selected.count) Freunde nach \(option.place.name) eingeladen.", isError: false)
+            app.show(String(localized: "\(selected.count) Freunde nach \(option.place.name) eingeladen."), isError: false)
             dismiss()
         }
     }

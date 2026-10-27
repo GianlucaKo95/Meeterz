@@ -62,15 +62,15 @@ final class DepartureReminder {
             let depart = at.addingTimeInterval(-trip.duration - Self.buffer)
             let fire = depart.addingTimeInterval(-Self.lead)
             let minutes = Int((trip.duration / 60).rounded())
-            let extra = trip.chargeStops > 0 ? " inkl. \(trip.chargeStops == 1 ? "1 Ladestopp" : "\(trip.chargeStops) Ladestopps")" : ""
-            let body = "Um \(Meetup.timeText(at)) bei \(meetup.withText) (\(meetup.placeName)) · ca. \(minutes) Min. Fahrt\(extra)"
+            let extra = trip.chargeStops > 0 ? (trip.chargeStops == 1 ? String(localized: " inkl. 1 Ladestopp") : String(localized: " inkl. \(trip.chargeStops) Ladestopps")) : ""
+            let body = String(localized: "Um \(Meetup.timeText(at)) bei \(meetup.withText) (\(meetup.placeName)) · ca. \(minutes) Min. Fahrt\(extra)")
 
             if fire > Date().addingTimeInterval(30) {
-                schedule(meetup, title: "In 10 Min. losfahren", body: body, at: fire)
+                schedule(meetup, title: String(localized: "In 10 Min. losfahren"), body: body, at: fire)
             } else if !firedNow.contains(meetup.id) {
                 // Zu spät für den Vorlauf: sofort melden
                 let late = Date() > depart ? Int((Date().timeIntervalSince(depart) / 60).rounded()) : 0
-                let title = late > 2 ? "Jetzt losfahren – ca. \(late) Min. zu spät" : "Jetzt losfahren"
+                let title = late > 2 ? String(localized: "Jetzt losfahren – ca. \(late) Min. zu spät") : String(localized: "Jetzt losfahren")
                 schedule(meetup, title: title, body: body, at: nil)
                 firedNow.insert(meetup.id)
             }

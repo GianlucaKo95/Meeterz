@@ -1,0 +1,6 @@
+"NSMotionUsageDescription" = "Meeterz detects where you parked when you switch from driving to walking (only if “Remember parked car” is on).";
+"NSMicrophoneUsageDescription" = "Meeterz uses the microphone so you can record short voice clips for your friends (max. 5 seconds).";
+"NSCameraUsageDescription" = "Meeterz uses the camera so you can take a profile photo that only your friends can see.";
+"NSLocationWhenInUseUsageDescription" = "Meeterz shows your location on the map, navigates you and shares your location with friends you have approved.";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "So friends can see you even when Meeterz is running in the background (e.g. while driving).";
+"LocationAccuracyAuthorizationDescription" = "Meeterz needs your precise location for navigation.";

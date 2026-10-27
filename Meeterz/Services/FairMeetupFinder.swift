@@ -30,9 +30,9 @@ enum FairMeetupFinder {
         case tooFewPeople, nothingFound, failed
         var errorDescription: String? {
             switch self {
-            case .tooFewPeople: "Wähle mindestens einen Freund mit sichtbarem Standort."
-            case .nothingFound: "In der Mitte wurde kein passender Ort gefunden."
-            case .failed: "Die Fahrzeiten konnten gerade nicht berechnet werden."
+            case .tooFewPeople: String(localized: "Wähle mindestens einen Freund mit sichtbarem Standort.")
+            case .nothingFound: String(localized: "In der Mitte wurde kein passender Ort gefunden.")
+            case .failed: String(localized: "Die Fahrzeiten konnten gerade nicht berechnet werden.")
             }
         }
     }

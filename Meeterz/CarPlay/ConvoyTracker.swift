@@ -22,13 +22,13 @@ final class ConvoyTracker {
         var summary: String {
             var parts: [String] = []
             if let gap {
-                if abs(gap) < 150 { parts.append("direkt bei dir") }
-                else { parts.append("\(Format.distance(abs(gap))) \(gap > 0 ? "vor" : "hinter") dir") }
+                if abs(gap) < 150 { parts.append(String(localized: "direkt bei dir")) }
+                else { parts.append((gap > 0 ? String(localized: "\(Format.distance(abs(gap))) vor dir") : String(localized: "\(Format.distance(abs(gap))) hinter dir"))) }
             } else {
-                parts.append("andere Strecke")
+                parts.append(String(localized: "andere Strecke"))
             }
-            if stopped { parts.append("hält gerade") }
-            if let arrival { parts.append("an \(Format.time.string(from: arrival))") }
+            if stopped { parts.append(String(localized: "hält gerade")) }
+            if let arrival { parts.append(String(localized: "an \(Format.time.string(from: arrival))")) }
             return parts.joined(separator: " · ")
         }
     }
@@ -77,11 +77,11 @@ final class ConvoyTracker {
             var s = states[m.friend.friendId] ?? State()
             // Zurückgefallen: mehr als 3 km hinter mir (erst wieder melden, wenn er unter 1,5 km aufholt)
             if let gap = m.gap {
-                if gap < -3_000, !s.behindFar { s.behindFar = true; notify("\(m.firstName) ist \(Format.distance(-gap)) hinter dir", m.friend) }
+                if gap < -3_000, !s.behindFar { s.behindFar = true; notify(String(localized: "\(m.firstName) ist \(Format.distance(-gap)) hinter dir"), m.friend) }
                 if gap > -1_500 { s.behindFar = false }
             }
             // Andere Strecke
-            if m.gap == nil, !s.offRoute { s.offRoute = true; notify("\(m.firstName) fährt eine andere Strecke", m.friend) }
+            if m.gap == nil, !s.offRoute { s.offRoute = true; notify(String(localized: "\(m.firstName) fährt eine andere Strecke"), m.friend) }
             if m.gap != nil { s.offRoute = false }
             // Hält an (länger als 2 Minuten)
             if m.stopped {
@@ -89,7 +89,7 @@ final class ConvoyTracker {
                 s.stoppedSince = since
                 if !s.stopAnnounced, Date().timeIntervalSince(since) > 120 {
                     s.stopAnnounced = true
-                    notify("\(m.firstName) hält gerade an", m.friend)
+                    notify(String(localized: "\(m.firstName) hält gerade an"), m.friend)
                 }
             } else {
                 s.stoppedSince = nil
@@ -144,6 +144,6 @@ extension CarPlayController {
             }
             return item
         }
-        return CPListSection(items: items, header: "Konvoi", sectionIndexTitle: nil)
+        return CPListSection(items: items, header: String(localized: "Konvoi"), sectionIndexTitle: nil)
     }
 }

@@ -155,13 +155,13 @@ final class AppModel {
         guard self.profile?.isIncognito == true else { return }
         location.refreshMode()
         await routes.clearMine()
-        show("Inkognito aktiv – Freunde sehen weder deinen Standort noch deine Route.", isError: false)
+        show(String(localized: "Inkognito aktiv – Freunde sehen weder deinen Standort noch deine Route."), isError: false)
     }
 
     func stopIncognito() async {
         await auth.setIncognito(until: nil)
         location.refreshMode()
-        show("Inkognito beendet – du bist für Freunde wieder sichtbar.", isError: false)
+        show(String(localized: "Inkognito beendet – du bist für Freunde wieder sichtbar."), isError: false)
     }
 
     /// Standort teilen für die gewählte Dauer (Profil, Karte, Siri)

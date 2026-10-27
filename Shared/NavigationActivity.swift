@@ -29,15 +29,15 @@ enum ActivityFormat {
     static func distance(_ meters: Double) -> String {
         if meters < 1000 {
             let rounded = meters < 100 ? (meters / 10).rounded() * 10 : (meters / 50).rounded() * 50
-            return "\(Int(max(rounded, 0))) m"
+            return String(localized: "\(Int(max(rounded, 0))) m")
         }
-        return String(format: "%.1f km", meters / 1000).replacingOccurrences(of: ".", with: ",")
+        return (meters / 1000).formatted(.number.precision(.fractionLength(1))) + " km"
     }
 
     static func time(_ date: Date) -> String {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "de_DE")
-        f.dateFormat = "HH:mm"
+        f.locale = .current
+        f.setLocalizedDateFormatFromTemplate("jmm")
         return f.string(from: date)
     }
 }

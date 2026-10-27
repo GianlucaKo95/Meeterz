@@ -37,7 +37,7 @@ struct FriendActionSheet: View {
                             app.mapFocus = .init(friendId: friendId, showRoute: route != nil)
                             dismiss()
                         } label: {
-                            Label(route == nil ? "Auf Karte anzeigen" : "Route anzeigen",
+                            Label(route == nil ? String(localized: "Auf Karte anzeigen") : String(localized: "Route anzeigen"),
                                   systemImage: route == nil ? "mappin.and.ellipse" : "point.topleft.down.to.point.bottomright.curvepath")
                         }
                         .buttonStyle(SecondaryButtonStyle())
@@ -65,7 +65,7 @@ struct FriendActionSheet: View {
 
                         if let route {
                             Button {
-                                go(Place(id: "dest-\(friendId)", name: route.destinationName ?? "Ziel von \(item.friend.displayName)",
+                                go(Place(id: "dest-\(friendId)", name: route.destinationName ?? String(localized: "Ziel von \(item.friend.displayName)"),
                                          address: nil, coordinate: route.destination))
                             } label: {
                                 Label("Zum Ziel von \(item.friend.displayName) navigieren", systemImage: "flag.checkered")
@@ -98,10 +98,10 @@ struct FriendActionSheet: View {
 
     private func status(_ item: AppModel.FriendOnMap, route: FriendRoute?) -> String {
         if let route {
-            let dest = route.destinationName.map { "Nach \($0)" } ?? "Unterwegs"
-            return "\(dest) · an \(Format.time.string(from: route.eta))"
+            let dest = route.destinationName.map { String(localized: "Nach \($0)") } ?? String(localized: "Unterwegs")
+            return String(localized: "\(dest) · an \(Format.time.string(from: route.eta))")
         }
-        return "Standort \(Format.age(item.position.age))"
+        return String(localized: "Standort \(Format.age(item.position.age))")
     }
 
     private func profile(_ item: AppModel.FriendOnMap, route: FriendRoute?) -> some View {
@@ -113,14 +113,14 @@ struct FriendActionSheet: View {
                 Text("@\(item.friend.handle)").foregroundStyle(Theme.muted)
 
                 VStack(spacing: 0) {
-                    row("Standort", Format.age(item.position.age))
-                    if let distance { row("Entfernung", Format.distance(distance)) }
+                    row(String(localized: "Standort"), Format.age(item.position.age))
+                    if let distance { row(String(localized: "Entfernung"), Format.distance(distance)) }
                     if item.position.speed.map({ $0 > 1 }) == true, let speed = item.position.speed {
-                        row("Tempo", "\(Int((speed * 3.6).rounded())) km/h")
+                        row(String(localized: "Tempo"), String(localized: "\(Int((speed * 3.6).rounded())) km/h"))
                     }
                     if let route {
-                        row("Ziel", route.destinationName ?? "Unterwegs")
-                        row("Ankunft", Format.time.string(from: route.eta))
+                        row(String(localized: "Ziel"), route.destinationName ?? String(localized: "Unterwegs"))
+                        row(String(localized: "Ankunft"), Format.time.string(from: route.eta))
                     }
                 }
                 .background(RoundedRectangle(cornerRadius: 14).fill(Theme.panel))
@@ -151,7 +151,7 @@ struct FriendActionSheet: View {
     private func send(_ text: String) {
         Task {
             let n = await app.messages.send(text, to: [friendId])
-            app.show(n > 0 ? "Gesendet" : "Nachricht nicht gesendet", isError: n == 0)
+            app.show(n > 0 ? String(localized: "Gesendet") : String(localized: "Nachricht nicht gesendet"), isError: n == 0)
         }
     }
 

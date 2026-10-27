@@ -73,6 +73,18 @@ log ""
 log "== Warnungen (Auswahl) =="
 grep -E "warning:" build.log | sed 's#/Users/runner/work/[^/]*/[^/]*/##' | awk '!seen[$0]++' | head -30 >> "$REPORT"
 
+# Texte für die Übersetzung exportieren (alle Schlüssel mit genauen Platzhaltern, wie der Compiler sie sieht)
+if [ $RC -eq 0 ] && [ "${EXPORT_L10N:-0}" = "1" ]; then
+  log ""
+  log "== Texte exportieren =="
+  rm -rf build/l10n
+  xcodebuild -exportLocalizations -project Meeterz.xcodeproj -localizationPath build/l10n \
+    -exportLanguage en -derivedDataPath build/dd CODE_SIGNING_ALLOWED=NO \
+    -sdk iphonesimulator > l10n.log 2>&1
+  log "Export Rückgabewert: $?"
+  tail -5 l10n.log | tee -a "$REPORT"
+  find build/l10n -name "*.xliff" | tee -a "$REPORT"
+fi
 if [ $RC -eq 0 ]; then
   ./ci/unittest.sh || RC=22
 fi

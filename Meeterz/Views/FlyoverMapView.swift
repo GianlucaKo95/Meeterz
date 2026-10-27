@@ -92,7 +92,7 @@ struct FlyoverMapView: View {
         }
 
         ForEach(app.meetups.visibleCandidates) { candidate in
-            Annotation("Möglicher Treffpunkt", coordinate: candidate.coordinate) {
+            Annotation(String(localized: "Möglicher Treffpunkt"), coordinate: candidate.coordinate) {
                 Button { plannedMeetup = candidate } label: {
                     Image(systemName: "figure.2.circle.fill")
                         .font(.system(size: 30))
@@ -105,7 +105,7 @@ struct FlyoverMapView: View {
         }
 
         if let spot = app.parking.spot {
-            Annotation("Dein Auto", coordinate: spot.coordinate, anchor: .bottom) {
+            Annotation(String(localized: "Dein Auto"), coordinate: spot.coordinate, anchor: .bottom) {
                 ParkedCarMarker(spot: spot).environment(app)
             }
             .annotationTitles(.hidden)
@@ -148,7 +148,7 @@ struct FlyoverMapView: View {
                     .stroke(FriendPalette.routeColor(for: route.friendId), lineWidth: app.mapFocus?.friendId == route.friendId ? 8 : 6)
             }
             if let focus = app.mapFocus, focus.showRoute, let route = app.routes.friendRoutes[focus.friendId] {
-                Annotation("Ziel", coordinate: route.destination, anchor: .center) {
+                Annotation(String(localized: "Ziel"), coordinate: route.destination, anchor: .center) {
                     Image(systemName: "flag.checkered.circle.fill")
                         .font(.system(size: 34))
                         .foregroundStyle(.black, FriendPalette.routeColor(for: route.friendId))

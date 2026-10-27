@@ -198,7 +198,7 @@ final class CarPlayController: NSObject {
             return item
         }
         func viewItem(_ three: Bool) -> CPListItem {
-            let item = CPListItem(text: three ? "3D" : "2D", detailText: three ? "Geneigt, mit Gebäuden" : "Von oben",
+            let item = CPListItem(text: three ? "3D" : "2D", detailText: three ? String(localized: "Geneigt, mit Gebäuden") : String(localized: "Von oben"),
                                   image: UIImage(systemName: three ? "view.3d" : "map", withConfiguration: config),
                                   accessoryImage: threeD == three ? check : nil, accessoryType: .none)
             item.handler = { [weak self] _, done in
@@ -208,12 +208,12 @@ final class CarPlayController: NSObject {
             }
             return item
         }
-        let template = CPListTemplate(title: "Kartenansicht", sections: [
-            CPListSection(items: [styleItem("satellite", "Satellit", "globe.europe.africa.fill"),
-                                  styleItem("classic", "Klassisch", "map.fill"),
-                                  styleItem("flyover", "Apple Flyover (experimentell)", "building.2.fill")],
-                          header: "Karte", sectionIndexTitle: nil),
-            CPListSection(items: [viewItem(true), viewItem(false)], header: "Ansicht", sectionIndexTitle: nil),
+        let template = CPListTemplate(title: String(localized: "Kartenansicht"), sections: [
+            CPListSection(items: [styleItem("satellite", String(localized: "Satellit"), "globe.europe.africa.fill"),
+                                  styleItem("classic", String(localized: "Klassisch"), "map.fill"),
+                                  styleItem("flyover", String(localized: "Apple Flyover (experimentell)"), "building.2.fill")],
+                          header: String(localized: "Karte"), sectionIndexTitle: nil),
+            CPListSection(items: [viewItem(true), viewItem(false)], header: String(localized: "Ansicht"), sectionIndexTitle: nil),
         ])
         CarPlayUI.shared.push(template, animated: true)
     }
@@ -431,7 +431,7 @@ final class CarPlayController: NSObject {
         let model = AppModel.shared
 
         let meetupItems: [CPListItem] = model.meetups.accepted.map { meetup in
-            let item = CPListItem(text: meetup.placeName, detailText: "Treffen mit \(meetup.incoming ? meetup.withText : meetup.otherName)")
+            let item = CPListItem(text: meetup.placeName, detailText: String(localized: "Treffen mit \(meetup.incoming ? meetup.withText : meetup.otherName)"))
             item.handler = { [weak self] _, completion in
                 self?.preview(to: meetup.coordinate, name: meetup.placeName, completion: completion)
             }
@@ -440,7 +440,7 @@ final class CarPlayController: NSObject {
 
         let friendItems: [CPListItem] = model.friendsOnMap.map { item in
             let route = model.routes.friendRoutes[item.friend.friendId]
-            let detail = route.flatMap { r in r.destinationName.map { "Unterwegs nach \($0)" } } ?? "Zum aktuellen Standort"
+            let detail = route.flatMap { r in r.destinationName.map { String(localized: "Unterwegs nach \($0)") } } ?? String(localized: "Zum aktuellen Standort")
             let listItem = CPListItem(text: item.friend.displayName, detailText: detail)
             listItem.handler = { [weak self] _, completion in
                 self?.preview(to: item.position.coordinate, name: item.friend.displayName, completion: completion)
@@ -449,7 +449,7 @@ final class CarPlayController: NSObject {
         }
 
         let inviteItems: [CPListItem] = model.meetups.incomingPending.map { meetup in
-            let item = CPListItem(text: meetup.placeName, detailText: "Einladung von \(meetup.otherName)")
+            let item = CPListItem(text: meetup.placeName, detailText: String(localized: "Einladung von \(meetup.otherName)"))
             item.handler = { [weak self] _, completion in
                 self?.presentInvite(meetup)
                 completion()
@@ -491,15 +491,15 @@ final class CarPlayController: NSObject {
             }
 
         var sections: [CPListSection] = []
-        if !favoriteItems.isEmpty { sections.append(CPListSection(items: favoriteItems, header: "Favoriten", sectionIndexTitle: nil)) }
-        if !recentItems.isEmpty { sections.append(CPListSection(items: recentItems, header: "Zuletzt", sectionIndexTitle: nil)) }
-        if !inviteItems.isEmpty { sections.append(CPListSection(items: inviteItems, header: "Einladungen", sectionIndexTitle: nil)) }
-        if !meetupItems.isEmpty { sections.append(CPListSection(items: meetupItems, header: "Treffpunkte", sectionIndexTitle: nil)) }
+        if !favoriteItems.isEmpty { sections.append(CPListSection(items: favoriteItems, header: String(localized: "Favoriten"), sectionIndexTitle: nil)) }
+        if !recentItems.isEmpty { sections.append(CPListSection(items: recentItems, header: String(localized: "Zuletzt"), sectionIndexTitle: nil)) }
+        if !inviteItems.isEmpty { sections.append(CPListSection(items: inviteItems, header: String(localized: "Einladungen"), sectionIndexTitle: nil)) }
+        if !meetupItems.isEmpty { sections.append(CPListSection(items: meetupItems, header: String(localized: "Treffpunkte"), sectionIndexTitle: nil)) }
         sections.append(CPListSection(items: friendItems.isEmpty
-            ? [CPListItem(text: "Gerade ist niemand unterwegs", detailText: nil)]
+            ? [CPListItem(text: String(localized: "Gerade ist niemand unterwegs"), detailText: nil)]
             : friendItems,
-            header: "Freunde", sectionIndexTitle: nil))
-        return CPListTemplate(title: "Ziele", sections: sections)
+            header: String(localized: "Freunde"), sectionIndexTitle: nil))
+        return CPListTemplate(title: String(localized: "Ziele"), sections: sections)
     }
 
     private func preview(to coordinate: CLLocationCoordinate2D, name: String, completion: @escaping () -> Void) {
@@ -513,7 +513,7 @@ final class CarPlayController: NSObject {
             return
         }
         let options = NavigationRouteOptions(
-            waypoints: [Waypoint(location: here, name: "Aktueller Standort"), waypoint],
+            waypoints: [Waypoint(location: here, name: String(localized: "Aktueller Standort")), waypoint],
             profileIdentifier: .automobileAvoidingTraffic,
             locale: Locale.navigation,
             distanceUnit: .kilometer)
@@ -720,16 +720,16 @@ final class CarPlayController: NSObject {
     private func presentInvite(_ meetup: Meetup) {
         guard let controller = manager.interfaceController else { return }
         let alert = CPAlertTemplate(
-            titleVariants: ["\(meetup.otherName) lädt dich ein: \(meetup.placeName)", "\(meetup.otherName) lädt dich ein"],
+            titleVariants: [String(localized: "\(meetup.otherName) lädt dich ein: \(meetup.placeName)"), String(localized: "\(meetup.otherName) lädt dich ein")],
             actions: [
-                CPAlertAction(title: "Annehmen", style: .default) { [weak self] _ in
+                CPAlertAction(title: String(localized: "Annehmen"), style: .default) { [weak self] _ in
                     CarPlayUI.shared.dismiss(animated: true)
                     Task { @MainActor in
                         await AppModel.shared.meetups.respond(meetup, accept: true)
                         self?.go(to: meetup.place)
                     }
                 },
-                CPAlertAction(title: "Ablehnen", style: .cancel) { [weak self] _ in
+                CPAlertAction(title: String(localized: "Ablehnen"), style: .cancel) { [weak self] _ in
                     CarPlayUI.shared.dismiss(animated: true)
                     Task { @MainActor in await AppModel.shared.meetups.respond(meetup, accept: false) }
                 },
@@ -757,7 +757,7 @@ final class CarPlayController: NSObject {
         guard let place = inviteDestination else { return }
         let friends = model.friends.accepted
 
-        let stop = CPListItem(text: "Stopp hinzufügen", detailText: nil,
+        let stop = CPListItem(text: String(localized: "Stopp hinzufügen"), detailText: nil,
                               image: UIImage(systemName: "plus.circle.fill"))
         stop.handler = { [weak self] _, done in
             CarPlayUI.shared.pop(animated: false)
@@ -769,7 +769,7 @@ final class CarPlayController: NSObject {
         let partners = meetupPartners(at: place)
         if !partners.ids.isEmpty {
             let names = partners.ids.compactMap { model.friend($0)?.displayName.split(separator: " ").first.map(String.init) }
-            let tell = CPListItem(text: "Kurz Bescheid geben", detailText: "an " + names.joined(separator: ", "),
+            let tell = CPListItem(text: String(localized: "Kurz Bescheid geben"), detailText: String(localized: "an ") + names.joined(separator: ", "),
                                   image: UIImage(systemName: "text.bubble.fill"))
             tell.handler = { [weak self] _, done in
                 self?.showQuickReplies(to: partners.ids, meetupId: partners.meetupId, replace: true)
@@ -783,7 +783,7 @@ final class CarPlayController: NSObject {
 
         var items: [CPListItem] = []
         if friends.count > 1 {
-            let all = CPListItem(text: "Alle einladen", detailText: nil)
+            let all = CPListItem(text: String(localized: "Alle einladen"), detailText: nil)
             all.handler = { [weak self] _, done in
                 self?.sendInvites(to: friends.map(\.friendId), place: place)
                 CarPlayUI.shared.pop(animated: true)
@@ -792,7 +792,7 @@ final class CarPlayController: NSObject {
             items.append(all)
         }
         for friend in friends.prefix(max(0, CPListTemplate.maximumItemCount - items.count - 4)) {
-            let detail = friendArrival(friend.friendId, at: place).map { "Kommt auch hierher · an \(Format.time.string(from: $0))" } ?? "Einladen"
+            let detail = friendArrival(friend.friendId, at: place).map { String(localized: "Kommt auch hierher · an \(Format.time.string(from: $0))") } ?? String(localized: "Einladen")
             let item = CPListItem(text: friend.displayName, detailText: detail)
             item.handler = { [weak self] _, done in
                 self?.sendInvites(to: [friend.friendId], place: place)
@@ -801,7 +801,7 @@ final class CarPlayController: NSObject {
             }
             items.append(item)
         }
-        if !items.isEmpty { sections.append(CPListSection(items: items, header: "Einladen", sectionIndexTitle: nil)) }
+        if !items.isEmpty { sections.append(CPListSection(items: items, header: String(localized: "Einladen"), sectionIndexTitle: nil)) }
         let template = CPListTemplate(title: place.name, sections: sections)
         CarPlayUI.shared.push(template, animated: true)
     }
@@ -810,8 +810,8 @@ final class CarPlayController: NSObject {
         Task { @MainActor in
             var sent = 0
             for id in ids where await AppModel.shared.meetups.propose(to: id, place: place, silent: true) { sent += 1 }
-            showNotice(sent == 0 ? "Einladung fehlgeschlagen."
-                                 : sent == 1 ? "Einladung gesendet." : "\(sent) Einladungen gesendet.")
+            showNotice(sent == 0 ? String(localized: "Einladung fehlgeschlagen.")
+                                 : sent == 1 ? String(localized: "Einladung gesendet.") : String(localized: "\(sent) Einladungen gesendet."))
         }
     }
 
@@ -939,9 +939,9 @@ extension CarPlayController: CarPlayManagerDelegate {
                 for (route, key) in missing {
                     let text: String
                     switch ChargePlanner.plan(route: route, vehicle: vehicle, startPercent: start, settings: settings, sites: ChargeSites.all) {
-                    case .success(let plan) where plan.direct: text = "Ankunft mit \(Int(plan.arrivalPercent.rounded())) %"
-                    case .success(let plan): text = "\(plan.stops.count == 1 ? "1 Ladestopp" : "\(plan.stops.count) Ladestopps") · Ankunft \(Int(plan.arrivalPercent.rounded())) %"
-                    case .failure: text = "Akku reicht nicht – kein Ladeplan"
+                    case .success(let plan) where plan.direct: text = String(localized: "Ankunft mit \(Int(plan.arrivalPercent.rounded())) %")
+                    case .success(let plan): text = (plan.stops.count == 1 ? String(localized: "1 Ladestopp") : String(localized: "\(plan.stops.count) Ladestopps")) + " · " + String(localized: "Ankunft \(Int(plan.arrivalPercent.rounded())) %")
+                    case .failure: text = String(localized: "Akku reicht nicht – kein Ladeplan")
                     }
                     texts[key] = text
                 }
@@ -1003,8 +1003,8 @@ extension CarPlayController: CarPlayManagerDelegate {
             self?.hideLoading()
         }
         return CPNavigationAlert(
-            titleVariants: ["Route konnte nicht berechnet werden", "Keine Route"],
-            subtitleVariants: ["Prüfe die Internetverbindung und versuche es erneut."],
+            titleVariants: [String(localized: "Route konnte nicht berechnet werden"), String(localized: "Keine Route")],
+            subtitleVariants: [String(localized: "Prüfe die Internetverbindung und versuche es erneut.")],
             image: UIImage(systemName: "wifi.exclamationmark"),
             primaryAction: CPAlertAction(title: "OK", style: .cancel) { _ in },
             secondaryAction: nil,
@@ -1121,8 +1121,8 @@ extension CarPlayController: CarPlayManagerDelegate {
         MainActor.assumeIsolated {
             switch activity {
             case .browsing:
-                let search = CPBarButton(title: "Suche") { [weak self] _ in self?.showSearchHub() }
-                let goals = CPBarButton(title: "Ziele") { [weak self] _ in
+                let search = CPBarButton(title: String(localized: "Suche")) { [weak self] _ in self?.showSearchHub() }
+                let goals = CPBarButton(title: String(localized: "Ziele")) { [weak self] _ in
                     guard let self else { return }
                     CarPlayUI.shared.push(destinationsTemplate(), animated: true)
                 }
@@ -1130,12 +1130,12 @@ extension CarPlayController: CarPlayManagerDelegate {
             case .navigating:
                 // „Beenden“ muss immer da sein (der Mapbox-Standardknopf entfällt, sobald wir die Leiste belegen).
                 // Kein dauerhaftes Fenster über der Karte – Einladen und Stopp öffnen sich nur auf Knopfdruck.
-                let end = CPBarButton(title: "Beenden") { [weak self] _ in self?.endNavigationIfNeeded() }
+                let end = CPBarButton(title: String(localized: "Beenden")) { [weak self] _ in self?.endNavigationIfNeeded() }
                 if inviteDestination != nil, !AppModel.shared.friends.accepted.isEmpty || EVSettings.enabled {
-                    let more = CPBarButton(title: "Mehr") { [weak self] _ in self?.showInviteList() }
+                    let more = CPBarButton(title: String(localized: "Mehr")) { [weak self] _ in self?.showInviteList() }
                     return [more, end]
                 }
-                let stop = CPBarButton(title: "Stopp") { [weak self] _ in self?.showSearchHub() }
+                let stop = CPBarButton(title: String(localized: "Stopp")) { [weak self] _ in self?.showSearchHub() }
                 return [stop, end]
             case .previewing, .panningInBrowsingMode, .panningInNavigationMode:
                 return nil
@@ -1230,8 +1230,8 @@ extension CarPlayController: CarPlayManagerDelegate {
 
     private func presentStopArrival(_ waypoint: Waypoint) {
         let stop = ChargingSession.shared.plan?.stops.first { $0.site.coordinate.distance(to: waypoint.coordinate) < 300 }
-        let title = stop.map { "Ladestopp erreicht: \($0.site.title)" } ?? "Angekommen: \(waypoint.name ?? "Zwischenziel")"
-        let subtitle = stop.map { "Laden bis \(Int($0.departurePercent.rounded(.up)) + 1) % · ca. \(Int(($0.chargeTime / 60).rounded())) Min." }
+        let title = stop.map { String(localized: "Ladestopp erreicht: \($0.site.title)") } ?? String(localized: "Angekommen: \(waypoint.name ?? String(localized: "Zwischenziel"))")
+        let subtitle = stop.map { String(localized: "Laden bis \(Int($0.departurePercent.rounded(.up)) + 1) % · ca. \(Int(($0.chargeTime / 60).rounded())) Min.") }
         Diag.log(title)
         Task { @MainActor in
             guard await self.waitForAlertSlot(timeout: 20) else { return }
@@ -1256,8 +1256,8 @@ extension CarPlayController: CPSessionConfigurationDelegate {
 
     static func describe(_ limits: CPLimitableUserInterface) -> String {
         var parts: [String] = []
-        if limits.contains(.keyboard) { parts.append("Tastatur") }
-        if limits.contains(.lists) { parts.append("Listen") }
+        if limits.contains(.keyboard) { parts.append(String(localized: "Tastatur")) }
+        if limits.contains(.lists) { parts.append(String(localized: "Listen")) }
         return parts.isEmpty ? "nichts" : parts.joined(separator: ", ")
     }
 }

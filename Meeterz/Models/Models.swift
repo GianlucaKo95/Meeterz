@@ -158,15 +158,15 @@ struct Meetup: Codable, Identifiable, Equatable {
     /// „mit Lisa“ bzw. „mit Lisa und 2 weiteren“
     var withText: String {
         let others = max(0, (groupSize ?? 2) - 2)
-        return others == 0 ? otherName : "\(otherName) und \(others) weiteren"
+        return others == 0 ? otherName : String(localized: "\(otherName) und \(others) weiteren")
     }
     /// „heute 18:30“, „morgen 9:00“, „Sa., 26.10. 14:00“
     static func timeText(_ date: Date) -> String {
         let cal = Calendar.current
         let time = date.formatted(date: .omitted, time: .shortened)
-        if cal.isDateInToday(date) { return "heute \(time)" }
-        if cal.isDateInTomorrow(date) { return "morgen \(time)" }
-        return date.formatted(.dateTime.weekday(.abbreviated).day().month(.twoDigits).locale(Locale(identifier: "de_DE"))) + " \(time)"
+        if cal.isDateInToday(date) { return String(localized: "heute \(time)") }
+        if cal.isDateInTomorrow(date) { return String(localized: "morgen \(time)") }
+        return date.formatted(.dateTime.weekday(.abbreviated).day().month(.twoDigits).locale(.current)) + " \(time)"
     }
         var isPending: Bool { status == "pending" }
     var isAccepted: Bool { status == "accepted" }

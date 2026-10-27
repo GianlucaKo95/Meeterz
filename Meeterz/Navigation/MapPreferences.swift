@@ -10,9 +10,9 @@ enum MapPreferences {
         var id: String { rawValue }
         var title: String {
             switch self {
-            case .satellite: "Satellit"
-            case .classic: "Klassisch"
-            case .flyover: "Apple Flyover (experimentell)"
+            case .satellite: String(localized: "Satellit")
+            case .classic: String(localized: "Klassisch")
+            case .flyover: String(localized: "Apple Flyover (experimentell)")
             }
         }
     }

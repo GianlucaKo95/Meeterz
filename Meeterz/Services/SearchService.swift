@@ -21,11 +21,11 @@ enum SearchService {
 
         var title: String {
             switch self {
-            case .restArea: "Raststätte"
-            case .coffee: "Café"
-            case .restaurant: "Essen"
-            case .gasStation: "Tanken"
-            case .park: "Park"
+            case .restArea: String(localized: "Raststätte")
+            case .coffee: String(localized: "Café")
+            case .restaurant: String(localized: "Essen")
+            case .gasStation: String(localized: "Tanken")
+            case .park: String(localized: "Park")
             }
         }
     }
@@ -34,8 +34,8 @@ enum SearchService {
         case quotaExceeded, failed
         var errorDescription: String? {
             switch self {
-            case .quotaExceeded: "Das Suchkontingent ist für diesen Monat aufgebraucht."
-            case .failed: "Die Suche ist gerade nicht erreichbar."
+            case .quotaExceeded: String(localized: "Das Suchkontingent ist für diesen Monat aufgebraucht.")
+            case .failed: String(localized: "Die Suche ist gerade nicht erreichbar.")
             }
         }
     }
@@ -89,11 +89,11 @@ enum SearchService {
 
         var title: String {
             switch self {
-            case .gas: "Tanken"
-            case .charging: "Laden"
-            case .parking: "Parken"
-            case .food: "Essen"
-            case .coffee: "Café"
+            case .gas: String(localized: "Tanken")
+            case .charging: String(localized: "Laden")
+            case .parking: String(localized: "Parken")
+            case .food: String(localized: "Essen")
+            case .coffee: String(localized: "Café")
             }
         }
 
@@ -121,11 +121,11 @@ enum SearchService {
         /// Freitextsuche, falls die Kategorie nichts liefert
         fileprivate var fallbackQuery: String {
             switch self {
-            case .gas: "Tankstelle"
-            case .charging: "Ladestation"
-            case .parking: "Parkplatz"
-            case .food: "Restaurant"
-            case .coffee: "Café"
+            case .gas: String(localized: "Tankstelle")
+            case .charging: String(localized: "Ladestation")
+            case .parking: String(localized: "Parkplatz")
+            case .food: String(localized: "Restaurant")
+            case .coffee: String(localized: "Café")
             }
         }
     }

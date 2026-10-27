@@ -114,18 +114,18 @@ extension CarPlayController {
         _ = template
         Diag.log("Mitfahrer-Frage: \(friend.displayName)")
         let first = friend.displayName.split(separator: " ").first.map(String.init) ?? friend.displayName
-        let yes = CPAlertAction(title: "Ja, ausblenden", style: .default) { [weak self] _ in
+        let yes = CPAlertAction(title: String(localized: "Ja, ausblenden"), style: .default) { [weak self] _ in
             Task { @MainActor in
                 Passengers.shared.setRiding(friend.friendId, true)
                 self?.refreshFriendsAfterPassengerChange()
             }
         }
-        let no = CPAlertAction(title: "Nein", style: .cancel) { _ in }
+        let no = CPAlertAction(title: String(localized: "Nein"), style: .cancel) { _ in }
         let image = AvatarRenderer.image(initials: friend.initials, color: FriendPalette.uiColor(for: friend.friendId),
                                          faded: false, photo: AppModel.shared.avatars.image(for: friend.friendId))
         let alert = CPNavigationAlert(
-            titleVariants: ["Fährt \(first) bei dir mit?", "\(first) fährt mit?"],
-            subtitleVariants: ["Dann blende ich \(first) für diese Fahrt aus"],
+            titleVariants: [String(localized: "Fährt \(first) bei dir mit?"), String(localized: "\(first) fährt mit?")],
+            subtitleVariants: [String(localized: "Dann blende ich \(first) für diese Fahrt aus")],
             image: image, primaryAction: yes, secondaryAction: no, duration: 20)
         return CarPlayUI.shared.alert(alert)
     }

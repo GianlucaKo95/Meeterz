@@ -43,9 +43,9 @@ final class FriendsStore {
                 // Sofort von seiner Karte nehmen (er bekommt danach keine Positionen mehr)
                 await AppModel.shared.hub.announceGone(userId: me)
             }
-            AppModel.shared.show(hidden ? "Dein Standort ist für diesen Freund verborgen." : "Dein Standort ist wieder sichtbar.", isError: false)
+            AppModel.shared.show(hidden ? String(localized: "Dein Standort ist für diesen Freund verborgen.") : String(localized: "Dein Standort ist wieder sichtbar."), isError: false)
         } catch {
-            AppModel.shared.show("Das hat nicht geklappt – ist die Datenbank-Änderung eingespielt?")
+            AppModel.shared.show(String(localized: "Das hat nicht geklappt – ist die Datenbank-Änderung eingespielt?"))
         }
     }
 
@@ -94,8 +94,8 @@ final class FriendsStore {
 
     private static func friendly(_ error: Error) -> String {
         let text = error.localizedDescription
-        if text.contains("Nutzer nicht gefunden") { return "Diesen Benutzernamen gibt es nicht." }
-        if text.contains("selbst hinzufügen") { return "Du kannst dich nicht selbst hinzufügen." }
+        if text.contains("Nutzer nicht gefunden") { return String(localized: "Diesen Benutzernamen gibt es nicht.") }
+        if text.contains("selbst hinzufügen") { return String(localized: "Du kannst dich nicht selbst hinzufügen.") }
         return text
     }
 }

@@ -71,7 +71,7 @@ struct SignInView: View {
                           let tokenData = credential.identityToken,
                           let idToken = String(data: tokenData, encoding: .utf8)
                     else {
-                        auth.report("Apple hat kein gültiges Token geliefert.")
+                        auth.report(String(localized: "Apple hat kein gültiges Token geliefert."))
                         return
                     }
                     Task {
@@ -196,7 +196,7 @@ struct OnboardingView: View {
             }
 
             if let msg = auth.errorMessage {
-                Text(msg.contains("duplicate") ? "Dieser Benutzername ist schon vergeben." : msg)
+                Text(msg.contains("duplicate") ? String(localized: "Dieser Benutzername ist schon vergeben.") : msg)
                     .foregroundStyle(Theme.danger).font(.footnote)
             }
 

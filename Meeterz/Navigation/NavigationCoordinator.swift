@@ -94,7 +94,7 @@ final class NavigationCoordinator: NSObject {
     func calculate(to place: Place, via stops: [Place] = [], mode: TravelMode? = nil, silent: Bool = false) async -> NavigationRoutes? {
         let mode = mode ?? effectiveMode
         guard let origin = AppModel.shared.location.lastLocation?.coordinate else {
-            AppModel.shared.show("Dein Standort ist noch nicht bekannt.")
+            AppModel.shared.show(String(localized: "Dein Standort ist noch nicht bekannt."))
             return nil
         }
         isCalculating = true
@@ -114,7 +114,7 @@ final class NavigationCoordinator: NSObject {
             let plain = NavigationRouteOptions(waypoints: waypoints, profileIdentifier: mode.profile,
                                                locale: Locale.navigation, distanceUnit: .kilometer)
             if let routes = try? await core.routingProvider().calculateRoutes(options: plain).value {
-                if !silent { AppModel.shared.show("Nicht möglich \(RoutePreferences.summary ?? "") – Route ohne Einschränkung", isError: false) }
+                if !silent { AppModel.shared.show(String(localized: "Nicht möglich \(RoutePreferences.summary ?? "") – Route ohne Einschränkung"), isError: false) }
                 return routes
             }
             if !silent { AppModel.shared.show(Self.friendly(error)) }
@@ -122,7 +122,7 @@ final class NavigationCoordinator: NSObject {
         } catch {
             if !silent {
                 AppModel.shared.show(mode == .car ? Self.friendly(error)
-                    : "Keine Route \(mode.activity) gefunden – für lange Strecken auf „Auto“ umstellen.")
+                    : String(localized: "Keine Route \(mode.activity) gefunden – für lange Strecken auf „Auto“ umstellen."))
             }
             return nil
         }
@@ -241,7 +241,7 @@ final class NavigationCoordinator: NSObject {
             }
             // Gar nicht anzeigbar: Zustand zurücksetzen, damit die Karte nicht „navigiert“
             self?.stop()
-            AppModel.shared.show("Navigation konnte nicht gestartet werden (\(info)).")
+            AppModel.shared.show(String(localized: "Navigation konnte nicht gestartet werden (\(info))."))
         }
     }
 
@@ -279,7 +279,7 @@ final class NavigationCoordinator: NSObject {
         button.layer.shadowRadius = 4
         button.layer.shadowOffset = CGSize(width: 0, height: 2)
         button.isSelected = MeeterzSpeechSynthesizer.shared.muted
-        button.accessibilityLabel = "Sprachansagen"
+        button.accessibilityLabel = String(localized: "Sprachansagen")
         button.accessibilityValue = button.isSelected ? "aus" : "an"
         button.widthAnchor.constraint(equalToConstant: 50).isActive = true
         button.heightAnchor.constraint(equalToConstant: 50).isActive = true
@@ -333,7 +333,7 @@ final class NavigationCoordinator: NSObject {
         }
         guard let routes = await calculate(to: destination, via: [stop], mode: activeMode) else { return }
         core.tripSession().startActiveGuidance(with: routes, startLegIndex: 0)
-        AppModel.shared.show("\(stop.name) als Zwischenstopp hinzugefügt.", isError: false)
+        AppModel.shared.show(String(localized: "\(stop.name) als Zwischenstopp hinzugefügt."), isError: false)
     }
 
     func stop() {
@@ -455,7 +455,7 @@ final class NavigationCoordinator: NSObject {
             guard late >= 5 * 60 else { continue }
             announcedArrival[meetup.id] = eta
             let minutes = Int((late / 60).rounded())
-            let text = "Ich komme ca. \(minutes) Min. später – neue Ankunft \(Format.time.string(from: eta))"
+            let text = String(localized: "Ich komme ca. \(minutes) Min. später – neue Ankunft \(Format.time.string(from: eta))")
             Task { await AppModel.shared.messages.send(text, to: [meetup.otherId], meetupId: meetup.id, automatic: true) }
             Diag.log("Verspätung gemeldet an \(meetup.otherName): +\(minutes) Min.")
         }
@@ -473,12 +473,12 @@ final class NavigationCoordinator: NSObject {
     private static func friendly(_ error: Error) -> String {
         let text = error.localizedDescription.lowercased()
         if text.contains("429") || text.contains("rate") || text.contains("402") {
-            return "Das Navigationskontingent ist für diesen Monat aufgebraucht."
+            return String(localized: "Das Navigationskontingent ist für diesen Monat aufgebraucht.")
         }
         if text.contains("offline") || text.contains("internet") {
-            return "Keine Internetverbindung – Route kann nicht berechnet werden."
+            return String(localized: "Keine Internetverbindung – Route kann nicht berechnet werden.")
         }
-        return "Route konnte nicht berechnet werden."
+        return String(localized: "Route konnte nicht berechnet werden.")
     }
 }
 
@@ -502,10 +502,10 @@ enum SharingMode: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .fifteenMinutes: "15 Min."
-        case .oneHour: "1 Std."
-        case .untilArrival: "Bis Ankunft"
-        case .always: "Immer"
+        case .fifteenMinutes: String(localized: "15 Min.")
+        case .oneHour: String(localized: "1 Std.")
+        case .untilArrival: String(localized: "Bis Ankunft")
+        case .always: String(localized: "Immer")
         }
     }
 
@@ -522,10 +522,10 @@ enum SharingMode: String, CaseIterable, Identifiable {
     /// Beschreibung für Fußzeile und Siri
     var explanation: String {
         switch self {
-        case .fifteenMinutes: "Das Teilen endet automatisch nach 15 Minuten."
-        case .oneHour: "Das Teilen endet automatisch nach einer Stunde."
-        case .untilArrival: "Das Teilen endet 15 Minuten nach der Ankunft deiner nächsten Fahrt."
-        case .always: "Freunde sehen dich, bis du das Teilen pausierst."
+        case .fifteenMinutes: String(localized: "Das Teilen endet automatisch nach 15 Minuten.")
+        case .oneHour: String(localized: "Das Teilen endet automatisch nach einer Stunde.")
+        case .untilArrival: String(localized: "Das Teilen endet 15 Minuten nach der Ankunft deiner nächsten Fahrt.")
+        case .always: String(localized: "Freunde sehen dich, bis du das Teilen pausierst.")
         }
     }
 

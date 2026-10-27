@@ -70,13 +70,13 @@ extension CarPlayController {
         return await withCheckedContinuation { continuation in
             fasterRouteAnswer = (id, continuation)
             let alert = CPNavigationAlert(
-                titleVariants: ["Schnellere Route – \(minutes) Min. sparen", "\(minutes) Min. schneller"],
-                subtitleVariants: ["Auf die schnellere Route wechseln?"],
+                titleVariants: [String(localized: "Schnellere Route – \(minutes) Min. sparen"), String(localized: "\(minutes) Min. schneller")],
+                subtitleVariants: [String(localized: "Auf die schnellere Route wechseln?")],
                 image: UIImage(systemName: "bolt.horizontal.circle.fill"),
-                primaryAction: CPAlertAction(title: "Wechseln", style: .default) { [weak self] _ in
+                primaryAction: CPAlertAction(title: String(localized: "Wechseln"), style: .default) { [weak self] _ in
                     self?.answerFasterRoute(true)
                 },
-                secondaryAction: CPAlertAction(title: "Behalten", style: .cancel) { [weak self] _ in
+                secondaryAction: CPAlertAction(title: String(localized: "Behalten"), style: .cancel) { [weak self] _ in
                     self?.answerFasterRoute(false)
                 },
                 duration: 12
@@ -117,10 +117,10 @@ extension CarPlayController {
         let name = firstName(friend)
         let title: [String]
         switch moment {
-        case .pass: title = ["\(name) fährt gerade an dir vorbei", "\(name) fährt vorbei"]
-        case .soon: title = ["\(name) ist in ca. 5 Min. am Treffpunkt", "\(name) in 5 Min. da"]
-        case .arrived: title = ["\(name) ist am Treffpunkt angekommen", "\(name) ist da"]
-        case .accepted: title = ["\(name) hat dein Treffen angenommen", "\(name) kommt"]
+        case .pass: title = [String(localized: "\(name) fährt gerade an dir vorbei"), String(localized: "\(name) fährt vorbei")]
+        case .soon: title = [String(localized: "\(name) ist in ca. 5 Min. am Treffpunkt"), String(localized: "\(name) in 5 Min. da")]
+        case .arrived: title = [String(localized: "\(name) ist am Treffpunkt angekommen"), String(localized: "\(name) ist da")]
+        case .accepted: title = [String(localized: "\(name) hat dein Treffen angenommen"), String(localized: "\(name) kommt")]
         }
         showNotice(title: title, image: avatar(friend))
     }
@@ -145,14 +145,14 @@ extension CarPlayController {
                 continue
             }
             friendArrivalAnnounced[friend.friendId] = (eta, Date())
-            var subtitle = "Ankunft \(Format.time.string(from: eta))"
+            var subtitle = String(localized: "Ankunft \(Format.time.string(from: eta))")
             if let myEta {
                 let diff = Int((eta.timeIntervalSince(myEta) / 60).rounded())
-                if diff > 0 { subtitle += " · \(diff) Min. nach dir" }
-                else if diff < 0 { subtitle += " · \(-diff) Min. vor dir" }
-                else { subtitle += " · gleichzeitig mit dir" }
+                if diff > 0 { subtitle += String(localized: " · \(diff) Min. nach dir") }
+                else if diff < 0 { subtitle += String(localized: " · \(-diff) Min. vor dir") }
+                else { subtitle += String(localized: " · gleichzeitig mit dir") }
             }
-            showNotice(title: ["\(firstName(friend)) fährt auch hierher", "\(firstName(friend)) kommt auch"],
+            showNotice(title: [String(localized: "\(firstName(friend)) fährt auch hierher"), String(localized: "\(firstName(friend)) kommt auch")],
                        subtitle: [subtitle], image: avatar(friend), seconds: 8)
             return   // höchstens ein Hinweis auf einmal
         }
@@ -211,20 +211,20 @@ extension CarPlayController {
         let navigating = AppModel.shared.navigation.isNavigating
         let config = UIImage.SymbolConfiguration(pointSize: 24, weight: .semibold)
 
-        let search = CPListItem(text: "Suchen", detailText: "Adresse oder Ort eingeben",
+        let search = CPListItem(text: String(localized: "Suchen"), detailText: String(localized: "Adresse oder Ort eingeben"),
                                 image: UIImage(systemName: "magnifyingglass", withConfiguration: config))
         search.handler = { [weak self] _, done in self?.showSearch(); done() }
 
         let categories: [CPListItem] = SearchService.Stopover.allCases.map { kind in
-            let item = CPListItem(text: kind.title, detailText: navigating ? "Entlang der Route" : "In der Nähe",
+            let item = CPListItem(text: kind.title, detailText: navigating ? String(localized: "Entlang der Route") : String(localized: "In der Nähe"),
                                   image: UIImage(systemName: kind.symbol, withConfiguration: config))
             item.handler = { [weak self] _, done in self?.showStopovers(kind); done() }
             return item
         }
 
-        let template = CPListTemplate(title: navigating ? "Stopp hinzufügen" : "Suche", sections: [
+        let template = CPListTemplate(title: navigating ? String(localized: "Stopp hinzufügen") : String(localized: "Suche"), sections: [
             CPListSection(items: [search]),
-            CPListSection(items: categories, header: navigating ? "Unterwegs" : "Kategorien", sectionIndexTitle: nil),
+            CPListSection(items: categories, header: navigating ? String(localized: "Unterwegs") : String(localized: "Kategorien"), sectionIndexTitle: nil),
         ])
         CarPlayUI.shared.push(template, animated: true)
     }
@@ -232,14 +232,14 @@ extension CarPlayController {
     /// `limitMeters`: nur Orte bis zu diesem Punkt der Route (z. B. so weit der Akku reicht)
     func showStopovers(_ kind: SearchService.Stopover, title: String? = nil, limitMeters: Double? = nil) {
         let template = CPListTemplate(title: title ?? kind.title, sections: [
-            CPListSection(items: [CPListItem(text: "Wird gesucht …", detailText: nil)]),
+            CPListSection(items: [CPListItem(text: String(localized: "Wird gesucht …"), detailText: nil)]),
         ])
         CarPlayUI.shared.push(template, animated: true)
 
         Task { @MainActor [weak self, weak template] in
             guard let self, let template else { return }
             guard let me = AppModel.shared.location.lastLocation?.coordinate else {
-                template.updateSections([CPListSection(items: [CPListItem(text: "Standort unbekannt", detailText: nil)])])
+                template.updateSections([CPListSection(items: [CPListItem(text: String(localized: "Standort unbekannt"), detailText: nil)])])
                 return
             }
             var ahead = AppModel.shared.navigation.isNavigating ? routeAhead(from: me) : nil
@@ -257,7 +257,7 @@ extension CarPlayController {
                 places = try await SearchService.stopovers(kind, near: me, route: ahead)
             } catch {
                 template.updateSections([CPListSection(items: [
-                    CPListItem(text: (error as? LocalizedError)?.errorDescription ?? "Die Suche ist gerade nicht erreichbar.", detailText: nil),
+                    CPListItem(text: (error as? LocalizedError)?.errorDescription ?? String(localized: "Die Suche ist gerade nicht erreichbar."), detailText: nil),
                 ])])
                 return
             }
@@ -275,14 +275,14 @@ extension CarPlayController {
             let items: [CPListItem] = places.prefix(CPListTemplate.maximumItemCount).map { place in
                 var away = Format.distance(place.coordinate.distance(to: me))
                 if let route = ahead, let i = Self.nearestIndex(of: place.coordinate, in: route), i < along.count {
-                    away = "nach \(Format.distance(along[i]))"   // entlang der Route
+                    away = String(localized: "nach \(Format.distance(along[i]))")   // entlang der Route
                 }
                 let item = CPListItem(text: place.name, detailText: [away, place.address].compactMap { $0 }.joined(separator: " · "))
                 item.handler = { [weak self] _, done in self?.select(place, done: done) }
                 return item
             }
             template.updateSections([CPListSection(items: items.isEmpty
-                ? [CPListItem(text: "Nichts gefunden", detailText: nil)] : items)])
+                ? [CPListItem(text: String(localized: "Nichts gefunden"), detailText: nil)] : items)])
         }
     }
 
@@ -331,13 +331,13 @@ extension CarPlayController {
                     let sent = await AppModel.shared.messages.send(text, to: ids, meetupId: meetupId)
                     CarPlayUI.shared.popToRoot(animated: true)
                     done()
-                    self?.showNotice(title: [sent > 0 ? "Gesendet: „\(text)“" : "Nachricht nicht gesendet"])
+                    self?.showNotice(title: [sent > 0 ? String(localized: "Gesendet: „\(text)“") : String(localized: "Nachricht nicht gesendet")])
                 }
             }
             return item
         }
         let names = ids.compactMap { AppModel.shared.friend($0)?.displayName.split(separator: " ").first.map(String.init) }
-        let template = CPListTemplate(title: names.isEmpty ? "Bescheid geben" : "An " + names.joined(separator: ", "),
+        let template = CPListTemplate(title: names.isEmpty ? String(localized: "Bescheid geben") : String(localized: "An ") + names.joined(separator: ", "),
                                       sections: [CPListSection(items: items)])
         CarPlayUI.shared.push(template, animated: true)
     }
@@ -349,12 +349,12 @@ extension CarPlayController {
             AvatarRenderer.image(initials: f.initials, color: FriendPalette.uiColor(for: f.friendId),
                                  faded: false, photo: AppModel.shared.avatars.image(for: f.friendId))
         }
-        let reply = CPAlertAction(title: "Antworten", style: .default) { [weak self] _ in
+        let reply = CPAlertAction(title: String(localized: "Antworten"), style: .default) { [weak self] _ in
             Task { @MainActor in self?.showQuickReplies(to: [m.otherId], meetupId: m.meetupId) }
         }
         let ok = CPAlertAction(title: "OK", style: .cancel) { _ in }
         let alert = CPNavigationAlert(titleVariants: ["\(m.firstName): \(m.body)", m.firstName],
-                                      subtitleVariants: m.automatic ? ["Automatische Nachricht"] : nil,
+                                      subtitleVariants: m.automatic ? [String(localized: "Automatische Nachricht")] : nil,
                                       image: image, primaryAction: reply, secondaryAction: ok, duration: 12)
         CarPlayUI.shared.alert(alert)
     }
@@ -412,13 +412,13 @@ extension CarPlayController {
     }
 
     private func presentRangeWarning(usable: Double) {
-        let show = CPAlertAction(title: "Ladesäulen", style: .default) { [weak self] _ in
+        let show = CPAlertAction(title: String(localized: "Ladesäulen"), style: .default) { [weak self] _ in
             Task { @MainActor in self?.showChargingStops() }
         }
-        let later = CPAlertAction(title: "Später", style: .cancel) { _ in }
+        let later = CPAlertAction(title: String(localized: "Später"), style: .cancel) { _ in }
         let alert = CPNavigationAlert(
-            titleVariants: ["Ladestopp nötig – Akku reicht ca. \(Format.distance(usable))", "Ladestopp nötig"],
-            subtitleVariants: ["Bei \(Int(EVSettings.chargePercent)) % Akku und 10 % Reserve"],
+            titleVariants: [String(localized: "Ladestopp nötig – Akku reicht ca. \(Format.distance(usable))"), String(localized: "Ladestopp nötig")],
+            subtitleVariants: [String(localized: "Bei \(Int(EVSettings.chargePercent)) % Akku und 10 % Reserve")],
             image: UIImage(systemName: "bolt.car.fill"),
             primaryAction: show, secondaryAction: later, duration: 15)
         CarPlayUI.shared.alert(alert)
@@ -431,7 +431,7 @@ extension CarPlayController {
               let result = await EVSettings.plan(for: routes.mainRoute.route) else { return }
         // Kurz nach dem Start hält CarPlay Hinweise noch zurück (Ansichtswechsel) – warten statt den Plan zu verlieren
         guard await waitForAlertSlot() else {
-            if case .success(let plan) = result, !plan.direct { AppModel.shared.show("Ladeplan: \(plan.summary)", isError: false) }
+            if case .success(let plan) = result, !plan.direct { AppModel.shared.show(String(localized: "Ladeplan: \(plan.summary)"), isError: false) }
             return
         }
         switch result {
@@ -439,24 +439,24 @@ extension CarPlayController {
             Diag.log("Ladeplan: \(plan.summary)")
         case .success(let plan):
             Diag.log("Ladeplan: \(plan.summary) – \(plan.stops.map { "\($0.site.title) \(Int($0.arrivalPercent))→\(Int($0.departurePercent)) %" })")
-            let take = CPAlertAction(title: "Übernehmen", style: .default) { _ in
+            let take = CPAlertAction(title: String(localized: "Übernehmen"), style: .default) { _ in
                 Task { @MainActor in await Self.adoptChargePlan(plan) }
             }
-            let later = CPAlertAction(title: "Nein", style: .cancel) { _ in }
+            let later = CPAlertAction(title: String(localized: "Nein"), style: .cancel) { _ in }
             let first = plan.stops[0]
             let alert = CPNavigationAlert(
-                titleVariants: [plan.summary, "\(plan.stops.count) Ladestopp\(plan.stops.count == 1 ? "" : "s") nötig"],
-                subtitleVariants: ["Erster: \(first.site.title), \(first.site.powerKnown ? "\(Int(first.site.maxKW)) kW, " : "")\(Int((first.chargeTime / 60).rounded())) Min."],
+                titleVariants: [plan.summary, (plan.stops.count == 1 ? String(localized: "1 Ladestopp nötig") : String(localized: "\(plan.stops.count) Ladestopps nötig"))],
+                subtitleVariants: [String(localized: "Erster: \(first.site.title)") + ", " + (first.site.powerKnown ? "\(Int(first.site.maxKW)) kW, " : "") + String(localized: "\(Int((first.chargeTime / 60).rounded())) Min.")],
                 image: UIImage(systemName: "bolt.car.fill"),
                 primaryAction: take, secondaryAction: later, duration: 20)
             CarPlayUI.shared.alert(alert)
         case .failure(.unreachable(let km)):
-            let ok = CPAlertAction(title: "Ladesäulen", style: .default) { [weak self] _ in
+            let ok = CPAlertAction(title: String(localized: "Ladesäulen"), style: .default) { [weak self] _ in
                 Task { @MainActor in self?.showChargingStops() }
             }
             let alert = CPNavigationAlert(
-                titleVariants: ["Kein Ladeplan möglich – Reichweite ca. \(Int(km)) km"],
-                subtitleVariants: ["Keine passenden Schnelllader mit Leistungsangabe entlang der Route"],
+                titleVariants: [String(localized: "Kein Ladeplan möglich – Reichweite ca. \(Int(km)) km")],
+                subtitleVariants: [String(localized: "Keine passenden Schnelllader mit Leistungsangabe entlang der Route")],
                 image: UIImage(systemName: "bolt.car.fill"),
                 primaryAction: ok, secondaryAction: nil, duration: 15)
             CarPlayUI.shared.alert(alert)
@@ -479,14 +479,14 @@ extension CarPlayController {
     /// Ladesäulen entlang der Route, bis zu dem Punkt, an dem der Akku knapp wird
     func showChargingStops() {
         let limit = EVSettings.usableMeters
-        showStopovers(.charging, title: "Laden bis km \(Int(limit / 1000))", limitMeters: limit > 1_000 ? limit : nil)
+        showStopovers(.charging, title: String(localized: "Laden bis km \(Int(limit / 1000))"), limitMeters: limit > 1_000 ? limit : nil)
     }
 
     /// Akkustand beim Losfahren einstellen (CarPlay-Liste)
     func showChargePicker() {
         let items: [CPListItem] = stride(from: 100, through: 10, by: -10).map { value in
             let current = Int(EVSettings.chargePercent) == value
-            let item = CPListItem(text: "\(value) %", detailText: current ? "aktuell" : "ca. \(Int(EVSettings.rangeKm * Double(value) / 100)) km")
+            let item = CPListItem(text: "\(value) %", detailText: current ? "aktuell" : String(localized: "ca. \(Int(EVSettings.rangeKm * Double(value) / 100)) km"))
             item.handler = { [weak self] _, done in
                 EVSettings.chargePercent = Double(value)
                 CarPlayUI.shared.pop(animated: true)
@@ -495,20 +495,20 @@ extension CarPlayController {
             }
             return item
         }
-        CarPlayUI.shared.push(CPListTemplate(title: "Akkustand", sections: [CPListSection(items: items)]), animated: true)
+        CarPlayUI.shared.push(CPListTemplate(title: String(localized: "Akkustand"), sections: [CPListSection(items: items)]), animated: true)
     }
 
     /// Abschnitt „E-Auto“ für die „Mehr“-Liste
     func chargeSection() -> CPListSection? {
         guard EVSettings.enabled else { return nil }
         let live = AppModel.shared.vehicle.liveSoc != nil
-        let battery = CPListItem(text: live ? "Akku (live): \(Int(EVSettings.chargePercent)) %" : "Akku beim Losfahren: \(Int(EVSettings.chargePercent)) %",
-                                 detailText: "Reicht ca. \(Format.distance(EVSettings.usableMeters))",
+        let battery = CPListItem(text: live ? String(localized: "Akku (live): \(Int(EVSettings.chargePercent)) %") : String(localized: "Akku beim Losfahren: \(Int(EVSettings.chargePercent)) %"),
+                                 detailText: String(localized: "Reicht ca. \(Format.distance(EVSettings.usableMeters))"),
                                  image: UIImage(systemName: "battery.75percent"))
         // Mit Live-Daten gibt es nichts einzustellen
         battery.handler = { [weak self] _, done in if !live { self?.showChargePicker() }; done() }
         let stops = CPListItem(text: "Ladesäulen entlang der Route", detailText: nil, image: UIImage(systemName: "bolt.car.fill"))
         stops.handler = { [weak self] _, done in self?.showChargingStops(); done() }
-        return CPListSection(items: [battery, stops], header: "E-Auto", sectionIndexTitle: nil)
+        return CPListSection(items: [battery, stops], header: String(localized: "E-Auto"), sectionIndexTitle: nil)
     }
 }

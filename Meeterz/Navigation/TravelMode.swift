@@ -9,9 +9,9 @@ enum TravelMode: String, CaseIterable, Identifiable, Codable {
 
     var title: String {
         switch self {
-        case .car: "Auto"
-        case .bike: "Fahrrad"
-        case .walk: "Zu Fuß"
+        case .car: String(localized: "Auto")
+        case .bike: String(localized: "Fahrrad")
+        case .walk: String(localized: "Zu Fuß")
         }
     }
 
@@ -34,9 +34,9 @@ enum TravelMode: String, CaseIterable, Identifiable, Codable {
     /// „Max ist zu Fuß unterwegs“
     var activity: String {
         switch self {
-        case .car: "mit dem Auto"
-        case .bike: "mit dem Fahrrad"
-        case .walk: "zu Fuß"
+        case .car: String(localized: "mit dem Auto")
+        case .bike: String(localized: "mit dem Fahrrad")
+        case .walk: String(localized: "zu Fuß")
         }
     }
 
@@ -54,6 +54,7 @@ enum TravelMode: String, CaseIterable, Identifiable, Codable {
 }
 
 extension Locale {
-    /// Sprache der Navigationsansagen: folgt der Systemsprache des iPhones (Rückfall Deutsch).
-    static var navigation: Locale { Locale(identifier: Locale.preferredLanguages.first ?? "de_DE") }
+    /// Sprache der App (eine der unterstützten Sprachen; sonst Englisch) – für Navigationsansagen und Stimme.
+    /// Wie die Oberfläche: folgt der Systemsprache, außer sie wird nicht unterstützt.
+    static var navigation: Locale { Locale(identifier: Bundle.main.preferredLocalizations.first ?? "en") }
 }

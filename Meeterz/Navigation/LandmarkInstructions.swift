@@ -13,6 +13,8 @@ enum LandmarkInstructions {
 
     /// Neue Ansage oder nil (dann Mapbox' Text)
     static func rewrite(_ instruction: SpokenInstruction, legProgress: RouteLegProgress) -> String? {
+        // Die Formulierung („An der nächsten Ampel …“) gibt es bisher nur auf Deutsch – sonst bleibt Mapbox' Ansage
+        guard VoiceCatalog.language == "de" else { return nil }
         let stepProgress = legProgress.currentStepProgress
         guard let upcoming = legProgress.upcomingStep,
               [.turn, .reachEnd].contains(upcoming.maneuverType),

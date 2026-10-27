@@ -38,7 +38,7 @@ struct ChargeSite: Hashable {
 
 /// Gebündelte Schnelllader (tools/build_chargers.py, CC BY 4.0 Bundesnetzagentur.de)
 enum ChargeSites {
-    static let attribution = "Ladesäulen: Bundesnetzagentur.de (CC BY 4.0), data.gouv.fr IRVE, Bundesamt für Energie, Open Charge Map (CC BY 4.0), © OpenStreetMap-Mitwirkende (ODbL)"
+    static let attribution = String(localized: "Ladesäulen: Bundesnetzagentur.de (CC BY 4.0), data.gouv.fr IRVE, Bundesamt für Energie, Open Charge Map (CC BY 4.0), © OpenStreetMap-Mitwirkende (ODbL)")
 
     /// Deutschland (BNetzA) und Nachbarländer/Italien (IRVE, BFE, OpenStreetMap)
     static let all: [ChargeSite] = load("chargers-de") + load("chargers-eu")
@@ -78,7 +78,7 @@ struct ChargeAvailability: Hashable {
     var full: Bool { total > 0 && free == 0 && occupied > 0 }
     var allOutOfService: Bool { total > 0 && outOfService == total }
     /// „2 von 4 frei“
-    var text: String { allOutOfService ? "außer Betrieb" : "\(free) von \(total) frei" }
+    var text: String { allOutOfService ? String(localized: "außer Betrieb") : String(localized: "\(free) von \(total) frei") }
 }
 
 /// Ladeplanung wie bei ABRP: Ankunft mit Ziel-Akkustand, Stopps so gewählt, dass Fahr- plus Ladezeit minimal ist.
@@ -115,7 +115,7 @@ enum ChargePlanner {
         var id: ChargeSite { site }
         var place: Place {
             Place(id: "charge-\(site.coordinate.latitude),\(site.coordinate.longitude)", name: site.title,
-                  address: "\(site.operatorName) · \(site.powerKnown ? "\(Int(site.maxKW)) kW" : "Leistung unbekannt")", coordinate: site.coordinate, symbol: "bolt.car.fill")
+                  address: "\(site.operatorName) · " + (site.powerKnown ? "\(Int(site.maxKW)) kW" : String(localized: "Leistung unbekannt")), coordinate: site.coordinate, symbol: "bolt.car.fill")
         }
     }
 
@@ -130,9 +130,9 @@ enum ChargePlanner {
 
         /// „2 Ladestopps · 35 Min. laden · Ankunft mit 21 %“
         var summary: String {
-            if direct { return "Kein Ladestopp nötig · Ankunft mit \(Int(arrivalPercent.rounded())) %" }
-            let n = stops.count == 1 ? "1 Ladestopp" : "\(stops.count) Ladestopps"
-            return "\(n) · \(Int((totalChargeTime / 60).rounded())) Min. laden · Ankunft mit \(Int(arrivalPercent.rounded())) %"
+            if direct { return String(localized: "Kein Ladestopp nötig · Ankunft mit \(Int(arrivalPercent.rounded())) %") }
+            let n = stops.count == 1 ? String(localized: "1 Ladestopp") : String(localized: "\(stops.count) Ladestopps")
+            return String(localized: "\(n) · \(Int((totalChargeTime / 60).rounded())) Min. laden · Ankunft mit \(Int(arrivalPercent.rounded())) %")
         }
     }
 

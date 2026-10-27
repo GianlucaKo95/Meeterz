@@ -25,13 +25,13 @@ final class NavigationLiveActivityController {
         }
         self.destination = destination
         let state = NavigationActivityAttributes.ContentState(
-            symbol: "arrow.up", instruction: "Route wird gestartet", distanceToTurn: 0,
+            symbol: "arrow.up", instruction: String(localized: "Route wird gestartet"), distanceToTurn: 0,
             arrival: AppModel.shared.navigation.eta ?? Date().addingTimeInterval(AppModel.shared.navigation.remaining?.duration ?? 0),
             remainingDistance: AppModel.shared.navigation.remaining?.distance ?? 0,
             friendName: nil, friendInitials: nil, friendArrival: nil, friendHere: false)
         do {
             activity = try Activity.request(
-                attributes: NavigationActivityAttributes(destinationName: destinationName ?? "Ziel"),
+                attributes: NavigationActivityAttributes(destinationName: destinationName ?? String(localized: "Ziel")),
                 content: ActivityContent(state: state, staleDate: nil),
                 pushType: nil)
             lastState = state

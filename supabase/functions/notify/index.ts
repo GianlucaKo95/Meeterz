@@ -156,7 +156,7 @@ function message(kind: Kind, name: string, place?: string, text?: string) {
     case "message":
       return text
         ? { title: name, body: text }   // Nachricht selbst wird nicht übersetzt
-        : { title: name, "loc-key": "push.message.empty", "loc-args": [] };
+        : { title: name, body: "Neue Nachricht", "loc-key": "push.message.empty", "loc-args": [] };
     case "friend_request":
       return { title: "Neue Freundschaftsanfrage", body: `${name} möchte dich bei Meeterz hinzufügen.`, ...loc("friend_request", [name]) };
     case "friend_accepted":

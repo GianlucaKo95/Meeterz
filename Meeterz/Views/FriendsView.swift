@@ -570,7 +570,7 @@ struct VoicePickerView: View {
                     VoicePreview.shared.play(VoiceCatalog.best)
                 }
             } footer: {
-                Text("Nimmt immer die beste auf dem iPhone installierte deutsche Stimme.")
+                Text("Nimmt immer die beste auf dem iPhone installierte Stimme deiner Sprache.")
             }
             .listRowBackground(Theme.panel)
 

@@ -2853,52 +2853,6 @@
         }
       }
     },
-    "%lld Kilometern": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld Kilometern"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld kilometers"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld kilomètres"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld kilómetros"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld quilómetros"
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld kilometre"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld chilometri"
-          }
-        }
-      }
-    },
     "%lld Ladestopps": {
       "localizations": {
         "de": {
@@ -2987,52 +2941,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld soste di ricarica necessarie"
-          }
-        }
-      }
-    },
-    "%lld Metern": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld Metern"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld meters"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld mètres"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld metros"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld metros"
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld metre"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld metri"
           }
         }
       }
@@ -27643,52 +27551,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "proprio vicino a te"
-          }
-        }
-      }
-    },
-    "einem Kilometer": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "einem Kilometer"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "one kilometer"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "un kilomètre"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "un kilómetro"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "um quilómetro"
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "bir kilometre"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "un chilometro"
           }
         }
       }

@@ -1,6 +1,6 @@
 # App Store Connect – Unterlagen für Meeterz
 
-Alle Texte zum Einfügen in App Store Connect. Stand: Oktober 2026.
+Alle Texte zum Einfügen in App Store Connect. Die Produktseite gibt es zusätzlich in Englisch, Französisch, Spanisch, Portugiesisch, Türkisch und Italienisch (Kopierhilfe als Artifact). Stand: Oktober 2026.
 
 ## App-Informationen
 
@@ -17,35 +17,41 @@ Alle Texte zum Einfügen in App Store Connect. Stand: Oktober 2026.
 
 ## Werbetext (max. 170 Zeichen)
 
-Sieh, wo deine Freunde unterwegs sind, und triff sie auf dem Weg: Live-Standort, Navigation und Treffpunkte, wo sich eure Routen kreuzen.
+Sieh, wo deine Freunde unterwegs sind, und triff sie auf dem Weg: Live-Standort, Navigation mit Verkehr, CarPlay und Treffpunkte, wo sich eure Routen kreuzen.
 
 ## Beschreibung
 
-Meeterz zeigt dir, wo deine Freunde gerade unterwegs sind, und hilft euch, euch unterwegs zu treffen.
+Meeterz zeigt dir, wo deine Freunde gerade unterwegs sind, und hilft euch, euch auf dem Weg zu treffen.
 
 **Live-Karte**
-Sieh angenommene Freunde in Echtzeit auf einer Satellitenkarte mit 3D-Gebäuden oder auf der klassischen Karte.
-
-**Navigation mit Verkehrslage**
-Routen mit aktueller Verkehrslage, Sprachansagen in deiner Sprache, Meldungen zu Unfällen und Sperrungen voraus und Unterstützung für Zwischenstopps. Zuhause, Arbeit und eigene Favoriten sind mit einem Tipp erreichbar.
+Sieh angenommene Freunde in Echtzeit, auf der Satellitenkarte mit 3D-Gebäuden oder auf der klassischen Karte. Du siehst, wohin sie fahren und wann sie ankommen.
 
 **Treffpunkte auf dem Weg**
-Meeterz erkennt, wo sich eure Routen kreuzen, und schlägt einen Treffpunkt vor. Lade Freunde zu einem Ziel ein und sieh, wann sie ankommen.
+Meeterz erkennt, wo sich eure Routen kreuzen, und schlägt einen Treffpunkt vor. Für Gruppen findet die App einen fairen Ort, an dem niemand viel weiter fahren muss als die anderen. Lade Freunde mit Uhrzeit ein: Meeterz erinnert alle rechtzeitig ans Losfahren, mit aktuellem Verkehr.
+
+**Navigation mit Verkehrslage**
+Routen mit aktueller Verkehrslage, Sprachansagen in deiner Sprache, Warnungen vor Unfällen, Staus und Sperrungen sowie Zwischenstopps. Zuhause, Arbeit und eigene Favoriten erreichst du mit einem Tipp. Maut, Autobahnen und Fähren lassen sich meiden.
+
+**CarPlay**
+Karte, Navigation, Freunde und Treffpunkte direkt im Auto, auch im CarPlay-Dashboard. Kurznachrichten wie „Bin gleich da“ schickst du mit einem Tipp.
+
+**Für E-Autos**
+Wähle dein Fahrzeug, und Meeterz plant Ladestopps entlang der Route, mit Schnellladern in Deutschland, den Nachbarländern und Italien.
 
 **Du entscheidest, was geteilt wird**
-Standort nur für Freunde, die du angenommen hast. Teilen pausieren, zeitlich begrenzen oder mit dem Inkognito-Modus kurz unsichtbar werden – Freunde erfahren das nicht. Routen lassen sich dauerhaft verbergen.
+Dein Standort ist nur für Freunde sichtbar, die du angenommen hast. Teilen pausieren, zeitlich begrenzen oder mit dem Inkognito-Modus unsichtbar werden, ohne dass Freunde es erfahren. Routen lassen sich dauerhaft verbergen.
 
 **Sound-Pack**
 Nimm kurze Sprachschnipsel auf, die deine Freunde hören, wenn du an ihnen vorbeifährst oder ankommst.
 
-**Akkuschonend**
-Volle Ortungsgenauigkeit nur bei offener Karte, Navigation und CarPlay, sonst sparsam im Hintergrund.
+**Siri und Kurzbefehle**
+„Mit Meeterz nach Zuhause“ oder „Wo ist Anna in Meeterz“: Navigation und Teilen gehen auch per Sprache.
 
-Anmeldung mit Apple. Keine Werbung, kein Tracking.
+Akkuschonend im Hintergrund. Anmeldung mit Apple. Keine Werbung, kein Tracking.
 
 ## Keywords (max. 100 Zeichen)
 
-freunde,standort,teilen,navigation,treffen,karte,live,route,carplay,unterwegs,konvoi
+freunde,standort,teilen,navigation,treffpunkt,karte,route,carplay,unterwegs,konvoi,e-auto,laden
 
 ## Datenschutz-Angaben („App-Datenschutz“)
 

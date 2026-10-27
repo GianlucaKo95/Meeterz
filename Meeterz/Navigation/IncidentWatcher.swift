@@ -91,13 +91,14 @@ final class IncidentWatcher {
         }
     }
 
-    /// „3 Kilometern“, „800 Metern“ – für die Ansage
+    /// „3 Kilometern“, „800 Metern“ – Dativ für die deutsche Ansage („Achtung, Stau in 3 Kilometern“).
+    /// Nur für Deutsch; andere Sprachen nehmen Format.distance – daher bewusst nicht übersetzt.
     nonisolated static func spoken(_ meters: Double) -> String {
         if meters >= 1_000 {
             let km = (meters / 1_000).rounded()
-            return km == 1 ? String(localized: "einem Kilometer") : String(localized: "\(Int(km)) Kilometern")
+            return km == 1 ? "einem Kilometer" : "\(Int(km)) Kilometern"
         }
-        return String(localized: "\(Int((meters / 100).rounded()) * 100) Metern")
+        return "\(Int((meters / 100).rounded()) * 100) Metern"
     }
 }
 

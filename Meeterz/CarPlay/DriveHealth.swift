@@ -30,11 +30,14 @@ final class DriveHealth {
         generation += 1
         lastProgress = nil
         progressSub = navigationProvider.mapboxNavigation.navigation().routeProgress
-            .compactMap { $0?.routeProgress }
+            .map { $0?.routeProgress != nil }
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
+            .sink { [weak self] hasRoute in
                 MainActor.assumeIsolated {
                     guard let self else { return }
+                    // Route beendet: Lücke bis zur nächsten Route ist kein Aussetzer. Vorher zählte sie mit
+                    // („Routenfortschritt wieder da nach 224 s“ = Zeit zwischen zwei Routen, Fahrt am 27.10.).
+                    guard hasRoute, AppModel.shared.navigation.isNavigating else { self.lastProgress = nil; return }
                     if let last = self.lastProgress {
                         let gap = Date().timeIntervalSince(last)
                         self.maxProgressGap = max(self.maxProgressGap, gap)

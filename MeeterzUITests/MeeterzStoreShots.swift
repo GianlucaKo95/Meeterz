@@ -52,7 +52,9 @@ final class MeeterzStoreShots: MeeterzTestBase {
         let end = Date().addingTimeInterval(timeout)
         while Date() < end {
             let all = query.matching(NSPredicate(format: "label CONTAINS %@", text)).allElementsBoundByIndex
-            if let e = all.first(where: { $0.exists && $0.isHittable && $0.frame.minY > 100 }) { return e }
+            // Das zuletzt eingeblendete Fenster steht in der Hierarchie hinten – also von hinten suchen
+            // (das Unterwegs-Fenster darunter enthält dieselben Namen)
+            if let e = all.last(where: { $0.exists && $0.isHittable && $0.frame.minY > 100 }) { return e }
             pause(1)
         }
         return nil
@@ -188,7 +190,10 @@ final class MeeterzStoreShots: MeeterzTestBase {
         need(app.buttons[L("Ziel suchen")], "karte", timeout: 60)
         for _ in 0..<3 { tapMap(); pause(3); dismissSystemDialogs() }
         chrome()
-        pause(25)    // Freunde, Routen und Kartenkacheln laden (erster Start im Simulator ist langsam)
+        // Warten, bis die erfundenen Freunde auf der Karte stehen (erster Lauf im frischen Simulator ist langsam)
+        let firstFriend = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", sc.friends[0].name)).firstMatch
+        if !firstFriend.waitForExistence(timeout: 90) { shot("FEHLT-freunde-auf-karte") }
+        pause(15)    // Routen und Kartenkacheln laden
         // Hinweis „Nur bei offener App sichtbar“ (Simulator hat keine „Immer“-Freigabe) ausblenden
         for label in ["Hinweis ausblenden", "Hinweis schließen"] {
             let x = app.buttons[L(label)]

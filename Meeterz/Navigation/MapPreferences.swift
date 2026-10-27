@@ -29,7 +29,10 @@ enum MapPreferences {
         d.set(style != .classic, forKey: "map.satellite")          // iPhone-Navigation: Luftbild oder Karte
         d.set(style == .flyover, forKey: "carplay.flyover")
         if style != .flyover { d.set(style == .satellite, forKey: "carplay.satellite") }
-        CarPlayController.shared.applyMapStyle()                      // gilt sofort, auch während der Fahrt
+        // Gilt sofort überall: CarPlay (freie Fahrt und Navigation, Dashboard) und iPhone-Navigation.
+        // Die iPhone-Karte außerhalb der Navigation liest „map.style“ direkt (@AppStorage).
+        CarPlayController.shared.applyMapStyle()
+        AppModel.shared.navigation.applyMapStyle()
     }
 
     static func setThreeD(_ on: Bool) {

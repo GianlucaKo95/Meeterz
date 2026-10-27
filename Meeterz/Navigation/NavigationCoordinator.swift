@@ -336,6 +336,16 @@ final class NavigationCoordinator: NSObject {
         AppModel.shared.show(String(localized: "\(stop.name) als Zwischenstopp hinzugefügt."), isError: false)
     }
 
+    /// Kartenart während der iPhone-Navigation sofort übernehmen (vorher galt sie erst bei der nächsten Route)
+    func applyMapStyle() {
+        guard let controller = phoneController else { return }
+        controller.styleManager.styles = NavigationStyles.phone()
+        if let mapView = controller.navigationMapView?.mapView {
+            Satellite3DBuildings.install(on: mapView, satellite: UserDefaults.standard.object(forKey: "map.satellite") as? Bool ?? true)
+        }
+        Diag.log("iPhone-Navigation: Kartenstil gewechselt (Satellit=\(UserDefaults.standard.bool(forKey: "map.satellite")))")
+    }
+
     /// Ohne Route, ohne CarPlay und im Hintergrund braucht niemand Mapbox' Ortung – anhalten spart Akku
     func idleIfUnused() {
         guard !isNavigating, !CarPlayController.shared.isConnected,

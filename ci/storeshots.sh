@@ -41,7 +41,7 @@ print(best)')
   # Erst installieren, dann Rechte geben – für eine noch nicht installierte App greift „privacy grant“ nicht
   APP=$(ls -d build/dd/Build/Products/*-iphonesimulator/Meeterz.app 2>/dev/null | head -1)
   xcrun simctl install "$UDID" "$APP" >> "$REPORT" 2>&1 || log "!! Installation fehlgeschlagen ($APP)"
-  for S in location-always location notifications; do
+  for S in location-always location; do
     xcrun simctl privacy "$UDID" grant $S de.koeven.meeterz >> "$REPORT" 2>&1 || true
   done
   xcrun simctl status_bar "$UDID" override --time "9:41" --dataNetwork wifi --wifiMode active --wifiBars 3 \

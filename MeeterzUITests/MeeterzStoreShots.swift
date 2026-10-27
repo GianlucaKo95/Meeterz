@@ -56,27 +56,38 @@ final class MeeterzStoreShots: MeeterzTestBase {
 
     // MARK: Erfundene Route über echte Straßen
 
+    /// Punkte wie in der App: [lng, lat, eta_unix] – die Ankunftszeit je Punkt braucht das Backend (route_points)
     func route(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D) -> (points: [[Double]], seconds: Double) {
         let req = MKDirections.Request()
         req.source = MKMapItem(placemark: MKPlacemark(coordinate: from))
         req.destination = MKMapItem(placemark: MKPlacemark(coordinate: to))
         req.transportType = .automobile
-        var result: ([[Double]], Double) = ([[from.longitude, from.latitude], [to.longitude, to.latitude]], 900)
+        var coords = [from, to]
+        var seconds = 900.0
         let done = expectation(description: "Route")
         MKDirections(request: req).calculate { resp, _ in
             if let r = resp?.routes.first {
                 let n = r.polyline.pointCount
-                var coords = [CLLocationCoordinate2D](repeating: .init(), count: n)
-                r.polyline.getCoordinates(&coords, range: NSRange(location: 0, length: n))
+                var all = [CLLocationCoordinate2D](repeating: .init(), count: n)
+                r.polyline.getCoordinates(&all, range: NSRange(location: 0, length: n))
                 let step = max(1, n / 120)
-                var pts = stride(from: 0, to: n, by: step).map { [coords[$0].longitude, coords[$0].latitude] }
-                if let last = coords.last { pts.append([last.longitude, last.latitude]) }
-                result = (pts, r.expectedTravelTime)
+                coords = stride(from: 0, to: n, by: step).map { all[$0] }
+                if let last = all.last { coords.append(last) }
+                seconds = r.expectedTravelTime
             }
             done.fulfill()
         }
         wait(for: [done], timeout: 30)
-        return result
+        // Ankunft je Punkt anteilig zur Strecke
+        var dist = [0.0]
+        for i in 1..<coords.count {
+            let a = CLLocation(latitude: coords[i - 1].latitude, longitude: coords[i - 1].longitude)
+            let b = CLLocation(latitude: coords[i].latitude, longitude: coords[i].longitude)
+            dist.append(dist[i - 1] + a.distance(from: b))
+        }
+        let total = max(dist.last ?? 1, 1), now = Date().timeIntervalSince1970
+        let points = coords.enumerated().map { i, c in [c.longitude, c.latitude, now + seconds * dist[i] / total] }
+        return (points, seconds)
     }
 
     // MARK: Schauplätze je Sprache (Simulator-Standort setzt ci/storeshots.sh auf `center`)
@@ -149,8 +160,9 @@ final class MeeterzStoreShots: MeeterzTestBase {
             r.rpc("update_last_location", ["lat": p.at.latitude, "lng": p.at.longitude, "heading": p.heading, "speed": p.driving ? 9.0 : 0.0])
             if p.driving {
                 let rt = route(from: p.at, to: sc.dest)
-                r.rpc("set_active_route", ["destination_name": sc.destName, "dest_lat": sc.dest.latitude, "dest_lng": sc.dest.longitude,
+                let (status, body) = r.rpc("set_active_route", ["destination_name": sc.destName, "dest_lat": sc.dest.latitude, "dest_lng": sc.dest.longitude,
                                           "eta_unix": Date().timeIntervalSince1970 + rt.seconds, "points": rt.points, "travel_mode": "car"])
+                XCTAssertLessThan(status, 300, "Route von \(p.name) teilen: \(String(describing: body))")
             }
         }
 
@@ -166,7 +178,20 @@ final class MeeterzStoreShots: MeeterzTestBase {
         for _ in 0..<3 { tapMap(); pause(3); dismissSystemDialogs() }
         chrome()
         pause(15)    // Freunde und Routen laden
+        // Hinweis „Nur bei offener App sichtbar“ (Simulator hat keine „Immer“-Freigabe) ausblenden
+        for label in ["Hinweis ausblenden", "Hinweis schließen"] {
+            let x = app.buttons[L(label)]
+            if x.exists { x.tap(); pause(1) }
+        }
         centerOnMe()
+        pause(4)
+        // Herauszoomen, bis die Freunde und ihre Routen ins Bild passen (~2 km Umkreis)
+        let map = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.55))
+        for _ in 0..<2 {
+            app.pinch(withScale: 0.35, velocity: -1.5)
+            pause(2)
+        }
+        _ = map
         pause(10)    // Kacheln zeichnen
 
         // 1 Karte mit Freunden unterwegs
@@ -183,7 +208,8 @@ final class MeeterzStoreShots: MeeterzTestBase {
         if group.waitForExistence(timeout: 10) {
             group.tap(); pause(2)
             for name in sc.friends.map(\.name) {
-                let row = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", name)).firstMatch
+                // Nur Zeilen der Liste – nicht die gleichnamigen Freunde-Marker auf der Karte dahinter
+                let row = app.collectionViews.buttons.containing(NSPredicate(format: "label CONTAINS %@", name)).firstMatch
                 if row.waitForExistence(timeout: 5) { row.tap(); pause(1) }
             }
             let find = app.buttons[L("Fairen Treffpunkt finden")]

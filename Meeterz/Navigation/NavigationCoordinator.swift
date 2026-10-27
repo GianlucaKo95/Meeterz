@@ -343,7 +343,16 @@ final class NavigationCoordinator: NSObject {
         overlay = nil
         recenterTask?.cancel()
         recenterTask = nil
-        navigationProvider.tripSession().setToIdle()
+        // Ursache für „Karte bleibt nach dem Beenden komplett stehen“ (CarPlay, 27.10.): setToIdle schaltet Mapbox' Ortung
+        // ganz ab. Die CarPlay-Karte bekommt ihren Standort aber genau daher – Pfeil und Kamera froren ein, bis die
+        // nächste Route startete. Mit CarPlay darum in die freie Fahrt wechseln (Karte folgt weiter), sonst wie bisher
+        // ganz anhalten (spart auf dem iPhone Akku).
+        if CarPlayController.shared.isConnected {
+            navigationProvider.tripSession().startFreeDrive()
+            Diag.log("Navigation beendet – Mapbox in freier Fahrt (CarPlay verbunden)")
+        } else {
+            navigationProvider.tripSession().setToIdle()
+        }
         phoneController?.dismiss(animated: true)
         phoneController = nil
         isNavigating = false

@@ -59,7 +59,7 @@ struct MainView: View {
                 if let banner = app.banner {
                     BannerView(banner: banner) { app.dismissBanner() }
                 }
-                if ChargingSession.shared.active {
+                if ChargingSession.shared.active, !ChargingSession.shared.hiddenOnPhone {
                     ChargingCard()
                 }
             }

@@ -23,6 +23,8 @@ final class ChargingSession {
     /// Bis hierhin laden (Ladeplan-Stopp, sonst 80 %)
     var targetPercent: Double = 80
     private var announcedDone = false
+    /// Karte auf dem iPhone weggeklickt – bis zum nächsten Ladevorgang nicht mehr zeigen (CarPlay-Anzeige bleibt)
+    var hiddenOnPhone = false
 
     /// Zuletzt übernommener Ladeplan – liefert das Ladeziel an der jeweiligen Säule
     @ObservationIgnored var plan: ChargePlanner.Plan?
@@ -56,6 +58,7 @@ final class ChargingSession {
                 startPercent = soc
                 startedAt = Date()
                 announcedDone = false
+                hiddenOnPhone = false
                 targetPercent = target(here: AppModel.shared.location.lastLocation?.coordinate)
                 Diag.log("Laden erkannt: \(Int(soc)) % → Ziel \(Int(targetPercent)) %")
             }
@@ -229,6 +232,13 @@ struct ChargingCard: View {
                     .frame(width: 36, height: 36)
             }
             .accessibilityLabel("Ladeziel ändern")
+            Button {
+                withAnimation { session.hiddenOnPhone = true }
+            } label: {
+                Image(systemName: "xmark").font(.system(size: 14, weight: .bold)).foregroundStyle(Theme.muted)
+                    .frame(width: 32, height: 36)
+            }
+            .accessibilityLabel("Ladeanzeige schließen")
         }
         .padding(12)
         .background(RoundedRectangle(cornerRadius: 16).fill(Theme.panel))

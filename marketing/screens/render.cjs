@@ -15,10 +15,10 @@ const SIZES = { pro: [402, 874], promax: [440, 956] };
       const files = fs.readdirSync(path.join(src, size, lang));
       let i = 0;
       for (const name of texts.order) {
-        const f = files.find(x => x.endsWith(`-${name}.png`));
+        const f = files.find(x => x.endsWith(`-${name}.png`) || x.endsWith(`-${name}.jpg`));
         if (!f) { console.log(`fehlt: ${size}/${lang}/${name}`); continue; }
         i += 1;
-        const shot = "data:image/png;base64," + fs.readFileSync(path.join(src, size, lang, f)).toString("base64");
+        const shot = (f.endsWith(".jpg") ? "data:image/jpeg;base64," : "data:image/png;base64,") + fs.readFileSync(path.join(src, size, lang, f)).toString("base64");
         await page.addInitScript(([t, s]) => { window.TITLE = t; window.SHOT = s; }, [texts[lang][name], shot]);
         await page.goto(pathToFileURL(path.join(__dirname, "frame.html")).href);
         await page.evaluate(() => Promise.all([document.fonts.ready, new Promise(r => { const im = document.getElementById("shot"); im.complete ? r() : im.onload = r; })]));

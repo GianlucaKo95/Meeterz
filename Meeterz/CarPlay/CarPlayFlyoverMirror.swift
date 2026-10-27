@@ -235,6 +235,15 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
         }
     }
 
+    /// Sekunden seit dem letzten Bild der Flyover-Karte (nur sinnvoll, solange sie eingehängt ist)
+    var frameAge: TimeInterval { mapView.window == nil ? 0 : Date().timeIntervalSince(lastTick) }
+
+    /// Für das Protokoll: wem folgt Flyover, hängt es im Fenster, läuft der Bildtakt
+    var diagnostics: String {
+        let target = mapbox.map { $0.window != nil ? "Karte im Fenster" : "Karte ohne Fenster" } ?? "keine Karte"
+        return "folgt \(target), eigenes Fenster: \(mapView.window != nil), letztes Bild vor \(String(format: "%.1f", Date().timeIntervalSince(lastTick))) s"
+    }
+
     func detach() {
         linkTask?.cancel()
         tickWatch?.invalidate()

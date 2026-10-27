@@ -343,6 +343,7 @@ final class CarPlayController: NSObject {
         AppModel.shared.parking.clear()                  // wieder im Auto: alter Parkplatz ist erledigt
         watchInvites()
         startSpeedWarning()
+        startFreezeWatch()
         // Läuft auf dem iPhone schon eine Navigation, übernimmt CarPlay sie
         if AppModel.shared.navigation.isNavigating {
             beginNavigationIfConnected()
@@ -365,6 +366,7 @@ final class CarPlayController: NSObject {
         manager.delegate = nil
         session = nil
         stopSpeedWarning()
+        freezeWatch?.invalidate(); freezeWatch = nil
         isConnected = false
         // Ausgestiegen: Parkplatz merken (vor setCarPlay, das den Standort in den Sparmodus schaltet)
         if let here = AppModel.shared.location.lastLocation { AppModel.shared.parking.save(here) }
@@ -667,6 +669,47 @@ final class CarPlayController: NSObject {
               let template = manager.interfaceController?.topTemplate as? CPMapTemplate else { return }
         pauseAlerts()   // Mapbox tauscht gleich die Ansicht
         manager.mapTemplate(template, startedTrip: trip, using: choice)
+    }
+
+    // MARK: Stehende Karte erkennen (nur Protokoll)
+
+    /// „Die große Karte bleibt komplett stehen“ ist kein Hänger des Hauptthreads (den meldet der StallLogger) –
+    /// die App läuft weiter, nur die Kamera der sichtbaren Karte bewegt sich nicht. Darum hier gesondert: fährt das
+    /// Auto (> 15 km/h), die Kamera steht aber seit 15 s still, einmal festhalten, welcher Zustand vorliegt.
+    private var freezeWatch: Timer?
+    private var frozenSince: Date?
+    private var lastCameraKey = ""
+    private var freezeLogged = false
+
+    private func startFreezeWatch() {
+        freezeWatch?.invalidate()
+        freezeWatch = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.checkFreeze() }
+        }
+    }
+
+    private func checkFreeze() {
+        guard let loc = AppModel.shared.location.lastLocation, loc.speed > 4,
+              Date().timeIntervalSince(loc.timestamp) < 10,
+              let map = displayedMap, let cam = map.mapView.mapboxMap?.cameraState else {
+            frozenSince = nil; freezeLogged = false; return
+        }
+        let key = String(format: "%.5f,%.5f,%.1f", cam.center.latitude, cam.center.longitude, cam.bearing)
+        // Auch eine Flyover-Karte ohne neue Bilder zählt als stehend, selbst wenn Mapbox darunter weiterläuft
+        let flyoverStale = (flyover?.frameAge ?? 0) > 5
+        if key != lastCameraKey && !flyoverStale {
+            lastCameraKey = key
+            if freezeLogged { Diag.log("CarPlay: Karte bewegt sich wieder") }
+            frozenSince = nil; freezeLogged = false
+            return
+        }
+        let since = frozenSince ?? Date()
+        frozenSince = since
+        guard !freezeLogged, Date().timeIntervalSince(since) > 15 else { return }
+        freezeLogged = true
+        let isNav = map === navMap
+        let camState = map.navigationCamera.currentCameraState
+        Diag.log("CarPlay: Karte steht seit \(Int(Date().timeIntervalSince(since))) s bei \(Int(loc.speed * 3.6)) km/h – sichtbar: \(isNav ? "Navigation" : "Browse"), Aktivität: \(String(describing: manager.currentActivity)), Kamera: \(camState), Navigation läuft (App): \(AppModel.shared.navigation.isNavigating), Flyover: \(flyover?.diagnostics ?? "aus")")
     }
 
     // MARK: Kartenstil sofort wechseln (Einstellung „Karte in CarPlay“)
@@ -1188,6 +1231,7 @@ extension CarPlayController: CarPlayManagerDelegate {
 
     nonisolated func carPlayManagerDidEndNavigation(_ carPlayManager: CarPlayManager, byCanceling canceled: Bool) {
         MainActor.assumeIsolated {
+            Diag.log("CarPlay: Navigation beendet (\(canceled ? "abgebrochen" : "am Ziel")), Browse-Karte im Fenster: \(carPlayManager.carPlayMapViewController?.navigationMapView?.window != nil), Flyover: \(flyover != nil)")
             pauseAlerts()
             navigationEndedAt = Date()
             navigationOverlay?.stop()

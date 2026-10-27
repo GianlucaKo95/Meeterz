@@ -54,13 +54,44 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing, AVSpeechSynt
     private let subject = PassthroughSubject<VoiceInstructionEvent, Never>()
     var voiceInstructions: AnyPublisher<VoiceInstructionEvent, Never> { subject.eraseToAnyPublisher() }
 
-    /// Stumm geschaltet – bleibt über Fahrten und Neustarts erhalten
-    static let mutedKey = "nav.muted"
-    var muted = UserDefaults.standard.bool(forKey: MeeterzSpeechSynthesizer.mutedKey) {
-        didSet {
-            UserDefaults.standard.set(muted, forKey: Self.mutedKey)
-            if muted, isSpeaking { interruptSpeaking() }
+    /// Wie Apple Karten: alle Ansagen, nur Warnungen (Unfall, Stau, Sperrung) oder keine – bleibt über Fahrten erhalten
+    enum VoiceMode: String, CaseIterable {
+        case all, alertsOnly, off
+        var next: VoiceMode { self == .all ? .alertsOnly : (self == .alertsOnly ? .off : .all) }
+        var symbol: String {
+            switch self {
+            case .all: "speaker.wave.2.fill"
+            case .alertsOnly: "speaker.badge.exclamationmark.fill"
+            case .off: "speaker.slash.fill"
+            }
         }
+        var title: String {
+            switch self {
+            case .all: String(localized: "Alle Ansagen")
+            case .alertsOnly: String(localized: "Nur Warnungen")
+            case .off: String(localized: "Ansagen aus")
+            }
+        }
+    }
+    static let modeKey = "nav.voiceMode"
+    static let mutedKey = "nav.muted"   // alter Schalter (an/aus) – beim ersten Lesen übernommen
+
+    var mode: VoiceMode = {
+        let d = UserDefaults.standard
+        if let raw = d.string(forKey: MeeterzSpeechSynthesizer.modeKey), let m = VoiceMode(rawValue: raw) { return m }
+        return d.bool(forKey: MeeterzSpeechSynthesizer.mutedKey) ? .off : .all
+    }() {
+        didSet {
+            UserDefaults.standard.set(mode.rawValue, forKey: Self.modeKey)
+            if mode != .all, isSpeaking { interruptSpeaking() }
+            Diag.log("Sprachansagen: \(mode.rawValue)")
+        }
+    }
+
+    /// Für Mapbox (SpeechSynthesizing): stumm = keine Abbiegeansagen
+    var muted: Bool {
+        get { mode != .all }
+        set { mode = newValue ? .off : .all }
     }
     var volume: VolumeMode = .system
     var isSpeaking: Bool { synthesizer.isSpeaking }
@@ -120,7 +151,7 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing, AVSpeechSynt
     /// Eigene Ansage (z. B. „Unfall in 3 Kilometern“) in der Navigationsstimme. Unterbricht keine Abbiegeansage,
     /// sondern reiht sich dahinter ein.
     func announce(_ text: String) {
-        guard !muted, !inCall else { return }
+        guard mode != .off, !inCall else { return }
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = VoiceCatalog.selected ?? AVSpeechSynthesisVoice(language: VoiceCatalog.language)
         speakAfterWarmup(utterance)

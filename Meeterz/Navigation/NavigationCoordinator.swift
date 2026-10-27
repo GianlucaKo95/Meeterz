@@ -270,25 +270,26 @@ final class NavigationCoordinator: NSObject {
     private static func installMuteButton(on controller: NavigationViewController) {
         guard var buttons = controller.floatingButtons, buttons.count >= 2 else { return }
         let button = UIButton(type: .system)
-        button.setImage(UIImage(systemName: "speaker.wave.2.fill"), for: .normal)
-        button.setImage(UIImage(systemName: "speaker.slash.fill"), for: .selected)
+        func refresh() {
+            let mode = MeeterzSpeechSynthesizer.shared.mode
+            button.setImage(UIImage(systemName: mode.symbol), for: .normal)
+            button.accessibilityValue = mode.title
+        }
+        refresh()
         button.tintColor = .label
         button.backgroundColor = .systemBackground
         button.layer.cornerRadius = 25
         button.layer.shadowOpacity = 0.25
         button.layer.shadowRadius = 4
         button.layer.shadowOffset = CGSize(width: 0, height: 2)
-        button.isSelected = MeeterzSpeechSynthesizer.shared.muted
         button.accessibilityLabel = String(localized: "Sprachansagen")
-        button.accessibilityValue = button.isSelected ? "aus" : "an"
         button.widthAnchor.constraint(equalToConstant: 50).isActive = true
         button.heightAnchor.constraint(equalToConstant: 50).isActive = true
-        button.addAction(UIAction { [weak button] _ in
-            guard let button else { return }
-            let muted = !MeeterzSpeechSynthesizer.shared.muted
-            MeeterzSpeechSynthesizer.shared.muted = muted
-            button.isSelected = muted
-            button.accessibilityValue = muted ? "aus" : "an"
+        // Wie Apple Karten: Tippen schaltet durch Alle Ansagen → Nur Warnungen → Aus
+        button.addAction(UIAction { _ in
+            MeeterzSpeechSynthesizer.shared.mode = MeeterzSpeechSynthesizer.shared.mode.next
+            refresh()
+            CarPlayController.shared.refreshVoiceButton()
         }, for: .touchUpInside)
         buttons[1] = button
         controller.floatingButtons = buttons

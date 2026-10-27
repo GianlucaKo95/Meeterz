@@ -680,6 +680,34 @@ final class CarPlayController: NSObject {
         manager.mapTemplate(template, startedTrip: trip, using: choice)
     }
 
+    // MARK: Sprachansagen (Alle / Nur Warnungen / Aus)
+
+    private func voiceButton() -> CPBarButton {
+        let mode = MeeterzSpeechSynthesizer.shared.mode
+        let image = UIImage(systemName: mode.symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 20, weight: .semibold))
+            ?? UIImage()
+        return CPBarButton(image: image) { [weak self] _ in
+            MeeterzSpeechSynthesizer.shared.mode = MeeterzSpeechSynthesizer.shared.mode.next
+            self?.refreshVoiceButton()
+            self?.showVoiceModeHint()
+        }
+    }
+
+    /// Knopf nach einem Wechsel (auch vom iPhone aus) neu setzen – CarPlay-Knöpfe lassen sich nicht ändern
+    func refreshVoiceButton() {
+        guard isConnected, manager.currentActivity == .navigating,
+              let template = manager.interfaceController?.rootTemplate as? CPMapTemplate else { return }
+        template.leadingNavigationBarButtons = [voiceButton()]
+    }
+
+    /// Kurz anzeigen, was jetzt gilt (das Symbol allein ist im Auto schwer zu lesen)
+    private func showVoiceModeHint() {
+        let alert = CPNavigationAlert(titleVariants: [MeeterzSpeechSynthesizer.shared.mode.title], subtitleVariants: [],
+                                      image: nil, primaryAction: CPAlertAction(title: String(localized: "OK"), style: .default) { _ in },
+                                      secondaryAction: nil, duration: 2)
+        _ = CarPlayUI.shared.alert(alert, replacing: true)   // über die Warteschlange (nie zwei Hinweise gleichzeitig)
+    }
+
     // MARK: Stehende Karte erkennen (nur Protokoll)
 
     /// „Die große Karte bleibt komplett stehen“ ist kein Hänger des Hauptthreads (den meldet der StallLogger) –
@@ -1160,10 +1188,15 @@ extension CarPlayController: CarPlayManagerDelegate {
         cameraState: NavigationCameraState
     ) -> [CPBarButton]? {
         MainActor.assumeIsolated {
-            // Links bleibt die Leiste frei (2D/3D sitzt rechts bei den Kartenknöpfen);
-            // während der Fahrt Mapbox-Standard (Stummschalten, Alternativen)
-            let buttons: [CPBarButton]? = activity == .browsing ? [] : nil
-            return buttons
+            // Links bleibt die Leiste frei (2D/3D sitzt rechts bei den Kartenknöpfen).
+            // Während der Fahrt nur der Ansagen-Knopf wie bei Apple Karten. Mapbox' „Alternativen“ entfällt: nach dem
+            // Start gab es dort praktisch nie eine Auswahl („Keine alternativen Routen“); schnellere Routen bieten wir
+            // ohnehin per Hinweis an.
+            switch activity {
+            case .browsing: return []
+            case .navigating: return [voiceButton()]
+            default: return nil
+            }
         }
     }
 

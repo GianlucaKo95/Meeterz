@@ -37,6 +37,6 @@ jobs:
           git checkout --orphan l10n-export
           git rm -rf . >/dev/null 2>&1 || true
           cp "$RUNNER_TEMP"/out/* . 2>/dev/null || true
-          git add -A
+          git add -f report.txt *.xliff 2>/dev/null || git add -f report.txt
           git commit -q -m "Texte ${GITHUB_SHA}" || true
           git push -f origin l10n-export

@@ -11,7 +11,7 @@ Alle Texte zum Einfügen in App Store Connect. Stand: Oktober 2026.
 | Kategorie | Navigation (sekundär: Soziale Netzwerke) |
 | Altersfreigabe | 4+ (keine nutzergenerierten öffentlichen Inhalte; Inhalte nur zwischen angenommenen Freunden) |
 | Support-URL | https://gianlucako95.github.io/Meeterz/ |
-| Datenschutz-URL | https://gianlucako95.github.io/Meeterz/datenschutz |
+| Datenschutz-URL | https://gianlucako95.github.io/Meeterz/datenschutz (Englisch: …/Meeterz/privacy) |
 | Bundle-ID | de.koeven.meeterz |
 | Copyright | © 2026 Gianluca Köhni |
 
@@ -27,7 +27,7 @@ Meeterz zeigt dir, wo deine Freunde gerade unterwegs sind, und hilft euch, euch 
 Sieh angenommene Freunde in Echtzeit auf einer Satellitenkarte mit 3D-Gebäuden oder auf der klassischen Karte.
 
 **Navigation mit Verkehrslage**
-Routen mit aktueller Verkehrslage, Sprachansagen auf Deutsch und Unterstützung für Zwischenstopps. Zuhause, Arbeit und eigene Favoriten sind mit einem Tipp erreichbar.
+Routen mit aktueller Verkehrslage, Sprachansagen in deiner Sprache, Meldungen zu Unfällen und Sperrungen voraus und Unterstützung für Zwischenstopps. Zuhause, Arbeit und eigene Favoriten sind mit einem Tipp erreichbar.
 
 **Treffpunkte auf dem Weg**
 Meeterz erkennt, wo sich eure Routen kreuzen, und schlägt einen Treffpunkt vor. Lade Freunde zu einem Ziel ein und sieh, wann sie ankommen.
@@ -60,8 +60,10 @@ Keine Daten werden zum Tracking verwendet. Alle Daten sind mit dem Nutzer verkn�
 | Audiodaten (Sound-Pack, max. 5 s) | ja | ja | nein |
 | Nutzer-ID | ja | ja | nein |
 | Gerätekennung (Push-Token) | ja | ja | nein |
+| Textnachrichten (Kurznachrichten an Freunde) | ja | ja | nein |
+| Sonstige Daten (Fahrzeugdaten, optional bei eingerichteter E-Auto-Verbindung) | ja | ja | nein |
 
-Entspricht der Datei `Meeterz/PrivacyInfo.xcprivacy`. Favoriten liegen nur auf dem Gerät und werden nicht erfasst.
+Entspricht der Datei `Meeterz/PrivacyInfo.xcprivacy`. Favoriten, geparktes Auto, gelernter Verbrauch und das Diagnoseprotokoll liegen nur auf dem Gerät und werden nicht erfasst.
 
 ## Exportvorschriften
 

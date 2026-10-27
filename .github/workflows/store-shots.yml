@@ -1,6 +1,6 @@
 name: App-Store-Screenshots
 # Erfundene Daten (Testkonten Alex, Anna, Ben, Mia in Köln), echte App-Bildschirme, alle Sprachen, 6,3" und 6,9".
-# Ergebnis im Branch "store-shots-raw" (Rohaufnahmen als JPEG, Bericht, Logs).
+# Ergebnis im Branch "store-shots-raw-<sprachen>" (Rohaufnahmen als JPEG, Bericht, Logs) – so laufen Sprachen parallel.
 on:
   workflow_dispatch:
     inputs:
@@ -40,7 +40,7 @@ jobs:
           SHOT_LANGS: ${{ inputs.langs }}
           SHOT_SIZES: ${{ inputs.sizes }}
         run: ./ci/build.sh
-      - name: Ergebnis veröffentlichen (Branch store-shots-raw)
+      - name: Ergebnis veröffentlichen (Branch store-shots-raw-<sprachen>)
         if: always()
         run: |
           mkdir -p "$RUNNER_TEMP/out"
@@ -57,12 +57,13 @@ jobs:
           for f in shots-*.log; do [ -f "$f" ] && tail -80 "$f" > "$RUNNER_TEMP/out/$f"; done
           git config user.name "meeterz-ci"
           git config user.email "ci@users.noreply.github.com"
-          git checkout --orphan store-shots-raw
+          BR="store-shots-raw-$(echo "${{ inputs.langs }}" | tr ' ' '-')"
+          git checkout --orphan "$BR"
           git rm -rf . >/dev/null 2>&1 || true
           cp -R "$RUNNER_TEMP"/out/. .
           git add raw diag report.txt shots-*.log 2>/dev/null || git add diag report.txt
           git commit -q -m "Rohaufnahmen ${GITHUB_SHA}"
-          git push -f origin store-shots-raw
+          git push -f origin "$BR"
       - name: Ergebnis
         if: steps.build.outcome == 'failure'
         run: exit 1

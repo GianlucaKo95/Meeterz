@@ -1,6 +1,6 @@
 name: App-Store-Screenshots
 # Erfundene Daten (Testkonten Alex, Anna, Ben, Mia in Köln), echte App-Bildschirme, alle Sprachen, 6,3" und 6,9".
-# Ergebnis als Artefakt "storeshots"; Bericht ebenfalls im Artefakt.
+# Ergebnis im Branch "store-shots-raw" (Rohaufnahmen als JPEG, Bericht, Logs).
 on:
   workflow_dispatch:
     inputs:
@@ -12,7 +12,7 @@ on:
         default: "pro promax"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   shots:
@@ -40,17 +40,29 @@ jobs:
           SHOT_LANGS: ${{ inputs.langs }}
           SHOT_SIZES: ${{ inputs.sizes }}
         run: ./ci/build.sh
-      - name: Ergebnis sichern
+      - name: Ergebnis veröffentlichen (Branch store-shots-raw)
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: storeshots
-          path: |
-            storeshots
-            screenshots
-            report.txt
-            shots-*.log
-          if-no-files-found: warn
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"
+          # Rohaufnahmen als JPEG (kleiner), dazu Bericht, Logs und Diagnose-Screenshots
+          if [ -d storeshots ]; then
+            (cd storeshots && find . -name "*.png" | while read f; do
+              mkdir -p "$RUNNER_TEMP/out/storeshots/$(dirname "$f")"
+              sips -s format jpeg -s formatOptions 92 "$f" --out "$RUNNER_TEMP/out/storeshots/${f%.png}.jpg" >/dev/null
+            done)
+          fi
+          mkdir -p "$RUNNER_TEMP/out/diag"
+          for f in screenshots/*.png; do [ -f "$f" ] && sips -Z 900 -s format jpeg "$f" --out "$RUNNER_TEMP/out/diag/$(basename "${f%.png}").jpg" >/dev/null; done
+          cp report.txt "$RUNNER_TEMP/out/" 2>/dev/null || true
+          for f in shots-*.log; do [ -f "$f" ] && tail -80 "$f" > "$RUNNER_TEMP/out/$f"; done
+          git config user.name "meeterz-ci"
+          git config user.email "ci@users.noreply.github.com"
+          git checkout --orphan store-shots-raw
+          git rm -rf . >/dev/null 2>&1 || true
+          cp -R "$RUNNER_TEMP"/out/. .
+          git add storeshots diag report.txt shots-*.log 2>/dev/null || git add diag report.txt
+          git commit -q -m "Rohaufnahmen ${GITHUB_SHA}"
+          git push -f origin store-shots-raw
       - name: Ergebnis
         if: steps.build.outcome == 'failure'
         run: exit 1

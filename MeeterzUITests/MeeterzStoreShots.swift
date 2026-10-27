@@ -47,6 +47,17 @@ final class MeeterzStoreShots: MeeterzTestBase {
         }
     }
 
+    /// Erstes sichtbares, antippbares Element mit diesem Text (verdeckte Freunde-Marker hinter Fenstern sind nicht antippbar)
+    func hittable(_ query: XCUIElementQuery, containing text: String, timeout: TimeInterval = 20) -> XCUIElement? {
+        let end = Date().addingTimeInterval(timeout)
+        while Date() < end {
+            let all = query.matching(NSPredicate(format: "label CONTAINS %@", text)).allElementsBoundByIndex
+            if let e = all.first(where: { $0.exists && $0.isHittable && $0.frame.minY > 100 }) { return e }
+            pause(1)
+        }
+        return nil
+    }
+
     /// Karte auf den eigenen (erfundenen) Standort zentrieren
     func centerOnMe() {
         chrome()
@@ -112,12 +123,12 @@ final class MeeterzStoreShots: MeeterzTestBase {
                 Friend(name: "Lucía", at: c(40.4300, -3.6800), heading: 200, driving: true),
                 Friend(name: "Mateo", at: c(40.3920, -3.6980), heading: 20, driving: true),
                 Friend(name: "Sofía", at: c(40.4233, -3.7122), heading: 0, driving: false)],
-            dest: c(40.4153, -3.6845), destName: "Parque del Retiro", search: "Parque del Retiro Madrid", match: "Retiro")
+            dest: c(40.4138, -3.6921), destName: "Museo del Prado", search: "Museo del Prado", match: "Prado")
         case "pt": return Scenario(me: "Tiago", friends: [
                 Friend(name: "Beatriz", at: c(38.7369, -9.1427), heading: 220, driving: true),
                 Friend(name: "Rodrigo", at: c(38.7253, -9.1500), heading: 230, driving: true),
                 Friend(name: "Inês", at: c(38.7114, -9.1300), heading: 0, driving: false)],
-            dest: c(38.7034, -9.1785), destName: "LX Factory", search: "LX Factory Lisboa", match: "LX Factory")
+            dest: c(38.7635, -9.0937), destName: "Oceanário de Lisboa", search: "Oceanário de Lisboa", match: "Oceanário")
         case "tr": return Scenario(me: "Emre", friends: [
                 Friend(name: "Elif", at: c(41.0600, 28.9870), heading: 120, driving: true),
                 Friend(name: "Burak", at: c(41.0256, 28.9742), heading: 60, driving: true),
@@ -177,7 +188,7 @@ final class MeeterzStoreShots: MeeterzTestBase {
         need(app.buttons[L("Ziel suchen")], "karte", timeout: 60)
         for _ in 0..<3 { tapMap(); pause(3); dismissSystemDialogs() }
         chrome()
-        pause(15)    // Freunde und Routen laden
+        pause(25)    // Freunde, Routen und Kartenkacheln laden (erster Start im Simulator ist langsam)
         // Hinweis „Nur bei offener App sichtbar“ (Simulator hat keine „Immer“-Freigabe) ausblenden
         for label in ["Hinweis ausblenden", "Hinweis schließen"] {
             let x = app.buttons[L(label)]
@@ -187,8 +198,8 @@ final class MeeterzStoreShots: MeeterzTestBase {
         pause(4)
         // Herauszoomen, bis die Freunde und ihre Routen ins Bild passen (~2 km Umkreis)
         let map = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.55))
-        for _ in 0..<2 {
-            app.pinch(withScale: 0.35, velocity: -1.5)
+        for _ in 0..<3 {
+            app.pinch(withScale: 0.4, velocity: -1.5)
             pause(2)
         }
         _ = map
@@ -208,9 +219,10 @@ final class MeeterzStoreShots: MeeterzTestBase {
         if group.waitForExistence(timeout: 10) {
             group.tap(); pause(2)
             for name in sc.friends.map(\.name) {
-                // Nur Zeilen der Liste – nicht die gleichnamigen Freunde-Marker auf der Karte dahinter
-                let row = app.collectionViews.buttons.containing(NSPredicate(format: "label CONTAINS %@", name)).firstMatch
-                if row.waitForExistence(timeout: 5) { row.tap(); pause(1) }
+                // Nur sichtbare Zeilen der Liste – nicht die gleichnamigen Freunde-Marker auf der Karte dahinter
+                if let row = hittable(app.buttons, containing: name, timeout: 5) ?? hittable(app.staticTexts, containing: name, timeout: 3) {
+                    row.tap(); pause(1)
+                } else { shot("FEHLT-gruppe-\(name)") }
             }
             let find = app.buttons[L("Fairen Treffpunkt finden")]
             if find.waitForExistence(timeout: 5) { find.tap() }
@@ -236,9 +248,11 @@ final class MeeterzStoreShots: MeeterzTestBase {
         chrome()
         app.buttons[L("Ziel suchen")].tap()
         type(sc.search, into: need(app.textFields[L("Adresse oder Ort")], "suchfeld"))
-        // Nur Suchtreffer (beginnen mit dem Ortsnamen) – nicht die Freunde-Marker, deren Text das Ziel nennt
-        let hit = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", sc.match)).firstMatch
-        need(hit, "suchergebnis", timeout: 30).tap()
+        // Nur sichtbare Suchtreffer – nicht die Freunde-Marker hinter dem Suchfenster, deren Text das Ziel nennt
+        guard let hit = hittable(app.buttons, containing: sc.match, timeout: 30) else {
+            shot("FEHLT-suchergebnis"); XCTFail("Suchtreffer \(sc.match)"); return
+        }
+        hit.tap()
         need(app.buttons[L("Losfahren")], "route-vorschau", timeout: 40)
         pause(5)
         storeShot(6, "routenvorschau")

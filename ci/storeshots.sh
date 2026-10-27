@@ -58,6 +58,11 @@ print(best)')
       it) POS=41.8960,12.4823 ;;    # Rom, Piazza Venezia
       *)  POS=50.9360,6.9475 ;;     # Köln, Neumarkt (nicht am Dom: dort führt die Route sofort in den Tunnel am Hbf)
     esac
+    # Frisch installieren: Anmeldung und Sprache der vorigen Runde sollen nicht hängen bleiben
+    xcrun simctl terminate "$UDID" de.koeven.meeterz > /dev/null 2>&1
+    xcrun simctl uninstall "$UDID" de.koeven.meeterz > /dev/null 2>&1
+    xcrun simctl install "$UDID" "$APP" > /dev/null 2>&1
+    for S in location-always location; do xcrun simctl privacy "$UDID" grant $S de.koeven.meeterz > /dev/null 2>&1 || true; done
     xcrun simctl location "$UDID" set "$POS" > /dev/null 2>&1
     export TEST_RUNNER_SHOT_LANG="$L"
     export TEST_RUNNER_STORE_SHOT_DIR="$PWD/storeshots/$SIZE"

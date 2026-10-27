@@ -52,12 +52,24 @@ final class MeeterzStoreShots: MeeterzTestBase {
         let end = Date().addingTimeInterval(timeout)
         while Date() < end {
             let all = query.matching(NSPredicate(format: "label CONTAINS %@", text)).allElementsBoundByIndex
-            // Das zuletzt eingeblendete Fenster steht in der Hierarchie hinten – also von hinten suchen
-            // (das Unterwegs-Fenster darunter enthält dieselben Namen)
-            if let e = all.last(where: { $0.exists && $0.isHittable && $0.frame.minY > 100 }) { return e }
+            // Erster Treffer von oben (beim Suchergebnis die Zeile selbst, nicht ihr ⓘ-Knopf)
+            if let e = all.first(where: { $0.exists && $0.isHittable && $0.frame.minY > 100 }) { return e }
             pause(1)
         }
         return nil
+    }
+
+    /// Gruppen-Treffen: Zeile eines Freundes antippen. Die Namen stehen auch im Unterwegs-Fenster darunter – darum
+    /// den Namen direkt unter der Überschrift „Wer kommt mit?“ nehmen und links auf den Auswahlkreis tippen.
+    func tapGroupRow(_ name: String) -> Bool {
+        let header = app.staticTexts[L("Wer kommt mit?")]
+        guard header.waitForExistence(timeout: 10) else { return false }
+        let top = header.frame.maxY
+        let texts = app.staticTexts.matching(NSPredicate(format: "label == %@", name)).allElementsBoundByIndex
+        guard let row = texts.filter({ $0.exists && $0.frame.minY > top }).min(by: { $0.frame.minY < $1.frame.minY }) else { return false }
+        let point = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: 40, dy: row.frame.midY))
+        point.tap()
+        return true
     }
 
     /// Karte auf den eigenen (erfundenen) Standort zentrieren
@@ -225,9 +237,7 @@ final class MeeterzStoreShots: MeeterzTestBase {
             group.tap(); pause(2)
             for name in sc.friends.map(\.name) {
                 // Nur sichtbare Zeilen der Liste – nicht die gleichnamigen Freunde-Marker auf der Karte dahinter
-                if let row = hittable(app.buttons, containing: name, timeout: 5) ?? hittable(app.staticTexts, containing: name, timeout: 3) {
-                    row.tap(); pause(1)
-                } else { shot("FEHLT-gruppe-\(name)") }
+                if tapGroupRow(name) { pause(1) } else { shot("FEHLT-gruppe-\(name)") }
             }
             let find = app.buttons[L("Fairen Treffpunkt finden")]
             if find.waitForExistence(timeout: 5) { find.tap() }

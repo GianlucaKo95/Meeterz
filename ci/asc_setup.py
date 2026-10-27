@@ -12,7 +12,11 @@ COPYRIGHT = "2026 Gianluca Köhni"
 # sonst nichts davon. Alles, was hier nicht steht, wird auf „keine“ bzw. „nein“ gesetzt.
 YES = {"messagingAndChat", "userGeneratedContent"}
 # Felder, die keine Ja/Nein- oder Häufigkeitsfrage sind – nie anfassen
-SKIP = {"kidsAgeBand", "ageRatingOverride", "ageRatingOverrideV2", "koreaAgeRatingOverride", "developerAgeRatingInfoUrl"}
+SKIP = {"kidsAgeBand", "ageRatingOverride", "ageRatingOverrideV2", "koreaAgeRatingOverride", "developerAgeRatingInfoUrl",
+        "gracRatingClassificationNumber"}
+# Ja/Nein-Fragen; alle übrigen sind Häufigkeitsfragen (NONE / INFREQUENT_OR_MILD / FREQUENT_OR_INTENSE)
+BOOL = {"advertising", "ageAssurance", "gambling", "healthOrWellnessTopics", "lootBox", "messagingAndChat", "parentalControls",
+        "unrestrictedWebAccess", "userGeneratedContent", "socialMedia", "socialMediaAgeRestricted"}
 
 def safe(method, path, body=None):
     try: return api(method, path, body)
@@ -50,10 +54,7 @@ def main(bundle, mode):
         attrs = {}
         for k, v in decl["attributes"].items():
             if k in SKIP: continue
-            if isinstance(v, bool) or v is None and (k.startswith("is") or k in YES or k.endswith(("Content", "Access", "Chat", "Controls", "Assurance", "Advertising", "Boxes", "Contests"))):
-                attrs[k] = k in YES
-            elif isinstance(v, str) or v is None:
-                attrs[k] = "NONE"
+            attrs[k] = (k in YES) if (k in BOOL or isinstance(v, bool)) else "NONE"
         r = safe("PATCH", f"/v1/ageRatingDeclarations/{decl['id']}", {"data": {"type": "ageRatingDeclarations", "id": decl["id"], "attributes": attrs}})
         print("Altersfreigabe:", "ok" if r is not None else "FEHLER", json.dumps(attrs, ensure_ascii=False))
 

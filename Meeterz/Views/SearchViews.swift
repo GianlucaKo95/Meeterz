@@ -297,7 +297,8 @@ struct RoutePreviewView: View {
           ScrollView {
             VStack(alignment: .leading, spacing: 18) {
             if !CarPlayController.shared.isConnected { modePicker }
-            RoutePreviewMap(lines: current.lines, selected: selected, destination: current.destination.coordinate)
+            RoutePreviewMap(lines: current.lines, selected: selected, destination: current.destination.coordinate,
+                            onSelect: { index in if index != selected { select(index) } })
                 .id(current.mode)
                 .frame(height: 190)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
@@ -441,22 +442,51 @@ struct RoutePreviewMap: View {
     let lines: [[CLLocationCoordinate2D]]
     var selected = 0
     let destination: CLLocationCoordinate2D
+    /// Wie bei Apple Karten: Antippen einer Route auf der Karte wählt sie aus
+    var onSelect: ((Int) -> Void)? = nil
     @State private var position: MapCameraPosition = .automatic
     /// Gewählte Route zuletzt zeichnen, damit sie oben liegt
     private var drawOrder: [Int] { lines.indices.filter { $0 != selected } + (lines.indices.contains(selected) ? [selected] : []) }
 
     var body: some View {
-        Map(position: $position, interactionModes: [.pan, .zoom]) {
-            UserAnnotation()
-            ForEach(drawOrder, id: \.self) { index in
-                let line = lines[index]
-                MapPolyline(coordinates: line)
-                    .stroke(index == selected ? Color.blue : Color.gray.opacity(0.7), lineWidth: index == selected ? 6 : 4)
+        MapReader { proxy in
+            Map(position: $position, interactionModes: [.pan, .zoom]) {
+                UserAnnotation()
+                ForEach(drawOrder, id: \.self) { index in
+                    let line = lines[index]
+                    MapPolyline(coordinates: line)
+                        .stroke(index == selected ? Color.blue : Color.gray.opacity(0.7), lineWidth: index == selected ? 6 : 4)
+                }
+                Marker(String(localized: "Ziel"), coordinate: destination)
             }
-            Marker(String(localized: "Ziel"), coordinate: destination)
+            .mapStyle(.standard)
+            .onAppear { fit() }
+            .onTapGesture { point in
+                guard lines.count > 1, let onSelect, let index = nearestLine(to: point, proxy: proxy) else { return }
+                onSelect(index)
+            }
         }
-        .mapStyle(.standard)
-        .onAppear { fit() }
+    }
+
+    /// Welche Route liegt am Tippunkt (höchstens 28 pt daneben)? Gewählte Route zuerst prüfen, sie liegt oben.
+    private func nearestLine(to point: CGPoint, proxy: MapProxy) -> Int? {
+        var best: (index: Int, distance: CGFloat)?
+        for index in drawOrder.reversed() {
+            let pts = lines[index].compactMap { proxy.convert($0, to: .local) }
+            guard pts.count > 1 else { continue }
+            var d = CGFloat.greatestFiniteMagnitude
+            for i in 1..<pts.count { d = min(d, Self.distance(point, pts[i - 1], pts[i])) }
+            if d < 28, d < (best?.distance ?? .greatestFiniteMagnitude) { best = (index, d) }
+        }
+        return best?.index
+    }
+
+    private static func distance(_ p: CGPoint, _ a: CGPoint, _ b: CGPoint) -> CGFloat {
+        let dx = b.x - a.x, dy = b.y - a.y
+        let len = dx * dx + dy * dy
+        guard len > 0 else { return hypot(p.x - a.x, p.y - a.y) }
+        let t = max(0, min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len))
+        return hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy))
     }
 
     private func fit() {

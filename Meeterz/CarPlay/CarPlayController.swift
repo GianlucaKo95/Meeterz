@@ -975,10 +975,28 @@ extension CarPlayController: CarPlayManagerDelegate {
 
     nonisolated func carPlayManager(_ carPlayManager: CarPlayManager, willPreview trip: CPTrip) -> CPTrip {
         MainActor.assumeIsolated {
-            let shown = Self.withRouteOptions(Self.withBatteryForecast(trip))
+            let shown = Self.withRouteOptions(Self.withBatteryForecast(Self.withPhoneLabels(trip)))
             previewTrip = shown
             return shown
         }
+    }
+
+    /// Routenauswahl wie auf dem iPhone: „Schnellste“ / „Alternative 1“ mit „14 Min · 3,0 km“ darunter
+    /// (vorher Mapbox' Standardtexte). Bei mehreren Routen zeigt CarPlay sie als Liste zur Auswahl.
+    private static func withPhoneLabels(_ trip: CPTrip) -> CPTrip {
+        let choices = trip.routeChoices.enumerated().map { index, choice -> CPRouteChoice in
+            guard let route = mainRoute(in: choice.userInfo) else { return choice }
+            let title = index == 0 ? String(localized: "Schnellste") : String(localized: "Alternative \(index)")
+            let detail = "\(Format.minutes(seconds: route.expectedTravelTime)) · \(Format.distance(route.distance))"
+            let copy = CPRouteChoice(summaryVariants: [title],
+                                     additionalInformationVariants: [detail],
+                                     selectionSummaryVariants: [title])
+            copy.userInfo = choice.userInfo
+            return copy
+        }
+        let copy = CPTrip(origin: trip.origin, destination: trip.destination, routeChoices: choices)
+        copy.userInfo = trip.userInfo
+        return copy
     }
 
     /// „ohne Maut“ unter jeder Routen-Option, wenn Routenoptionen aktiv sind

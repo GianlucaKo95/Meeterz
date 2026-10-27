@@ -76,7 +76,9 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing, AVSpeechSynt
         }
         subject.send(VoiceInstructionEvents.WillSpeak(instruction: instruction))
 
-        let utterance = AVSpeechUtterance(string: instruction.text)
+        // Wie Apple: „An der nächsten Ampel rechts abbiegen“, wenn die Abbiegung an einer Ampel/einem Stoppschild liegt
+        let text = LandmarkInstructions.rewrite(instruction, legProgress: legProgress) ?? instruction.text
+        let utterance = AVSpeechUtterance(string: text)
         utterance.voice = VoiceCatalog.selected ?? AVSpeechSynthesisVoice(language: "de-DE")
 
         if let previous = current, synthesizer.isSpeaking {
@@ -84,7 +86,7 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing, AVSpeechSynt
                 interruptedInstruction: previous.instruction, interruptingInstruction: instruction))
             synthesizer.stopSpeaking(at: .immediate)
         }
-        current = (instruction.text, instruction)
+        current = (text, instruction)
         activateAudio()
         synthesizer.speak(utterance)
     }

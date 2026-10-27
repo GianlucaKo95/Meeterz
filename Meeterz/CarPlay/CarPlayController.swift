@@ -148,6 +148,24 @@ final class CarPlayController: NSObject {
         if camera.currentCameraState != .following { camera.update(cameraState: .following) }
     }
 
+    /// Vor Abbiegungen/Ausfahrten näher heranzoomen (ManeuverGuidance). nil = Zoom wieder Mapbox überlassen.
+    /// Ist die Karte schon so nah oder näher, bleibt sie, wie sie ist.
+    private func setManeuverZoom(_ target: Double?) {
+        guard navZoom == nil, let map = navMap,
+              let source = map.navigationCamera.viewportDataSource as? CarPlayViewportDataSource else { return }
+        var options = source.options
+        var current = source.currentNavigationCameraOptions
+        if let target {
+            guard map.mapView.mapboxMap.cameraState.zoom < target - 0.1 else { return }
+            options.followingCameraOptions.zoomUpdatesAllowed = false
+            current.followingCamera.zoom = target
+        } else {
+            options.followingCameraOptions.zoomUpdatesAllowed = true
+        }
+        source.options = options
+        source.currentNavigationCameraOptions = current
+    }
+
     private func toggleThreeD() {
         lastMapInteraction = Date()
         threeD.toggle()
@@ -1039,6 +1057,9 @@ extension CarPlayController: CarPlayManagerDelegate {
                 autoHideButtons()
                 navRecenter?.cancel()
                 navRecenter = startAutoRecenter(navMap)
+                ManeuverGuidance.shared.applyZoom = { [weak self] zoom in self?.setManeuverZoom(zoom) }
+                ManeuverGuidance.shared.userZoomed = { [weak self] in self?.navZoom != nil }
+                ManeuverGuidance.shared.start(navigationViewController)
                 flyover?.showPreview(nil)
                 flyover?.attach(to: navMap)
             }
@@ -1163,6 +1184,7 @@ extension CarPlayController: CarPlayManagerDelegate {
             navigationOverlay?.stop()
             navigationOverlay = nil
             navRecenter?.cancel(); navRecenter = nil
+            ManeuverGuidance.shared.stop()
             navZoom = nil
             overviewChosen = false
             autoHideButtons()

@@ -123,6 +123,9 @@ final class CarPlayController: NSObject {
         set { UserDefaults.standard.set(newValue, forKey: "carplay.zoom") }
     }
 
+    /// Rand der Browse-Karte vor der Routenvorschau (danach wiederherstellen)
+    private var previewPaddingBefore: UIEdgeInsets?
+
     private var browseMap: NavigationMapView? { manager.carPlayMapViewController?.navigationMapView }
     private var navMap: NavigationMapView? { manager.carPlayNavigationViewController?.navigationMapView }
     /// Die Mapbox-Karte, die gerade auf dem Autodisplay zu sehen ist
@@ -1255,6 +1258,7 @@ extension CarPlayController: CarPlayManagerDelegate {
         using routeChoice: CPRouteChoice
     ) {
         MainActor.assumeIsolated {
+            framePreview(routeChoice.navigationRoutes)
             flyover?.showPreview(routeChoice.navigationRoutes)
             refreshFriends()
         }
@@ -1262,13 +1266,35 @@ extension CarPlayController: CarPlayManagerDelegate {
 
     nonisolated func carPlayManagerDidCancelPreview(_ carPlayManager: CarPlayManager) {
         MainActor.assumeIsolated {
+            framePreview(nil)
             flyover?.showPreview(nil)
             refreshFriends()
         }
     }
 
+    /// Routenvorschau so rahmen, dass CarPlays Auswahlkarte (links) die Routen nicht verdeckt. Mapbox rahmte über die
+    /// ganze Breite – die Routen lagen zur Hälfte unter der Karte. Dazu „+2 Min“ an den Alternativen wie Apple Karten.
+    private func framePreview(_ routes: NavigationRoutes?) {
+        guard let map = browseMap else { return }
+        if previewPaddingBefore == nil { previewPaddingBefore = map.viewportPadding }
+        guard let routes else {
+            if let before = previewPaddingBefore { map.viewportPadding = before }
+            previewPaddingBefore = nil
+            return
+        }
+        let w = map.bounds.width, h = map.bounds.height
+        let panel = w > h ? max(w * 0.42, 260) : 0
+        let safe = map.mapView.safeAreaInsets
+        // Meldet CarPlay die Auswahlkarte schon über den sicheren Bereich, nichts doppelt abziehen
+        let left = max(0, panel - safe.left) + 24
+        map.viewportPadding = UIEdgeInsets(top: 30, left: left, bottom: 30, right: 30)
+        map.showcase(routes, routeAnnotationKinds: [.relativeDurationsOnAlternative], animated: true, duration: 0.5)
+        Diag.log("Routenvorschau: \(Int(w))×\(Int(h)), sicherer Bereich links \(Int(safe.left)), Rand links \(Int(left))")
+    }
+
     nonisolated func carPlayManagerDidBeginNavigation(_ carPlayManager: CarPlayManager) {
         MainActor.assumeIsolated {
+            framePreview(nil)
             pauseAlerts()
             let coordinator = AppModel.shared.navigation
             if !coordinator.isNavigating {

@@ -336,6 +336,13 @@ final class NavigationCoordinator: NSObject {
         AppModel.shared.show(String(localized: "\(stop.name) als Zwischenstopp hinzugefügt."), isError: false)
     }
 
+    /// Ohne Route, ohne CarPlay und im Hintergrund braucht niemand Mapbox' Ortung – anhalten spart Akku
+    func idleIfUnused() {
+        guard !isNavigating, !CarPlayController.shared.isConnected,
+              UIApplication.shared.applicationState == .background else { return }
+        navigationProvider.tripSession().setToIdle()
+    }
+
     func stop() {
         guard isNavigating || phoneController != nil else { return }
         subscriptions.removeAll()
@@ -347,9 +354,11 @@ final class NavigationCoordinator: NSObject {
         // ganz ab. Die CarPlay-Karte bekommt ihren Standort aber genau daher – Pfeil und Kamera froren ein, bis die
         // nächste Route startete. Mit CarPlay darum in die freie Fahrt wechseln (Karte folgt weiter), sonst wie bisher
         // ganz anhalten (spart auf dem iPhone Akku).
-        if CarPlayController.shared.isConnected {
+        // Gilt genauso auf dem iPhone (z. B. zu Fuß), solange die App im Vordergrund ist; erst im Hintergrund ohne
+        // CarPlay wird angehalten (siehe idleIfUnused).
+        if CarPlayController.shared.isConnected || UIApplication.shared.applicationState != .background {
             navigationProvider.tripSession().startFreeDrive()
-            Diag.log("Navigation beendet – Mapbox in freier Fahrt (CarPlay verbunden)")
+            Diag.log("Navigation beendet – Mapbox in freier Fahrt (\(CarPlayController.shared.isConnected ? "CarPlay verbunden" : "App im Vordergrund"))")
         } else {
             navigationProvider.tripSession().setToIdle()
         }

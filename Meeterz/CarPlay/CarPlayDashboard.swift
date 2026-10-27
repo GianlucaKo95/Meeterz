@@ -164,7 +164,8 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
         map.showsCompass = false
         map.showsScale = false
         map.isUserInteractionEnabled = false
-        map.pointOfInterestFilter = MKPointOfInterestFilter(including: [.gasStation, .parking, .evCharger])
+        // Kein map.pointOfInterestFilter hier: Das alte Einzel-Attribut ersetzt die Kartenkonfiguration
+        // (Höhenmodell) wieder durch die flache Standardkonfiguration – dann bleibt die Karte trotz Neigung 2D.
         if let here = AppModel.shared.location.lastLocation { follow(here, map: map, animated: false) }
 
         let controller = UIViewController()
@@ -195,7 +196,9 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
         Task { @MainActor [weak self, weak map, weak window] in
             try? await Task.sleep(for: .seconds(5))
             guard let self, let map else { return }
-            Diag.log("\(self.name) nach 5 s (MapKit): \(Int(map.bounds.width))x\(Int(map.bounds.height)), im Fenster=\(map.window != nil), Fenster versteckt=\(window?.isHidden ?? true), Standort=\(map.userLocation.location != nil)")
+            let elevation = (map.preferredConfiguration as? MKHybridMapConfiguration)?.elevationStyle
+                ?? (map.preferredConfiguration as? MKStandardMapConfiguration)?.elevationStyle
+            Diag.log("\(self.name) nach 5 s (MapKit): \(Int(map.bounds.width))x\(Int(map.bounds.height)), im Fenster=\(map.window != nil), Fenster versteckt=\(window?.isHidden ?? true), Standort=\(map.userLocation.location != nil), Neigung \(Int(map.camera.pitch))°, Höhenmodell \(elevation == .realistic ? "realistisch" : "flach")")
         }
     }
 
@@ -216,7 +219,9 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
         let satellite = UserDefaults.standard.object(forKey: "carplay.satellite") as? Bool ?? true
         let elevation: MKMapConfiguration.ElevationStyle = CarPlayController.threeDEnabled ? .realistic : .flat
         if satellite {
-            map.preferredConfiguration = MKHybridMapConfiguration(elevationStyle: elevation)
+            let hybrid = MKHybridMapConfiguration(elevationStyle: elevation)
+            hybrid.pointOfInterestFilter = MKPointOfInterestFilter(including: [.gasStation, .parking, .evCharger])
+            map.preferredConfiguration = hybrid
         } else {
             let standard = MKStandardMapConfiguration(elevationStyle: elevation)
             standard.pointOfInterestFilter = MKPointOfInterestFilter(including: [.gasStation, .parking, .evCharger])

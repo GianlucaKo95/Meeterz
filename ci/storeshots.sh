@@ -38,13 +38,23 @@ print(best)')
   log "Simulator $SIZE: $(xcrun simctl list devices | grep "$UDID" | sed 's/(.*//' | xargs)"
   xcrun simctl boot "$UDID" > /dev/null 2>&1
   xcrun simctl bootstatus "$UDID" -b > /dev/null 2>&1
-  xcrun simctl location "$UDID" set 50.9413,6.9583 > /dev/null 2>&1   # Köln, Dom (erfundener Standort)
   xcrun simctl privacy "$UDID" grant location de.koeven.meeterz > /dev/null 2>&1 || true
   xcrun simctl privacy "$UDID" grant location-always de.koeven.meeterz > /dev/null 2>&1 || true
   xcrun simctl status_bar "$UDID" override --time "9:41" --dataNetwork wifi --wifiMode active --wifiBars 3 \
     --cellularMode active --cellularBars 4 --batteryState charged --batteryLevel 100 > /dev/null 2>&1 || true
 
   for L in $LANGS; do
+    # Schauplatz je Sprache (muss zu MeeterzStoreShots.scenario passen)
+    case $L in
+      en) POS=40.7580,-73.9855 ;;   # New York, Times Square
+      fr) POS=48.8584,2.3470 ;;     # Paris, Châtelet
+      es) POS=40.4169,-3.7035 ;;    # Madrid, Puerta del Sol
+      pt) POS=38.7139,-9.1394 ;;    # Lissabon, Rossio
+      tr) POS=41.0370,28.9850 ;;    # Istanbul, Taksim
+      it) POS=41.8960,12.4823 ;;    # Rom, Piazza Venezia
+      *)  POS=50.9413,6.9583 ;;     # Köln, Dom
+    esac
+    xcrun simctl location "$UDID" set "$POS" > /dev/null 2>&1
     export TEST_RUNNER_SHOT_LANG="$L"
     export TEST_RUNNER_STORE_SHOT_DIR="$PWD/storeshots/$SIZE"
     xcodebuild test-without-building \

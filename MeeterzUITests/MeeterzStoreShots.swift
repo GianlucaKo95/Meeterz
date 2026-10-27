@@ -2,8 +2,8 @@ import XCTest
 import MapKit
 
 /// App-Store-Screenshots mit erfundenen Daten. Läuft nur, wenn SHOT_LANG gesetzt ist (ci/storeshots.sh).
-/// Feste Testkonten bekommen erfundene Namen (Alex, Anna, Ben, Mia) und Standorte in Köln; Anna und Ben teilen
-/// eine Route (echte Straßen über MapKit). Die App läuft in der gewünschten Sprache; Knöpfe werden über die
+/// Feste Testkonten bekommen je Sprache erfundene, landestypische Namen und eine eigene Stadt (Köln, New York, Paris,
+/// Madrid, Lissabon, Istanbul, Rom); zwei Freunde teilen eine Route (echte Straßen über MapKit). Die App läuft in der gewünschten Sprache; Knöpfe werden über die
 /// Übersetzungen der App gefunden (Localizable.xcstrings liegt auch im Testbündel).
 final class MeeterzStoreShots: MeeterzTestBase {
     typealias Remote = MeeterzTwoAccountTests.Remote
@@ -71,6 +71,52 @@ final class MeeterzStoreShots: MeeterzTestBase {
         return result
     }
 
+    // MARK: Schauplätze je Sprache (Simulator-Standort setzt ci/storeshots.sh auf `center`)
+
+    struct Friend { let name: String; let at: CLLocationCoordinate2D; let heading: Double; let driving: Bool }
+    struct Scenario { let me: String; let friends: [Friend]; let dest: CLLocationCoordinate2D; let destName: String; let search: String; let match: String }
+
+    static func scenario(_ lang: String) -> Scenario {
+        func c(_ lat: Double, _ lng: Double) -> CLLocationCoordinate2D { .init(latitude: lat, longitude: lng) }
+        switch lang {
+        case "en": return Scenario(me: "Ethan", friends: [
+                Friend(name: "Emma", at: c(40.7794, -73.9632), heading: 200, driving: true),
+                Friend(name: "Jack", at: c(40.7306, -73.9866), heading: 260, driving: true),
+                Friend(name: "Sophie", at: c(40.7614, -73.9776), heading: 0, driving: false)],
+            dest: c(40.7424, -74.0060), destName: "Chelsea Market", search: "Chelsea Market New York", match: "Chelsea Market")
+        case "fr": return Scenario(me: "Hugo", friends: [
+                Friend(name: "Léa", at: c(48.8738, 2.2950), heading: 100, driving: true),
+                Friend(name: "Lucas", at: c(48.8420, 2.3210), heading: 40, driving: true),
+                Friend(name: "Chloé", at: c(48.8530, 2.3499), heading: 0, driving: false)],
+            dest: c(48.8710, 2.3650), destName: "Canal Saint-Martin", search: "Canal Saint-Martin Paris", match: "Saint-Martin")
+        case "es": return Scenario(me: "Pablo", friends: [
+                Friend(name: "Lucía", at: c(40.4300, -3.6800), heading: 200, driving: true),
+                Friend(name: "Mateo", at: c(40.3920, -3.6980), heading: 20, driving: true),
+                Friend(name: "Sofía", at: c(40.4233, -3.7122), heading: 0, driving: false)],
+            dest: c(40.4153, -3.6845), destName: "Parque del Retiro", search: "Parque del Retiro Madrid", match: "Retiro")
+        case "pt": return Scenario(me: "Tiago", friends: [
+                Friend(name: "Beatriz", at: c(38.7369, -9.1427), heading: 220, driving: true),
+                Friend(name: "Rodrigo", at: c(38.7253, -9.1500), heading: 230, driving: true),
+                Friend(name: "Inês", at: c(38.7114, -9.1300), heading: 0, driving: false)],
+            dest: c(38.7034, -9.1785), destName: "LX Factory", search: "LX Factory Lisboa", match: "LX Factory")
+        case "tr": return Scenario(me: "Emre", friends: [
+                Friend(name: "Elif", at: c(41.0600, 28.9870), heading: 120, driving: true),
+                Friend(name: "Burak", at: c(41.0256, 28.9742), heading: 60, driving: true),
+                Friend(name: "Zeynep", at: c(41.0330, 28.9930), heading: 0, driving: false)],
+            dest: c(41.0475, 29.0270), destName: "Ortaköy", search: "Ortaköy İstanbul", match: "Ortaköy")
+        case "it": return Scenario(me: "Marco", friends: [
+                Friend(name: "Giulia", at: c(41.9010, 12.5010), heading: 240, driving: true),
+                Friend(name: "Alessandro", at: c(41.9070, 12.4590), heading: 170, driving: true),
+                Friend(name: "Sofia", at: c(41.8902, 12.4922), heading: 0, driving: false)],
+            dest: c(41.8894, 12.4703), destName: "Trastevere", search: "Piazza di Santa Maria in Trastevere Roma", match: "Trastevere")
+        default: return Scenario(me: "Jonas", friends: [
+                Friend(name: "Anna", at: c(50.9338, 6.9302), heading: 110, driving: true),
+                Friend(name: "Ben", at: c(50.9531, 6.9852), heading: 200, driving: true),
+                Friend(name: "Mia", at: c(50.9478, 6.9411), heading: 0, driving: false)],
+            dest: c(50.9262, 6.9653), destName: "Rheinauhafen", search: "Rheinauhafen Köln", match: "Rheinauhafen")
+        }
+    }
+
     // MARK: Ablauf
 
     func testStoreScreenshots() throws {
@@ -79,32 +125,26 @@ final class MeeterzStoreShots: MeeterzTestBase {
         try XCTSkipIf(base.isEmpty || key.isEmpty, "SB_URL/SB_KEY fehlen")
         let hp = ["Prefer": "return=minimal"]
 
-        // Ich (in der App) und drei erfundene Freunde
+        // Ich (in der App) und drei erfundene Freunde – je Sprache eine eigene Stadt mit passenden Namen
+        let sc = Self.scenario(lang)
         let me = try XCTUnwrap(Remote.fixed("shot-me", base: base, key: key), "Konto Ich")
-        me.request("POST", "/rest/v1/profiles", body: ["id": me.id, "handle": "alex_demo", "display_name": "Alex"], headers: hp)
-        let dom = CLLocationCoordinate2D(latitude: 50.9413, longitude: 6.9583)          // Simulator-Standort
-        let hafen = CLLocationCoordinate2D(latitude: 50.9262, longitude: 6.9653)        // Ziel von Anna und Ben
-        let people: [(role: String, handle: String, name: String, at: CLLocationCoordinate2D, heading: Double, to: CLLocationCoordinate2D?, dest: String?)] = [
-            ("shot-anna", "anna_demo", "Anna", .init(latitude: 50.9338, longitude: 6.9302), 110, hafen, "Rheinauhafen"),
-            ("shot-ben", "ben_demo", "Ben", .init(latitude: 50.9531, longitude: 6.9852), 200, hafen, "Rheinauhafen"),
-            ("shot-mia", "mia_demo", "Mia", .init(latitude: 50.9478, longitude: 6.9411), 0, nil, nil),
-        ]
-        for p in people {
-            let r = try XCTUnwrap(Remote.fixed(p.role, base: base, key: key), "Konto \(p.name)")
-            r.request("POST", "/rest/v1/profiles", body: ["id": r.id, "handle": p.handle, "display_name": p.name], headers: hp)
-            me.rpc("send_friend_request", ["target_handle": p.handle])
+        me.request("POST", "/rest/v1/profiles", body: ["id": me.id, "handle": "me_demo", "display_name": sc.me], headers: hp)
+        for (i, p) in sc.friends.enumerated() {
+            let r = try XCTUnwrap(Remote.fixed("shot-\(i + 1)", base: base, key: key), "Konto \(p.name)")
+            let handle = "friend\(i + 1)_demo"
+            r.request("POST", "/rest/v1/profiles", body: ["id": r.id, "handle": handle, "display_name": p.name], headers: hp)
+            me.rpc("send_friend_request", ["target_handle": handle])
             let rows = try XCTUnwrap(r.rpc("my_friends").1 as? [[String: Any]])
             if let rid = rows.first?["friendship_id"] as? String {
                 r.rpc("respond_friend_request", ["request_id": rid, "accept": true])
             }
-            r.rpc("update_last_location", ["lat": p.at.latitude, "lng": p.at.longitude, "heading": p.heading, "speed": p.to == nil ? 0.0 : 9.0])
-            if let to = p.to, let dest = p.dest {
-                let rt = route(from: p.at, to: to)
-                r.rpc("set_active_route", ["destination_name": dest, "dest_lat": to.latitude, "dest_lng": to.longitude,
+            r.rpc("update_last_location", ["lat": p.at.latitude, "lng": p.at.longitude, "heading": p.heading, "speed": p.driving ? 9.0 : 0.0])
+            if p.driving {
+                let rt = route(from: p.at, to: sc.dest)
+                r.rpc("set_active_route", ["destination_name": sc.destName, "dest_lat": sc.dest.latitude, "dest_lng": sc.dest.longitude,
                                           "eta_unix": Date().timeIntervalSince1970 + rt.seconds, "points": rt.points, "travel_mode": "car"])
             }
         }
-        _ = dom
 
         // Anmelden
         need(app.buttons[L("Anmelden")], "login")
@@ -129,7 +169,7 @@ final class MeeterzStoreShots: MeeterzTestBase {
         let group = app.buttons[L("Gruppen-Treffen planen")]
         if group.waitForExistence(timeout: 10) {
             group.tap(); pause(2)
-            for name in ["Anna", "Ben", "Mia"] {
+            for name in sc.friends.map(\.name) {
                 let row = app.buttons.containing(NSPredicate(format: "label BEGINSWITH %@", name)).firstMatch
                 if row.waitForExistence(timeout: 5) { row.tap(); pause(1) }
             }
@@ -153,11 +193,11 @@ final class MeeterzStoreShots: MeeterzTestBase {
             app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.15)).tap(); pause(2)
         }
 
-        // 5 Navigation (simulierte Fahrt) zum Rheinauhafen
+        // 5 Navigation (simulierte Fahrt) zum Ziel des Schauplatzes
         chrome()
         app.buttons[L("Ziel suchen")].tap()
-        type("Rheinauhafen Köln", into: need(app.textFields[L("Adresse oder Ort")], "suchfeld"))
-        let hit = app.buttons.containing(NSPredicate(format: "label CONTAINS 'Rheinauhafen'")).firstMatch
+        type(sc.search, into: need(app.textFields[L("Adresse oder Ort")], "suchfeld"))
+        let hit = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", sc.match)).firstMatch
         need(hit, "suchergebnis", timeout: 30).tap()
         need(app.buttons[L("Losfahren")], "route-vorschau", timeout: 40)
         pause(5)

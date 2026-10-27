@@ -1,0 +1,80 @@
+    t =   243.43s     Checking `Expect predicate `existsNoRetry == 1` for object "Vorschläge – fair für alle" StaticText`
+    t =   243.43s         Checking existence of `"Vorschläge – fair für alle" StaticText`
+    t =   246.76s Swipe up Target Application 'de.koeven.meeterz'
+    t =   246.76s     Wait for de.koeven.meeterz to idle
+    t =   246.77s     Find the Target Application 'de.koeven.meeterz'
+    t =   248.89s     Check for interrupting elements affecting "Meeterz" Application
+    t =   250.62s     Synthesize event
+    t =   251.18s     Wait for de.koeven.meeterz to idle
+    t =   254.04s Checking existence of `"Allow While Using App" Button`
+    t =   254.10s Checking existence of `"Allow While Using App" Button`
+    t =   254.29s Checking existence of `"Beim Verwenden der App erlauben" Button`
+    t =   254.31s Checking existence of `"Beim Verwenden der App erlauben" Button`
+    t =   254.55s Checking existence of `"Allow Once" Button`
+    t =   254.60s Checking existence of `"Allow Once" Button`
+    t =   254.81s Checking existence of `"Not Now" Button`
+    t =   254.84s Checking existence of `"Not Now" Button`
+    t =   255.07s Checking existence of `"Nicht jetzt" Button`
+    t =   255.10s Checking existence of `"Nicht jetzt" Button`
+    t =   255.33s Checking existence of `"Allow" Button`
+    t =   255.37s Checking existence of `"Allow" Button`
+    t =   255.58s Checking existence of `"Keep Only While Using" Button`
+    t =   255.62s Checking existence of `"Keep Only While Using" Button`
+    t =   255.78s Checking existence of `"Nur beim Verwenden beibehalten" Button`
+    t =   255.80s Checking existence of `"Nur beim Verwenden beibehalten" Button`
+    t =   256.10s Checking existence of `"Don’t Allow" Button`
+    t =   256.13s Checking existence of `"Don’t Allow" Button`
+    t =   256.94s Added attachment named 'store-treffpunkt'
+    t =   256.94s Checking existence of `"Abbrechen" Button`
+    t =   257.17s Tap "Abbrechen" Button
+    t =   257.17s     Wait for de.koeven.meeterz to idle
+    t =   257.18s     Find the "Abbrechen" Button
+    t =   257.55s     Check for interrupting elements affecting "Abbrechen" Button
+    t =   258.26s     Synthesize event
+    t =   258.99s     Wait for de.koeven.meeterz to idle
+    t =   261.77s Checking existence of `"Fertig" Button`
+    t =   267.53s Tap "Fertig" Button
+    t =   267.53s     Wait for de.koeven.meeterz to idle
+    t =   267.59s     Find the "Fertig" Button
+    t =   270.21s     Check for interrupting elements affecting "Fertig" Button
+    t =   273.78s     Synthesize event
+    t =   274.65s     Wait for de.koeven.meeterz to idle
+    t =   335.00s App animations complete notification not received, will attempt to continue.
+    t =   337.02s Checking existence of `"Ziel suchen" Button`
+    t =   368.13s Checking existence of `"Ziel suchen" Button` (retry 1)
+    t =   399.35s Checking existence of `"Ziel suchen" Button` (retry 2)
+2026-10-27 20:09:49.462 xcodebuild[15754:54448] [MT] DVTAssertions: Warning in DVTiOSFrameworks/IDEiOSSupportCore/DVTiPhoneSimulator.m:661
+Details:  SimDevice native architecture is nil. Device: SimDevice : Apple Watch SE 3 (40mm) (6A8C8676-D61A-4658-8EBF-A1D90F699E5F) : state={ Shutdown } deviceType={ com.apple.CoreSimulator.SimDeviceType.Apple-Watch-SE-3-40mm: SimDeviceType : Apple Watch SE 3 (40mm) (com.apple.CoreSimulator.SimDeviceType.Apple-Watch-SE-3-40mm) } runtime={ com.apple.CoreSimulator.SimRuntime.watchOS-27-0: (null) }, supportedArches: (
+)
+Object:   <DVTiPhoneSimulator: 0x77ee7b7c00>
+Method:   -nativeArchitecture
+Thread:   <_NSMainThread: 0x101870f70>{number = 1, name = main}
+Please file a bug at https://feedbackassistant.apple.com with this warning message and any useful information you can provide.
+2026-10-27 20:09:49.462 xcodebuild[15754:54448] [MT] DVTAssertions: Warning in DVTiOSFrameworks/IDEiOSSupportCore/DVTiPhoneSimulator.m:661
+Details:  SimDevice native architecture is nil. Device: SimDevice : Apple Watch Ultra 4 (49mm) (B776FC94-0209-467A-A7B1-A77D66B0C6D9) : state={ Shutdown } deviceType={ com.apple.CoreSimulator.SimDeviceType.Apple-Watch-Ultra-4-49mm: SimDeviceType : Apple Watch Ultra 4 (49mm) (com.apple.CoreSimulator.SimDeviceType.Apple-Watch-Ultra-4-49mm) } runtime={ com.apple.CoreSimulator.SimRuntime.watchOS-27-0: (null) }, supportedArches: (
+)
+Object:   <DVTiPhoneSimulator: 0x77ee7b7800>
+Method:   -nativeArchitecture
+Thread:   <_NSMainThread: 0x101870f70>{number = 1, name = main}
+Please file a bug at https://feedbackassistant.apple.com with this warning message and any useful information you can provide.
+2026-10-27 20:09:49.462 xcodebuild[15754:54448] [MT] DVTAssertions: Warning in DVTiOSFrameworks/IDEiOSSupportCore/DVTiPhoneSimulator.m:661
+Details:  SimDevice native architecture is nil. Device: SimDevice : Apple Watch Series 12 (42mm) (D8825E9A-07C5-4FA7-9782-BBF735355D3B) : state={ Shutdown } deviceType={ com.apple.CoreSimulator.SimDeviceType.Apple-Watch-Series-12-42mm: SimDeviceType : Apple Watch Series 12 (42mm) (com.apple.CoreSimulator.SimDeviceType.Apple-Watch-Series-12-42mm) } runtime={ com.apple.CoreSimulator.SimRuntime.watchOS-27-0: (null) }, supportedArches: (
+)
+Object:   <DVTiPhoneSimulator: 0x77ee7b7600>
+Method:   -nativeArchitecture
+Thread:   <_NSMainThread: 0x101870f70>{number = 1, name = main}
+Please file a bug at https://feedbackassistant.apple.com with this warning message and any useful information you can provide.
+2026-10-27 20:09:49.545 xcodebuild[15754:54448] [MT] DVTAssertions: Warning in DVTiOSFrameworks/IDEiOSSupportCore/DVTiPhoneSimulator.m:661
+Details:  SimDevice native architecture is nil. Device: SimDevice : Apple Watch SE 3 (44mm) (8E8F0B1E-20E4-4DE7-BBB5-4B4DB8627016) : state={ Shutdown } deviceType={ com.apple.CoreSimulator.SimDeviceType.Apple-Watch-SE-3-44mm: SimDeviceType : Apple Watch SE 3 (44mm) (com.apple.CoreSimulator.SimDeviceType.Apple-Watch-SE-3-44mm) } runtime={ com.apple.CoreSimulator.SimRuntime.watchOS-27-0: (null) }, supportedArches: (
+)
+Object:   <DVTiPhoneSimulator: 0x77ee7b7a00>
+Method:   -nativeArchitecture
+Thread:   <_NSMainThread: 0x101870f70>{number = 1, name = main}
+Please file a bug at https://feedbackassistant.apple.com with this warning message and any useful information you can provide.
+2026-10-27 20:09:49.545 xcodebuild[15754:54448] [MT] DVTAssertions: Warning in DVTiOSFrameworks/IDEiOSSupportCore/DVTiPhoneSimulator.m:661
+Details:  SimDevice native architecture is nil. Device: SimDevice : Apple Watch Series 12 (46mm) (2A5F3B7D-B273-46B4-AE38-8B01ECF033A8) : state={ Shutdown } deviceType={ com.apple.CoreSimulator.SimDeviceType.Apple-Watch-Series-12-46mm: SimDeviceType : Apple Watch Series 12 (46mm) (com.apple.CoreSimulator.SimDeviceType.Apple-Watch-Series-12-46mm) } runtime={ com.apple.CoreSimulator.SimRuntime.watchOS-27-0: (null) }, supportedArches: (
+)
+Object:   <DVTiPhoneSimulator: 0x77ee7b7400>
+Method:   -nativeArchitecture
+Thread:   <_NSMainThread: 0x101870f70>{number = 1, name = main}
+Please file a bug at https://feedbackassistant.apple.com with this warning message and any useful information you can provide.

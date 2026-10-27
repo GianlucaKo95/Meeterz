@@ -56,7 +56,7 @@ Your location is **only** shared with people whose friend request you accepted (
 ## 4. Service providers (processors)
 
 - **Supabase Inc.** – database, sign-in and real-time transmission. Servers in London, United Kingdom (AWS eu-west-2). The EU Commission has issued an adequacy decision for the United Kingdom.
-- **Mapbox Inc.** (USA) – maps, search, routes and traffic data. For routes and search, location and destination coordinates are sent to Mapbox. Basis: EU standard contractual clauses or the EU-US Data Privacy Framework.
+- **Mapbox Inc.** (USA) – maps, search, routes and traffic data. For routes and search, location and destination coordinates are sent to Mapbox. Only if you turn on "Help Mapbox improve maps" in the settings (off by default) does the app additionally send de-identified location and usage data to Mapbox to improve its maps (Art. 6(1)(a) GDPR). Basis: EU standard contractual clauses or the EU-US Data Privacy Framework.
 - **Apple Inc.** – "Sign in with Apple" and push notifications.
 
 ## 5. Your rights

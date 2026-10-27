@@ -51,6 +51,7 @@ struct MeeterzApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     init() {
+        MapboxTelemetry.apply()    // Telemetrie an Mapbox nur mit Einwilligung (Standard aus)
         MapPreferences.migrate()   // eine Kartenansicht für iPhone und CarPlay
         _ = CarPlayFlyoverMirror.isEnabled   // einmalige Umstellung auf Satellit als Standard, bevor Einstellungen gelesen werden
         // Ladesäulen und Fahrzeuge im Hintergrund einlesen (gut 1 s) – nicht erst, wenn die Vorschau darauf wartet

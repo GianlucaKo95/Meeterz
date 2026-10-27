@@ -32,6 +32,7 @@ struct FriendsView: View {
     }
     @AppStorage("map.style") private var mapStyleKey = "satellite"
     @AppStorage("map.3d") private var mapThreeD = true
+    @State private var mapboxTelemetry = MapboxTelemetry.enabled
     @State private var diagText = Diag.text
     @State private var voiceOn = !MeeterzSpeechSynthesizer.shared.muted
     @AppStorage("route.avoid.tolls") private var avoidTolls = false
@@ -485,6 +486,11 @@ struct FriendsView: View {
                 Text("Gilt für alle Routen, auch in CarPlay und für den Ladeplan. Geht ein Ziel nur mit Maut oder Fähre, nimmt Meeterz die normale Route und sagt Bescheid.")
                     .font(.footnote).foregroundStyle(Theme.muted)
             }
+            Toggle("Mapbox beim Verbessern der Karten helfen", isOn: Binding(
+                get: { mapboxTelemetry }, set: { mapboxTelemetry = $0; MapboxTelemetry.enabled = $0 }))
+                .tint(Theme.accent)
+            Text("Sendet anonymisierte Standort- und Nutzungsdaten an Mapbox, damit Straßen, Abbiegeverbote und Verkehrsdaten besser werden. Freiwillig, standardmäßig aus.")
+                .font(.footnote).foregroundStyle(Theme.muted)
             Toggle("Sprachansagen", isOn: $voiceOn)
                 .tint(Theme.accent)
                 .onChange(of: voiceOn) { _, v in MeeterzSpeechSynthesizer.shared.muted = !v }

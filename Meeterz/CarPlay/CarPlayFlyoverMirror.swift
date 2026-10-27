@@ -320,18 +320,23 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
 
     /// Den Standortpfeil genau dorthin legen, wo Mapbox ihn zeigt – Maßstab und Rand der beiden Karten
     /// stimmen nie ganz überein. Nie tiefer als knapp über dem Straßennamen am unteren Rand.
+    /// Abstand vom unteren Rand, den das Straßenschild belegt (plus halbe Pfeilhöhe)
+    static let roadLabelClearance: CGFloat = 130
+
     private func alignPuck(camera: MKMapCamera, size: CGSize) {
         guard let mapboxMap = mapbox?.mapView.mapboxMap, let coord = puck?.coordinate else { return }
-        // In 3D nur eingreifen, wenn der eigene Pfeil sonst aus dem Bild fällt (nah herangezoomt hält MapKit
-        // einen größeren Mindestabstand als Mapbox – der Standort rutschte unten heraus). Sonst passte 3D schon.
+        // Unten liegt das Straßenschild (Straßenname); darunter darf der Pfeil nie rutschen – in 2D wie in 3D.
+        let labelZone = size.height - Self.roadLabelClearance
+        // In 3D nur eingreifen, wenn der Pfeil sonst unter dem Straßenschild oder aus dem Bild landet (nah
+        // herangezoomt hält MapKit einen größeren Mindestabstand als Mapbox – der Pfeil rutscht nach unten).
         if camera.pitch >= 10 {
             let p = mapView.convert(coord, toPointTo: mapView)
-            let visible = p.x.isFinite && p.y.isFinite && p.x > 20 && p.x < size.width - 20 && p.y > 40 && p.y < size.height - 100
+            let visible = p.x.isFinite && p.y.isFinite && p.x > 20 && p.x < size.width - 20 && p.y > 40 && p.y < labelZone
             if visible { return }
         }
         let target = mapboxMap.point(for: coord)
         guard target.x >= 0, target.y >= 0, target.x <= size.width, target.y <= size.height else { return }
-        let wanted = CGPoint(x: target.x, y: min(target.y, size.height - 120))
+        let wanted = CGPoint(x: target.x, y: min(target.y, labelZone))
         let now = mapView.convert(coord, toPointTo: mapView)
         let dx = now.x - wanted.x, dy = now.y - wanted.y
         guard abs(dx) > 1.5 || abs(dy) > 1.5, now.x.isFinite, now.y.isFinite else { return }

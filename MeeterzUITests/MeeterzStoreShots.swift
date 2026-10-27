@@ -243,7 +243,9 @@ final class MeeterzStoreShots: MeeterzTestBase {
         pause(5)
         storeShot(6, "routenvorschau")
         app.buttons[L("Losfahren")].tap()
-        pause(25)
+        pause(30)
+        storeShot(7, "navigation-a")   // Reserve, falls die erste Aufnahme Kacheln vermisst
+        pause(15)
         storeShot(5, "navigation")
     }
 }

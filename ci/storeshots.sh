@@ -56,7 +56,7 @@ print(best)')
       pt) POS=38.7139,-9.1394 ;;    # Lissabon, Rossio
       tr) POS=41.0370,28.9850 ;;    # Istanbul, Taksim
       it) POS=41.8960,12.4823 ;;    # Rom, Piazza Venezia
-      *)  POS=50.9413,6.9583 ;;     # Köln, Dom
+      *)  POS=50.9360,6.9475 ;;     # Köln, Neumarkt (nicht am Dom: dort führt die Route sofort in den Tunnel am Hbf)
     esac
     xcrun simctl location "$UDID" set "$POS" > /dev/null 2>&1
     export TEST_RUNNER_SHOT_LANG="$L"

@@ -6,7 +6,14 @@ struct MainView: View {
     @Environment(AppModel.self) private var app
     @Environment(\.colorScheme) private var colorScheme
 
-    @AppStorage("map.satellite") private var satellite = true
+    /// Kartenart wie in CarPlay: „satellite“ (Mapbox-Luftbild), „classic“ (Mapbox-Karte), „flyover“ (Apple, experimentell)
+    @AppStorage("map.style") private var mapStyleKey = "satellite"
+    private var flyover: Bool { mapStyleKey == "flyover" }
+    private func setMapStyle(_ key: String) {
+        mapStyleKey = key
+        // Die iPhone-Navigation wählt danach ihren Stil (Luftbild oder Karte)
+        UserDefaults.standard.set(key != "classic", forKey: "map.satellite")
+    }
     @AppStorage("map.3d") private var threeD = true
 
     @State private var viewport: Viewport = .idle
@@ -38,8 +45,8 @@ struct MainView: View {
         @Bindable var navigation = app.navigation
 
         ZStack(alignment: .top) {
-            if satellite {
-                // Satellit: Apples Flyover (fotorealistische 3D-Gebäude)
+            if flyover {
+                // Flyover (experimentell): Apples fotorealistische 3D-Städte
                 FlyoverMapView(plannedMeetup: $plannedMeetup, droppedPin: $droppedPin, onLongPress: dropPin, threeD: threeD, recenterTick: recenterTick, zoomSteps: zoomSteps)
                     .simultaneousGesture(TapGesture().onEnded { toggleChrome() })
             } else {
@@ -121,7 +128,7 @@ struct MainView: View {
         .onAppear { viewport = followViewport }
         // Weggescrollt (Mapbox-Karte): nach 10 s ohne Eingabe zurück zum Standort
         .onChange(of: viewport) { _, new in
-            guard !satellite, new == .idle, app.mapFocus == nil else { return }
+            guard !flyover, new == .idle, app.mapFocus == nil else { return }
             idleToken += 1
             let token = idleToken
             Task {
@@ -132,13 +139,13 @@ struct MainView: View {
             }
         }
         .onChange(of: app.mapFocus) { _, focus in
-            guard !satellite, let focus, let target = focusViewport(focus) else { return }
+            guard !flyover, let focus, let target = focusViewport(focus) else { return }
             withViewportAnimation(.easeOut(duration: 0.8)) { viewport = target }
         }
         .onChange(of: navigation.isNavigating) { _, active in if active { app.mapFocus = nil } }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { app.mapFocus = nil }
-            if phase == .active, !satellite { withViewportAnimation(.easeOut(duration: 0.6)) { viewport = followViewport } }
+            if phase == .active, !flyover { withViewportAnimation(.easeOut(duration: 0.6)) { viewport = followViewport } }
         }
         .onChange(of: zoomSteps) { _, _ in
             withViewportAnimation(.easeOut(duration: 0.35)) { viewport = followViewport }
@@ -272,7 +279,9 @@ struct MainView: View {
         }
         .onMapTapGesture { _ in toggleChrome() }
         .onMapLongPressGesture { context in dropPin(at: context.coordinate) }
-        .mapStyle(.standard(lightPreset: colorScheme == .light ? .day : .night))
+        .mapStyle(mapStyleKey == "classic"
+                  ? .standard(lightPreset: colorScheme == .light ? .day : .night)
+                  : .standardSatellite(lightPreset: colorScheme == .light ? .day : .night))
         // Kompass unter die Knopfleiste rechts, sonst liegt er hinter der oberen Leiste
         .ornamentOptions(OrnamentOptions(compass: CompassViewOptions(position: .topTrailing, margins: CGPoint(x: 20, y: 400), visibility: .adaptive)))
         .ignoresSafeArea()
@@ -336,11 +345,14 @@ struct MainView: View {
         VStack(spacing: 8) {
             Menu {
                 Section("Karte") {
-                    Button { satellite = true } label: {
-                        Label("Satellit", systemImage: satellite ? "checkmark" : "globe.europe.africa")
+                    Button { setMapStyle("satellite") } label: {
+                        Label("Satellit", systemImage: mapStyleKey == "satellite" ? "checkmark" : "globe.europe.africa")
                     }
-                    Button { satellite = false } label: {
-                        Label("Klassische Karte", systemImage: satellite ? "map" : "checkmark")
+                    Button { setMapStyle("classic") } label: {
+                        Label("Klassische Karte", systemImage: mapStyleKey == "classic" ? "checkmark" : "map")
+                    }
+                    Button { setMapStyle("flyover") } label: {
+                        Label("Flyover (experimentell)", systemImage: flyover ? "checkmark" : "building.2")
                     }
                 }
                 Section("Ansicht") {
@@ -356,7 +368,7 @@ struct MainView: View {
                     .overlay(Circle().stroke(Theme.stroke, lineWidth: 1))
             }
             .accessibilityLabel("Kartenansicht")
-            .accessibilityValue("\(satellite ? "Satellit" : "Klassisch"), \(threeD ? "3D" : "2D")")
+            .accessibilityValue("\(mapStyleKey == "classic" ? "Klassisch" : (flyover ? "Flyover" : "Satellit")), \(threeD ? "3D" : "2D")")
 
             CircleIconButton(systemName: "location.north.line.fill", label: "Auf meinen Standort zentrieren", tint: Theme.accent) {
                 app.mapFocus = nil

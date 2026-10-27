@@ -51,6 +51,12 @@ struct MeeterzApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     init() {
+        // iPhone-Karte: früher hieß Apples Flyover „Satellit“. Wer die klassische Karte hatte, behält sie;
+        // sonst gilt jetzt das Mapbox-Luftbild wie in CarPlay (Flyover gibt es weiter, als eigene Option).
+        if UserDefaults.standard.string(forKey: "map.style") == nil,
+           UserDefaults.standard.object(forKey: "map.satellite") as? Bool == false {
+            UserDefaults.standard.set("classic", forKey: "map.style")
+        }
         _ = CarPlayFlyoverMirror.isEnabled   // einmalige Umstellung auf Satellit als Standard, bevor Einstellungen gelesen werden
         // Ladesäulen und Fahrzeuge im Hintergrund einlesen (gut 1 s) – nicht erst, wenn die Vorschau darauf wartet
         if EVSettings.enabled {

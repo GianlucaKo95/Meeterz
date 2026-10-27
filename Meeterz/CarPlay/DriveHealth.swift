@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import Combine
 import CoreLocation
 import MapboxNavigationCore
@@ -31,7 +32,13 @@ final class DriveHealth {
             .sink { [weak self] _ in
                 MainActor.assumeIsolated {
                     guard let self else { return }
-                    if let last = self.lastProgress { self.maxProgressGap = max(self.maxProgressGap, Date().timeIntervalSince(last)) }
+                    if let last = self.lastProgress {
+                        let gap = Date().timeIntervalSince(last)
+                        self.maxProgressGap = max(self.maxProgressGap, gap)
+                        if gap > 6 {
+                            Diag.log("Fahrt: Routenfortschritt wieder da nach \(Int(gap)) s (iPhone gesperrt: \(UIApplication.shared.isProtectedDataAvailable ? "nein" : "ja"), App \(UIApplication.shared.applicationState == .background ? "im Hintergrund" : "im Vordergrund"))")
+                        }
+                    }
                     self.lastProgress = Date()
                 }
             }

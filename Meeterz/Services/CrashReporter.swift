@@ -22,6 +22,8 @@ final class CrashReporter: NSObject, MXMetricManagerSubscriber {
             let locked = UIApplication.shared.isProtectedDataAvailable ? "" : ", Daten noch gesperrt (iPhone nicht entsperrt)"
             Diag.log("App gestartet (Build \(build), \(state)\(locked), Dateischutz: \(CrashReporter.fileProtection()))")
         }
+        // Welche Dateien der App (und eingebundener SDKs wie Mapbox) sind bei gesperrtem iPhone unlesbar?
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 3) { CrashReporter.scanProtection() }
         MXMetricManager.shared.add(self)
         StallLogger.shared.start()
     }
@@ -39,6 +41,31 @@ final class CrashReporter: NSObject, MXMetricManagerSubscriber {
         } catch {
             return "Datei nicht anlegbar (\((error as NSError).code))"
         }
+    }
+
+    /// Zählt die Dateien in Library nach Schutzklasse und nennt die mit „complete“ (bei Sperre unlesbar).
+    /// Hintergrund: Nach einem Kaltstart bei gesperrtem iPhone blieb die Navigation minutenlang ohne Fortschritt –
+    /// ein SDK, das seine Daten streng schützt, würde genau das verursachen.
+    nonisolated static func scanProtection() {
+        let fm = FileManager.default
+        guard let library = fm.urls(for: .libraryDirectory, in: .userDomainMask).first,
+              let items = fm.enumerator(at: library, includingPropertiesForKeys: [.isRegularFileKey, .fileProtectionKey]) else { return }
+        var counts: [String: Int] = [:]
+        var strict: [String] = []
+        var scanned = 0
+        for case let url as URL in items {
+            guard scanned < 5_000 else { break }
+            guard (try? url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true else { continue }
+            scanned += 1
+            let value = (try? url.resourceValues(forKeys: [.fileProtectionKey]).fileProtection)?.rawValue ?? "unbekannt"
+            let name = value.replacingOccurrences(of: "NSFileProtection", with: "")
+            counts[name, default: 0] += 1
+            if name == "Complete" || name == "CompleteUnlessOpen", strict.count < 6 {
+                strict.append(url.path.replacingOccurrences(of: library.path, with: "Library"))
+            }
+        }
+        let summary = counts.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value)" }.joined(separator: ", ")
+        Diag.log("Dateischutz in Library (\(scanned) Dateien): \(summary)\(strict.isEmpty ? "" : " – streng: " + strict.joined(separator: "; "))")
     }
 
     func didReceive(_ payloads: [MXDiagnosticPayload]) {

@@ -23,6 +23,9 @@ final class FriendsStore {
             }
             // Siri kennt die Namen der Freunde („Navigiere mit Meeterz zu Lisa“)
             MeeterzShortcuts.updateAppShortcutParameters()
+            errorMessage = nil   // vorher blieb ein einmaliger Fehler (z. B. kurz offline) für immer stehen
+        } catch where AuthStore.isOffline(error) {
+            // Kurz kein Netz: letzten Stand behalten, beim nächsten Aktualisieren klappt es wieder – keine Meldung
         } catch {
             errorMessage = error.localizedDescription
         }

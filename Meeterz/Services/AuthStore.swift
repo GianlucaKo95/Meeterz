@@ -48,10 +48,28 @@ final class AuthStore {
                 .eq("id", value: session.user.id)
                 .execute().value
             state = rows.first.map(State.ready) ?? .needsProfile(session.user.id)
+            errorMessage = nil
+        } catch where Self.isOffline(error) {
+            // Kein Netz (z. B. Start im Hintergrund, Funkloch): kein Fehlertext, der stehen bleibt, und schon gar nicht
+            // „Profil anlegen“ – das Profil gibt es ja. Bisherigen Stand behalten und gleich noch einmal versuchen.
+            Diag.log("Profil laden: kein Netz – neuer Versuch in 10 s")
+            Task { [weak self] in
+                try? await Task.sleep(for: .seconds(10))
+                guard let self, self.profile?.id != session.user.id else { return }
+                await self.load(session: try? await self.client.auth.session)
+            }
         } catch {
             errorMessage = error.localizedDescription
             state = .needsProfile(session.user.id)
         }
+    }
+
+    /// Netzwerkfehler (offline, Zeitüberschreitung, Verbindung verloren) – vorübergehend, kein Grund für eine Meldung
+    nonisolated static func isOffline(_ error: Error) -> Bool {
+        let ns = error as NSError
+        if ns.domain == NSURLErrorDomain { return true }
+        if let underlying = ns.userInfo[NSUnderlyingErrorKey] as? NSError, underlying.domain == NSURLErrorDomain { return true }
+        return error is URLError
     }
 
     // MARK: Mit Apple anmelden

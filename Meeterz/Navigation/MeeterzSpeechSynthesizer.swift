@@ -114,7 +114,7 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing, AVSpeechSynt
         let wasActive = audioActive
         activateAudio()
         guard managesAudioSession, !wasActive else { synthesizer.speak(utterance); return }
-        let warmup: TimeInterval = CarPlayController.shared.isConnected ? 1.0 : 0.4
+        let warmup: TimeInterval = CarPlayController.shared.isConnected ? 2.0 : 0.4
         Diag.log("Ansage nach \(warmup) s Vorlauf (Audio war aus): \(utterance.speechString.prefix(40))")
         let work = DispatchWorkItem { [weak self] in self?.synthesizer.speak(utterance) }
         pendingSpeech = work

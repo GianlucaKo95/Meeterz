@@ -1,0 +1,9 @@
+{
+  "de": {"title": "Triff deine Freunde unterwegs", "sub": "Live-Standort · Treffpunkte · CarPlay", "card": "Eure Wege kreuzen sich", "cardSub": "In 8 Min. seid ihr nah beieinander", "pin": "Möglicher Treffpunkt", "you": "Du"},
+  "en": {"title": "Meet your friends on the way", "sub": "Live location · Meeting points · CarPlay", "card": "Your paths cross", "cardSub": "In 8 min you’ll be close to each other", "pin": "Possible meeting point", "you": "You"},
+  "fr": {"title": "Retrouve tes amis en route", "sub": "Position en direct · Rendez-vous · CarPlay", "card": "Vos chemins se croisent", "cardSub": "Dans 8 min vous serez proches", "pin": "Point de rendez-vous possible", "you": "Toi"},
+  "es": {"title": "Queda con tus amigos por el camino", "sub": "Ubicación en vivo · Puntos de encuentro · CarPlay", "card": "Vuestros caminos se cruzan", "cardSub": "En 8 min estaréis cerca", "pin": "Posible punto de encuentro", "you": "Tú"},
+  "pt": {"title": "Encontra os teus amigos pelo caminho", "sub": "Localização ao vivo · Pontos de encontro · CarPlay", "card": "Os vossos caminhos cruzam-se", "cardSub": "Daqui a 8 min estarão perto", "pin": "Possível ponto de encontro", "you": "Tu"},
+  "tr": {"title": "Arkadaşlarınla yolda buluş", "sub": "Canlı konum · Buluşma noktaları · CarPlay", "card": "Yollarınız kesişiyor", "cardSub": "8 dk sonra birbirinize yakın olacaksınız", "pin": "Olası buluşma noktası", "you": "Sen"},
+  "it": {"title": "Incontra i tuoi amici per strada", "sub": "Posizione live · Punti d’incontro · CarPlay", "card": "Le vostre strade si incrociano", "cardSub": "Tra 8 min sarete vicini", "pin": "Possibile punto d’incontro", "you": "Tu"}
+}

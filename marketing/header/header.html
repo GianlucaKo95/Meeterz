@@ -1,0 +1,79 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<!-- App-Store-Kopfbild (Universal 16:9). Gerendert mit render.mjs in 5244 × 2950 px (2622 × 1475 CSS-px, Faktor 2).
+     Sicherer Bereich: 21:9-Kopf schneidet oben/unten je ~175 px ab, 3:2-Suche links/rechts je ~205 px. -->
+<style>
+@font-face{font-family:Jakarta;font-weight:400;src:url(fonts/plus-jakarta-sans-latin-400-normal.woff2)}
+@font-face{font-family:Jakarta;font-weight:600;src:url(fonts/plus-jakarta-sans-latin-600-normal.woff2)}
+@font-face{font-family:Jakarta;font-weight:800;src:url(fonts/plus-jakarta-sans-latin-800-normal.woff2)}
+@font-face{font-family:Jakarta;font-weight:400;src:url(fonts/plus-jakarta-sans-latin-ext-400-normal.woff2);unicode-range:U+0100-024F,U+1E00-1EFF}
+@font-face{font-family:Jakarta;font-weight:600;src:url(fonts/plus-jakarta-sans-latin-ext-600-normal.woff2);unicode-range:U+0100-024F,U+1E00-1EFF}
+@font-face{font-family:Jakarta;font-weight:800;src:url(fonts/plus-jakarta-sans-latin-ext-800-normal.woff2);unicode-range:U+0100-024F,U+1E00-1EFF}
+:root{--teal:#0B7F70;--deep:#053B35;--mint:#6FF3DA;--amber:#FFB547;--ink:#0C1715;--map:#14231F;--road:#27403B;--road2:#355650}
+*{box-sizing:border-box}
+html,body{margin:0;width:2622px;height:1475px;overflow:hidden}
+body{font-family:Jakarta,system-ui,sans-serif;color:#fff;position:relative;
+  background:radial-gradient(1200px 900px at 78% 45%,#0E9584 0%,transparent 70%),linear-gradient(135deg,#0B7F70 0%,#064A42 60%,#043630 100%)}
+/* feine Straßenlinien im Hintergrund */
+.bg{position:absolute;inset:0;opacity:.13}
+.stage{position:absolute;left:205px;right:205px;top:175px;bottom:175px;display:flex;align-items:center;justify-content:space-between;gap:80px}
+.copy{flex:1;min-width:0;padding-left:60px}
+h1{font-weight:800;font-size:128px;line-height:1.02;letter-spacing:-.025em;margin:0 0 44px;max-width:1150px;text-wrap:balance}
+.sub{font-weight:600;font-size:46px;color:var(--mint);letter-spacing:.005em}
+.phone{flex:none;width:520px;height:1080px;border-radius:84px;background:#0A0F0E;padding:18px;
+  box-shadow:0 60px 120px rgba(0,20,17,.55),0 0 0 3px #2C3B38 inset;margin-right:110px;transform:rotate(-4deg)}
+.screen{position:relative;width:100%;height:100%;border-radius:68px;overflow:hidden;background:var(--map)}
+.island{position:absolute;top:22px;left:50%;transform:translateX(-50%);width:150px;height:44px;border-radius:22px;background:#000;z-index:5}
+.screen svg{position:absolute;inset:0}
+.label{position:absolute;font-weight:600;font-size:22px;padding:8px 16px;border-radius:999px;background:rgba(10,18,16,.85);white-space:nowrap}
+.card{position:absolute;left:22px;right:22px;bottom:30px;border-radius:40px;background:rgba(18,30,27,.94);padding:30px 32px;
+  border:1px solid rgba(111,243,218,.18)}
+.card b{display:block;font-weight:800;font-size:31px;margin-bottom:8px}
+.card span{font-size:23px;color:#B5C9C4}
+.avatar{position:absolute;width:76px;height:76px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:32px;color:var(--ink);border:5px solid #fff}
+</style></head>
+<body>
+<svg class="bg" viewBox="0 0 2622 1475" preserveAspectRatio="none" aria-hidden="true">
+  <g fill="none" stroke="#BFF8EC" stroke-width="3">
+    <path d="M-50 1200 C 500 1000, 700 1300, 1200 1050 S 2100 700, 2700 820"/>
+    <path d="M-50 300 C 400 420, 900 180, 1400 330 S 2300 520, 2700 260"/>
+    <path d="M600 -50 C 700 400, 450 800, 720 1550"/>
+    <path d="M1900 -50 C 1750 500, 2100 900, 1950 1550"/>
+    <path d="M-50 760 C 600 700, 1100 860, 1700 720 S 2400 640, 2700 700"/>
+  </g>
+</svg>
+<div class="stage">
+  <div class="copy">
+    <h1 id="title"></h1>
+    <div class="sub" id="sub"></div>
+  </div>
+  <div class="phone"><div class="screen">
+    <div class="island"></div>
+    <svg viewBox="0 0 484 1044" aria-hidden="true">
+      <rect width="484" height="1044" fill="#14231F"/>
+      <g fill="#182B27"><rect x="20" y="120" width="150" height="190" rx="10"/><rect x="300" y="90" width="170" height="160" rx="10"/>
+        <rect x="40" y="430" width="130" height="150" rx="10"/><rect x="320" y="560" width="150" height="170" rx="10"/><rect x="30" y="700" width="160" height="110" rx="10"/></g>
+      <path d="M0 360 L484 300" stroke="#2E4A44" stroke-width="18"/>
+      <path d="M220 0 C 240 300, 200 600, 250 1044" stroke="#2E4A44" stroke-width="22" fill="none"/>
+      <path d="M0 640 C 160 600, 320 700, 484 660" stroke="#27403B" stroke-width="14" fill="none"/>
+      <path d="M90 0 L140 1044" stroke="#223833" stroke-width="10"/>
+      <path d="M400 0 C 380 400, 430 700, 380 1044" stroke="#223833" stroke-width="10" fill="none"/>
+      <!-- deine Route (mint) und die deines Freundes (amber) kreuzen sich -->
+      <path d="M120 770 C 160 650, 200 560, 238 470 S 360 230, 430 150" stroke="#6FF3DA" stroke-width="14" fill="none" stroke-linecap="round"/>
+      <path d="M50 230 C 150 330, 200 410, 238 470 S 330 640, 440 760" stroke="#FFB547" stroke-width="14" fill="none" stroke-linecap="round" stroke-dasharray="1 0"/>
+      <circle cx="238" cy="470" r="40" fill="#6FF3DA" opacity=".18"/>
+      <circle cx="238" cy="470" r="22" fill="#fff"/><circle cx="238" cy="470" r="12" fill="#0B7F70"/>
+      <!-- dein Pfeil -->
+      <g transform="translate(120 770) rotate(18)"><circle r="30" fill="#6FF3DA" opacity=".25"/><path d="M0 -20 L15 16 L0 8 L-15 16 Z" fill="#fff"/></g>
+    </svg>
+    <div class="avatar" style="left:22px;top:192px;background:var(--amber)">A</div>
+    <div class="label" id="pin" style="left:50%;top:400px;transform:translateX(-36%)"></div>
+    <div class="label" id="you" style="left:162px;top:752px"></div>
+    <div class="card"><b id="card"></b><span id="cardSub"></span></div>
+  </div></div>
+</div>
+<script>
+const T = window.TEXTS || {};
+for (const k of ["title","sub","card","cardSub","pin","you"]) document.getElementById(k).textContent = T[k] ?? k;
+</script>
+</body></html>

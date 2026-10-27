@@ -1,0 +1,38 @@
+name: Store-Angaben
+# Pflichtangaben für die Einreichung (ci/asc_setup.py). Eingereicht wird nichts. Bericht: Branch "asc-report", report.txt.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "show = nur anzeigen, apply = Inhaltsrechte, Altersfreigabe, Copyright, Preis setzen"
+        type: choice
+        options: [show, apply]
+        default: show
+
+permissions:
+  contents: write
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Produktseite befüllen
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          printf '%s' "$ASC_KEY_P8" > "$RUNNER_TEMP/key.p8"
+          export ASC_KEY_PATH="$RUNNER_TEMP/key.p8"
+          python3 ci/asc_setup.py de.koeven.meeterz ${{ inputs.mode }} > /tmp/report.txt 2>&1 || echo "Exit $?" >> /tmp/report.txt
+      - name: Bericht veröffentlichen
+        run: |
+          git config user.name "meeterz-ci"
+          git config user.email "ci@users.noreply.github.com"
+          git checkout --orphan asc-report
+          git rm -rf . >/dev/null 2>&1 || true
+          cp /tmp/report.txt report.txt
+          git add report.txt
+          git commit -q -m "Store-Angaben"
+          git push -f origin asc-report

@@ -1231,7 +1231,7 @@ extension CarPlayController: CarPlayManagerDelegate {
 
     nonisolated func carPlayManagerDidEndNavigation(_ carPlayManager: CarPlayManager, byCanceling canceled: Bool) {
         MainActor.assumeIsolated {
-            Diag.log("CarPlay: Navigation beendet (\(canceled ? "abgebrochen" : "am Ziel")), Browse-Karte im Fenster: \(carPlayManager.carPlayMapViewController?.navigationMapView?.window != nil), Flyover: \(flyover != nil)")
+            Diag.log("CarPlay: Navigation beendet (\(canceled ? "abgebrochen" : "am Ziel")), Browse-Karte im Fenster: \(carPlayManager.carPlayMapViewController?.navigationMapView.window != nil), Flyover: \(flyover != nil)")
             pauseAlerts()
             navigationEndedAt = Date()
             navigationOverlay?.stop()

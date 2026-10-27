@@ -293,12 +293,12 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
         var shortcuts: [Shortcut] = friends.map { item in
             let f = item.friend
             let first = f.displayName.split(separator: " ").first.map(String.init) ?? f.displayName
-            let distance = me.map { Format.distance(item.position.coordinate.distance(to: $0)) } ?? ""
+            let faded = item.position.age > 5 * 60
             let image = AvatarRenderer.image(initials: f.initials, color: FriendPalette.uiColor(for: f.friendId),
-                                             faded: item.position.age > 5 * 60, photo: app.avatars.image(for: f.friendId))
-            // Schlüssel grob (250-m-Schritte), damit die Knöpfe nicht bei jeder Bewegung neu gesetzt werden
-            let bucket = me.map { Int(item.position.coordinate.distance(to: $0) / 250) } ?? -1
-            return Shortcut(key: "\(f.friendId)-\(bucket)", title: first, subtitle: distance, image: image,
+                                             faded: faded, photo: app.avatars.image(for: f.friendId))
+            // Ohne Entfernung: die wechselte beim Fahren ständig und lenkte im Augenwinkel ab. Der Knopf ändert sich
+            // nur noch, wenn ein anderer Freund der nächste ist; navigiert wird zur aktuellen Position (beim Antippen).
+            return Shortcut(key: "\(f.friendId)-\(faded)", title: first, subtitle: "", image: image,
                             place: Place(id: "friend-\(f.friendId)", name: f.displayName, address: nil,
                                          coordinate: item.position.coordinate))
         }
@@ -316,8 +316,16 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
         shortcutKey = key
         controller.shortcutButtons = shortcuts.map { s in
             let place = s.place
-            return CPDashboardButton(titleVariants: [s.title], subtitleVariants: [s.subtitle], image: s.image) { _ in
-                Task { @MainActor in CarPlayController.shared.openFromDashboard(place, scene: CarPlayDashboard.shared.scene) }
+            return CPDashboardButton(titleVariants: [s.title], subtitleVariants: s.subtitle.isEmpty ? [] : [s.subtitle], image: s.image) { _ in
+                Task { @MainActor in
+                    // Freund: Ziel ist seine Position jetzt, nicht die beim letzten Setzen des Knopfs
+                    var target = place
+                    if place.id.hasPrefix("friend-"),
+                       let item = AppModel.shared.friendsOnMap.first(where: { "friend-\($0.friend.friendId)" == place.id }) {
+                        target = Place(id: place.id, name: place.name, address: nil, coordinate: item.position.coordinate)
+                    }
+                    CarPlayController.shared.openFromDashboard(target, scene: CarPlayDashboard.shared.scene)
+                }
             }
         }
     }

@@ -154,7 +154,8 @@ struct SecondaryButtonStyle: ButtonStyle {
 
 struct CircleIconButton: View {
     let systemName: String
-    let label: String
+    /// Für VoiceOver – übersetzt (Schlüssel im String-Katalog)
+    let label: LocalizedStringKey
     var tint: Color = Theme.text
     var badge = false
     /// Bernsteinfarbener Punkt: z. B. ein Freund ist gerade per Navigation unterwegs
@@ -184,7 +185,7 @@ struct CircleIconButton: View {
                     }
                 }
         }
-        .accessibilityLabel(label)
+        .accessibilityLabel(Text(label))
         .accessibilityValue(activeDot ? String(localized: "Ein Freund ist unterwegs") : "")
     }
 }

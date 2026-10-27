@@ -330,7 +330,7 @@ struct MainView: View {
 
             CircleIconButton(
                 systemName: "person.2.fill",
-                label: String(localized: "Freunde"),
+                label: "Freunde",
                 badge: !app.friends.incoming.isEmpty,
                 activeDot: !app.routes.friendRoutes.isEmpty
             ) { showUnterwegs = true }

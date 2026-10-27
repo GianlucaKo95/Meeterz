@@ -47,8 +47,8 @@ jobs:
           # Rohaufnahmen als JPEG (kleiner), dazu Bericht, Logs und Diagnose-Screenshots
           if [ -d storeshots ]; then
             (cd storeshots && find . -name "*.png" | while read f; do
-              mkdir -p "$RUNNER_TEMP/out/storeshots/$(dirname "$f")"
-              sips -s format jpeg -s formatOptions 92 "$f" --out "$RUNNER_TEMP/out/storeshots/${f%.png}.jpg" >/dev/null
+              mkdir -p "$RUNNER_TEMP/out/raw/$(dirname "$f")"
+              sips -s format jpeg -s formatOptions 92 "$f" --out "$RUNNER_TEMP/out/raw/${f%.png}.jpg" >/dev/null
             done)
           fi
           mkdir -p "$RUNNER_TEMP/out/diag"
@@ -60,7 +60,7 @@ jobs:
           git checkout --orphan store-shots-raw
           git rm -rf . >/dev/null 2>&1 || true
           cp -R "$RUNNER_TEMP"/out/. .
-          git add storeshots diag report.txt shots-*.log 2>/dev/null || git add diag report.txt
+          git add raw diag report.txt shots-*.log 2>/dev/null || git add diag report.txt
           git commit -q -m "Rohaufnahmen ${GITHUB_SHA}"
           git push -f origin store-shots-raw
       - name: Ergebnis

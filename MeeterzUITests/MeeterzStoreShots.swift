@@ -46,6 +46,13 @@ final class MeeterzStoreShots: MeeterzTestBase {
         }
     }
 
+    /// Karte auf den eigenen (erfundenen) Standort zentrieren
+    func centerOnMe() {
+        chrome()
+        let b = app.buttons[L("Auf meinen Standort zentrieren")]
+        if b.waitForExistence(timeout: 5) { b.tap() } else { shot("FEHLT-zentrieren") }
+    }
+
     // MARK: Erfundene Route über echte Straßen
 
     func route(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D) -> (points: [[Double]], seconds: Double) {
@@ -146,6 +153,9 @@ final class MeeterzStoreShots: MeeterzTestBase {
             }
         }
 
+        let accepted = (me.rpc("my_friends").1 as? [[String: Any]] ?? []).filter { ($0["status"] as? String) == "accepted" }.count
+        XCTAssertEqual(accepted, sc.friends.count, "alle erfundenen Freunde angenommen")
+
         // Anmelden
         need(app.buttons[L("Anmelden")], "login")
         type(Remote.email("shot-me"), into: need(app.textFields[L("E-Mail")], "email-feld"))
@@ -154,7 +164,9 @@ final class MeeterzStoreShots: MeeterzTestBase {
         need(app.buttons[L("Ziel suchen")], "karte", timeout: 60)
         for _ in 0..<3 { tapMap(); pause(3); dismissSystemDialogs() }
         chrome()
-        pause(20)    // Freunde und Routen laden, Kacheln zeichnen
+        pause(15)    // Freunde und Routen laden
+        centerOnMe()
+        pause(10)    // Kacheln zeichnen
 
         // 1 Karte mit Freunden unterwegs
         chrome()
@@ -170,7 +182,7 @@ final class MeeterzStoreShots: MeeterzTestBase {
         if group.waitForExistence(timeout: 10) {
             group.tap(); pause(2)
             for name in sc.friends.map(\.name) {
-                let row = app.buttons.containing(NSPredicate(format: "label BEGINSWITH %@", name)).firstMatch
+                let row = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", name)).firstMatch
                 if row.waitForExistence(timeout: 5) { row.tap(); pause(1) }
             }
             let find = app.buttons[L("Fairen Treffpunkt finden")]
@@ -190,14 +202,15 @@ final class MeeterzStoreShots: MeeterzTestBase {
         if pill.waitForExistence(timeout: 5) {
             pill.tap(); pause(2)
             storeShot(4, "privatsphaere")
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.15)).tap(); pause(2)
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85)).tap(); pause(2)   // Menü schließen (unten auf die Karte)
         }
 
         // 5 Navigation (simulierte Fahrt) zum Ziel des Schauplatzes
         chrome()
         app.buttons[L("Ziel suchen")].tap()
         type(sc.search, into: need(app.textFields[L("Adresse oder Ort")], "suchfeld"))
-        let hit = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", sc.match)).firstMatch
+        // Nur Suchtreffer (beginnen mit dem Ortsnamen) – nicht die Freunde-Marker, deren Text das Ziel nennt
+        let hit = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", sc.match)).firstMatch
         need(hit, "suchergebnis", timeout: 30).tap()
         need(app.buttons[L("Losfahren")], "route-vorschau", timeout: 40)
         pause(5)

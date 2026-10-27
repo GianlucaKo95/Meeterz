@@ -24,7 +24,7 @@ export TEST_RUNNER_SHOT_DIR="$PWD/screenshots"
 FAILED=0
 
 for SIZE in $SIZES; do
-  UDID=$(SIZE=$SIZE xcrun simctl list devices available -j | python3 -c '
+  UDID=$(xcrun simctl list devices available -j | SIZE=$SIZE python3 -c '
 import json, os, sys
 want_max = os.environ["SIZE"] == "promax"
 best = ""

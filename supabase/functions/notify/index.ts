@@ -145,19 +145,31 @@ async function isAllowed(
   }
 }
 
+// Texte übersetzt das iPhone selbst (in der Sprache der App): loc-key/loc-args verweisen auf Einträge in
+// Localizable.xcstrings (push.*). title/body bleiben als Rückfall für ältere App-Versionen.
 function message(kind: Kind, name: string, place?: string, text?: string) {
+  const loc = (key: string, args: string[], titleArgs: string[] = []) => ({
+    "title-loc-key": `push.${key}.title`, "title-loc-args": titleArgs,
+    "loc-key": `push.${key}.body`, "loc-args": args,
+  });
   switch (kind) {
     case "message":
-      return { title: name, body: text ?? "Neue Nachricht" };
+      return text
+        ? { title: name, body: text }   // Nachricht selbst wird nicht übersetzt
+        : { title: name, "loc-key": "push.message.empty", "loc-args": [] };
     case "friend_request":
-      return { title: "Neue Freundschaftsanfrage", body: `${name} möchte dich bei Meeterz hinzufügen.` };
+      return { title: "Neue Freundschaftsanfrage", body: `${name} möchte dich bei Meeterz hinzufügen.`, ...loc("friend_request", [name]) };
     case "friend_accepted":
-      return { title: "Anfrage angenommen", body: `${name} und du seht euch jetzt auf der Karte.` };
+      return { title: "Anfrage angenommen", body: `${name} und du seht euch jetzt auf der Karte.`, ...loc("friend_accepted", [name]) };
     case "meetup_proposed":
-      return { title: `${name} möchte sich treffen`, body: place ? `Vorschlag: ${place}` : "Tippe, um den Vorschlag zu sehen." };
+      return place
+        ? { title: `${name} möchte sich treffen`, body: `Vorschlag: ${place}`, ...loc("meetup_proposed", [place], [name]) }
+        : { title: `${name} möchte sich treffen`, body: "Tippe, um den Vorschlag zu sehen.", ...loc("meetup_proposed_noplace", [], [name]) };
     case "meetup_accepted":
-      return { title: "Treffen steht", body: `${name} kommt${place ? ` zu ${place}` : ""}.` };
+      return place
+        ? { title: "Treffen steht", body: `${name} kommt zu ${place}.`, ...loc("meetup_accepted", [name, place]) }
+        : { title: "Treffen steht", body: `${name} kommt.`, ...loc("meetup_accepted_noplace", [name]) };
     case "meetup_declined":
-      return { title: "Treffen abgesagt", body: `${name} schafft es diesmal nicht.` };
+      return { title: "Treffen abgesagt", body: `${name} schafft es diesmal nicht.`, ...loc("meetup_declined", [name]) };
   }
 }

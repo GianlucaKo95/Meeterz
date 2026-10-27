@@ -9,21 +9,21 @@ const { join } = require("node:path");
 const here = __dirname;
 const texts = JSON.parse(readFileSync(join(here, "texts.json"), "utf8"));
 const langs = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(texts);
-const out = join(here, "out");
+const out = join(here, process.env.PAGE === "search.html" ? "out-search" : "out");
 mkdirSync(out, { recursive: true });
 
 const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width: 2622, height: 1475 }, deviceScaleFactor: 2 });
+const page = await browser.newPage({ viewport: process.env.PAGE === "search.html" ? { width: 1920, height: 1280 } : { width: 2622, height: 1475 }, deviceScaleFactor: 2 });
 for (const lang of langs) {
   await page.addInitScript(t => { window.TEXTS = t; }, texts[lang]);
-  await page.goto(pathToFileURL(join(here, "header.html")).href);
+  await page.goto(pathToFileURL(join(here, process.env.PAGE || "header.html")).href);
   await page.evaluate(() => document.fonts.ready);
   // Lange Überschriften (es/pt) eine Stufe kleiner, damit sie in drei Zeilen passen
-  await page.evaluate(() => {
+  await page.evaluate(([start, max]) => {
     const h = document.getElementById("title");
-    let size = 92;
-    while (h.getBoundingClientRect().height > 300 && size > 64) { size -= 4; h.style.fontSize = size + "px"; }
-  });
+    let size = start;
+    while (h.getBoundingClientRect().height > max && size > 64) { size -= 4; h.style.fontSize = size + "px"; }
+  }, process.env.PAGE === "search.html" ? [118, 380] : [92, 300]);
   await page.screenshot({ path: join(out, `${lang}.png`), omitBackground: false });
   console.log(lang, "fertig");
 }

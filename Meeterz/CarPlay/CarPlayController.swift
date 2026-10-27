@@ -368,6 +368,8 @@ final class CarPlayController: NSObject {
         stopSpeedWarning()
         freezeWatch?.invalidate(); freezeWatch = nil
         isConnected = false
+        // Freie Fahrt lief nur für die CarPlay-Karte (siehe NavigationCoordinator.stop) – ohne Route wieder anhalten
+        if !AppModel.shared.navigation.isNavigating { navigationProvider.tripSession().setToIdle() }
         // Ausgestiegen: Parkplatz merken (vor setCarPlay, das den Standort in den Sparmodus schaltet)
         if let here = AppModel.shared.location.lastLocation { AppModel.shared.parking.save(here) }
         AppModel.shared.location.setCarPlay(false)

@@ -1,6 +1,6 @@
 name: App-Store-Screenshots
 # Erfundene Daten (Testkonten Alex, Anna, Ben, Mia in Köln), echte App-Bildschirme, alle Sprachen, 6,3" und 6,9".
-# Ergebnis im Branch "store-shots-raw-<sprachen>" (Rohaufnahmen als JPEG, Bericht, Logs) – so laufen Sprachen parallel.
+# Ergebnis im Branch "store-shots-raw-<sprachen>" (Rohaufnahmen als JPEG, Bericht, Logs) – Läufe nie parallel starten: alle nutzen dieselben Testkonten und überschreiben sich gegenseitig die Freunde.
 on:
   workflow_dispatch:
     inputs:

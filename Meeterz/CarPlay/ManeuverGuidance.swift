@@ -25,6 +25,8 @@ final class ManeuverGuidance {
     private weak var navigationController: CarPlayNavigationViewController?
     /// Gerade herangezoomt (für welches Manöver)
     private var zoomedFor: Int?
+    /// Gerade vor einem Manöver herangezoomt
+    var isZoomed: Bool { zoomedFor != nil }
     /// Wird gerufen, um den Zoom zu setzen (nil = wieder automatisch)
     var applyZoom: ((Double?) -> Void)?
     /// Hat der Fahrer selbst gezoomt? Dann nichts tun.

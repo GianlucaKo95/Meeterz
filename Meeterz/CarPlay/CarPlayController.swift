@@ -1052,7 +1052,11 @@ extension CarPlayController: CarPlayManagerDelegate {
             if let navMap = navigationViewController.navigationMapView {
                 navZoom = nil
                 overviewChosen = false
-                navMap.navigationCamera.cameraStateTransition = SmoothCameraTransition(navMap.mapView)
+                let transition = SmoothCameraTransition(navMap.mapView)
+                transition.zoomPinned = { [weak self] in
+                    MainActor.assumeIsolated { self?.navZoom != nil || ManeuverGuidance.shared.isZoomed }
+                }
+                navMap.navigationCamera.cameraStateTransition = transition
                 configureCamera(navMap, navigating: true)
                 autoHideButtons()
                 navRecenter?.cancel()

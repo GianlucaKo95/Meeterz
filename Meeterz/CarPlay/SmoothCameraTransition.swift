@@ -46,10 +46,24 @@ final class SmoothCameraTransition: CameraStateTransition {
         stopAll()
     }
 
+    /// Zoom ist fest vorgegeben (Fahrer hat gezoomt oder Heranzoomen vor dem Manöver)? Dann folgt die Kamera dem
+    /// Standort selbst statt Mapbox' vorausschauendem Mittelpunkt.
+    var zoomPinned: () -> Bool = { false }
+
     func update(to cameraOptions: CameraOptions, state: NavigationCameraState) {
-        guard let mapView, let target = cameraOptions.center, CLLocationCoordinate2DIsValid(target) else { return }
+        guard let mapView, var target = cameraOptions.center, CLLocationCoordinate2DIsValid(target) else { return }
         // Übersicht (Route im Ganzen) wie bei Mapbox: dort zählt das Einrahmen, nicht das Mitlaufen
         guard state == .following else { standard.update(to: cameraOptions, state: state); return }
+
+        // Ursache für „Pfeil verschwindet beim Heranzoomen hinter dem Straßennamen“: Während der Navigation setzt
+        // Mapbox den Mittelpunkt nicht auf den Standort, sondern ein Stück die Route voraus und legt diesen Punkt
+        // unten ins Bild. Das passt nur zu Mapbox' eigenem Zoom (der rahmt die Strecke so, dass der Standort sichtbar
+        // bleibt). Ist der Zoom fest und nah, liegt der Standort weit UNTER dem Mittelpunkt – unter dem Straßenschild
+        // oder außerhalb. Bei festem Zoom darum den Standort selbst als Mittelpunkt nehmen.
+        if zoomPinned(), let here = navigationProvider.mapboxNavigation.navigation().currentLocationMatching?.enhancedLocation.coordinate,
+           CLLocationCoordinate2DIsValid(here) {
+            target = here
+        }
 
         let now = Date()
         if let last = lastUpdate {

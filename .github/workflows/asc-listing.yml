@@ -1,0 +1,38 @@
+name: Produktseite befüllen
+# Schreibt Untertitel, Beschreibung, Keywords, Werbetext und URLs aus docs/store-listing.json in alle Sprachen
+# der Produktseite (App Store Connect). Eingereicht wird nichts. Bericht: Branch "asc-report", report.txt.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Nur anzeigen, was geändert würde"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  listing:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Produktseite befüllen
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          printf '%s' "$ASC_KEY_P8" > "$RUNNER_TEMP/key.p8"
+          export ASC_KEY_PATH="$RUNNER_TEMP/key.p8"
+          python3 ci/asc_listing.py de.koeven.meeterz ${{ inputs.dry_run && '--dry-run' || '' }} > /tmp/report.txt 2>&1 || echo "Exit $?" >> /tmp/report.txt
+      - name: Bericht veröffentlichen
+        run: |
+          git config user.name "meeterz-ci"
+          git config user.email "ci@users.noreply.github.com"
+          git checkout --orphan asc-report
+          git rm -rf . >/dev/null 2>&1 || true
+          cp /tmp/report.txt report.txt
+          git add report.txt
+          git commit -q -m "Produktseite"
+          git push -f origin asc-report

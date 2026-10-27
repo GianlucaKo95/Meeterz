@@ -1,5 +1,6 @@
 import AVFoundation
 import CallKit
+import AudioToolbox
 import Combine
 import MapboxDirections
 import MapboxNavigationCore
@@ -92,7 +93,11 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing, AVSpeechSynt
 
     func speak(_ instruction: SpokenInstruction, during legProgress: RouteLegProgress, locale: Locale?) {
         guard !muted, !inCall else {
-            if inCall { Diag.log("Ansage ausgelassen (Telefonat): \(instruction.text.prefix(40))") }
+            if inCall, !muted {
+                // Wie Apple Karten: statt der Ansage nur ein kurzer Ton, der das Gespräch kaum stört
+                AudioServicesPlaySystemSound(1103)
+                Diag.log("Ansage im Telefonat durch kurzen Ton ersetzt: \(instruction.text.prefix(40))")
+            }
             subject.send(VoiceInstructionEvents.DidSpeak(instruction: instruction))
             return
         }

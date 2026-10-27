@@ -8,8 +8,8 @@ on:
         description: "Sprachen"
         default: "de en fr es pt tr it"
       sizes:
-        description: "Displaygrößen (pro = 6,3 Zoll, promax = 6,9 Zoll)"
-        default: "pro promax"
+        description: "Displaygrößen (pro = 6,3 Zoll, promax = 6,9 Zoll) – App Store Connect verlangt nur 6,3 Zoll"
+        default: "pro"
 
 permissions:
   contents: write

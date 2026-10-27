@@ -108,11 +108,16 @@ final class CarPlayController: NSObject {
         return image.withRenderingMode(.alwaysTemplate)
     }
 
-    /// Neigung für 3D. MapKit (Flyover) übernimmt sie 1:1 von der Mapbox-Kamera.
-    private static let tilt3D: Double = 65
+    /// Neigung für 3D. MapKit (Flyover) übernimmt sie 1:1 von der Mapbox-Kamera; das Dashboard nutzt dieselbe.
+    /// Vorher 65°: zusammen mit dem weiten Zoom auf der Autobahn sah man Horizont und Himmel (Fahrt am 27.10.).
+    static let tilt3D: Double = 45
+
+    /// Zoombereich während der Navigation. Mapbox' Vorgabe (10,5…16,35) zoomt bei Autobahntempo bis auf Stadtgröße
+    /// heraus; enger gefasst bleibt die Karte wie ein Navi nah an der Straße.
+    static let navigationZoomRange: ClosedRange<Double> = 15.0...17.5
 
     /// Zoom außerhalb der Fahrt (mit +/− gewählt, bleibt gespeichert)
-    private var browseZoom: Double {
+    var browseZoom: Double {
         get { UserDefaults.standard.object(forKey: "carplay.zoom") as? Double ?? 16.5 }
         set { UserDefaults.standard.set(newValue, forKey: "carplay.zoom") }
     }
@@ -130,7 +135,7 @@ final class CarPlayController: NSObject {
     /// Ursache für „3D tut nichts“ und „Zoom springt zurück“: Ohne Route rechnet Mapbox die Folgekamera bei jedem
     /// Standort-Update neu – Neigung immer 0° und Zoom fest aus 1700 m Höhe; `defaultPitch` gilt nur mit Route.
     /// Darum außerhalb der Fahrt Neigung und Zoom selbst vorgeben und Mapbox das Überschreiben verbieten.
-    private func configureCamera(_ navigationMapView: NavigationMapView?, navigating: Bool) {
+    func configureCamera(_ navigationMapView: NavigationMapView?, navigating: Bool) {
         guard let camera = navigationMapView?.navigationCamera,
               let source = camera.viewportDataSource as? CarPlayViewportDataSource else { return }
         let pitch = threeD ? Self.tilt3D : 0
@@ -141,6 +146,7 @@ final class CarPlayController: NSObject {
             // Mit Route: Mapbox neigt (flacher vor Abbiegungen) und rahmt den Zoom – außer der Fahrer hat selbst gezoomt
             options.followingCameraOptions.pitchUpdatesAllowed = true
             options.followingCameraOptions.zoomUpdatesAllowed = navZoom == nil
+            options.followingCameraOptions.zoomRange = Self.navigationZoomRange
             if let navZoom { current.followingCamera.zoom = navZoom }
         } else {
             options.followingCameraOptions.pitchUpdatesAllowed = false

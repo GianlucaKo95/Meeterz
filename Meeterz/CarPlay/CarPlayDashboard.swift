@@ -3,6 +3,7 @@ import CarPlay
 import Combine
 import CoreLocation
 import MapKit
+import MapboxMaps
 import MapboxNavigationCore
 
 /// Dashboard-Karte im CarPlay-Startbildschirm: eigene Karte mit Standort, Freunden und der laufenden Route,
@@ -35,7 +36,12 @@ final class CarPlayDashboardSceneDelegate: NSObject, CPTemplateApplicationDashbo
     }
 
     // Diagnose: wird die Dashboard-Szene je aktiv?
-    func sceneDidBecomeActive(_ scene: UIScene) { MainActor.assumeIsolated { Diag.log("Dashboard-Szene: aktiv") } }
+    func sceneDidBecomeActive(_ scene: UIScene) {
+        MainActor.assumeIsolated {
+            Diag.log("Dashboard-Szene: aktiv")
+            CarPlayDashboard.shared.sceneDidActivate()
+        }
+    }
     func sceneWillResignActive(_ scene: UIScene) { MainActor.assumeIsolated { Diag.log("Dashboard-Szene: wird inaktiv") } }
     func sceneWillEnterForeground(_ scene: UIScene) { MainActor.assumeIsolated { Diag.log("Dashboard-Szene: Vordergrund") } }
     func sceneDidEnterBackground(_ scene: UIScene) { MainActor.assumeIsolated { Diag.log("Dashboard-Szene: Hintergrund (\(Self.context))") } }
@@ -120,9 +126,11 @@ final class CarPlayClusterSceneDelegate: NSObject, CPTemplateApplicationInstrume
     }
 }
 
-/// Dashboard- und Kombiinstrument-Karte mit Apple MapKit.
+/// Dashboard- und Kombiinstrument-Karte – dieselbe Karte wie die große CarPlay-Ansicht:
+/// Mapbox bei „Satellit“ und „Klassisch“ (gleicher Stil, gleiche Kamera, gleiche Neigung und gleicher Zoom),
+/// Apple MapKit bei „Flyover“ (wie die Flyover-Ebene über der großen Karte).
 ///
-/// Vorher lief hier eine Mapbox-Karte. Mapbox zeichnet nur, solange es die Szene als aktiv erkennt;
+/// Früher lief hier immer eine Mapbox-Karte. Mapbox zeichnet nur, solange es die Szene als aktiv erkennt;
 /// die Dashboard-Szene meldet sich beim Verbinden aber als „nicht verbunden“ (Diagnose: Szene=-1).
 /// Die Karte lud laut Diagnose, wurde aber sehr wahrscheinlich nie gezeichnet – CarPlay zeigte nur das
 /// App-Symbol und das Dashboard hing. MapKit hängt nicht an dieser Erkennung.
@@ -145,6 +153,20 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
     private var pins: [UUID: MapPin] = [:]
     private var routeOverlays: [MKOverlay] = []
 
+    // Mapbox-Variante (Satellit/Klassisch)
+    private var mapbox: NavigationMapView?
+    private var mapboxOverlay: FriendOverlay?
+    private var container: DashboardContainer?
+    private weak var window: UIWindow?
+    private var zoomLevel = 15.5
+    /// Kombiinstrument: eigener Zoom (+/− am Lenkrad); Dashboard: derselbe Zoom wie die große Karte
+    private var ownZoom: Double?
+    private var mapboxRendered = false
+    private var mapboxTokens = Set<AnyCancelable>()
+
+    /// Welche Karte gerade gilt: wie die große CarPlay-Karte
+    private static var usesMapbox: Bool { !CarPlayFlyoverMirror.isEnabled }
+
     private init(name: String) {
         self.name = name
         super.init()
@@ -152,6 +174,14 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
 
     func connect(window: UIWindow, zoom: Double = 15.5) {
         disconnect()
+        self.window = window
+        zoomLevel = zoom
+        ownZoom = name == "Kombiinstrument" ? zoom : nil
+        connectedAt = Date()
+        if Self.usesMapbox { connectMapbox(window: window) } else { connectMapKit(window: window, zoom: zoom) }
+    }
+
+    private func connectMapKit(window: UIWindow, zoom: Double) {
         // Zoomstufe grob in Kameraabstand umrechnen (16 ≈ 700 m)
         distance = 700 * pow(2, 16 - zoom)
 
@@ -204,6 +234,15 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
 
     /// Kartenstil sofort übernehmen (Einstellung „Karte in CarPlay“ bzw. 2D/3D)
     func applyMapType() {
+        // Kartenart gewechselt (Flyover ↔ Satellit/Klassisch): Karte neu aufbauen, damit sie wieder der großen gleicht
+        if let window, (mapbox != nil) != Self.usesMapbox {
+            let controller = dashboardController
+            connect(window: window, zoom: zoomLevel)
+            dashboardController = controller
+            updateShortcuts()
+            return
+        }
+        if mapbox != nil { applyMapboxStyle(); configureMapboxCamera(); return }
         guard let map = mapView else { return }
         Self.applyStyle(to: map)
         if let here = map.userLocation.location ?? AppModel.shared.location.lastLocation { follow(here, map: map, animated: true) }
@@ -230,7 +269,7 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
     }
 
     /// Neigung wie in der großen CarPlay-Karte: 3D geneigt, 2D von oben
-    private static var pitch: CGFloat { CarPlayController.threeDEnabled ? 60 : 0 }
+    private static var pitch: CGFloat { CarPlayController.threeDEnabled ? CGFloat(CarPlayController.tilt3D) : 0 }
 
     /// Zuletzt gesetzte Knöpfe (nur bei Änderung neu setzen, sonst flackert die Kachel)
     private var shortcutKey = ""
@@ -284,11 +323,22 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
     }
 
     func zoom(by delta: Double) {
+        if mapbox != nil {
+            ownZoom = min(max((ownZoom ?? zoomLevel) + delta, 10), 19)
+            configureMapboxCamera()
+            return
+        }
         distance = min(max(distance * pow(2, -delta), 150), 60_000)
         if let map = mapView, let here = map.userLocation.location { follow(here, map: map, animated: true) }
     }
 
     func disconnect() {
+        mapboxOverlay?.stop()
+        mapboxOverlay = nil
+        mapboxTokens.removeAll()
+        mapbox?.removeFromSuperview()
+        mapbox = nil
+        container = nil
         dashboardController = nil
         shortcutKey = ""
         subscriptions.removeAll()
@@ -319,6 +369,118 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
     }
     private var lastPitchLog = Date.distantPast
 
+    // MARK: Mapbox (Satellit/Klassisch) – wie die große CarPlay-Karte
+
+    private func connectMapbox(window: UIWindow) {
+        let core = navigationProvider.mapboxNavigation
+        let nav = NavigationMapView(
+            location: core.navigation().locationMatching.map(\.enhancedLocation).eraseToAnyPublisher(),
+            routeProgress: core.navigation().routeProgress.map { $0?.routeProgress }.eraseToAnyPublisher(),
+            routeRefreshing: core.navigation().routeRefreshing.eraseToAnyPublisher(),
+            navigationCameraType: .carPlay
+        )
+        // Ursache für das frühere „Dashboard zeigt nur das App-Symbol“: Mapbox zeichnet nur in einer aktiven Szene,
+        // die Dashboard-Szene meldet sich beim Verbinden aber als „nicht verbunden“. Darum in jedem Szenenzustand
+        // zeichnen lassen und beim Aktivwerden der Szene neu einhängen (dann erkennt Mapbox die Szene).
+        nav.mapView.displayState = [.foregroundActive, .foregroundInactive, .background]
+        nav.puckType = .puck2D(.navigationCarPlayDefault)
+        nav.mapView.ornaments.options.logo.visibility = .hidden
+        nav.mapView.ornaments.options.attributionButton.visibility = .hidden
+        nav.mapView.ornaments.options.compass.visibility = .hidden
+        nav.mapView.ornaments.options.scaleBar.visibility = .hidden
+        nav.isUserInteractionEnabled = false
+        nav.translatesAutoresizingMaskIntoConstraints = true
+        nav.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+
+        let controller = DashboardContainer()
+        controller.onAppearanceChange = { [weak self] in self?.applyLightPreset() }
+        controller.loadViewIfNeeded()
+        nav.frame = controller.view.bounds
+        controller.view.addSubview(nav)
+        window.rootViewController = controller
+        window.isHidden = false
+        container = controller
+        mapbox = nav
+        mapboxRendered = false
+
+        nav.mapView.mapboxMap.onStyleLoaded.observe { [weak self] _ in
+            MainActor.assumeIsolated { self?.applyLightPreset() }
+        }.store(in: &mapboxTokens)
+        nav.mapView.mapboxMap.onMapIdle.observeNext { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, !self.mapboxRendered else { return }
+                self.mapboxRendered = true
+                Diag.log("\(self.name) (Mapbox): Karte gezeichnet nach \(String(format: "%.1f", Date().timeIntervalSince(self.connectedAt))) s")
+            }
+        }.store(in: &mapboxTokens)
+        applyMapboxStyle()
+
+        let overlay = FriendOverlay(mapView: nav.mapView) { true }
+        overlay.start()
+        mapboxOverlay = overlay
+
+        // Laufende Route wie auf der großen Karte; die Kamera rahmt dann wie dort
+        core.tripSession().navigationRoutes
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] routes in
+                MainActor.assumeIsolated {
+                    guard let self, let map = self.mapbox else { return }
+                    if let routes { map.show(routes, routeAnnotationKinds: []) } else { map.removeRoutes() }
+                    self.configureMapboxCamera()
+                }
+            }
+            .store(in: &subscriptions)
+        configureMapboxCamera()
+
+        // Schnellwahl (Freunde/Zuhause) aktuell halten
+        timer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.updateShortcuts() }
+        }
+
+        Task { @MainActor [weak self, weak nav] in
+            try? await Task.sleep(for: .seconds(5))
+            guard let self, let nav else { return }
+            let cam = nav.mapView.mapboxMap.cameraState
+            Diag.log("\(self.name) nach 5 s (Mapbox): \(Int(nav.bounds.width))x\(Int(nav.bounds.height)), im Fenster=\(nav.window != nil), gezeichnet=\(self.mapboxRendered), Neigung \(Int(cam.pitch))°, Zoom \(String(format: "%.1f", cam.zoom))")
+        }
+    }
+
+    /// Die Dashboard-Szene wurde aktiv: Karte neu einhängen, damit Mapbox die Szene erkennt und zeichnet
+    func sceneDidActivate() {
+        guard let nav = mapbox, let host = container?.view else { return }
+        nav.removeFromSuperview()
+        nav.frame = host.bounds
+        host.addSubview(nav)
+    }
+
+    private func applyMapboxStyle() {
+        guard let nav = mapbox else { return }
+        let satellite = UserDefaults.standard.object(forKey: "carplay.satellite") as? Bool ?? true
+        let uri: StyleURI = satellite ? .standardSatellite : .standard
+        if nav.mapView.mapboxMap.styleURI != uri { nav.mapView.mapboxMap.styleURI = uri }
+        Satellite3DBuildings.install(on: nav.mapView, satellite: satellite)
+        applyLightPreset()
+    }
+
+    /// Tag/Nacht wie das Auto (CarPlay meldet den Nachtmodus über das Erscheinungsbild des Fensters)
+    private func applyLightPreset() {
+        guard let nav = mapbox, nav.mapView.mapboxMap.isStyleLoaded else { return }
+        let dark = (window?.traitCollection.userInterfaceStyle ?? .light) == .dark
+        try? nav.mapView.mapboxMap.setStyleImportConfigProperty(for: "basemap", config: "lightPreset", value: dark ? "night" : "day")
+    }
+
+    /// Neigung und Zoom wie die große Karte (3D-Einstellung, Zoom außerhalb der Fahrt bzw. Navigationszoom)
+    private func configureMapboxCamera() {
+        guard let nav = mapbox else { return }
+        let navigating = AppModel.shared.navigation.isNavigating
+        CarPlayController.shared.configureCamera(nav, navigating: navigating)
+        if let ownZoom, let source = nav.navigationCamera.viewportDataSource as? CarPlayViewportDataSource {
+            var current = source.currentNavigationCameraOptions
+            current.followingCamera.zoom = ownZoom
+            source.currentNavigationCameraOptions = current
+        }
+    }
+
     // MARK: Route und Freunde
 
     private func drawRoute(_ coords: [CLLocationCoordinate2D]?) {
@@ -338,7 +500,7 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
 
     private func refreshFriends() {
         updateShortcuts()
-        guard let map = mapView else { return }
+        guard let map = mapView else { return }   // Mapbox: FriendOverlay zeichnet die Freunde
         let items = AppModel.shared.friendsOnMap
         let wanted = Set(items.map(\.friend.friendId))
         for (id, pin) in pins where !wanted.contains(id) {
@@ -439,5 +601,15 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
             view.zPriority = .defaultUnselected
             return view
         }
+    }
+}
+
+/// Hält die Dashboard-Karte und meldet Tag/Nacht-Wechsel des Autos
+final class DashboardContainer: UIViewController {
+    var onAppearanceChange: (() -> Void)?
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if traitCollection.userInterfaceStyle != previousTraitCollection?.userInterfaceStyle { onAppearanceChange?() }
     }
 }

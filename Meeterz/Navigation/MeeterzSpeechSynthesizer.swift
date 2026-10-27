@@ -64,6 +64,8 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing, AVSpeechSynt
     /// Audiositzung gerade aktiv (Navigationskanal im Auto offen)
     private var audioActive = false
     private var pendingSpeech: DispatchWorkItem?
+    /// Letzte Ansage (für den Vorlauf nach längerer Stille)
+    private var lastSpokenAt: Date?
 
     override private init() {
         super.init()
@@ -102,18 +104,21 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing, AVSpeechSynt
         speakAfterWarmup(utterance)
     }
 
-    /// Ursache für „erste Ansage fehlt“: War die Audiositzung aus (z. B. direkt nach dem Start der Route), schaltet
-    /// das Auto beim Aktivieren erst auf den Navigationskanal um (Musik leiser, Quelle wechseln). Was in dieser Zeit
-    /// gesprochen wird, kommt im Auto nicht an – bei der ersten Ansage oft der ganze Satz. Darum nach dem Aktivieren
-    /// kurz warten; läuft die Sitzung schon, sofort sprechen.
+    /// Ursache für „erste Ansage fehlt“: Bei der ersten Ansage einer Fahrt schaltet das Auto erst auf den
+    /// Navigationskanal um (Musik leiser, Quelle wechseln). Was in dieser Zeit gesprochen wird, kommt im Auto nicht
+    /// an – oft der ganze Satz. Darum vor der ersten Ansage nach längerer Stille kurz warten; sonst sofort sprechen.
     private func speakAfterWarmup(_ utterance: AVSpeechUtterance, replacesPending: Bool = false) {
         if replacesPending {   // eine neuere Abbiegeansage ersetzt eine noch wartende
             pendingSpeech?.cancel()
             pendingSpeech = nil
         }
         let wasActive = audioActive
+        // Vorlauf nur nach längerer Stille (erste Ansage einer Fahrt): Nach jeder Ansage gibt Meeterz den Ton wieder
+        // frei, damit die Musik laut weiterläuft – ein Vorlauf bei jeder Ansage käme an Kreuzungen zu spät.
+        let longSilence = lastSpokenAt.map { Date().timeIntervalSince($0) > 5 * 60 } ?? true
+        lastSpokenAt = Date()
         activateAudio()
-        guard managesAudioSession, !wasActive else { synthesizer.speak(utterance); return }
+        guard managesAudioSession, !wasActive, longSilence else { synthesizer.speak(utterance); return }
         let warmup: TimeInterval = CarPlayController.shared.isConnected ? 2.0 : 0.4
         Diag.log("Ansage nach \(warmup) s Vorlauf (Audio war aus): \(utterance.speechString.prefix(40))")
         let work = DispatchWorkItem { [weak self] in self?.synthesizer.speak(utterance) }

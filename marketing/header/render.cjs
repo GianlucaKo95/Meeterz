@@ -21,8 +21,8 @@ for (const lang of langs) {
   // Lange Überschriften (es/pt) eine Stufe kleiner, damit sie in drei Zeilen passen
   await page.evaluate(() => {
     const h = document.getElementById("title");
-    let size = 128;
-    while (h.getBoundingClientRect().height > 400 && size > 90) { size -= 4; h.style.fontSize = size + "px"; }
+    let size = 104;
+    while (h.getBoundingClientRect().height > 330 && size > 76) { size -= 4; h.style.fontSize = size + "px"; }
   });
   await page.screenshot({ path: join(out, `${lang}.png`), omitBackground: false });
   console.log(lang, "fertig");

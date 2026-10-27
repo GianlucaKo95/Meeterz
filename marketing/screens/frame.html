@@ -1,0 +1,28 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<!-- App-Store-Screenshot: Überschrift oben, darunter der echte App-Bildschirm im Gerät. Gerendert mit render.cjs
+     (6,3": 402 × 874 CSS-px × 3 = 1206 × 2622; 6,9": 440 × 956 × 3 = 1320 × 2868). -->
+<style>
+@font-face{font-family:Jakarta;font-weight:800;src:url(fonts/plus-jakarta-sans-latin-800-normal.woff2)}
+@font-face{font-family:Jakarta;font-weight:800;src:url(fonts/plus-jakarta-sans-latin-ext-800-normal.woff2);unicode-range:U+0100-024F,U+1E00-1EFF}
+*{box-sizing:border-box}
+html,body{margin:0;width:100vw;height:100vh;overflow:hidden}
+body{font-family:Jakarta,system-ui,sans-serif;color:#fff;position:relative;
+  background:radial-gradient(120% 60% at 70% 75%,#0E9584 0%,transparent 70%),linear-gradient(160deg,#0B7F70 0%,#064A42 60%,#043630 100%)}
+.bg{position:absolute;inset:0;opacity:.13}
+h1{position:absolute;left:8%;right:8%;top:6.2%;margin:0;font-weight:800;font-size:9.4vw;line-height:1.08;letter-spacing:-.02em;text-align:center;text-wrap:balance}
+.device{position:absolute;left:50%;top:24%;width:82%;transform:translateX(-50%);padding:2.2%;border-radius:13.5vw;background:#0A0F0E;
+  box-shadow:0 4vw 10vw rgba(0,20,17,.55),0 0 0 .5vw #2C3B38 inset}
+.device img{display:block;width:100%;border-radius:11.6vw}
+</style></head>
+<body>
+<svg class="bg" viewBox="0 0 400 870" preserveAspectRatio="none" aria-hidden="true"><g fill="none" stroke="#BFF8EC" stroke-width="1">
+  <path d="M-20 160 C 120 120, 220 220, 420 150"/><path d="M-20 520 C 140 470, 260 600, 420 540"/>
+  <path d="M90 -20 C 120 300, 60 600, 110 900"/><path d="M320 -20 C 290 300, 350 600, 300 900"/></g></svg>
+<h1 id="title"></h1>
+<div class="device"><img id="shot" alt=""></div>
+<script>
+document.getElementById("title").textContent = window.TITLE || "";
+document.getElementById("shot").src = window.SHOT || "";
+</script>
+</body></html>

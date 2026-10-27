@@ -1,0 +1,10 @@
+{
+  "order": ["karte", "treffpunkt", "navigation", "unterwegs", "privatsphaere"],
+  "de": {"karte": "Sieh, wo deine Freunde unterwegs sind", "unterwegs": "Wer kommt wann an – auf einen Blick", "treffpunkt": "Der faire Treffpunkt für alle", "privatsphaere": "Du entscheidest, wer dich sieht", "navigation": "Navigation mit Live-Verkehr"},
+  "en": {"karte": "See where your friends are on the road", "unterwegs": "Who arrives when, at a glance", "treffpunkt": "A fair meeting point for everyone", "privatsphaere": "You decide who sees you", "navigation": "Navigation with live traffic"},
+  "fr": {"karte": "Vois où tes amis sont en route", "unterwegs": "Qui arrive quand, en un coup d’œil", "treffpunkt": "Un point de rendez-vous équitable pour tous", "privatsphaere": "Tu décides qui te voit", "navigation": "Navigation avec trafic en direct"},
+  "es": {"karte": "Mira por dónde van tus amigos", "unterwegs": "Quién llega y cuándo, de un vistazo", "treffpunkt": "Un punto de encuentro justo para todos", "privatsphaere": "Tú decides quién te ve", "navigation": "Navegación con tráfico en vivo"},
+  "pt": {"karte": "Vê por onde andam os teus amigos", "unterwegs": "Quem chega e quando, num relance", "treffpunkt": "Um ponto de encontro justo para todos", "privatsphaere": "Tu decides quem te vê", "navigation": "Navegação com trânsito ao vivo"},
+  "tr": {"karte": "Arkadaşlarının yolda nerede olduğunu gör", "unterwegs": "Kim ne zaman varıyor, tek bakışta", "treffpunkt": "Herkes için adil bir buluşma noktası", "privatsphaere": "Seni kimin göreceğine sen karar ver", "navigation": "Canlı trafikli navigasyon"},
+  "it": {"karte": "Guarda dove sono in viaggio i tuoi amici", "unterwegs": "Chi arriva e quando, a colpo d’occhio", "treffpunkt": "Un punto d’incontro equo per tutti", "privatsphaere": "Decidi tu chi ti vede", "navigation": "Navigazione con traffico in tempo reale"}
+}

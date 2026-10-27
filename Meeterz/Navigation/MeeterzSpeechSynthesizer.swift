@@ -90,7 +90,7 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing, AVSpeechSynt
             synthesizer.stopSpeaking(at: .immediate)
         }
         current = (text, instruction)
-        speakAfterWarmup(utterance)
+        speakAfterWarmup(utterance, replacesPending: true)
     }
 
     /// Eigene Ansage (z. B. „Unfall in 3 Kilometern“) in der Navigationsstimme. Unterbricht keine Abbiegeansage,
@@ -106,9 +106,11 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing, AVSpeechSynt
     /// das Auto beim Aktivieren erst auf den Navigationskanal um (Musik leiser, Quelle wechseln). Was in dieser Zeit
     /// gesprochen wird, kommt im Auto nicht an – bei der ersten Ansage oft der ganze Satz. Darum nach dem Aktivieren
     /// kurz warten; läuft die Sitzung schon, sofort sprechen.
-    private func speakAfterWarmup(_ utterance: AVSpeechUtterance) {
-        pendingSpeech?.cancel()   // eine neuere Ansage ersetzt eine noch wartende
-        pendingSpeech = nil
+    private func speakAfterWarmup(_ utterance: AVSpeechUtterance, replacesPending: Bool = false) {
+        if replacesPending {   // eine neuere Abbiegeansage ersetzt eine noch wartende
+            pendingSpeech?.cancel()
+            pendingSpeech = nil
+        }
         let wasActive = audioActive
         activateAudio()
         guard managesAudioSession, !wasActive else { synthesizer.speak(utterance); return }

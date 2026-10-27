@@ -1,5 +1,5 @@
 name: Kopf- und Suchbilder hochladen
-# Lädt die Kopfbild und Suchergebnis-Bild (Branch „store-assets“) je Sprache in die App Asset Library und auf die Produktseite.
+# Lädt Kopfbild und Suchergebnis-Bild (Branch „store-assets“) je Sprache in die App Asset Library und auf die Produktseite.
 # Bericht: Branch „asc-report“, report.txt.
 on: workflow_dispatch
 

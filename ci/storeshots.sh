@@ -38,8 +38,12 @@ print(best)')
   log "Simulator $SIZE: $(xcrun simctl list devices | grep "$UDID" | sed 's/(.*//' | xargs)"
   xcrun simctl boot "$UDID" > /dev/null 2>&1
   xcrun simctl bootstatus "$UDID" -b > /dev/null 2>&1
-  xcrun simctl privacy "$UDID" grant location de.koeven.meeterz > /dev/null 2>&1 || true
-  xcrun simctl privacy "$UDID" grant location-always de.koeven.meeterz > /dev/null 2>&1 || true
+  # Erst installieren, dann Rechte geben – für eine noch nicht installierte App greift „privacy grant“ nicht
+  APP=$(ls -d build/dd/Build/Products/*-iphonesimulator/Meeterz.app 2>/dev/null | head -1)
+  xcrun simctl install "$UDID" "$APP" >> "$REPORT" 2>&1 || log "!! Installation fehlgeschlagen ($APP)"
+  for S in location-always location notifications; do
+    xcrun simctl privacy "$UDID" grant $S de.koeven.meeterz >> "$REPORT" 2>&1 || true
+  done
   xcrun simctl status_bar "$UDID" override --time "9:41" --dataNetwork wifi --wifiMode active --wifiBars 3 \
     --cellularMode active --cellularBars 4 --batteryState charged --batteryLevel 100 > /dev/null 2>&1 || true
 

@@ -31,6 +31,7 @@ final class MeeterzStoreShots: MeeterzTestBase {
     }
 
     func storeShot(_ number: Int, _ name: String) {
+        dismissSystemDialogs()
         let dir = "\(outDir)/\(lang)"
         try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
         let s = XCUIScreen.main.screenshot()

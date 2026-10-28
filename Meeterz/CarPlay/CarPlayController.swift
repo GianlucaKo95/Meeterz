@@ -744,7 +744,10 @@ final class CarPlayController: NSObject {
     private func checkFreeze() {
         guard let loc = AppModel.shared.location.lastLocation, loc.speed > 4,
               Date().timeIntervalSince(loc.timestamp) < 10,
-              let map = displayedMap, let cam = map.mapView.mapboxMap?.cameraState else {
+              let map = displayedMap, let cam = map.mapView.mapboxMap?.cameraState,
+              // Nur zählen, solange die große Karte wirklich vorn ist: Liegt das Dashboard oder eine andere App vorn,
+              // zeichnet Mapbox (zu Recht) nicht weiter – das meldete am 28.10. viele falsche „Karte steht“.
+              map.window?.windowScene?.activationState == .foregroundActive else {
             frozenSince = nil; freezeLogged = false; return
         }
         let key = String(format: "%.5f,%.5f,%.1f", cam.center.latitude, cam.center.longitude, cam.bearing)

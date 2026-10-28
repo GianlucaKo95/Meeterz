@@ -166,6 +166,9 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
     private var mapboxRendered = false
     private var mapboxTokens = Set<AnyCancelable>()
 
+    /// Nächster Zoom im Dashboard (wie die Navigation höchstens)
+    static let maxZoom = CarPlayController.navigationZoomRange.upperBound
+
     /// Welche Karte gerade gilt: wie die große CarPlay-Karte
     private static var usesMapbox: Bool { !CarPlayFlyoverMirror.isEnabled }
 
@@ -372,7 +375,7 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
         // Dashboard: so nah wie die große Karte (derselbe Zoom, umgerechnet wie die Flyover-Ebene dort).
         // Vorher fester Abstand von ~1 km – MapKit begrenzte dabei die Neigung auf 34°, und das Bild sah anders aus.
         if ownZoom == nil, map.bounds.height > 1 {
-            distance = CarPlayFlyoverMirror.distance(zoom: CarPlayController.shared.displayedZoom,
+            distance = CarPlayFlyoverMirror.distance(zoom: min(CarPlayController.shared.displayedZoom, Self.maxZoom),
                                                      latitude: location.coordinate.latitude, height: Double(map.bounds.height))
         }
         let heading = location.course >= 0 ? location.course : map.camera.heading
@@ -499,11 +502,16 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
         guard let nav = mapbox else { return }
         let navigating = AppModel.shared.navigation.isNavigating
         CarPlayController.shared.configureCamera(nav, navigating: navigating)
-        if let ownZoom, let source = nav.navigationCamera.viewportDataSource as? CarPlayViewportDataSource {
-            var current = source.currentNavigationCameraOptions
+        guard let source = nav.navigationCamera.viewportDataSource as? CarPlayViewportDataSource else { return }
+        var current = source.currentNavigationCameraOptions
+        if let ownZoom {
             current.followingCamera.zoom = ownZoom
-            source.currentNavigationCameraOptions = current
+        } else if !navigating {
+            // Nie näher als die Navigation selbst (17,5): Auf der großen Karte ganz hineingezoomt (18) flackerten im
+            // kleinen Dashboard die 3D-Gebäude – so nah und 53° geneigt ragen sie vor der Kamera aus dem Bild (28.10.).
+            current.followingCamera.zoom = min(CarPlayController.shared.browseZoom, Self.maxZoom)
         }
+        source.currentNavigationCameraOptions = current
     }
 
     // MARK: Route und Freunde

@@ -48,7 +48,7 @@ enum VoiceCatalog {
 
 /// Sprachansagen der Navigation mit der gewählten Stimme (iPhone und CarPlay teilen sich diese Instanz).
 @MainActor
-final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing, AVSpeechSynthesizerDelegate {
+final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
     static let shared = MeeterzSpeechSynthesizer()
 
     private let subject = PassthroughSubject<VoiceInstructionEvent, Never>()
@@ -94,22 +94,39 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing, AVSpeechSynt
         set { mode = newValue ? .off : .all }
     }
     var volume: VolumeMode = .system
-    var isSpeaking: Bool { synthesizer.isSpeaking }
+    var isSpeaking: Bool { playing != nil }
     var locale: Locale? = Locale.navigation
     var managesAudioSession = true
 
-    private let synthesizer = AVSpeechSynthesizer()
-    private var current: (text: String, instruction: SpokenInstruction)?
-    /// Audiositzung gerade aktiv (Navigationskanal im Auto offen)
-    private var audioActive = false
-    private var pendingSpeech: DispatchWorkItem?
-    /// Letzte Ansage (für den Vorlauf nach längerer Stille)
-    private var lastSpokenAt: Date?
+    // Ansagen werden erst vollständig in Ton umgerechnet und dann selbst abgespielt (statt direkt über
+    // AVSpeechSynthesizer zu sprechen). Ursache der Probleme vom 28.10.: Mit dem direkten Sprechen schaltete Meeterz die
+    // Audiositzung ein, bevor die Stimme überhaupt Ton lieferte (Stimme laden, Satz berechnen). Das Auto schaltete die
+    // Musik stumm, und es kam erst nichts – darum gab es einen festen Vorlauf von 2 s, der jede Ansage verspätete und
+    // die erste trotzdem nicht rettete. Jetzt ist der Ton fertig, bevor die Musik leiser wird; die Audiositzung ist
+    // genau so lange aktiv, wie die Ansage dauert – das Auto sieht klar, wann sie beginnt und endet.
+    private let renderer = AVSpeechSynthesizer()
+    private let engine = AVAudioEngine()
+    private let player = AVAudioPlayerNode()
+    private var playerFormat: AVAudioFormat?
+
+    private struct Item {
+        let id = UUID()
+        let text: String
+        let instruction: SpokenInstruction?
+    }
+    private var queue: [Item] = []
+    private var playing: Item?
+    private var lastEndedAt = Date.distantPast
 
     override private init() {
         super.init()
-        synthesizer.delegate = self
+        engine.attach(player)
+        renderer.delegate = self
         callObserver.setDelegate(self, queue: .main)
+        // Audioweg geändert (z. B. CarPlay getrennt): Engine hält an – beim nächsten Mal neu verbinden
+        NotificationCenter.default.addObserver(forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.playerFormat = nil }
+        }
     }
 
     // MARK: Telefonat
@@ -132,61 +149,169 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing, AVSpeechSynt
             subject.send(VoiceInstructionEvents.DidSpeak(instruction: instruction))
             return
         }
+        // An Autobahnkreuzen kein „Auf A 57 links halten“, wenn man auf derselben Autobahn bleibt
+        if MotorwayContinuation.staysOnMotorway(legProgress) {
+            Diag.log("Ansage ausgelassen (bleibt auf der Autobahn): \(instruction.text.prefix(50))")
+            subject.send(VoiceInstructionEvents.DidSpeak(instruction: instruction))
+            return
+        }
         subject.send(VoiceInstructionEvents.WillSpeak(instruction: instruction))
 
         // Wie Apple: „An der nächsten Ampel rechts abbiegen“, wenn die Abbiegung an einer Ampel/einem Stoppschild liegt
         let text = LandmarkInstructions.rewrite(instruction, legProgress: legProgress) ?? instruction.text
-        let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = VoiceCatalog.selected ?? AVSpeechSynthesisVoice(language: VoiceCatalog.language)
 
-        if let previous = current, synthesizer.isSpeaking {
-            subject.send(VoiceInstructionEvents.DidInterrupt(
-                interruptedInstruction: previous.instruction, interruptingInstruction: instruction))
-            synthesizer.stopSpeaking(at: .immediate)
+        // Eine neue Abbiegeansage ersetzt eine laufende oder wartende – die alte ist überholt
+        if let previous = playing, let old = previous.instruction {
+            subject.send(VoiceInstructionEvents.DidInterrupt(interruptedInstruction: old, interruptingInstruction: instruction))
         }
-        current = (text, instruction)
-        speakAfterWarmup(utterance, replacesPending: true)
+        queue.removeAll { $0.instruction != nil }
+        if playing?.instruction != nil { stopCurrent() }
+        queue.insert(Item(text: text, instruction: instruction), at: 0)
+        pump()
     }
 
     /// Eigene Ansage (z. B. „Unfall in 3 Kilometern“) in der Navigationsstimme. Unterbricht keine Abbiegeansage,
     /// sondern reiht sich dahinter ein.
     func announce(_ text: String) {
         guard mode != .off, !inCall else { return }
-        let utterance = AVSpeechUtterance(string: text)
+        queue.append(Item(text: text, instruction: nil))
+        pump()
+    }
+
+    func stopSpeaking() { interruptSpeaking() }
+
+    func interruptSpeaking() {
+        queue.removeAll()
+        stopCurrent()
+        finishSession()
+    }
+
+    // MARK: Ablauf
+
+    private func pump() {
+        guard playing == nil, !queue.isEmpty else { return }
+        let item = queue.removeFirst()
+        playing = item
+        render(item)
+    }
+
+    /// Satz in Ton umrechnen (ohne abzuspielen) – erst danach geht die Audiositzung an
+    private var rendering: (item: Item, buffers: [AVAudioPCMBuffer], started: Date)?
+
+    private func render(_ item: Item) {
+        let utterance = AVSpeechUtterance(string: item.text)
         utterance.voice = VoiceCatalog.selected ?? AVSpeechSynthesisVoice(language: VoiceCatalog.language)
-        speakAfterWarmup(utterance)
-    }
-
-    /// Ursache für „erste Ansage fehlt“: Bei der ersten Ansage einer Fahrt schaltet das Auto erst auf den
-    /// Navigationskanal um (Musik leiser, Quelle wechseln). Was in dieser Zeit gesprochen wird, kommt im Auto nicht
-    /// an – oft der ganze Satz. Darum vor der ersten Ansage nach längerer Stille kurz warten; sonst sofort sprechen.
-    private func speakAfterWarmup(_ utterance: AVSpeechUtterance, replacesPending: Bool = false) {
-        if replacesPending {   // eine neuere Abbiegeansage ersetzt eine noch wartende
-            pendingSpeech?.cancel()
-            pendingSpeech = nil
+        rendering = (item, [], Date())
+        let id = item.id
+        renderer.write(utterance) { [weak self] buffer in
+            let pcm = buffer as? AVAudioPCMBuffer
+            DispatchQueue.main.async { MainActor.assumeIsolated { self?.received(pcm, id: id) } }
         }
-        let wasActive = audioActive
-        // Vorlauf nur nach längerer Stille (erste Ansage einer Fahrt): Nach jeder Ansage gibt Meeterz den Ton wieder
-        // frei, damit die Musik laut weiterläuft – ein Vorlauf bei jeder Ansage käme an Kreuzungen zu spät.
-        let longSilence = lastSpokenAt.map { Date().timeIntervalSince($0) > 5 * 60 } ?? true
-        lastSpokenAt = Date()
-        activateAudio()
-        guard managesAudioSession, !wasActive, longSilence else { synthesizer.speak(utterance); return }
-        let warmup: TimeInterval = CarPlayController.shared.isConnected ? 2.0 : 0.4
-        Diag.log("Ansage nach \(warmup) s Vorlauf (Audio war aus): \(utterance.speechString.prefix(40))")
-        let work = DispatchWorkItem { [weak self] in self?.synthesizer.speak(utterance) }
-        pendingSpeech = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + warmup, execute: work)
     }
 
-    func stopSpeaking() { synthesizer.stopSpeaking(at: .word) }
-    func interruptSpeaking() { synthesizer.stopSpeaking(at: .immediate) }
+    private func received(_ buffer: AVAudioPCMBuffer?, id: UUID) {
+        guard rendering?.item.id == id else { return }
+        if let buffer, buffer.frameLength > 0 {
+            rendering?.buffers.append(buffer)
+        } else {
+            renderDone()   // leerer Puffer = Satz fertig
+        }
+    }
+
+    /// Fertig berechnet (Endmarke oder – je nach iOS-Version – nur die Meldung „fertig“): abspielen
+    private func renderDone() {
+        guard let done = rendering else { return }
+        rendering = nil
+        guard playing?.id == done.item.id else { return }
+        let seconds = Date().timeIntervalSince(done.started)
+        if seconds > 0.5 { Diag.log("Ansage berechnet in \(String(format: "%.1f", seconds)) s") }
+        play(done.buffers, item: done.item)
+    }
+
+    private func play(_ buffers: [AVAudioPCMBuffer], item: Item) {
+        guard let format = buffers.first?.format else { finish(item); return }
+        let wasActive = engine.isRunning
+        activateAudio()
+        if playerFormat != format {
+            engine.disconnectNodeOutput(player)
+            engine.connect(player, to: engine.mainMixerNode, format: format)
+            playerFormat = format
+        }
+        if !engine.isRunning {
+            do { try engine.start() } catch {
+                Diag.log("Ansage: Audio ließ sich nicht starten (\(error.localizedDescription))")
+                finish(item)
+                return
+            }
+        }
+        // Kurze Stille vorweg, wenn der Ton gerade erst angeht: Das Auto schaltet auf den Navigationskanal um und
+        // verschluckt sonst die ersten Silben. Folgen Ansagen direkt aufeinander, entfällt sie.
+        if !wasActive, let silence = Self.silence(format: format, seconds: 0.35) {
+            player.scheduleBuffer(silence)
+        }
+        for (index, buffer) in buffers.enumerated() {
+            if index == buffers.count - 1 {
+                player.scheduleBuffer(buffer, completionCallbackType: .dataPlayedBack) { [weak self] _ in
+                    DispatchQueue.main.async { MainActor.assumeIsolated { self?.finish(item) } }
+                }
+            } else {
+                player.scheduleBuffer(buffer)
+            }
+        }
+        player.play()
+        if !wasActive {
+            let route = AVAudioSession.sharedInstance().currentRoute.outputs.map(\.portType.rawValue).joined(separator: ", ")
+            Diag.log("Ansage über \(route): \(item.text.prefix(40))")
+        }
+    }
+
+    private static func silence(format: AVAudioFormat, seconds: Double) -> AVAudioPCMBuffer? {
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(format.sampleRate * seconds)) else { return nil }
+        buffer.frameLength = buffer.frameCapacity
+        let frames = Int(buffer.frameLength)
+        let channels = format.isInterleaved ? 1 : Int(format.channelCount)
+        let perFrame = format.isInterleaved ? Int(format.channelCount) : 1
+        if let data = buffer.floatChannelData {
+            for c in 0..<channels { memset(data[c], 0, frames * perFrame * MemoryLayout<Float>.size) }
+        } else if let data = buffer.int16ChannelData {
+            for c in 0..<channels { memset(data[c], 0, frames * perFrame * MemoryLayout<Int16>.size) }
+        } else if let data = buffer.int32ChannelData {
+            for c in 0..<channels { memset(data[c], 0, frames * perFrame * MemoryLayout<Int32>.size) }
+        }
+        return buffer
+    }
+
+    private func finish(_ item: Item) {
+        guard playing?.id == item.id else { return }
+        playing = nil
+        if let instruction = item.instruction { subject.send(VoiceInstructionEvents.DidSpeak(instruction: instruction)) }
+        if queue.isEmpty { finishSession() } else { pump() }
+    }
+
+    /// Laufende Ansage abbrechen (Berechnung und Wiedergabe)
+    private func stopCurrent() {
+        rendering = nil
+        renderer.stopSpeaking(at: .immediate)
+        player.stop()
+        playing = nil
+    }
+
+    /// Ansage zu Ende: Ton aus und dem Auto melden, dass die Musik wieder laut darf
+    private func finishSession() {
+        guard engine.isRunning || audioActive else { return }
+        player.stop()
+        engine.stop()
+        deactivateAudio()
+        lastEndedAt = Date()
+    }
 
     // MARK: Audio
 
-    /// Andere Musik leiser stellen, solange die Ansage läuft
+    private var audioActive = false
+
+    /// Andere Musik leiser stellen, solange die Ansage läuft (Navigationsansage: das Auto blendet sie als solche ein)
     private func activateAudio() {
-        guard managesAudioSession else { return }
+        guard managesAudioSession, !audioActive else { return }
         let session = AVAudioSession.sharedInstance()
         try? session.setCategory(.playback, mode: .voicePrompt, options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers])
         try? session.setActive(true)
@@ -194,25 +319,35 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing, AVSpeechSynt
     }
 
     private func deactivateAudio() {
-        guard managesAudioSession else { return }
+        guard managesAudioSession, audioActive else { return }
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         audioActive = false
     }
+}
 
-    // MARK: AVSpeechSynthesizerDelegate
-
+extension MeeterzSpeechSynthesizer: AVSpeechSynthesizerDelegate {
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        let text = utterance.speechString
-        Task { @MainActor in
-            guard let current = self.current, current.text == text else {
-                // Eigene Ansage fertig: Musik wieder lauter, wenn nichts mehr läuft
-                if !self.synthesizer.isSpeaking { self.deactivateAudio() }
-                return
-            }
-            self.current = nil
-            self.subject.send(VoiceInstructionEvents.DidSpeak(instruction: current.instruction))
-            if !self.synthesizer.isSpeaking { self.deactivateAudio() }
-        }
+        // Nach den Puffern einreihen, damit alle schon angekommen sind
+        DispatchQueue.main.async { MainActor.assumeIsolated { self.renderDone() } }
+    }
+}
+
+/// An Autobahnkreuzen und -dreiecken nur ansagen, wenn man die Autobahn wechselt oder verlässt – nicht, wenn man auf
+/// derselben bleibt („Auf A 57 links halten“). Das Bild zeigt die Spur weiterhin.
+enum MotorwayContinuation {
+    static func staysOnMotorway(_ legProgress: RouteLegProgress) -> Bool {
+        let current = legProgress.currentStep
+        guard let next = legProgress.upcomingStep else { return false }
+        guard [.reachFork, .continue, .useLane, .passNameChange].contains(next.maneuverType) else { return false }
+        let onMotorway = (current.intersections ?? []).contains { $0.outletRoadClasses?.contains(.motorway) == true }
+        let staysMotorway = next.intersections?.first?.outletRoadClasses?.contains(.motorway) == true
+        guard onMotorway, staysMotorway else { return false }
+        let before = Set((current.codes ?? []).map { $0.replacingOccurrences(of: " ", with: "") })
+        let after = Set((next.codes ?? []).map { $0.replacingOccurrences(of: " ", with: "") })
+        if !before.isEmpty, !after.isEmpty { return !before.isDisjoint(with: after) }
+        // Ohne Nummer: gleicher Straßenname
+        let names = Set(current.names ?? []), nextNames = Set(next.names ?? [])
+        return !names.isEmpty && !names.isDisjoint(with: nextNames)
     }
 }
 
@@ -235,12 +370,8 @@ extension MeeterzSpeechSynthesizer: CXCallObserverDelegate {
         guard !call.hasEnded else { return }
         MainActor.assumeIsolated {
             // Anruf beginnt (eingehend oder ausgehend): laufende und wartende Ansage sofort beenden
-            pendingSpeech?.cancel()
-            pendingSpeech = nil
-            if synthesizer.isSpeaking {
-                synthesizer.stopSpeaking(at: .immediate)
-                Diag.log("Ansage wegen Telefonat abgebrochen")
-            }
+            if isSpeaking { Diag.log("Ansage wegen Telefonat abgebrochen") }
+            interruptSpeaking()
         }
     }
 }

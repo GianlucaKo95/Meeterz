@@ -18,6 +18,9 @@ struct FlyoverMapView: View {
     @State private var position: MapCameraPosition = .automatic
     @State private var detail: PlaceDetailItem?
     @State private var lastCamera: MapCamera?
+    /// Weggeschoben und danach per Knopf gezoomt bzw. geneigt: Die Kamera wurde dabei von uns gesetzt (zählt für
+    /// MapKit nicht mehr als „vom Nutzer verschoben“) – trotzdem nicht wieder automatisch zu mir springen.
+    @State private var pinned = false
     @Environment(\.scenePhase) private var scenePhase
 
     @Namespace private var compassScope
@@ -192,18 +195,17 @@ struct FlyoverMapView: View {
         .onAppear { follow(force: true) }
         .onChange(of: zoomSteps) { old, new in zoom(by: new - old) }
         .onChange(of: recenterTick) { _, _ in follow(force: true) }
-        .onChange(of: threeD) { _, three in
-            // Folgt die Karte mir nicht (weggeschoben), nur die Neigung ändern statt zurückzuspringen
-            if position.positionedByUser, let cam = lastCamera {
-                let next = MapCamera(centerCoordinate: cam.centerCoordinate, distance: cam.distance,
-                                     heading: three ? cam.heading : 0, pitch: three ? 65 : 0)
-                withAnimation(.easeOut(duration: 0.6)) { position = .camera(next) }
-                pinned = true
-            } else {
-                follow(force: true)
-            }
-        }
+        .onChange(of: threeD) { _, three in changeThreeD(three) }
         .onChange(of: app.location.lastLocation) { _, _ in follow(force: false) }
+    }
+
+    /// 2D/3D: Folgt die Karte mir nicht (weggeschoben), nur die Neigung ändern statt zurückzuspringen
+    private func changeThreeD(_ three: Bool) {
+        guard position.positionedByUser || pinned, let cam = lastCamera else { follow(force: true); return }
+        let next = MapCamera(centerCoordinate: cam.centerCoordinate, distance: cam.distance,
+                             heading: three ? cam.heading : 0, pitch: three ? 65 : 0)
+        pinned = true
+        withAnimation(.easeOut(duration: 0.6)) { position = .camera(next) }
     }
 
     /// Kamera folgt dem eigenen Standort, solange man die Karte nicht selbst verschoben hat.

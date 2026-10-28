@@ -1,0 +1,122 @@
+== Umgebung ==
+ProductName:		macOS
+ProductVersion:		27.0.1
+BuildVersion:		26A434
+Installierte Xcode-Versionen:
+/Applications/Xcode_27.0.0.app
+/Applications/Xcode_27.0.app
+/Applications/Xcode_27.1.0.app
+/Applications/Xcode_27.1.app
+/Applications/Xcode_27.2_Release_Candidate.app
+/Applications/Xcode_27.2.0.app
+/Applications/Xcode_27.2.app
+/Applications/Xcode_27.app
+/Applications/Xcode.app
+Xcode 27.2
+Build version 27B48
+iOS-Simulator-SDK: 27.2
+
+== Mapbox-Zugang ==
+ok
+
+== Projekt erzeugen ==
+✔︎ Bottle xcodegen (2.46.0)
+[34m==>[0m [1mPouring xcodegen--2.46.0.arm64_golden_gate.bottle.1.tar.gz[0m
+🍺  /opt/homebrew/Cellar/xcodegen/2.46.0: 38 files, 7.5MB
+Konfiguration: Supabase=jgtkyxlzroajtxboqgcn, Schlüssel gesetzt=ja, Mapbox-Token gesetzt=ja
+⚙️  Generating plists...
+⚙️  Generating project...
+⚙️  Writing project...
+Created project at /Users/runner/work/Meeterz/Meeterz/Meeterz.xcodeproj
+
+== Pakete laden ==
+Resolve Package Graph
+
+
+Resolved source packages:
+  swift-snapshot-testing: https://github.com/pointfreeco/swift-snapshot-testing.git @ 1.19.7
+  swift-issue-reporting: https://github.com/pointfreeco/swift-issue-reporting @ 2.1.2
+  MapboxNavigationCpp: https://github.com/mapbox/mapbox-navigation-cpp-ios.git @ 0.32.1
+  swift-argument-parser: https://github.com/apple/swift-argument-parser @ 1.8.2
+  swift-asn1: https://github.com/apple/swift-asn1.git @ 1.7.3
+  MapboxNavigation: https://github.com/mapbox/mapbox-navigation-ios.git @ 3.32.1
+  swift-concurrency-extras: https://github.com/pointfreeco/swift-concurrency-extras @ 1.4.3
+  MapboxCommon: https://github.com/mapbox/mapbox-common-ios.git @ 24.32.1
+  swift-crypto: https://github.com/apple/swift-crypto.git @ 4.5.2
+  swift-custom-dump: https://github.com/pointfreeco/swift-custom-dump @ 1.7.3
+  MapboxCoreMaps: https://github.com/mapbox/mapbox-core-maps-ios.git @ 11.32.1
+  xctest-dynamic-overlay: https://github.com/pointfreeco/xctest-dynamic-overlay @ 1.13.1
+  Supabase: https://github.com/supabase/supabase-swift @ 2.55.4
+  swift-http-types: https://github.com/apple/swift-http-types.git @ 1.8.0
+  Turf: https://github.com/mapbox/turf-swift.git @ 4.0.0
+  swift-syntax: https://github.com/swiftlang/swift-syntax @ 604.0.0
+  swift-clocks: https://github.com/pointfreeco/swift-clocks @ 1.1.1
+  MapboxMaps: https://github.com/mapbox/mapbox-maps-ios @ 11.32.1
+  MapboxNavigationNative: https://github.com/mapbox/mapbox-navigation-native-ios.git @ 324.32.1
+
+resolved source packages: swift-snapshot-testing, swift-issue-reporting, MapboxNavigationCpp, swift-argument-parser, swift-asn1, MapboxNavigation, swift-concurrency-extras, MapboxCommon, swift-crypto, swift-custom-dump, MapboxCoreMaps, xctest-dynamic-overlay, Supabase, swift-http-types, Turf, swift-syntax, swift-clocks, MapboxMaps, MapboxNavigationNative
+
+== Bauen ==
+xcodebuild Rückgabewert: 0
+
+== Warnungen (Auswahl) ==
+Meeterz/Services/FairMeetupFinder.swift:100:60: warning: 'data(from:)' was deprecated in iOS 15.0: Use iOS 15 API instead. [#DeprecatedDeclaration]
+    |                                                            `- warning: 'data(from:)' was deprecated in iOS 15.0: Use iOS 15 API instead. [#DeprecatedDeclaration]
+Meeterz/CarPlay/CarPlayController.swift:524:62: warning: passing non-Sendable parameter 'completion' to function expecting a '@Sendable' closure
+     |                                                              `- warning: passing non-Sendable parameter 'completion' to function expecting a '@Sendable' closure
+Meeterz/CarPlay/CarPlayController.swift:807:19: warning: value 'controller' was defined but never used; consider replacing with boolean test [#NoUsage]
+     |                   `- warning: value 'controller' was defined but never used; consider replacing with boolean test [#NoUsage]
+Meeterz/CarPlay/CarPlayController.swift:818:93: warning: variable 'self' was written to, but never read
+     |                                                                                             `- warning: variable 'self' was written to, but never read
+Meeterz/CarPlay/CarPlayController.swift:907:65: warning: variable 'self' was written to, but never read
+     |                                                                 `- warning: variable 'self' was written to, but never read
+Meeterz/CarPlay/CarPlayController.swift:1109:16: warning: call to main actor-isolated initializer 'init(titleVariants:subtitleVariants:image:primaryAction:secondaryAction:duration:)' in a synchronous nonisolated context [#ActorIsolatedCall]
+     |                `- warning: call to main actor-isolated initializer 'init(titleVariants:subtitleVariants:image:primaryAction:secondaryAction:duration:)' in a synchronous nonisolated context [#ActorIsolatedCall]
+Meeterz/CarPlay/CarPlayDashboard.swift:618:15: warning: 'traitCollectionDidChange' was deprecated in iOS 17.0: Use the trait change registration APIs declared in the UITraitChangeObservable protocol [#DeprecatedDeclaration]
+    |               `- warning: 'traitCollectionDidChange' was deprecated in iOS 17.0: Use the trait change registration APIs declared in the UITraitChangeObservable protocol [#DeprecatedDeclaration]
+Meeterz/CarPlay/CarPlayExtras.swift:67:22: warning: consider using asynchronous alternative function
+    |                      `- warning: consider using asynchronous alternative function
+Meeterz/Services/ChargeStatusService.swift:45:64: warning: 'data(from:)' was deprecated in iOS 15.0: Use iOS 15 API instead. [#DeprecatedDeclaration]
+   |                                                                `- warning: 'data(from:)' was deprecated in iOS 15.0: Use iOS 15 API instead. [#DeprecatedDeclaration]
+Meeterz/CarPlay/FriendsMenu.swift:65:13: warning: initialization of immutable value 'controller' was never used; consider replacing with assignment to '_' or removing it [#NoUsage]
+   |             `- warning: initialization of immutable value 'controller' was never used; consider replacing with assignment to '_' or removing it [#NoUsage]
+Meeterz/Views/MainView.swift:278:10: warning: 'onMapTapGesture(perform:)' is deprecated: Use TapInteraction [#DeprecatedDeclaration]
+    |          `- warning: 'onMapTapGesture(perform:)' is deprecated: Use TapInteraction [#DeprecatedDeclaration]
+Meeterz/Views/MainView.swift:279:10: warning: 'onMapLongPressGesture(perform:)' is deprecated: Use LongPressInteraction [#DeprecatedDeclaration]
+    |          `- warning: 'onMapLongPressGesture(perform:)' is deprecated: Use LongPressInteraction [#DeprecatedDeclaration]
+Meeterz/Services/SearchService.swift:195:60: warning: 'data(for:)' was deprecated in iOS 15.0: Use iOS 15 API instead. [#DeprecatedDeclaration]
+    |                                                            `- warning: 'data(for:)' was deprecated in iOS 15.0: Use iOS 15 API instead. [#DeprecatedDeclaration]
+Meeterz.xcodeproj: Meeterz: ld: warning: address=0x2FE773 points before section(32) start and the target atom is ambiguous, candidates: 'anon-38207' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxNavigationUIKit.o), 'anon-38208' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxNavigationUIKit.o), 'anon-38209' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxNavigationUIKit.o), 'anon-38210' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxNavigationUIKit.o), 'anon-38211' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxNavigationUIKit.o), 'anon-38212' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxNavigationUIKit.o), 'anon-38213' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxNavigationUIKit.o), 'anon-38214' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxNavigationUIKit.o), 'anon-38215' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxNavigationUIKit.o), 'anon-38216' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxNavigationUIKit.o), 'anon-38217' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxNavigationUIKit.o), 'anon-38218' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxNavigationUIKit.o), 'anon-38219' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxNavigationUIKit.o), 'anon-38220' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxNavigationUIKit.o), 'anon-38221' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxNavigationUIKit.o), 'anon-38222' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxNavigationUIKit.o), 'anon-38223' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxNavigationUIKit.o), 'anon-38224' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxNavigationUIKit.o), 'anon-38225' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxNavigationUIKit.o), 'anon-38226' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxNavigationUIKit.o), 'anon-38227' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxNavigationUIKit.o), 'anon-38228' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxNavigationUIKit.o), 'anon-38229' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxNavigationUIKit.o), 'anon-38230' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxNavigationUIKit.o), 'anon-38231' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxNavigationUIKit.o)
+Meeterz.xcodeproj: Meeterz: ld: warning: address=0x72511B points before section(33) start and the target atom is ambiguous, candidates: 'anon-82806' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxMaps.o), 'anon-82807' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxMaps.o), 'anon-82808' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxMaps.o), 'anon-82809' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxMaps.o), 'anon-82810' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxMaps.o), 'anon-82811' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxMaps.o), 'anon-82812' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxMaps.o), 'anon-82813' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxMaps.o), 'anon-82814' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxMaps.o), 'anon-82815' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxMaps.o), 'anon-82816' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxMaps.o), 'anon-82817' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxMaps.o), 'anon-82818' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxMaps.o), 'anon-82819' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxMaps.o), 'anon-82820' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxMaps.o), 'anon-82821' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxMaps.o), 'anon-82822' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxMaps.o), 'anon-82823' (/Users/runner/work/Meeterz/Meeterz/build/dd/Build/Products/Debug-iphonesimulator/MapboxMaps.o)
+
+== Unit-Tests ==
+xcodebuild test Rückgabewert: 0
+Test Case '-[MeeterzTests.ChargePlannerTests testBundledData]' started.
+Test Case '-[MeeterzTests.ChargePlannerTests testBundledData]' passed (1.572 seconds).
+Test Case '-[MeeterzTests.ChargePlannerTests testChargeTimeFollowsCurve]' started.
+Test Case '-[MeeterzTests.ChargePlannerTests testChargeTimeFollowsCurve]' passed (0.002 seconds).
+Test Case '-[MeeterzTests.ChargePlannerTests testDirectWhenEnoughCharge]' started.
+Test Case '-[MeeterzTests.ChargePlannerTests testDirectWhenEnoughCharge]' passed (0.009 seconds).
+Test Case '-[MeeterzTests.ChargePlannerTests testLearnedFactorRaisesConsumption]' started.
+Test Case '-[MeeterzTests.ChargePlannerTests testLearnedFactorRaisesConsumption]' passed (0.001 seconds).
+Test Case '-[MeeterzTests.ChargePlannerTests testLongTripNeedsStopsAndArrivesWithTarget]' started.
+Plan 600 km: 4 charging stops · 77 min charging · arrive with 20 % ["150 km 25→53 %", "250 km 10→53 %", "350 km 10→74 %", "500 km 10→63 %"]
+Test Case '-[MeeterzTests.ChargePlannerTests testLongTripNeedsStopsAndArrivesWithTarget]' passed (0.054 seconds).
+Test Case '-[MeeterzTests.ChargePlannerTests testReplanFromMidRoute]' started.
+Test Case '-[MeeterzTests.ChargePlannerTests testReplanFromMidRoute]' passed (0.004 seconds).
+Test Case '-[MeeterzTests.ChargePlannerTests testUnreachableWithoutChargers]' started.
+Test Case '-[MeeterzTests.ChargePlannerTests testUnreachableWithoutChargers]' passed (0.002 seconds).
+	 Executed 7 tests, with 0 failures (0 unexpected) in 1.645 (1.651) seconds
+Test Case '-[MeeterzTests.IncidentWatcherTests testSpokenDistance]' started.
+Test Case '-[MeeterzTests.IncidentWatcherTests testSpokenDistance]' passed (0.002 seconds).
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.002 (2.381) seconds
+Test Case '-[MeeterzTests.LandmarkInstructionsTests testPhrases]' started.
+Test Case '-[MeeterzTests.LandmarkInstructionsTests testPhrases]' passed (0.002 seconds).
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.002 (0.003) seconds
+	 Executed 9 tests, with 0 failures (0 unexpected) in 1.648 (4.038) seconds
+	 Executed 9 tests, with 0 failures (0 unexpected) in 1.648 (4.039) seconds
+
+== App-Store-Screenshots: es / pro ==
+build-for-testing: 0
+Simulator pro: iPhone 18 Pro
+  pro/es: Rückgabewert 0, 7 Bilder

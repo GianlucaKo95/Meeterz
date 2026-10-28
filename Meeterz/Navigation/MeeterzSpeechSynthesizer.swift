@@ -161,6 +161,8 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
         var text = LandmarkInstructions.rewrite(instruction, legProgress: legProgress) ?? instruction.text
         // Wechsel oder Ausfahrt von der Autobahn: die Richtung schon bei der ersten Ansage, nicht erst bei der letzten
         if let withDirection = MotorwayDirection.add(to: text, legProgress: legProgress) { text = withDirection }
+        // Innerorts mit Straßennamen: „auf Hauptstraße“ statt „auf Hauptstraße/L 91“
+        text = RoadNames.dropCodes(in: text, legProgress: legProgress)
 
         // Eine neue Abbiegeansage ersetzt eine laufende oder wartende – die alte ist überholt
         if let previous = playing, let old = previous.instruction {
@@ -372,6 +374,34 @@ enum MotorwayDirection {
         let period = base.hasSuffix(".")
         if period { base.removeLast() }
         return base + ", " + String(localized: "Richtung \(names)") + (period ? "." : "")
+    }
+}
+
+/// Hat eine Straße einen Namen, nennt die Ansage nur den Namen – nicht zusätzlich die Nummer („Hauptstraße/L 91“,
+/// „L 91 (Hauptstraße)“). Autobahnen und Straßen ohne Namen behalten ihre Nummer.
+enum RoadNames {
+    static func dropCodes(in text: String, legProgress: RouteLegProgress) -> String {
+        var result = text
+        for step in [legProgress.upcomingStep, legProgress.currentStep].compactMap({ $0 }) {
+            let names = (step.names ?? []).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+            guard !names.isEmpty, let codes = step.codes, !codes.isEmpty else { continue }
+            let motorway = (step.intersections ?? []).contains { $0.outletRoadClasses?.contains(.motorway) == true }
+            guard !motorway else { continue }
+            for code in codes { result = remove(code: code, from: result) }
+        }
+        return result
+    }
+
+    /// Nummer samt Trennzeichen entfernen: „Name/L 91“, „L 91/Name“, „Name (L 91)“, „Name, L 91“
+    static func remove(code: String, from text: String) -> String {
+        let parts = code.split(whereSeparator: { $0 == " " }).map { NSRegularExpression.escapedPattern(for: String($0)) }
+        guard !parts.isEmpty else { return text }
+        let token = "\\b" + parts.joined(separator: "\\s?") + "\\b"
+        var out = text
+        for pattern in ["\\s*\\(\\s*\(token)\\s*\\)", "\\s*[/,;]\\s*\(token)", "\(token)\\s*[/,;]\\s*"] {
+            out = out.replacingOccurrences(of: pattern, with: "", options: .regularExpression)
+        }
+        return out
     }
 }
 

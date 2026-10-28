@@ -8,6 +8,7 @@ import MapboxNavigationCore
 /// einer Ampel (bzw. einem Stoppschild), zählen wir die Ampeln bis dorthin und formulieren die Ansage damit.
 /// Nur für echte Abbiegungen, bis zur dritten Ampel und innerhalb von 800 m – sonst bleibt Mapbox' Ansage.
 /// Die letzte Ansage direkt vor der Kreuzung („Jetzt rechts abbiegen“) bleibt unverändert.
+/// Ohne Ampel/Stoppschild, wenn die Straße an der Abbiegung endet: „Am Ende der Straße rechts abbiegen“.
 enum LandmarkInstructions {
     enum Landmark { case trafficLight, stopSign }
 
@@ -32,11 +33,30 @@ enum LandmarkInstructions {
         let landmark: Landmark
         if maneuver.trafficSignal == true { landmark = .trafficLight }
         else if maneuver.stopSign == true { landmark = .stopSign }
-        else { return nil }
+        else {
+            // Keine Ampel, kein Stoppschild, aber die Straße endet an der Abbiegung: „Am Ende der Straße rechts abbiegen“
+            guard [.left, .right, .sharpLeft, .sharpRight].contains(upcoming.maneuverDirection),
+                  roadEnds(at: maneuver), !instruction.text.localizedCaseInsensitiveContains("Ende") else { return nil }
+            let road = upcoming.names?.first.flatMap { $0.isEmpty ? nil : $0 }
+            return "Am Ende der Straße \(direction) abbiegen" + (road.map { " auf \($0)" } ?? "")
+        }
 
         let before = ahead.filter { landmark == .trafficLight ? $0.trafficSignal == true : $0.stopSign == true }.count
         let road = upcoming.names?.first.flatMap { $0.isEmpty ? nil : $0 }
         return phrase(landmark: landmark, ordinal: before + 1, direction: direction, road: road)
+    }
+
+    /// Endet die Straße an dieser Kreuzung? Ja, wenn keine Straße in Fahrtrichtung weitergeht (höchstens 35° Abweichung)
+    /// – typisch für T-Kreuzungen, an denen man links oder rechts muss.
+    static func roadEnds(at intersection: Intersection) -> Bool {
+        guard let approach = intersection.approachIndex, intersection.headings.indices.contains(approach) else { return false }
+        let travel = (intersection.headings[approach] + 180).truncatingRemainder(dividingBy: 360)
+        for (index, heading) in intersection.headings.enumerated() where index != approach {
+            var diff = abs(heading - travel).truncatingRemainder(dividingBy: 360)
+            if diff > 180 { diff = 360 - diff }
+            if diff <= 35 { return false }
+        }
+        return intersection.headings.count >= 2
     }
 
     /// „An der nächsten Ampel rechts abbiegen auf Hauptstraße“

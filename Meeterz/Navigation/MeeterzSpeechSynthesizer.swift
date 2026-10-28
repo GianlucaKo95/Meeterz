@@ -160,7 +160,8 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
         // Wie Apple: „An der nächsten Ampel rechts abbiegen“, wenn die Abbiegung an einer Ampel/einem Stoppschild liegt
         var text = LandmarkInstructions.rewrite(instruction, legProgress: legProgress) ?? instruction.text
         // Wechsel oder Ausfahrt von der Autobahn: die Richtung schon bei der ersten Ansage, nicht erst bei der letzten
-        if let withDirection = MotorwayDirection.add(to: text, legProgress: legProgress) { text = withDirection }
+        if let withDirection = MotorwayDirection.add(to: text, legProgress: legProgress,
+                                                    distanceAlongStep: instruction.distanceAlongStep) { text = withDirection }
         // Innerorts mit Straßennamen: „auf Hauptstraße“ statt „auf Hauptstraße/L 91“
         text = RoadNames.dropCodes(in: text, legProgress: legProgress)
         // „Jetzt rechts abbiegen, dann links abbiegen“ nur, wenn die zweite Abbiegung sofort folgt
@@ -362,21 +363,44 @@ enum MotorwayContinuation {
 /// dem Kreuz. Gerade an großen Kreuzen bleibt dann kaum Zeit, sich einzuordnen. Fehlt sie, hängen wir sie an jede
 /// Ansage dieses Manövers an – wie Apple Karten.
 enum MotorwayDirection {
-    static func add(to text: String, legProgress: RouteLegProgress) -> String? {
-        guard let next = legProgress.upcomingStep,
+    /// Erst ab dieser Entfernung zum Manöver (die „In 3 Kilometern …“-Ansage). Weiter vorher hieß es sonst
+    /// „7 Kilometer weiter der Route folgen, Richtung Krefeld“ – die Richtung gehörte da noch zu nichts (28.10.).
+    static let maxDistance: Double = 3_200
+
+    static func add(to text: String, legProgress: RouteLegProgress, distanceAlongStep: Double) -> String? {
+        guard distanceAlongStep <= maxDistance, let next = legProgress.upcomingStep,
               [.reachFork, .takeOffRamp, .takeOnRamp, .useLane, .continue, .merge].contains(next.maneuverType) else { return nil }
         let current = legProgress.currentStep
         let onMotorway = (current.intersections ?? []).contains { $0.outletRoadClasses?.contains(.motorway) == true }
         guard onMotorway else { return nil }
-        let targets = (next.destinations ?? []).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        let targets = joinFragments(next.destinations ?? [])
         guard let first = targets.first else { return nil }
         // Steht die Richtung schon drin (meist in der letzten Ansage), nichts doppelt
         if text.range(of: first, options: [.caseInsensitive, .diacriticInsensitive]) != nil { return nil }
-        let names = targets.prefix(2).joined(separator: ", ")
-        var base = text.trimmingCharacters(in: .whitespaces)
-        let period = base.hasSuffix(".")
-        if period { base.removeLast() }
-        return base + ", " + String(localized: "Richtung \(names)") + (period ? "." : "")
+        return insert(String(localized: "Richtung \(targets.prefix(2).joined(separator: ", "))"), into: text)
+    }
+
+    /// Richtung direkt hinter das erste Manöver setzen – nicht hinter ein angehängtes „Dann …“, sonst klang es, als
+    /// gehöre sie zum zweiten Manöver („… Ausfahrt 13. Dann rechts halten auf A 57, Richtung Krefeld“)
+    static func insert(_ direction: String, into text: String) -> String {
+        var head = text.trimmingCharacters(in: .whitespaces)
+        var tail = ""
+        if let range = head.range(of: #"[.,]\s+dann\s"#, options: [.regularExpression, .caseInsensitive]) {
+            tail = String(head[range.lowerBound...])
+            head = String(head[..<range.lowerBound])
+        }
+        let period = tail.isEmpty && head.hasSuffix(".")
+        if period { head.removeLast() }
+        return head + ", " + direction + (period ? "." : "") + tail
+    }
+
+    /// Mapbox trennt Ziele am Komma; Ortsteile wie „Duisburg-Baerl“ kamen dabei als „Duisburg“, „-Baerl“ an
+    static func joinFragments(_ raw: [String]) -> [String] {
+        var out: [String] = []
+        for part in raw.map({ $0.trimmingCharacters(in: .whitespaces) }) where !part.isEmpty {
+            if part.hasPrefix("-"), let last = out.popLast() { out.append(last + part) } else { out.append(part) }
+        }
+        return out
     }
 }
 

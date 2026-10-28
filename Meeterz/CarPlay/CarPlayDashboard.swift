@@ -425,7 +425,9 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
         mapboxRendered = false
         appliedStyleType = nil
 
-        nav.mapView.mapboxMap.onMapIdle.observeNext { [weak self] _ in
+        // „Gezeichnet“ = erstes vollständig geladenes Bild. Vorher onMapIdle: Das kommt beim Fahren nie (Kamera bewegt
+        // sich ständig) – das Log meldete „nicht gezeichnet“, obwohl die Karte lief (28.10.: „nach 1004 s“).
+        nav.mapView.mapboxMap.onMapLoaded.observeNext { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self, !self.mapboxRendered else { return }
                 self.mapboxRendered = true

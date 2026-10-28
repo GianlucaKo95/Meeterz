@@ -29,3 +29,17 @@ final class MapboxTextTests: XCTestCase {
         XCTAssertEqual(RoadNames.remove(code: "L 392", from: "Rechts auf Am Wehrhahn, L 392 abbiegen."), "Rechts auf Am Wehrhahn abbiegen.")
     }
 }
+
+final class MotorwayDirectionTests: XCTestCase {
+    func testDirectionBeforeThenClause() {
+        XCTAssertEqual(MotorwayDirection.insert("Richtung Krefeld", into: "Rechts halten auf die Ausfahrt 13. Dann Rechts halten auf A 57."),
+                       "Rechts halten auf die Ausfahrt 13, Richtung Krefeld. Dann Rechts halten auf A 57.")
+        XCTAssertEqual(MotorwayDirection.insert("Richtung Köln", into: "In 3 Kilometern Rechts halten auf A 3."),
+                       "In 3 Kilometern Rechts halten auf A 3, Richtung Köln.")
+    }
+
+    func testJoinsDistrictFragments() {
+        XCTAssertEqual(MotorwayDirection.joinFragments(["Duisburg", "-Baerl"]), ["Duisburg-Baerl"])
+        XCTAssertEqual(MotorwayDirection.joinFragments(["Dortmund", " Oberhausen"]), ["Dortmund", "Oberhausen"])
+    }
+}

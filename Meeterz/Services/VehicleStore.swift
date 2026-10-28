@@ -87,7 +87,8 @@ final class VehicleStore {
         token = links.first?.token
         let rows: [Status] = (try? await client.from("vehicle_status").select().eq("user_id", value: uid).execute().value) ?? []
         let new = rows.first
-        if new != status, let soc = new?.soc {
+        // Nur bei geändertem Akkustand oder Ladezustand – sonst alle 40 s eine Zeile, die das Log füllte
+        if let soc = new?.soc, soc.rounded() != status?.soc?.rounded() || new?.charging != status?.charging {
             Diag.log("Fahrzeug: \(Int(soc)) %\(new?.charging == true ? ", lädt" : ""), Messung \(Int(new?.age ?? 0)) s alt")
         }
         if let old = status, let new, new.measuredAt > old.measuredAt {

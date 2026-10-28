@@ -367,14 +367,25 @@ final class NavigationCoordinator: NSObject {
         // ganz anhalten (spart auf dem iPhone Akku).
         // Gilt genauso auf dem iPhone (z. B. zu Fuß), solange die App im Vordergrund ist; erst im Hintergrund ohne
         // CarPlay wird angehalten (siehe idleIfUnused).
+        //
+        // Reihenfolge wichtig (Karte stand am 28.10. trotzdem wieder): Mapbox' NavigationViewController schaltet beim
+        // Schließen selbst auf Leerlauf, sofern noch „aktive Führung“ gilt. Der Wechsel in die freie Fahrt meldet den
+        // neuen Zustand aber erst verzögert (nach dem Entfernen der Route) – das Schließen danach sah also noch
+        // „aktive Führung“, schaltete die Ortung ab, und die freie Fahrt lief ohne Standort weiter. Darum zuerst das
+        // iPhone-Navigationsbild schließen, danach den Zustand setzen.
+        phoneController?.dismiss(animated: true)
+        phoneController = nil
         if CarPlayController.shared.isConnected || UIApplication.shared.applicationState != .background {
             navigationProvider.tripSession().startFreeDrive()
             Diag.log("Navigation beendet – Mapbox in freier Fahrt (\(CarPlayController.shared.isConnected ? "CarPlay verbunden" : "App im Vordergrund"))")
         } else {
             navigationProvider.tripSession().setToIdle()
         }
-        phoneController?.dismiss(animated: true)
-        phoneController = nil
+        // Prüfen statt raten: in welchem Zustand ist Mapbox kurz danach (soll freie Fahrt sein, nicht Leerlauf)
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(3))
+            Diag.log("Mapbox-Zustand 3 s nach dem Beenden: \(navigationProvider.tripSession().currentSession.state)")
+        }
         isNavigating = false
         ChargeMonitor.shared.stop()
         NavigationLiveActivityController.shared.end()

@@ -632,6 +632,8 @@ final class CarPlayController: NSObject {
 
     private var autoStart = false
     private var previewTrip: CPTrip?
+    /// Die einzeln gezeigten Routen der aktuellen Vorschau (Pfeile zum Blättern)
+    private var splitTrips: [CPTrip] = []
 
     /// Wartende Fahrt aus dem Dashboard (Freund oder Favorit angetippt)
     private var dashboardRequest: Place?
@@ -1285,14 +1287,39 @@ extension CarPlayController: CarPlayManagerDelegate {
         using routeChoice: CPRouteChoice
     ) {
         MainActor.assumeIsolated {
+            splitRoutesIfNeeded(trip)
             framePreview(routeChoice.navigationRoutes)
             flyover?.showPreview(routeChoice.navigationRoutes)
             refreshFriends()
         }
     }
 
+    /// Mehrere Routen: je Route eine eigene Vorschau, zwischen denen man mit den Pfeilen der Auswahlkarte blättert
+    /// („1 von 3“) – so wie in einer Liste untereinander, aber ohne dass die Karte verdeckt wird. Die eingebettete
+    /// Routenliste wie bei Apple Karten bekommen andere Apps von CarPlay nicht.
+    private func splitRoutesIfNeeded(_ trip: CPTrip) {
+        guard trip.routeChoices.count > 1, !splitTrips.contains(where: { $0 === trip }),
+              let template = manager.interfaceController?.topTemplate as? CPMapTemplate else { return }
+        let trips = trip.routeChoices.map { choice -> CPTrip in
+            let single = CPTrip(origin: trip.origin, destination: trip.destination, routeChoices: [choice])
+            single.userInfo = trip.userInfo
+            return single
+        }
+        splitTrips = trips
+        let text = CPTripPreviewTextConfiguration(startButtonTitle: String(localized: "Starten"),
+                                                  additionalRoutesButtonTitle: nil, overviewButtonTitle: nil)
+        template.showTripPreviews(trips, selectedTrip: trips.first, textConfiguration: text)
+        for (single, choice) in zip(trips, trip.routeChoices) {
+            guard let route = Self.mainRoute(in: choice.userInfo) else { continue }
+            template.updateEstimates(CPTravelEstimates(distanceRemaining: Measurement(value: route.distance, unit: UnitLength.meters),
+                                                       timeRemaining: route.expectedTravelTime), for: single)
+        }
+        Diag.log("Routenvorschau: \(trips.count) Routen zum Blättern")
+    }
+
     nonisolated func carPlayManagerDidCancelPreview(_ carPlayManager: CarPlayManager) {
         MainActor.assumeIsolated {
+            splitTrips = []
             framePreview(nil)
             flyover?.showPreview(nil)
             refreshFriends()

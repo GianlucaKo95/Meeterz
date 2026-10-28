@@ -34,10 +34,24 @@ enum LandmarkInstructions {
         // Mapbox setzt die Ampel/das Stoppschild meist nicht an die Abbiegekreuzung selbst, sondern an den Knoten
         // davor (Haltelinie, OSM-Ampel an der Zufahrt) – Probe vom 28.10.: Abbiegekreuzung nie markiert, der Knoten
         // 15–44 m davor schon. Deshalb zählt alles bis 50 m vor der Abbiegung als „an der Abbiegung“.
-        let atManeuver = [maneuver] + ahead.filter { meters($0.location, maneuver.location) <= junctionRadius }
+        //
+        // Aber: Steht die Ampel an einer eigenen Einmündung und die Abbiegung kommt erst 20–50 m dahinter, wäre
+        // „An der Ampel rechts“ falsch – man böge eine Straße zu früh ab. Dann heißt es „Direkt nach der Ampel …“.
+        func mark(_ x: Intersection) -> Landmark? {
+            x.trafficSignal == true ? .trafficLight : (x.stopSign == true ? .stopSign : nil)
+        }
+        var found: Landmark? = mark(maneuver)
+        var afterIt = false
+        if found == nil, let index = ahead.lastIndex(where: { mark($0) != nil && meters($0.location, maneuver.location) <= junctionRadius }) {
+            let node = ahead[index]
+            found = mark(node)
+            let between = ahead[(index + 1)...]
+            let isJunction: (Intersection) -> Bool = { $0.headings.count >= 3 }
+            afterIt = meters(node.location, maneuver.location) > sameJunction
+                && (isJunction(node) || between.contains { isJunction($0) && meters($0.location, maneuver.location) > sameJunction })
+        }
         let landmark: Landmark
-        if atManeuver.contains(where: { $0.trafficSignal == true }) { landmark = .trafficLight }
-        else if atManeuver.contains(where: { $0.stopSign == true }) { landmark = .stopSign }
+        if let found { landmark = found }
         else {
             // Keine Ampel, kein Stoppschild, aber die Straße endet an der Abbiegung: „Am Ende der Straße rechts abbiegen“
             guard [.left, .right, .sharpLeft, .sharpRight].contains(upcoming.maneuverDirection),
@@ -57,10 +71,18 @@ enum LandmarkInstructions {
             last = x.location
         }
         let road = upcoming.names?.first.flatMap { $0.isEmpty ? nil : $0 }
+        if afterIt {
+            // Nur bei der nächsten Ampel eindeutig – sonst Mapbox' Ansage
+            guard before == 0 else { return nil }
+            let place = landmark == .trafficLight ? "Direkt nach der Ampel" : "Direkt nach dem Stoppschild"
+            return "\(place) \(direction) abbiegen" + (road.map { " auf \($0)" } ?? "")
+        }
         return phrase(landmark: landmark, ordinal: before + 1, direction: direction, road: road)
     }
 
     static let junctionRadius: CLLocationDistance = 50
+    /// Bis hierhin gehören zwei Knoten zur selben Kreuzung (z. B. getrennte Fahrbahnen)
+    static let sameJunction: CLLocationDistance = 20
 
     static func meters(_ a: CLLocationCoordinate2D, _ b: CLLocationCoordinate2D) -> CLLocationDistance {
         CLLocation(latitude: a.latitude, longitude: a.longitude).distance(from: CLLocation(latitude: b.latitude, longitude: b.longitude))

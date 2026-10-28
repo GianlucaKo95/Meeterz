@@ -1,0 +1,46 @@
+name: Mapbox-Probe
+# Fragt eine Route bei Mapbox ab und schreibt je Abschnitt Manöver, Ampeln/Stoppschilder an den Kreuzungen und die
+# Sprachansagen in den Branch „mapbox-probe“ – um zu prüfen, ob Mapbox die Ampel-Angaben liefert.
+on:
+  workflow_dispatch:
+    inputs:
+      coords:
+        description: "lng,lat;lng,lat"
+        default: "6.7759,51.4296;6.7605,51.4386"
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Route abfragen
+        env:
+          TOKEN: ${{ secrets.MAPBOX_PUBLIC_TOKEN }}
+          COORDS: ${{ inputs.coords }}
+        run: |
+          python3 - <<'PY' > /tmp/probe.txt 2>&1
+          import json, os, urllib.request, urllib.parse
+          q = urllib.parse.urlencode({"access_token": os.environ["TOKEN"], "steps": "true", "voice_instructions": "true",
+               "banner_instructions": "true", "language": "de", "overview": "false", "geometries": "polyline6"})
+          url = f"https://api.mapbox.com/directions/v5/mapbox/driving-traffic/{os.environ['COORDS']}?{q}"
+          d = json.load(urllib.request.urlopen(url))
+          signals = stops = 0
+          for i, s in enumerate(d["routes"][0]["legs"][0]["steps"]):
+              m = s["maneuver"]
+              print(f"#{i} {m.get('type')} {m.get('modifier','')} | {s.get('name','')} ref={s.get('ref','')} dest={s.get('destinations','')} | {s['distance']:.0f} m")
+              for j, x in enumerate(s.get("intersections", [])):
+                  flags = [k for k in ("traffic_signal", "stop_sign", "yield_sign", "railway_crossing") if x.get(k)]
+                  signals += bool(x.get("traffic_signal")); stops += bool(x.get("stop_sign"))
+                  keys = sorted(k for k in x if k not in ("location", "bearings", "entry", "lanes", "classes", "admin_index", "geometry_index", "in", "out", "duration", "turn_weight", "turn_duration", "weight", "mapbox_streets_v8", "is_urban"))
+                  print(f"    K{j} {flags} keys={keys}")
+              for v in s.get("voiceInstructions", []):
+                  print(f"    🔊 {v['distanceAlongGeometry']:.0f} m: {v['announcement']}")
+          print(f"Ampeln gesamt: {signals}, Stoppschilder: {stops}")
+          PY
+          cat /tmp/probe.txt | head -150
+      - name: Ergebnis veröffentlichen
+        run: |
+          git config user.name "meeterz-ci"; git config user.email "ci@users.noreply.github.com"
+          git checkout --orphan mapbox-probe; git rm -rf . >/dev/null 2>&1 || true
+          cp /tmp/probe.txt probe.txt; git add probe.txt; git commit -qm "Mapbox-Probe"; git push -f origin mapbox-probe

@@ -202,6 +202,8 @@ extension CarPlayController {
             if view.signBackColor != back { view.signBackColor = back }
             if view.textColor != text { view.textColor = text }
         }
+        // Vorfahrt achten / Stopp darunter, kurz bevor man das Schild erreicht
+        RightOfWaySigns.shared.update(below: views)
     }
 
     // MARK: Suche mit Kategorien

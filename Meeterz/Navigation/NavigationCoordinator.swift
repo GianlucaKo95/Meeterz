@@ -72,6 +72,7 @@ final class NavigationCoordinator: NSObject {
     @ObservationIgnored private weak var phoneController: NavigationViewController?
     @ObservationIgnored private var overlay: FriendOverlay?
     @ObservationIgnored private var recenterTask: Task<Void, Never>?
+    @ObservationIgnored private var signTimer: Timer?
     @ObservationIgnored private var subscriptions = Set<AnyCancellable>()
 
     private var core: MapboxNavigation { navigationProvider.mapboxNavigation }
@@ -202,6 +203,15 @@ final class NavigationCoordinator: NSObject {
         controller.usesNightStyleInDarkMode = true
         controller.delegate = self
         phoneController = controller
+
+        // Vorfahrt achten / Stopp unter dem Tempolimit auf dem iPhone (CarPlay: eigener Takt in CarPlayExtras)
+        signTimer?.invalidate()
+        signTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let view = self?.phoneController?.navigationView.speedLimitView else { return }
+                RightOfWaySigns.shared.update(below: [view])
+            }
+        }
 
         if !fromCarPlay { beginTracking() }
 
@@ -361,6 +371,9 @@ final class NavigationCoordinator: NSObject {
         overlay = nil
         recenterTask?.cancel()
         recenterTask = nil
+        signTimer?.invalidate()
+        signTimer = nil
+        RightOfWaySigns.shared.hideAll()
         // Ursache für „Karte bleibt nach dem Beenden komplett stehen“ (CarPlay, 27.10.): setToIdle schaltet Mapbox' Ortung
         // ganz ab. Die CarPlay-Karte bekommt ihren Standort aber genau daher – Pfeil und Kamera froren ein, bis die
         // nächste Route startete. Mit CarPlay darum in die freie Fahrt wechseln (Karte folgt weiter), sonst wie bisher

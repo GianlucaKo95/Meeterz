@@ -108,7 +108,7 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
         carPlay = value
         if wasConnected && !value {
             // CarPlay getrennt = ausgestiegen: letzten Parkplatz noch melden, dann sofort in den Spar-Modus
-            if let last = lastLocation { onUpdate?(last) }
+            if let last = lastLocation { onUpdate?(last); watchParkedCar(at: last.coordinate) }
             lastMovingAt = .distantPast
         }
         apply()
@@ -175,6 +175,24 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
             manager.stopMonitoringSignificantLocationChanges()
         }
         keepRelaunchHook()
+    }
+
+    // MARK: Start beim Wegfahren
+
+    private static let parkedRegionId = "meeterz.parked"
+
+    /// Zaun von 100 m um die Stelle, an der CarPlay getrennt wurde (= wo das Auto steht). Fährt man los, meldet iOS das
+    /// Verlassen und startet Meeterz dafür im Hintergrund – auch wenn die App weggewischt wurde. Das ist deutlich früher
+    /// als die Ortswechsel-Meldung (erst nach einigen hundert Metern), sodass Meeterz läuft, solange CarPlay sich noch
+    /// aufbaut bzw. kurz danach. Einen Weg, die App direkt beim Verbinden von CarPlay zu starten, gibt iOS Apps nicht.
+    func watchParkedCar(at coordinate: CLLocationCoordinate2D) {
+        guard authorization == .authorizedAlways, CLLocationManager.isMonitoringAvailable(for: CLCircularRegion.self) else { return }
+        for region in manager.monitoredRegions where region.identifier == Self.parkedRegionId { manager.stopMonitoring(for: region) }
+        let region = CLCircularRegion(center: coordinate, radius: 100, identifier: Self.parkedRegionId)
+        region.notifyOnEntry = false
+        region.notifyOnExit = true
+        manager.startMonitoring(for: region)
+        Diag.log("Wegfahr-Zaun (100 m) um den Parkplatz gesetzt")
     }
 
     /// Ortswechsel-Überwachung immer an lassen (mit „Immer“-Erlaubnis): Sie ist der einzige Weg, auf dem iOS eine
@@ -277,6 +295,15 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
                                             longitude: a.coordinate.longitude + (b.coordinate.longitude - a.coordinate.longitude) * t),
                           altitude: 0, horizontalAccuracy: max(a.horizontalAccuracy, b.horizontalAccuracy), verticalAccuracy: -1,
                           course: t < 0.5 ? a.course : b.course, speed: a.speed + (b.speed - a.speed) * t, timestamp: date)
+    }
+
+    nonisolated func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
+        guard region.identifier == "meeterz.parked" else { return }
+        Task { @MainActor in
+            Diag.log("Parkplatz verlassen (Wegfahr-Zaun) – App läuft")
+            self.manager.stopMonitoring(for: region)
+            AppModel.shared.startWithoutPhoneUI("Wegfahren")
+        }
     }
 
     nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {

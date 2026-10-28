@@ -130,6 +130,31 @@ final class AppModel {
         if !ids.isEmpty { push.requestLocations(of: ids) }
     }
 
+    /// Start ohne iPhone-Oberfläche (CarPlay startet Meeterz im Hintergrund): Anmeldung und Sitzung hochfahren wie beim
+    /// normalen App-Start. Sonst lief das nur über RootView/MainView – ohne geöffnete App gab es keine Anmeldung, keine
+    /// Freunde und keine Favoriten, das Dashboard hatte keine Knöpfe und CarPlay zeigte dort nur das App-Symbol.
+    func startWithoutPhoneUI(_ reason: String) {
+        guard !headlessStarted else { return }
+        headlessStarted = true
+        Task { await auth.start() }   // läuft dauerhaft (Anmeldeereignisse) – nicht abwarten
+        Task { [weak self] in
+            let started = Date()
+            // Profil abwarten (ohne Netz versucht AuthStore es selbst erneut)
+            while self?.profile == nil, Date().timeIntervalSince(started) < 300 {
+                try? await Task.sleep(for: .milliseconds(250))
+            }
+            guard let self else { return }
+            let seconds = String(format: "%.1f", Date().timeIntervalSince(started))
+            guard self.profile != nil else {
+                Diag.log("Start ohne App (\(reason)): nach \(seconds) s noch keine Anmeldung")
+                return
+            }
+            await self.startSession()
+            Diag.log("Start ohne App (\(reason)): Sitzung nach \(seconds) s, \(self.friends.accepted.count) Freunde")
+        }
+    }
+    private var headlessStarted = false
+
     /// Ein Freund hat per stillem Push nach meinem Standort gefragt: Sitzung sicherstellen, Position holen, senden.
     func answerLocateRequest() async -> Bool {
         if profile == nil {

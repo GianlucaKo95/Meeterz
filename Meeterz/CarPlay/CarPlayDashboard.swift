@@ -17,6 +17,7 @@ final class CarPlayDashboardSceneDelegate: NSObject, CPTemplateApplicationDashbo
         MainActor.assumeIsolated {
             MainThreadWatch.start(label: "Dashboard")
             Diag.log("Dashboard verbunden: Fenster \(Int(window.bounds.width))x\(Int(window.bounds.height)), Szene=\(templateApplicationDashboardScene.activationState.rawValue)")
+            AppModel.shared.startWithoutPhoneUI("Dashboard")
             CarPlayDashboard.shared.connect(window: window)
             CarPlayDashboard.shared.dashboardController = dashboardController
             CarPlayDashboard.shared.scene = templateApplicationDashboardScene
@@ -313,6 +314,10 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
 
         let key = shortcuts.map(\.key).joined(separator: "|")
         guard key != shortcutKey else { return }
+        if shortcutKey.isEmpty || key.isEmpty {
+            // Ohne Knöpfe zeigt CarPlay im Dashboard nur das App-Symbol – festhalten, wann welche da sind
+            Diag.log("\(name): \(shortcuts.count) Schnellwahl-Knöpfe (angemeldet: \(app.profile != nil))")
+        }
         shortcutKey = key
         controller.shortcutButtons = shortcuts.map { s in
             let place = s.place

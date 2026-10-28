@@ -337,6 +337,7 @@ final class CarPlayController: NSObject {
 
     func connect(scene: CPTemplateApplicationScene, interfaceController: CPInterfaceController, window: CPWindow) {
         DriveHealth.shared.start()
+        AppModel.shared.startWithoutPhoneUI("CarPlay")
         manager.delegate = self
         // Lädt das Auto schon (z. B. CarPlay an der Säule neu verbunden): Ladeanzeige zeigen, sobald die Karte steht
         Task { @MainActor in

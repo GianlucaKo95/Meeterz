@@ -212,6 +212,22 @@ struct IncognitoIntent: AppIntent {
     }
 }
 
+/// Für eine Kurzbefehl-Automation „Wenn CarPlay verbunden“: startet Meeterz unsichtbar im Hintergrund, damit
+/// Dashboard und CarPlay-Ansicht sofort da sind – auch nachdem die App weggewischt wurde. iOS startet weggewischte
+/// Apps von selbst nicht mehr, ein vom Nutzer eingerichteter Kurzbefehl darf das aber.
+struct StartForCarPlayIntent: AppIntent {
+    static var title: LocalizedStringResource = "Für CarPlay starten"
+    static var description = IntentDescription("Startet Meeterz im Hintergrund, ohne die App zu öffnen. Ideal als Automation „Wenn CarPlay verbunden“.")
+    static var openAppWhenRun = false
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        Diag.log("App per Kurzbefehl gestartet (CarPlay-Automation)")
+        AppModel.shared.startWithoutPhoneUI("Kurzbefehl")
+        return .result()
+    }
+}
+
 // MARK: Sätze für Siri
 
 struct MeeterzShortcuts: AppShortcutsProvider {

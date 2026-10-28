@@ -13249,6 +13249,52 @@
         }
       }
     },
+    "Für CarPlay starten": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Für CarPlay starten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start for CarPlay"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Démarrer pour CarPlay"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Iniciar para CarPlay"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Iniciar para o CarPlay"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CarPlay için başlat"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avvia per CarPlay"
+          }
+        }
+      }
+    },
     "Gefahr auf der Fahrbahn": {
       "localizations": {
         "de": {
@@ -23275,6 +23321,52 @@
           "stringUnit": {
             "state": "translated",
             "value": "Avvia"
+          }
+        }
+      }
+    },
+    "Startet Meeterz im Hintergrund, ohne die App zu öffnen. Ideal als Automation „Wenn CarPlay verbunden“.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Startet Meeterz im Hintergrund, ohne die App zu öffnen. Ideal als Automation „Wenn CarPlay verbunden“."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Starts Meeterz in the background without opening the app. Ideal as a \"When CarPlay connects\" automation."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Démarre Meeterz en arrière-plan sans ouvrir l’app. Idéal comme automatisation « Lorsque CarPlay se connecte »."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inicia Meeterz en segundo plano sin abrir la app. Ideal como automatización «Al conectar CarPlay»."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inicia o Meeterz em segundo plano sem abrir a app. Ideal como automatização «Quando o CarPlay se ligar»."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meeterz’i uygulamayı açmadan arka planda başlatır. \"CarPlay bağlandığında\" otomasyonu için idealdir."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avvia Meeterz in background senza aprire l’app. Ideale come automazione «Quando CarPlay si connette»."
           }
         }
       }

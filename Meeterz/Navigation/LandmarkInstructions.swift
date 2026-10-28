@@ -1,4 +1,5 @@
 import Foundation
+import CoreLocation
 import MapboxDirections
 import MapboxNavigationCore
 
@@ -30,9 +31,13 @@ enum LandmarkInstructions {
         guard let maneuver = all.last else { return nil }
         let ahead = Array(all.dropLast().dropFirst(min(stepProgress.intersectionIndex + 1, max(all.count - 1, 0))))
 
+        // Mapbox setzt die Ampel/das Stoppschild meist nicht an die Abbiegekreuzung selbst, sondern an den Knoten
+        // davor (Haltelinie, OSM-Ampel an der Zufahrt) – Probe vom 28.10.: Abbiegekreuzung nie markiert, der Knoten
+        // wenige Meter davor schon. Deshalb zählt alles bis 40 m vor der Abbiegung als „an der Abbiegung“.
+        let atManeuver = [maneuver] + ahead.filter { meters($0.location, maneuver.location) <= junctionRadius }
         let landmark: Landmark
-        if maneuver.trafficSignal == true { landmark = .trafficLight }
-        else if maneuver.stopSign == true { landmark = .stopSign }
+        if atManeuver.contains(where: { $0.trafficSignal == true }) { landmark = .trafficLight }
+        else if atManeuver.contains(where: { $0.stopSign == true }) { landmark = .stopSign }
         else {
             // Keine Ampel, kein Stoppschild, aber die Straße endet an der Abbiegung: „Am Ende der Straße rechts abbiegen“
             guard [.left, .right, .sharpLeft, .sharpRight].contains(upcoming.maneuverDirection),
@@ -41,9 +46,24 @@ enum LandmarkInstructions {
             return "Am Ende der Straße \(direction) abbiegen" + (road.map { " auf \($0)" } ?? "")
         }
 
-        let before = ahead.filter { landmark == .trafficLight ? $0.trafficSignal == true : $0.stopSign == true }.count
+        // Ampeln davor zählen – mehrere markierte Knoten derselben Kreuzung (≤ 40 m auseinander) als eine
+        var before = 0
+        var last: CLLocationCoordinate2D?
+        for x in ahead where meters(x.location, maneuver.location) > junctionRadius {
+            let marked = landmark == .trafficLight ? x.trafficSignal == true : x.stopSign == true
+            guard marked else { continue }
+            if let last, meters(last, x.location) <= junctionRadius { continue }
+            before += 1
+            last = x.location
+        }
         let road = upcoming.names?.first.flatMap { $0.isEmpty ? nil : $0 }
         return phrase(landmark: landmark, ordinal: before + 1, direction: direction, road: road)
+    }
+
+    static let junctionRadius: CLLocationDistance = 40
+
+    static func meters(_ a: CLLocationCoordinate2D, _ b: CLLocationCoordinate2D) -> CLLocationDistance {
+        CLLocation(latitude: a.latitude, longitude: a.longitude).distance(from: CLLocation(latitude: b.latitude, longitude: b.longitude))
     }
 
     /// Endet die Straße an dieser Kreuzung? Ja, wenn keine Straße in Fahrtrichtung weitergeht (höchstens 35° Abweichung)

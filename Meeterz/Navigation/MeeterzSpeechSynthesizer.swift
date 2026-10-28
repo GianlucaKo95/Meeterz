@@ -165,6 +165,7 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
         text = RoadNames.dropCodes(in: text, legProgress: legProgress)
         // „Jetzt rechts abbiegen, dann links abbiegen“ nur, wenn die zweite Abbiegung sofort folgt
         text = ThenInstructions.apply(to: text, legProgress: legProgress)
+        if text != instruction.text { Diag.log("Ansage angepasst: „\(instruction.text)“ → „\(text)“") }
 
         // Eine neue Abbiegeansage ersetzt eine laufende oder wartende – die alte ist überholt
         if let previous = playing, let old = previous.instruction {

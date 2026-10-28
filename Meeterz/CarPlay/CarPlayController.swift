@@ -545,7 +545,19 @@ final class CarPlayController: NSObject {
             locale: Locale.navigation,
             distanceUnit: .kilometer)
         RoutePreferences.apply(to: options)
-        manager.previewRoutes(for: options, completionHandler: completion)
+        // Selbst berechnen, um bis zu drei Routen anzubieten (schnellste, kürzeste, ohne Autobahn).
+        // Scheitert die Berechnung, übernimmt Mapbox wie bisher (mit seiner Fehlermeldung).
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let provider = navigationProvider.mapboxNavigation.routingProvider()
+            guard let routes = try? await provider.calculateRoutes(options: options).value else {
+                self.manager.previewRoutes(for: options, completionHandler: completion)
+                return
+            }
+            let wide = await RouteVariety.widen(routes, options: options, using: provider)
+            await self.manager.previewRoutes(for: wide)
+            completion()
+        }
     }
 
     private var pendingDestination: Place?
@@ -1008,9 +1020,11 @@ extension CarPlayController: CarPlayManagerDelegate {
     /// In der Liste aller Routen steht die Dauer/Strecke als Titel, damit man sie vergleichen kann.
     /// Unter dem Zielnamen stand außerdem noch einmal der Name („Arbeit“ / „Arbeit“): Das Ziel bekommt seine Adresse.
     private static func withPhoneLabels(_ trip: CPTrip, destination: Place?) -> CPTrip {
+        let all = trip.routeChoices.compactMap { mainRoute(in: $0.userInfo) }
         let choices = trip.routeChoices.enumerated().map { index, choice -> CPRouteChoice in
             guard let route = mainRoute(in: choice.userInfo) else { return choice }
-            let label = index == 0 ? String(localized: "Schnellste") : String(localized: "Alternative \(index)")
+            let label = all.count == trip.routeChoices.count ? RouteVariety.label(for: index, in: all)
+                : (index == 0 ? String(localized: "Schnellste") : String(localized: "Alternative \(index)"))
             let detail = "\(Format.minutes(seconds: route.expectedTravelTime)) · \(Format.distance(route.distance))"
             let copy = CPRouteChoice(summaryVariants: [detail],
                                      additionalInformationVariants: [label],

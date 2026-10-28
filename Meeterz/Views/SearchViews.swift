@@ -240,7 +240,7 @@ struct RoutePreviewView: View {
             ForEach(Array(current.options.enumerated()), id: \.offset) { index, route in
                 Button { select(index) } label: {
                     VStack(spacing: 2) {
-                        Text(index == 0 ? String(localized: "Schnellste") : String(localized: "Alternative \(index)"))
+                        Text(RouteVariety.label(for: index, in: current.options))
                             .font(.caption.weight(.bold))
                         Text("\(Format.minutes(until: Date().addingTimeInterval(route.expectedTravelTime))) · \(Format.distance(route.distance))")
                             .font(.caption)
@@ -249,7 +249,7 @@ struct RoutePreviewView: View {
                     .background(RoundedRectangle(cornerRadius: 12).fill(index == selected ? Theme.accent : Theme.panel))
                     .foregroundStyle(index == selected ? Theme.ink : Theme.text)
                 }
-                .accessibilityLabel(index == 0 ? String(localized: "Schnellste Route") : String(localized: "Alternativroute \(index)"))
+                .accessibilityLabel(RouteVariety.label(for: index, in: current.options))
             }
         }
     }

@@ -109,7 +109,10 @@ final class NavigationCoordinator: NSObject {
         RoutePreferences.apply(to: options)
 
         do {
-            return try await core.routingProvider().calculateRoutes(options: options).value
+            let routes = try await core.routingProvider().calculateRoutes(options: options).value
+            // Auto: bis zu drei Routen – schnellste, kürzeste, ohne Autobahn
+            guard mode == .car, stops.isEmpty else { return routes }
+            return await RouteVariety.widen(routes, options: options, using: core.routingProvider())
         } catch where !options.roadClassesToAvoid.isEmpty {
             // Ohne Maut/Autobahn/Fähre nicht erreichbar (z. B. Insel nur per Fähre): dann normal, mit Hinweis
             let plain = NavigationRouteOptions(waypoints: waypoints, profileIdentifier: mode.profile,

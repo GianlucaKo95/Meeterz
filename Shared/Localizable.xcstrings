@@ -20977,6 +20977,53 @@
         }
       }
     },
+    "Richtung %@": {
+      "comment": "Sprachansage: Ziel der Ausfahrt/des Kreuzes, z. B. „Richtung Köln“",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Richtung %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "toward %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "direction %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "dirección %@"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "direção %@"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ yönüne"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "direzione %@"
+          }
+        }
+      }
+    },
     "Route %@": {
       "localizations": {
         "de": {

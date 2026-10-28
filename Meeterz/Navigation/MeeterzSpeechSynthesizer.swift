@@ -158,7 +158,9 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
         subject.send(VoiceInstructionEvents.WillSpeak(instruction: instruction))
 
         // Wie Apple: „An der nächsten Ampel rechts abbiegen“, wenn die Abbiegung an einer Ampel/einem Stoppschild liegt
-        let text = LandmarkInstructions.rewrite(instruction, legProgress: legProgress) ?? instruction.text
+        var text = LandmarkInstructions.rewrite(instruction, legProgress: legProgress) ?? instruction.text
+        // Wechsel oder Ausfahrt von der Autobahn: die Richtung schon bei der ersten Ansage, nicht erst bei der letzten
+        if let withDirection = MotorwayDirection.add(to: text, legProgress: legProgress) { text = withDirection }
 
         // Eine neue Abbiegeansage ersetzt eine laufende oder wartende – die alte ist überholt
         if let previous = playing, let old = previous.instruction {
@@ -348,6 +350,28 @@ enum MotorwayContinuation {
         // Ohne Nummer: gleicher Straßenname
         let names = Set(current.names ?? []), nextNames = Set(next.names ?? [])
         return !names.isEmpty && !names.isDisjoint(with: nextNames)
+    }
+}
+
+/// Autobahnwechsel und Ausfahrten: Mapbox nennt die Richtung („Richtung Köln“) oft erst in der letzten Ansage kurz vor
+/// dem Kreuz. Gerade an großen Kreuzen bleibt dann kaum Zeit, sich einzuordnen. Fehlt sie, hängen wir sie an jede
+/// Ansage dieses Manövers an – wie Apple Karten.
+enum MotorwayDirection {
+    static func add(to text: String, legProgress: RouteLegProgress) -> String? {
+        guard let next = legProgress.upcomingStep,
+              [.reachFork, .takeOffRamp, .takeOnRamp, .useLane, .continue, .merge].contains(next.maneuverType) else { return nil }
+        let current = legProgress.currentStep
+        let onMotorway = (current.intersections ?? []).contains { $0.outletRoadClasses?.contains(.motorway) == true }
+        guard onMotorway else { return nil }
+        let targets = (next.destinations ?? []).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        guard let first = targets.first else { return nil }
+        // Steht die Richtung schon drin (meist in der letzten Ansage), nichts doppelt
+        if text.range(of: first, options: [.caseInsensitive, .diacriticInsensitive]) != nil { return nil }
+        let names = targets.prefix(2).joined(separator: ", ")
+        var base = text.trimmingCharacters(in: .whitespaces)
+        let period = base.hasSuffix(".")
+        if period { base.removeLast() }
+        return base + ", " + String(localized: "Richtung \(names)") + (period ? "." : "")
     }
 }
 

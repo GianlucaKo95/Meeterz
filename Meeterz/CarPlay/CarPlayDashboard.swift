@@ -5,6 +5,7 @@ import CoreLocation
 import MapKit
 import MapboxMaps
 import MapboxNavigationCore
+import MapboxNavigationUIKit
 
 /// Dashboard-Karte im CarPlay-Startbildschirm: eigene Karte mit Standort, Freunden und der laufenden Route,
 /// damit dort nicht die Karte eines anderen Navi-Programms steht.
@@ -190,6 +191,7 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
         map.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         map.delegate = self
         Self.applyStyle(to: map)
+        map.overrideUserInterfaceStyle = CarPlayController.shared.mapStyleType == .night ? .dark : .light
         map.isPitchEnabled = true
         map.showsUserLocation = true
         map.showsCompass = false
@@ -219,7 +221,7 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
 
             // Freunde alle 3 s abgleichen
             self.timer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
-                MainActor.assumeIsolated { self?.refreshFriends() }
+                MainActor.assumeIsolated { self?.refreshFriends(); self?.syncDayNight() }
             }
             self.refreshFriends()
         }
@@ -367,6 +369,12 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
     // MARK: Kamera: folgt dem Standort, in Fahrtrichtung, leicht geneigt
 
     private func follow(_ location: CLLocation, map: MKMapView, animated: Bool) {
+        // Dashboard: so nah wie die große Karte (derselbe Zoom, umgerechnet wie die Flyover-Ebene dort).
+        // Vorher fester Abstand von ~1 km – MapKit begrenzte dabei die Neigung auf 34°, und das Bild sah anders aus.
+        if ownZoom == nil, map.bounds.height > 1 {
+            distance = CarPlayFlyoverMirror.distance(zoom: CarPlayController.shared.displayedZoom,
+                                                     latitude: location.coordinate.latitude, height: Double(map.bounds.height))
+        }
         let heading = location.course >= 0 ? location.course : map.camera.heading
         let camera = MKMapCamera(lookingAtCenter: location.coordinate, fromDistance: distance, pitch: Self.pitch, heading: heading)
         map.setCamera(camera, animated: animated)
@@ -404,7 +412,6 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
         nav.autoresizingMask = [.flexibleWidth, .flexibleHeight]
 
         let controller = DashboardContainer()
-        controller.onAppearanceChange = { [weak self] in self?.applyLightPreset() }
         controller.loadViewIfNeeded()
         nav.frame = controller.view.bounds
         controller.view.addSubview(nav)
@@ -413,10 +420,8 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
         container = controller
         mapbox = nav
         mapboxRendered = false
+        appliedStyleType = nil
 
-        nav.mapView.mapboxMap.onStyleLoaded.observe { [weak self] _ in
-            MainActor.assumeIsolated { self?.applyLightPreset() }
-        }.store(in: &mapboxTokens)
         nav.mapView.mapboxMap.onMapIdle.observeNext { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self, !self.mapboxRendered else { return }
@@ -445,7 +450,7 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
 
         // Schnellwahl (Freunde/Zuhause) aktuell halten
         timer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.updateShortcuts() }
+            MainActor.assumeIsolated { self?.updateShortcuts(); self?.syncDayNight() }
         }
 
         Task { @MainActor [weak self, weak nav] in
@@ -464,20 +469,29 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
         host.addSubview(nav)
     }
 
+    /// Derselbe Kartenstil wie die große Karte: dieselben Mapbox-Stile (Navigationskarte bzw. Satellit) und Tag/Nacht
+    /// wie dort. Vorher nahm das Dashboard Mapbox' allgemeinen „Standard“-Stil (anderes Aussehen, lädt deutlich länger)
+    /// und Tag/Nacht vom eigenen Fenster – das meldet im Dashboard aber immer „dunkel“.
     private func applyMapboxStyle() {
         guard let nav = mapbox else { return }
         let satellite = UserDefaults.standard.object(forKey: "carplay.satellite") as? Bool ?? true
-        let uri: StyleURI = satellite ? .standardSatellite : .standard
-        if nav.mapView.mapboxMap.styleURI != uri { nav.mapView.mapboxMap.styleURI = uri }
+        let type = CarPlayController.shared.mapStyleType ?? .day
+        guard let style = NavigationStyles.carPlay().first(where: { $0.styleType == type }) else { return }
+        appliedStyleType = type
+        style.applyMapStyle(to: nav)
         Satellite3DBuildings.install(on: nav.mapView, satellite: satellite)
-        applyLightPreset()
     }
+    private var appliedStyleType: StyleType?
 
-    /// Tag/Nacht wie das Auto (CarPlay meldet den Nachtmodus über das Erscheinungsbild des Fensters)
-    private func applyLightPreset() {
-        guard let nav = mapbox, nav.mapView.mapboxMap.isStyleLoaded else { return }
-        let dark = (window?.traitCollection.userInterfaceStyle ?? .light) == .dark
-        try? nav.mapView.mapboxMap.setStyleImportConfigProperty(for: "basemap", config: "lightPreset", value: dark ? "night" : "day")
+    /// Tag/Nacht der großen Karte gewechselt: nachziehen
+    private func syncDayNight() {
+        let type = CarPlayController.shared.mapStyleType ?? .day
+        if mapbox != nil {
+            if type != appliedStyleType { applyMapboxStyle() }
+        } else if let map = mapView {
+            let wanted: UIUserInterfaceStyle = type == .night ? .dark : .light
+            if map.overrideUserInterfaceStyle != wanted { map.overrideUserInterfaceStyle = wanted }
+        }
     }
 
     /// Neigung und Zoom wie die große Karte (3D-Einstellung, Zoom außerhalb der Fahrt bzw. Navigationszoom)
@@ -615,12 +629,5 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
     }
 }
 
-/// Hält die Dashboard-Karte und meldet Tag/Nacht-Wechsel des Autos
-final class DashboardContainer: UIViewController {
-    var onAppearanceChange: (() -> Void)?
-
-    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
-        if traitCollection.userInterfaceStyle != previousTraitCollection?.userInterfaceStyle { onAppearanceChange?() }
-    }
-}
+/// Hält die Dashboard-Karte
+final class DashboardContainer: UIViewController {}

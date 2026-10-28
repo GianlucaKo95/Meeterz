@@ -314,8 +314,7 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
         let dy = Double(state.padding.top - state.padding.bottom) / 2
         if abs(dy) > 1 { target = Self.offset(center, bearing: state.bearing, meters: dy * metersPerPoint) }
 
-        // Abstand so, dass der Maßstab in Bildmitte etwa dem der Mapbox-Karte entspricht
-        let distance = min(max(1.5 * Double(size.height) * metersPerPoint * 1.2, 80), 80_000)
+        let distance = Self.distance(zoom: state.zoom, latitude: center.latitude, height: Double(size.height))
         let camera = MKMapCamera(
             lookingAtCenter: target,
             fromDistance: distance,
@@ -327,6 +326,13 @@ final class CarPlayFlyoverMirror: NSObject, MKMapViewDelegate {
         cameraHeading = state.bearing
         updateArrow()
         updateTopLayer()
+    }
+
+    /// MapKit-Kameraabstand, bei dem der Maßstab in Bildmitte etwa dem einer Mapbox-Karte mit diesem Zoom entspricht
+    /// (auch für die Dashboard-Karte, damit sie bei Flyover genauso nah ist wie die große Karte)
+    static func distance(zoom: Double, latitude: Double, height: Double) -> CLLocationDistance {
+        let metersPerPoint = 40_075_016.686 * cos(latitude * .pi / 180) / (512 * pow(2, zoom))
+        return min(max(1.5 * height * metersPerPoint * 1.2, 80), 80_000)
     }
 
     /// Den Standortpfeil genau dorthin legen, wo Mapbox ihn zeigt – Maßstab und Rand der beiden Karten

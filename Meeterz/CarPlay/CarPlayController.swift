@@ -8,6 +8,7 @@ import MapboxNavigationCore
 import MapboxNavigationUIKit
 import MapboxMaps
 import MapKit
+import Contacts
 
 /// CarPlay-Szene. Wird über Info.plist (UIApplicationSceneManifest) eingebunden.
 final class CarPlaySceneDelegate: NSObject, CPTemplateApplicationSceneDelegate {
@@ -122,6 +123,16 @@ final class CarPlayController: NSObject {
         get { UserDefaults.standard.object(forKey: "carplay.zoom") as? Double ?? 16.5 }
         set { UserDefaults.standard.set(newValue, forKey: "carplay.zoom") }
     }
+
+    /// Zoom der großen Karte gerade (Dashboard zeigt denselben Ausschnitt)
+    var displayedZoom: Double {
+        if let map = displayedMap, map.window != nil { return map.mapView.mapboxMap.cameraState.zoom }
+        return browseZoom
+    }
+
+    /// Tag oder Nacht der großen Karte – Mapbox wählt das nach Sonnenstand und dem Erscheinungsbild von CarPlay.
+    /// Das Dashboard übernimmt es (sein eigenes Fenster meldet immer „dunkel“).
+    var mapStyleType: StyleType? { manager.carPlayMapViewController?.styleManager?.currentStyleType }
 
     /// Rand der Browse-Karte vor der Routenvorschau (danach wiederherstellen)
     private var previewPaddingBefore: UIEdgeInsets?
@@ -479,7 +490,7 @@ final class CarPlayController: NSObject {
                                   image: UIImage(systemName: fav.symbol,
                                                  withConfiguration: UIImage.SymbolConfiguration(pointSize: 24, weight: .semibold)))
             item.handler = { [weak self] _, completion in
-                self?.preview(to: fav.coordinate, name: fav.label, completion: completion)
+                self?.preview(to: fav.coordinate, name: fav.label, address: fav.address, completion: completion)
             }
             return item
         }
@@ -500,7 +511,7 @@ final class CarPlayController: NSObject {
                                       image: UIImage(systemName: "clock.fill",
                                                      withConfiguration: UIImage.SymbolConfiguration(pointSize: 24, weight: .semibold)))
                 item.handler = { [weak self] _, completion in
-                    self?.preview(to: recent.coordinate, name: recent.name, completion: completion)
+                    self?.preview(to: recent.coordinate, name: recent.name, address: recent.address, completion: completion)
                 }
                 return item
             }
@@ -517,9 +528,10 @@ final class CarPlayController: NSObject {
         return CPListTemplate(title: String(localized: "Ziele"), sections: sections)
     }
 
-    private func preview(to coordinate: CLLocationCoordinate2D, name: String, completion: @escaping () -> Void) {
+    private func preview(to coordinate: CLLocationCoordinate2D, name: String, address: String? = nil,
+                         completion: @escaping () -> Void) {
         let waypoint = Waypoint(coordinate: coordinate, name: name)
-        pendingDestination = Place(id: UUID().uuidString, name: name, address: nil, coordinate: coordinate)
+        pendingDestination = Place(id: UUID().uuidString, name: name, address: address, coordinate: coordinate)
         // Eigene Routenoptionen: Deutsch (sonst gilt die Systemsprache des iPhones, z. B. Englisch) und Auto
         // Mapbox meldet den Abschluss aus einem Hintergrund-Task; CarPlay bekommt ihn auf dem Hauptthread
         let completion = { DispatchQueue.main.async(execute: completion) }
@@ -553,7 +565,7 @@ final class CarPlayController: NSObject {
         CarPlayUI.shared.popToRoot(animated: true)
         done()
         showLoading(at: place)
-        preview(to: place.coordinate, name: place.name) { [weak self] in
+        preview(to: place.coordinate, name: place.name, address: place.address) { [weak self] in
             MainActor.assumeIsolated { self?.hideLoading() }
         }
     }
@@ -666,7 +678,7 @@ final class CarPlayController: NSObject {
             CarPlayUI.shared.popToRoot(animated: false)
             showLoading(at: place)
         }
-        preview(to: place.coordinate, name: place.name) { [weak self] in
+        preview(to: place.coordinate, name: place.name, address: place.address) { [weak self] in
             MainActor.assumeIsolated {
                 self?.hideLoading()
                 self?.startPendingTrip()
@@ -830,7 +842,7 @@ final class CarPlayController: NSObject {
         if AppModel.shared.navigation.isNavigating {
             Task { await AppModel.shared.navigation.addStop(place) }
         } else {
-            preview(to: place.coordinate, name: place.name) {}
+            preview(to: place.coordinate, name: place.name, address: place.address) {}
         }
     }
 
@@ -979,26 +991,37 @@ extension CarPlayController: CarPlayManagerDelegate {
 
     nonisolated func carPlayManager(_ carPlayManager: CarPlayManager, willPreview trip: CPTrip) -> CPTrip {
         MainActor.assumeIsolated {
-            let shown = Self.withRouteOptions(Self.withBatteryForecast(Self.withPhoneLabels(trip)))
+            let shown = Self.withRouteOptions(Self.withBatteryForecast(Self.withPhoneLabels(trip, destination: pendingDestination)))
             previewTrip = shown
             return shown
         }
     }
 
-    /// Routenauswahl wie auf dem iPhone: „Schnellste“ / „Alternative 1“ mit „14 Min · 3,0 km“ darunter
-    /// (vorher Mapbox' Standardtexte). Bei mehreren Routen zeigt CarPlay sie als Liste zur Auswahl.
-    private static func withPhoneLabels(_ trip: CPTrip) -> CPTrip {
+    /// Routenauswahl wie auf dem iPhone. Die Karte für die gewählte Route zeigt CarPlay selbst mit Ankunft, Dauer und
+    /// Strecke – darum dort nur noch „Schnellste“ / „Alternative 1“ (und Akku/Optionen), nicht noch einmal Dauer und
+    /// Strecke (stand doppelt und wich durch andere Rundung ab: „45 Min · 41,5 km“ über „44 Min. · 41 km“).
+    /// In der Liste aller Routen steht die Dauer/Strecke als Titel, damit man sie vergleichen kann.
+    /// Unter dem Zielnamen stand außerdem noch einmal der Name („Arbeit“ / „Arbeit“): Das Ziel bekommt seine Adresse.
+    private static func withPhoneLabels(_ trip: CPTrip, destination: Place?) -> CPTrip {
         let choices = trip.routeChoices.enumerated().map { index, choice -> CPRouteChoice in
             guard let route = mainRoute(in: choice.userInfo) else { return choice }
-            let title = index == 0 ? String(localized: "Schnellste") : String(localized: "Alternative \(index)")
+            let label = index == 0 ? String(localized: "Schnellste") : String(localized: "Alternative \(index)")
             let detail = "\(Format.minutes(seconds: route.expectedTravelTime)) · \(Format.distance(route.distance))"
-            let copy = CPRouteChoice(summaryVariants: [title],
-                                     additionalInformationVariants: [detail],
-                                     selectionSummaryVariants: [title])
+            let copy = CPRouteChoice(summaryVariants: [detail],
+                                     additionalInformationVariants: [label],
+                                     selectionSummaryVariants: [label])
             copy.userInfo = choice.userInfo
             return copy
         }
-        let copy = CPTrip(origin: trip.origin, destination: trip.destination, routeChoices: choices)
+        var target = trip.destination
+        if let destination, let address = destination.address, !address.isEmpty,
+           destination.coordinate.distance(to: trip.destination.placemark.coordinate) < 200 {
+            let placemark = MKPlacemark(coordinate: trip.destination.placemark.coordinate,
+                                        addressDictionary: [CNPostalAddressStreetKey: address])
+            target = MKMapItem(placemark: placemark)
+            target.name = destination.name
+        }
+        let copy = CPTrip(origin: trip.origin, destination: target, routeChoices: choices)
         copy.userInfo = trip.userInfo
         return copy
     }
@@ -1066,7 +1089,7 @@ extension CarPlayController: CarPlayManagerDelegate {
         let choices: [CPRouteChoice] = zip(trip.routeChoices, keys).map { choice, key in
             guard let key, let text = forecastCache[key] else { return choice }
             changed = true
-            let info = (choice.additionalInformationVariants ?? []).map { "\(text) · \($0)" }
+            let info = (choice.additionalInformationVariants ?? []).map { "\($0) · \(text)" }
             let copy = CPRouteChoice(summaryVariants: choice.summaryVariants,
                                      additionalInformationVariants: info.isEmpty ? [text] : info,
                                      selectionSummaryVariants: choice.selectionSummaryVariants ?? [])

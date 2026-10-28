@@ -1,0 +1,53 @@
+#0 depart  | Wasserstraße ref= dest= | 185 m
+    🔊 185 m: Auf Wasserstraße Richtung Süden fahren. Dann Rechts auf Reichsstraße abbiegen.
+    🔊 68 m: Rechts auf Reichsstraße abbiegen.
+#1 turn right | Reichsstraße ref= dest= | 226 m
+    🔊 209 m: In 200 Metern Rechts auf Kavalleriestraße abbiegen.
+    🔊 78 m: Rechts auf Kavalleriestraße abbiegen.
+#2 end of road right | Kavalleriestraße ref= dest= | 664 m
+    K2 ['traffic_signal'] 474 m vor dem nächsten Manöver
+    K9 ['traffic_signal'] 208 m vor dem nächsten Manöver
+    K14 ['traffic_signal'] 100 m vor dem nächsten Manöver
+    🔊 647 m: 700 Meter weiter der Route folgen.
+    🔊 400 m: In 400 Metern Rechts halten auf Graf-Adolf-Platz.
+    🔊 89 m: Rechts halten auf Graf-Adolf-Platz.
+#3 fork slight right | Graf-Adolf-Platz ref= dest= | 694 m
+    K1 ['traffic_signal'] 634 m vor dem nächsten Manöver
+    K3 ['traffic_signal'] 616 m vor dem nächsten Manöver
+    K6 ['traffic_signal'] 550 m vor dem nächsten Manöver
+    K11 ['traffic_signal'] 453 m vor dem nächsten Manöver
+    K16 ['traffic_signal'] 323 m vor dem nächsten Manöver
+    K20 ['traffic_signal'] 167 m vor dem nächsten Manöver
+    K24 ['traffic_signal'] 26 m vor dem nächsten Manöver
+    🔊 678 m: 700 Meter weiter der Route folgen.
+    🔊 400 m: In 400 Metern Links auf Karlstraße abbiegen.
+    🔊 78 m: Links auf Karlstraße abbiegen.
+#4 turn left | Karlstraße ref= dest= | 551 m
+    K0 ['traffic_signal'] 545 m vor dem nächsten Manöver
+    K4 ['traffic_signal'] 512 m vor dem nächsten Manöver
+    K11 ['traffic_signal'] 347 m vor dem nächsten Manöver
+    K15 ['traffic_signal'] 273 m vor dem nächsten Manöver
+    K20 ['traffic_signal'] 176 m vor dem nächsten Manöver
+    K23 ['railway_crossing'] 148 m vor dem nächsten Manöver
+    K25 ['railway_crossing'] 144 m vor dem nächsten Manöver
+    K26 ['traffic_signal'] 141 m vor dem nächsten Manöver
+    🔊 521 m: In 600 Metern Auf Karlstraße rechts halten.
+    🔊 78 m: Auf Karlstraße rechts halten.
+#5 fork slight right | Karlstraße ref= dest= | 825 m
+    K2 ['traffic_signal'] 733 m vor dem nächsten Manöver
+    K8 ['traffic_signal'] 662 m vor dem nächsten Manöver
+    K16 ['traffic_signal'] 588 m vor dem nächsten Manöver
+    K22 ['traffic_signal'] 524 m vor dem nächsten Manöver
+    K31 ['traffic_signal'] 281 m vor dem nächsten Manöver
+    K39 ['traffic_signal'] 41 m vor dem nächsten Manöver
+    K42 ['traffic_signal'] 15 m vor dem nächsten Manöver
+    🔊 808 m: 800 Meter weiter der Route folgen.
+    🔊 400 m: In 400 Metern Rechts auf Am Wehrhahn abbiegen.
+    🔊 97 m: Rechts auf Am Wehrhahn, L 392 abbiegen. Dann Rechts abbiegen.
+#6 turn right | Am Wehrhahn ref=L 392 dest= | 146 m
+    K4 ['traffic_signal'] 44 m vor dem nächsten Manöver
+    🔊 122 m: Rechts auf Birkenstraße abbiegen. Dann, in 100 Metern, befindet sich das Ziel auf der linken Seite.
+#7 turn right | Birkenstraße ref= dest= | 112 m
+    🔊 41 m: Das Ziel befindet sich auf der linken Seite.
+#8 arrive left | Birkenstraße ref= dest= | 0 m
+Ampeln gesamt: 24, Stoppschilder: 0

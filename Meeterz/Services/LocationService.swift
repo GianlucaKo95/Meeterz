@@ -174,6 +174,17 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
             manager.stopUpdatingLocation()
             manager.stopMonitoringSignificantLocationChanges()
         }
+        keepRelaunchHook()
+    }
+
+    /// Ortswechsel-Überwachung immer an lassen (mit „Immer“-Erlaubnis): Sie ist der einzige Weg, auf dem iOS eine
+    /// weggewischte App von selbst wieder startet – sobald man ein Stück fährt. Ohne sie blieb Meeterz nach dem
+    /// Wegwischen aus, und das CarPlay-Dashboard zeigte nur einen Platzhalter (28.10.). Kostet praktisch keinen Akku
+    /// und blendet keine Ortungsanzeige ein. In „aus“ werden die Meldungen nicht weitergegeben (kein Teilen).
+    private func keepRelaunchHook() {
+        if authorization == .authorizedAlways {
+            manager.startMonitoringSignificantLocationChanges()
+        }
     }
 
     /// Hat der Nutzer nur „ungefähren Standort“ erlaubt, für die Fahrt um präzisen Standort bitten
@@ -231,6 +242,8 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
                 // Aus dem sparsamen Modus aufwachen, sobald man sich zügig bewegt
                 if self.mode == .saving { self.apply() }
             }
+            // Teilen aus: Meldungen der Ortswechsel-Überwachung (nur noch für den Neustart da) nicht weitergeben
+            guard self.mode != .off else { return }
             self.onUpdate?(loc)
         }
     }

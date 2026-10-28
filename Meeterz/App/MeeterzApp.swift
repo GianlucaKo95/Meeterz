@@ -86,6 +86,12 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
         CrashReporter.shared.start()
+        // Von iOS wegen eines Ortswechsels gestartet (auch nach dem Wegwischen): Anmeldung und Sitzung hochfahren,
+        // damit Meeterz läuft, wenn CarPlay sich verbindet (Dashboard, Freunde)
+        if launchOptions?[.location] != nil {
+            Diag.log("App von iOS gestartet (Ortswechsel)")
+            Task { @MainActor in AppModel.shared.startWithoutPhoneUI("Ortswechsel") }
+        }
         return true
     }
 

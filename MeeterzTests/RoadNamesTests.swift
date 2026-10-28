@@ -21,3 +21,11 @@ final class ThenInstructionsTests: XCTestCase {
                        "In 200 Metern rechts abbiegen auf Hauptstraße")
     }
 }
+
+final class MapboxTextTests: XCTestCase {
+    // Echte Mapbox-Texte aus der Probe vom 28.10.
+    func testMapboxSentenceStyle() {
+        XCTAssertEqual(ThenInstructions.withoutThen("Rechts auf Am Wehrhahn abbiegen. Dann Rechts abbiegen."), "Rechts auf Am Wehrhahn abbiegen.")
+        XCTAssertEqual(RoadNames.remove(code: "L 392", from: "Rechts auf Am Wehrhahn, L 392 abbiegen."), "Rechts auf Am Wehrhahn abbiegen.")
+    }
+}

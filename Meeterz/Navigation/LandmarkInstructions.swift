@@ -33,7 +33,7 @@ enum LandmarkInstructions {
 
         // Mapbox setzt die Ampel/das Stoppschild meist nicht an die Abbiegekreuzung selbst, sondern an den Knoten
         // davor (Haltelinie, OSM-Ampel an der Zufahrt) – Probe vom 28.10.: Abbiegekreuzung nie markiert, der Knoten
-        // wenige Meter davor schon. Deshalb zählt alles bis 40 m vor der Abbiegung als „an der Abbiegung“.
+        // 15–44 m davor schon. Deshalb zählt alles bis 50 m vor der Abbiegung als „an der Abbiegung“.
         let atManeuver = [maneuver] + ahead.filter { meters($0.location, maneuver.location) <= junctionRadius }
         let landmark: Landmark
         if atManeuver.contains(where: { $0.trafficSignal == true }) { landmark = .trafficLight }
@@ -46,7 +46,7 @@ enum LandmarkInstructions {
             return "Am Ende der Straße \(direction) abbiegen" + (road.map { " auf \($0)" } ?? "")
         }
 
-        // Ampeln davor zählen – mehrere markierte Knoten derselben Kreuzung (≤ 40 m auseinander) als eine
+        // Ampeln davor zählen – mehrere markierte Knoten derselben Kreuzung (≤ 50 m auseinander) als eine
         var before = 0
         var last: CLLocationCoordinate2D?
         for x in ahead where meters(x.location, maneuver.location) > junctionRadius {
@@ -60,7 +60,7 @@ enum LandmarkInstructions {
         return phrase(landmark: landmark, ordinal: before + 1, direction: direction, road: road)
     }
 
-    static let junctionRadius: CLLocationDistance = 40
+    static let junctionRadius: CLLocationDistance = 50
 
     static func meters(_ a: CLLocationCoordinate2D, _ b: CLLocationCoordinate2D) -> CLLocationDistance {
         CLLocation(latitude: a.latitude, longitude: a.longitude).distance(from: CLLocation(latitude: b.latitude, longitude: b.longitude))
@@ -112,7 +112,7 @@ enum ThenInstructions {
 
     static func apply(to text: String, legProgress: RouteLegProgress) -> String {
         guard VoiceCatalog.language == "de", let first = legProgress.upcomingStep else { return text }
-        let hasThen = text.range(of: #",?\s+dann\s"#, options: .regularExpression) != nil
+        let hasThen = text.range(of: #"[,.]?\s+dann\s"#, options: [.regularExpression, .caseInsensitive]) != nil
         guard let second = legProgress.followOnStep, isTurn(second) else { return text }   // z. B. „dann Ziel erreicht“ bleibt
         guard isTurn(first), first.distance <= maxGap,
               let direction = LandmarkInstructions.directionText(second.maneuverDirection) else {
@@ -133,7 +133,7 @@ enum ThenInstructions {
     /// „Rechts abbiegen, dann links abbiegen.“ → „Rechts abbiegen.“
     static func withoutThen(_ text: String) -> String {
         let period = text.trimmingCharacters(in: .whitespaces).hasSuffix(".")
-        let cut = text.replacingOccurrences(of: #",?\s+dann\s.*$"#, with: "", options: .regularExpression)
+        let cut = text.replacingOccurrences(of: #"[,.]?\s+dann\s.*$"#, with: "", options: [.regularExpression, .caseInsensitive])
         return cut + (period && !cut.hasSuffix(".") ? "." : "")
     }
 }

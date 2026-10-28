@@ -1,0 +1,80 @@
+    t =   279.10s Checking existence of `"Beim Verwenden der App erlauben" Button`
+    t =   279.14s Checking existence of `"Allow Once" Button`
+    t =   279.16s Checking existence of `"Allow Once" Button`
+    t =   279.21s Checking existence of `"Not Now" Button`
+    t =   279.23s Checking existence of `"Not Now" Button`
+    t =   279.28s Checking existence of `"Nicht jetzt" Button`
+    t =   279.30s Checking existence of `"Nicht jetzt" Button`
+    t =   279.35s Checking existence of `"Allow" Button`
+    t =   279.37s Checking existence of `"Allow" Button`
+    t =   279.42s Checking existence of `"Keep Only While Using" Button`
+    t =   279.45s Checking existence of `"Keep Only While Using" Button`
+    t =   279.49s Checking existence of `"Nur beim Verwenden beibehalten" Button`
+    t =   279.52s Checking existence of `"Nur beim Verwenden beibehalten" Button`
+    t =   279.58s Checking existence of `"Don’t Allow" Button`
+    t =   279.60s Checking existence of `"Don’t Allow" Button`
+    t =   279.94s Added attachment named 'store-routenvorschau'
+    t =   279.95s Tap "Démarrer" Button
+    t =   279.95s     Wait for de.koeven.meeterz to idle
+    t =   279.95s     Find the "Démarrer" Button
+    t =   280.05s     Check for interrupting elements affecting "Démarrer" Button
+    t =   280.10s     Synthesize event
+    t =   280.42s     Wait for de.koeven.meeterz to idle
+    t =   311.02s Checking existence of `"Allow While Using App" Button`
+<unknown>:0: warning: -[MeeterzUITests.MeeterzStoreShots testStoreScreenshots] :     AVAudioSession_iOS.mm:978   This method can lead to UI unresponsiveness if called on the main thread. Consider using the asynchronous activate/deactivate API instead for calls from the main thread.
+    t =   311.08s Checking existence of `"Allow While Using App" Button`
+    t =   311.27s Checking existence of `"Beim Verwenden der App erlauben" Button`
+    t =   311.30s Checking existence of `"Beim Verwenden der App erlauben" Button`
+    t =   311.41s Checking existence of `"Allow Once" Button`
+    t =   311.45s Checking existence of `"Allow Once" Button`
+    t =   312.37s Checking existence of `"Not Now" Button`
+    t =   312.41s Checking existence of `"Not Now" Button`
+    t =   312.64s Checking existence of `"Nicht jetzt" Button`
+    t =   312.68s Checking existence of `"Nicht jetzt" Button`
+    t =   312.81s Checking existence of `"Allow" Button`
+    t =   312.87s Checking existence of `"Allow" Button`
+    t =   313.10s Checking existence of `"Keep Only While Using" Button`
+    t =   313.14s Checking existence of `"Keep Only While Using" Button`
+    t =   313.23s Checking existence of `"Nur beim Verwenden beibehalten" Button`
+    t =   313.27s Checking existence of `"Nur beim Verwenden beibehalten" Button`
+    t =   313.40s Checking existence of `"Don’t Allow" Button`
+    t =   313.45s Checking existence of `"Don’t Allow" Button`
+    t =   314.11s Added attachment named 'store-navigation-a'
+    t =   329.13s Checking existence of `"Allow While Using App" Button`
+<unknown>:0: warning: -[MeeterzUITests.MeeterzStoreShots testStoreScreenshots] :            SessionCore.mm:631   This method can lead to UI unresponsiveness if called on the main thread while the audio session is active.
+    t =   329.17s Checking existence of `"Allow While Using App" Button`
+    t =   329.28s Checking existence of `"Beim Verwenden der App erlauben" Button`
+    t =   329.31s Checking existence of `"Beim Verwenden der App erlauben" Button`
+    t =   329.39s Checking existence of `"Allow Once" Button`
+    t =   329.43s Checking existence of `"Allow Once" Button`
+    t =   329.46s Checking existence of `"Not Now" Button`
+    t =   329.50s Checking existence of `"Not Now" Button`
+    t =   329.56s Checking existence of `"Nicht jetzt" Button`
+    t =   329.60s Checking existence of `"Nicht jetzt" Button`
+    t =   329.63s Checking existence of `"Allow" Button`
+    t =   329.66s Checking existence of `"Allow" Button`
+    t =   329.70s Checking existence of `"Keep Only While Using" Button`
+    t =   329.73s Checking existence of `"Keep Only While Using" Button`
+    t =   329.80s Checking existence of `"Nur beim Verwenden beibehalten" Button`
+    t =   329.83s Checking existence of `"Nur beim Verwenden beibehalten" Button`
+    t =   329.88s Checking existence of `"Don’t Allow" Button`
+    t =   329.90s Checking existence of `"Don’t Allow" Button`
+    t =   330.40s Added attachment named 'store-navigation'
+    t =   330.42s Tear Down
+Test Case '-[MeeterzUITests.MeeterzStoreShots testStoreScreenshots]' passed (332.536 seconds).
+Test Suite 'MeeterzStoreShots' passed at 2026-10-28 01:07:13.520.
+	 Executed 1 test, with 0 failures (0 unexpected) in 332.536 (332.545) seconds
+Test Suite 'MeeterzUITests.xctest' passed at 2026-10-28 01:07:13.522.
+	 Executed 1 test, with 0 failures (0 unexpected) in 332.536 (332.547) seconds
+Test Suite 'Selected tests' passed at 2026-10-28 01:07:13.522.
+	 Executed 1 test, with 0 failures (0 unexpected) in 332.536 (332.550) seconds
+2026-10-28 01:07:16.896 xcodebuild[57408:144377] [MT] IDETestOperationsObserverDebug: 352.670 elapsed -- Testing started completed.
+2026-10-28 01:07:16.896 xcodebuild[57408:144377] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-10-28 01:07:16.896 xcodebuild[57408:144377] [MT] IDETestOperationsObserverDebug: 352.670 sec, +352.670 sec -- end
+
+Test session results, code coverage, and logs:
+	/Users/runner/work/Meeterz/Meeterz/build/shots-pro-fr.xcresult
+
+** TEST EXECUTE SUCCEEDED **
+
+Testing started

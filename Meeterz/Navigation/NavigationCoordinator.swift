@@ -445,6 +445,18 @@ final class NavigationCoordinator: NSObject {
                 }
                 Diag.log("Freie Fahrt gemeldet nach \(String(format: "%.2f", Date().timeIntervalSince(started))) s – iPhone-Navigationsbild wird geschlossen")
                 controller?.dismiss(animated: true)
+                // Am Ziel schließt sich Mapbox' Navigationsbild selbst, bevor wir gefragt werden – sein Leerlauf wird dann
+                // erst nach unserer freien Fahrt fertig gemeldet und überschreibt sie. Das ist kein Zufall, sondern
+                // Mapbox' feste Reihenfolge; darum kurz nachsehen und die freie Fahrt in dem Fall noch einmal setzen.
+                for _ in 0..<30 {
+                    try? await Task.sleep(for: .milliseconds(100))
+                    guard !self.isNavigating else { return }
+                    if navigationProvider.tripSession().currentSession.state == .idle {
+                        Diag.log("Mapbox meldete nach dem Beenden noch Leerlauf (Navigationsbild) – freie Fahrt erneut gesetzt")
+                        navigationProvider.tripSession().startFreeDrive()
+                        return
+                    }
+                }
             }
         } else {
             controller?.dismiss(animated: true)

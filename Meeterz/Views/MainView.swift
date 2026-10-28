@@ -29,7 +29,8 @@ struct MainView: View {
     @State private var chromeHidden = false
     /// Per langem Druck auf die Karte gesetzter Pin
     @State private var droppedPin: Place?
-    @State private var idleToken = 0
+    /// Aktuelle Kamera der Mapbox-Karte (zum Zoomen an Ort und Stelle, wenn sie mir gerade nicht folgt)
+    @State private var cameraNow: CameraState?
     @Environment(\.scenePhase) private var scenePhase
 
     /// Kamera folgt dem eigenen Standort – in 3D schräg von hinten, in Fahrtrichtung gedreht
@@ -124,18 +125,9 @@ struct MainView: View {
         }
         .task { await app.startSession() }
         .onAppear { viewport = followViewport }
-        // Weggescrollt (Mapbox-Karte): nach 10 s ohne Eingabe zurück zum Standort
-        .onChange(of: viewport) { _, new in
-            guard !flyover, new == .idle, app.mapFocus == nil else { return }
-            idleToken += 1
-            let token = idleToken
-            Task {
-                try? await Task.sleep(for: .seconds(10))
-                if token == idleToken, viewport == .idle, app.mapFocus == nil {
-                    withViewportAnimation(.easeOut(duration: 0.6)) { viewport = followViewport }
-                }
-            }
-        }
+        // Weggeschoben bleibt die Karte, wo sie ist – zurück zum Standort nur über den Ortungspfeil (wie in CarPlay).
+        // Vorher sprang sie nach 10 s von selbst zurück; ebenso beim Zoomen (+/−), beim 2D/3D-Wechsel und beim
+        // Zurückkehren in die App – auch diese setzen die Kamera jetzt nur dann auf mich, wenn sie mir ohnehin folgt.
         .onChange(of: app.mapFocus) { _, focus in
             guard !flyover, let focus, let target = focusViewport(focus) else { return }
             withViewportAnimation(.easeOut(duration: 0.8)) { viewport = target }
@@ -143,13 +135,28 @@ struct MainView: View {
         .onChange(of: navigation.isNavigating) { _, active in if active { app.mapFocus = nil } }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { app.mapFocus = nil }
-            if phase == .active, !flyover { withViewportAnimation(.easeOut(duration: 0.6)) { viewport = followViewport } }
+            if phase == .active, !flyover, viewport.followPuck != nil {
+                withViewportAnimation(.easeOut(duration: 0.6)) { viewport = followViewport }
+            }
         }
-        .onChange(of: zoomSteps) { _, _ in
-            withViewportAnimation(.easeOut(duration: 0.35)) { viewport = followViewport }
+        .onChange(of: zoomSteps) { old, new in
+            if viewport.followPuck != nil {
+                withViewportAnimation(.easeOut(duration: 0.35)) { viewport = followViewport }
+            } else if let cam = cameraNow {
+                // Weggeschoben: an Ort und Stelle zoomen
+                withViewportAnimation(.easeOut(duration: 0.35)) {
+                    viewport = .camera(center: cam.center, zoom: cam.zoom + Double(new - old), bearing: cam.bearing, pitch: cam.pitch)
+                }
+            }
         }
-        .onChange(of: threeD) { _, _ in
-            withViewportAnimation(.easeOut(duration: 0.6)) { viewport = followViewport }
+        .onChange(of: threeD) { _, three in
+            if viewport.followPuck != nil {
+                withViewportAnimation(.easeOut(duration: 0.6)) { viewport = followViewport }
+            } else if let cam = cameraNow {
+                withViewportAnimation(.easeOut(duration: 0.6)) {
+                    viewport = .camera(center: cam.center, zoom: cam.zoom, bearing: three ? cam.bearing : 0, pitch: three ? 60 : 0)
+                }
+            }
         }
     }
 
@@ -275,6 +282,7 @@ struct MainView: View {
                 .allowOverlap(true)
             }
         }
+        .onCameraChanged { cameraNow = $0.cameraState }
         .onMapTapGesture { _ in toggleChrome() }
         .onMapLongPressGesture { context in dropPin(at: context.coordinate) }
         .mapStyle(mapStyleKey == "classic"

@@ -187,19 +187,31 @@ struct FlyoverMapView: View {
         .onMapCameraChange(frequency: .continuous) { context in lastCamera = context.camera }
         // Weggeschoben bleibt die Karte, wo sie ist – zurück zum eigenen Standort nur über den Knopf (wie in CarPlay).
         // Früher sprang sie nach 10 s von selbst zurück, auch mitten in eine neue Geste hinein.
-        .onChange(of: scenePhase) { _, phase in if phase == .active { follow(force: true) } }
+        .onChange(of: scenePhase) { _, phase in if phase == .active { follow(force: false) } }
         .onChange(of: app.mapFocus) { _, focus in if let focus { show(focus) } }
         .onAppear { follow(force: true) }
         .onChange(of: zoomSteps) { old, new in zoom(by: new - old) }
         .onChange(of: recenterTick) { _, _ in follow(force: true) }
-        .onChange(of: threeD) { _, _ in follow(force: true) }
+        .onChange(of: threeD) { _, three in
+            // Folgt die Karte mir nicht (weggeschoben), nur die Neigung ändern statt zurückzuspringen
+            if position.positionedByUser, let cam = lastCamera {
+                let next = MapCamera(centerCoordinate: cam.centerCoordinate, distance: cam.distance,
+                                     heading: three ? cam.heading : 0, pitch: three ? 65 : 0)
+                withAnimation(.easeOut(duration: 0.6)) { position = .camera(next) }
+                pinned = true
+            } else {
+                follow(force: true)
+            }
+        }
         .onChange(of: app.location.lastLocation) { _, _ in follow(force: false) }
     }
 
     /// Kamera folgt dem eigenen Standort, solange man die Karte nicht selbst verschoben hat.
     private func follow(force: Bool) {
         guard let loc = app.location.lastLocation else { return }
-        guard force || (!position.positionedByUser && app.mapFocus == nil) else { return }
+        // Ohne force nur, solange die Karte mir folgt: nicht weggeschoben und nicht danach an Ort und Stelle gezoomt
+        guard force || (!position.positionedByUser && !pinned && app.mapFocus == nil) else { return }
+        pinned = false
         let camera = MapCamera(
             centerCoordinate: loc.coordinate,
             distance: (threeD ? 650 : 5000) * pow(2, -Double(zoomSteps)),
@@ -231,6 +243,7 @@ struct FlyoverMapView: View {
         let height = max(content.height / 0.56, content.width / aspect)
         let width = height * aspect
         let target = MKMapRect(x: content.midX - width / 2, y: content.minY - 0.22 * height, width: width, height: height)
+        pinned = true   // Freund im Bild lassen, bis man den Ortungspfeil tippt
         withAnimation(.easeOut(duration: 0.8)) { position = .rect(target) }
     }
 
@@ -239,6 +252,7 @@ struct FlyoverMapView: View {
         guard delta != 0, let cam = lastCamera else { return }
         let distance = min(max(cam.distance * pow(2, -Double(delta)), 120), 60_000)
         let next = MapCamera(centerCoordinate: cam.centerCoordinate, distance: distance, heading: cam.heading, pitch: cam.pitch)
+        if position.positionedByUser || pinned { pinned = true }
         withAnimation(.easeOut(duration: 0.4)) { position = .camera(next) }
     }
 }

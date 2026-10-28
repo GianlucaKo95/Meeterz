@@ -1,4 +1,5 @@
 import Foundation
+import CoreLocation
 @_spi(MapboxInternal) import MapboxNavigationCore
 import MapboxDirections
 import MapboxNavigationNative
@@ -16,7 +17,9 @@ enum RouteVariety {
     static func widen(_ routes: NavigationRoutes, options: NavigationRouteOptions,
                       using provider: RoutingProvider) async -> NavigationRoutes {
         guard options.waypoints.count == 2, !options.roadClassesToAvoid.contains(.motorway),
-              usesMotorway(routes.mainRoute.route) else { return routes }
+              usesMotorway(routes.mainRoute.route),
+              // Lange Strecken (Berlin–Kopenhagen): ohne Autobahn ergibt das keinen Sinn – gar nicht erst anfragen
+              routes.mainRoute.route.distance <= maxDistanceForNoMotorway else { return routes }
         let plain = NavigationRouteOptions(waypoints: options.waypoints, profileIdentifier: options.profileIdentifier,
                                            locale: options.locale, distanceUnit: .kilometer)
         plain.roadClassesToAvoid = options.roadClassesToAvoid.union(.motorway)
@@ -27,6 +30,8 @@ enum RouteVariety {
         var candidates: [(id: Int, route: Route)] = routes.alternativeRoutes.enumerated().map { ($0.offset, $0.element.route) }
         candidates.append((-1, extra))
         candidates.removeAll { same($0.route, fastest) }
+        // Nur Routen, die zeitlich noch eine echte Wahl sind (höchstens 25 % bzw. 15 Min. länger als die schnellste)
+        candidates.removeAll { !reasonable($0.route, comparedTo: fastest) }
         var unique: [(id: Int, route: Route)] = []
         for c in candidates where !unique.contains(where: { same($0.route, c.route) }) { unique.append(c) }
 
@@ -54,6 +59,14 @@ enum RouteVariety {
             Diag.log("Routenauswahl: Zusatzroute nicht übernommen (\(error.localizedDescription))")
             return routes
         }
+    }
+
+    /// Bis zu dieser Länge der schnellsten Route wird „Ohne Autobahn“ angeboten
+    static let maxDistanceForNoMotorway: CLLocationDistance = 150_000
+
+    /// Noch eine sinnvolle Wahl: höchstens 25 % länger unterwegs, mindestens aber 15 Min. Spielraum
+    static func reasonable(_ route: Route, comparedTo fastest: Route) -> Bool {
+        route.expectedTravelTime <= max(fastest.expectedTravelTime * 1.25, fastest.expectedTravelTime + 15 * 60)
     }
 
     /// Art einer Route innerhalb der Auswahl (erste = schnellste)

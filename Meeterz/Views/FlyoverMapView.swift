@@ -18,11 +18,6 @@ struct FlyoverMapView: View {
     @State private var position: MapCameraPosition = .automatic
     @State private var detail: PlaceDetailItem?
     @State private var lastCamera: MapCamera?
-    @State private var idleToken = 0
-    /// Letzte Kamerabewegung durch den Nutzer
-    @State private var lastUserMove = Date.distantPast
-    /// So lange ohne Eingabe, bevor die Karte zum eigenen Standort zurückkehrt
-    static let returnAfter: TimeInterval = 30
     @Environment(\.scenePhase) private var scenePhase
 
     @Namespace private var compassScope
@@ -189,28 +184,9 @@ struct FlyoverMapView: View {
     private var mapContent: some View {
         mapDetail
         .ignoresSafeArea()
-        .onMapCameraChange(frequency: .continuous) { context in
-            lastCamera = context.camera
-            // Jede Bewegung durch den Nutzer (auch ein langsames Schieben oder Zoomen, das noch läuft) zählt als Eingabe
-            if position.positionedByUser { lastUserMove = Date() }
-        }
-        // Weggescrollt: erst nach 30 s ganz ohne Eingabe zurück zum eigenen Standort.
-        // Vorher 10 s ab dem Ende der letzten Bewegung: Begann man kurz danach wieder zu schieben oder zu zoomen,
-        // startete das Zurückspringen mitten in der Geste und brach auf halber Strecke ab – und 10 s waren zu knapp.
-        .onMapCameraChange(frequency: .onEnd) { _ in
-            guard position.positionedByUser else { return }
-            lastUserMove = Date()
-            idleToken += 1
-            let token = idleToken
-            Task {
-                while token == idleToken {
-                    let wait = Self.returnAfter - Date().timeIntervalSince(lastUserMove)
-                    if wait <= 0 { break }
-                    try? await Task.sleep(for: .seconds(wait))
-                }
-                if token == idleToken, position.positionedByUser, app.mapFocus == nil { follow(force: true) }
-            }
-        }
+        .onMapCameraChange(frequency: .continuous) { context in lastCamera = context.camera }
+        // Weggeschoben bleibt die Karte, wo sie ist – zurück zum eigenen Standort nur über den Knopf (wie in CarPlay).
+        // Früher sprang sie nach 10 s von selbst zurück, auch mitten in eine neue Geste hinein.
         .onChange(of: scenePhase) { _, phase in if phase == .active { follow(force: true) } }
         .onChange(of: app.mapFocus) { _, focus in if let focus { show(focus) } }
         .onAppear { follow(force: true) }

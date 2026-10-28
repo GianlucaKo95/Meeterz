@@ -257,8 +257,8 @@ final class CarPlayController: NSObject {
         }
     }
 
-    /// Die vier Kartenknöpfe (CarPlay erlaubt höchstens vier): Freunde, 2D/3D, +, −.
-    /// Zentrieren braucht es nicht – die Karte kehrt nach 4 s von selbst zum Standort zurück.
+    /// Die vier Kartenknöpfe (CarPlay erlaubt höchstens vier): Freunde (bzw. Ortungspfeil, wenn weggeschoben),
+    /// Kartenansicht, +, −.
     private func mapButtons() -> [CPMapButton] {
         let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold)
         // Kartenansicht: Stil (Satellit/Klassisch/Flyover) und 2D/3D in einem Menü – wie in der App
@@ -269,17 +269,59 @@ final class CarPlayController: NSObject {
         plus.image = UIImage(systemName: "plus", withConfiguration: config)
         let minus = CPMapButton { [weak self] _ in self?.zoom(by: -1) }
         minus.image = UIImage(systemName: "minus", withConfiguration: config)
-        return [friendsButton(), three, plus, minus]
+        // Weggeschoben: statt Freunde der Ortungspfeil, der zurück zum Standort holt (ohne Route kein Rücksprung von selbst)
+        return [mapDetached ? followButton() : friendsButton(), three, plus, minus]
+    }
+
+    /// Ortungspfeil: Karte folgt wieder dem eigenen Standort (aus Übersicht oder nach Verschieben)
+    private func followButton() -> CPMapButton {
+        let button = CPMapButton { [weak self] _ in
+            guard let self, let camera = displayedMap?.navigationCamera else { return }
+            overviewChosen = false
+            camera.update(cameraState: .following)
+            refreshFriends()
+            refreshFollowButton(force: true)
+        }
+        button.image = UIImage(systemName: "location.north.line.fill",
+                               withConfiguration: UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold))
+        return button
+    }
+
+    /// Folgt die sichtbare Karte gerade nicht dem Standort (Übersicht oder von Hand verschoben)?
+    private var mapDetached: Bool {
+        switch manager.currentActivity {
+        case .navigating: return overviewChosen || navMap?.navigationCamera.currentCameraState == .idle
+        case .browsing: return browseMap?.navigationCamera.currentCameraState == .idle
+        default: return false
+        }
+    }
+    private var shownDetached: Bool?
+
+    /// Ersten Kartenknopf tauschen, wenn sich „folgt / folgt nicht“ geändert hat
+    private func refreshFollowButton(force: Bool = false) {
+        let detached = mapDetached
+        guard force || detached != shownDetached,
+              let template = (manager.interfaceController?.topTemplate as? CPMapTemplate)
+                ?? (manager.interfaceController?.rootTemplate as? CPMapTemplate) else { return }
+        switch manager.currentActivity {
+        case .navigating: template.mapButtons = navigationMapButtons()
+        case .browsing: template.mapButtons = mapButtons()
+        default: return
+        }
+        shownDetached = detached
     }
 
     /// Während der Fahrt: Übersicht statt Freunde-Knopf (Freunde-Einstellung gilt weiter, in der Übersicht ausgeblendet)
     private func navigationMapButtons() -> [CPMapButton] {
         var buttons = mapButtons()
+        // Übersicht aktiv oder Karte verschoben: an derselben Stelle der Ortungspfeil zurück zur Abbiegeführung
+        if mapDetached { buttons[0] = followButton(); return buttons }
         let overview = CPMapButton { [weak self] _ in
             guard let self, let camera = navMap?.navigationCamera else { return }
-            overviewChosen.toggle()
-            camera.update(cameraState: overviewChosen ? .overview : .following)
+            overviewChosen = true
+            camera.update(cameraState: .overview)
             refreshFriends()
+            refreshFollowButton(force: true)
         }
         overview.image = UIImage(systemName: "point.topleft.down.to.point.bottomright.curvepath",
                                  withConfiguration: UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold))
@@ -300,10 +342,11 @@ final class CarPlayController: NSObject {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(1))
                 guard let self, let camera = navigationMapView?.navigationCamera else { return }
-                let activity = manager.currentActivity
-                let returnToMe = (activity == .browsing && !isLoadingPreview) || (activity == .navigating && !overviewChosen)
-                // Erst zurück zu mir, wenn 15 s lang niemand die Karte bewegt hat. Vorher zählte die Uhr ab dem
-                // ersten Verschieben weiter – wer länger schob, wurde nach 4 s mitten im Verschieben zurückgeholt.
+                refreshFollowButton()
+                // Von selbst zurück nur während der Navigation (nicht in der Übersicht). Ohne Route bleibt die Karte,
+                // wo man sie hingeschoben hat – zurück geht es über den Ortungspfeil (wie auf dem iPhone).
+                // Erst zurück, wenn 15 s lang niemand die Karte bewegt hat.
+                let returnToMe = manager.currentActivity == .navigating && !overviewChosen
                 guard camera.currentCameraState == .idle, returnToMe, !userPanning,
                       Date().timeIntervalSince(lastMapInteraction) >= 15 else { continue }
                 camera.update(cameraState: .following)
@@ -446,6 +489,9 @@ final class CarPlayController: NSObject {
         guard let map = displayedMap else { return }
         map.navigationCamera.stop()
         map.mapView.camera.ease(to: CameraOptions(center: coordinate, zoom: 15, bearing: 0, pitch: 0), duration: 0.8)
+        // Ohne Route bleibt der Freund im Bild, bis man den Ortungspfeil tippt; in der Navigation nach 8 s zurück
+        refreshFollowButton(force: true)
+        guard manager.currentActivity == .navigating else { return }
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(8))
             map.navigationCamera.update(cameraState: .following)
@@ -1233,6 +1279,7 @@ extension CarPlayController: CarPlayManagerDelegate {
                 map.automaticallyHidesNavigationBar = true
                 map.hidesButtonsWithNavigationBar = true
             }
+            shownDetached = nil   // neue Vorlage: Ortungspfeil beim nächsten Takt neu abgleichen
             switch activity {
             case .browsing:
                 return mapButtons()

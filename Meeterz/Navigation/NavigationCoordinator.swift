@@ -73,6 +73,7 @@ final class NavigationCoordinator: NSObject {
     @ObservationIgnored private var overlay: FriendOverlay?
     @ObservationIgnored private var recenterTask: Task<Void, Never>?
     @ObservationIgnored private var signTimer: Timer?
+    @ObservationIgnored private var overviewToken: AnyCancellable?
     @ObservationIgnored private var subscriptions = Set<AnyCancellable>()
 
     private var core: MapboxNavigation { navigationProvider.mapboxNavigation }
@@ -229,6 +230,7 @@ final class NavigationCoordinator: NSObject {
                       top !== controller else { continue }
                 top.present(controller, animated: true) {
                     Self.installMuteButton(on: controller)
+                    self?.installOverviewButton(on: controller)
                     self?.startAutoRecenter(controller)
                     if let mapView = controller.navigationMapView?.mapView {
                         Satellite3DBuildings.install(
@@ -276,6 +278,46 @@ final class NavigationCoordinator: NSObject {
                     idleSeconds = 0
                 }
             }
+        }
+    }
+
+    /// Übersichts-Knopf, der in der Übersicht (oder nach Verschieben) zum Ortungspfeil wird – ein Tipp führt zurück
+    /// zur Abbiegeführung. Mapbox blendete stattdessen unten links einen eigenen „Fortsetzen“-Knopf ein; der entfällt.
+    private func installOverviewButton(on controller: NavigationViewController) {
+        guard var buttons = controller.floatingButtons, !buttons.isEmpty,
+              let camera = controller.navigationMapView?.navigationCamera else { return }
+        let button = UIButton(type: .system)
+        button.tintColor = .label
+        button.backgroundColor = .systemBackground
+        button.layer.cornerRadius = 25
+        button.layer.shadowOpacity = 0.25
+        button.layer.shadowRadius = 4
+        button.layer.shadowOffset = CGSize(width: 0, height: 2)
+        button.widthAnchor.constraint(equalToConstant: 50).isActive = true
+        button.heightAnchor.constraint(equalToConstant: 50).isActive = true
+        func refresh(_ state: NavigationCameraState) {
+            let following = state == .following
+            button.setImage(UIImage(systemName: following ? "point.topleft.down.to.point.bottomright.curvepath"
+                                                          : "location.north.line.fill"), for: .normal)
+            button.accessibilityLabel = following ? String(localized: "Routenübersicht") : String(localized: "Zurück zur Navigation")
+            // Mapbox' eigenen „Fortsetzen“-Knopf unsichtbar halten (Mapbox schaltet nur isHidden um)
+            Self.hideResumeButton(in: controller.view)
+        }
+        refresh(camera.currentCameraState)
+        button.addAction(UIAction { _ in
+            camera.update(cameraState: camera.currentCameraState == .following ? .overview : .following)
+        }, for: .touchUpInside)
+        overviewToken = camera.cameraStates
+            .receive(on: DispatchQueue.main)
+            .sink { state in MainActor.assumeIsolated { refresh(state) } }
+        buttons[0] = button
+        controller.floatingButtons = buttons
+    }
+
+    private static func hideResumeButton(in view: UIView?) {
+        guard let view else { return }
+        for sub in view.subviews {
+            if sub is ResumeButton { sub.alpha = 0; sub.isUserInteractionEnabled = false } else { hideResumeButton(in: sub) }
         }
     }
 

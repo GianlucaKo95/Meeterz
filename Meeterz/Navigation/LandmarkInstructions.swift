@@ -83,3 +83,37 @@ enum LandmarkInstructions {
         }
     }
 }
+
+/// Zwei Abbiegungen direkt hintereinander: „Jetzt rechts abbiegen, dann links abbiegen“ – aber nur, wenn die zweite
+/// wirklich sofort folgt (die Straße dazwischen höchstens 80 m lang). Mapbox hängt „dann …“ teils auch bei größerem
+/// Abstand an; das fällt dann weg, damit „dann“ immer „gleich danach“ bedeutet. Bisher nur auf Deutsch.
+enum ThenInstructions {
+    static let maxGap: Double = 80
+
+    static func apply(to text: String, legProgress: RouteLegProgress) -> String {
+        guard VoiceCatalog.language == "de", let first = legProgress.upcomingStep else { return text }
+        let hasThen = text.range(of: #",?\s+dann\s"#, options: .regularExpression) != nil
+        guard let second = legProgress.followOnStep, isTurn(second) else { return text }   // z. B. „dann Ziel erreicht“ bleibt
+        guard isTurn(first), first.distance <= maxGap,
+              let direction = LandmarkInstructions.directionText(second.maneuverDirection) else {
+            return hasThen ? withoutThen(text) : text
+        }
+        if hasThen { return text }   // Mapbox sagt es schon
+        var base = text.trimmingCharacters(in: .whitespaces)
+        let period = base.hasSuffix(".")
+        if period { base.removeLast() }
+        return base + ", dann \(direction) abbiegen" + (period ? "." : "")
+    }
+
+    static func isTurn(_ step: RouteStep) -> Bool {
+        [.turn, .reachEnd].contains(step.maneuverType)
+            && [.left, .right, .sharpLeft, .sharpRight].contains(step.maneuverDirection)
+    }
+
+    /// „Rechts abbiegen, dann links abbiegen.“ → „Rechts abbiegen.“
+    static func withoutThen(_ text: String) -> String {
+        let period = text.trimmingCharacters(in: .whitespaces).hasSuffix(".")
+        let cut = text.replacingOccurrences(of: #",?\s+dann\s.*$"#, with: "", options: .regularExpression)
+        return cut + (period && !cut.hasSuffix(".") ? "." : "")
+    }
+}

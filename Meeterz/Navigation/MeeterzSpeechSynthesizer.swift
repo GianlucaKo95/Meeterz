@@ -163,6 +163,8 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
         if let withDirection = MotorwayDirection.add(to: text, legProgress: legProgress) { text = withDirection }
         // Innerorts mit Straßennamen: „auf Hauptstraße“ statt „auf Hauptstraße/L 91“
         text = RoadNames.dropCodes(in: text, legProgress: legProgress)
+        // „Jetzt rechts abbiegen, dann links abbiegen“ nur, wenn die zweite Abbiegung sofort folgt
+        text = ThenInstructions.apply(to: text, legProgress: legProgress)
 
         // Eine neue Abbiegeansage ersetzt eine laufende oder wartende – die alte ist überholt
         if let previous = playing, let old = previous.instruction {

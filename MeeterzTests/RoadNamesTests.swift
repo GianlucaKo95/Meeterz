@@ -13,3 +13,11 @@ final class RoadNamesTests: XCTestCase {
         XCTAssertEqual(RoadNames.remove(code: "L 91", from: "Weiter auf L 91"), "Weiter auf L 91")
     }
 }
+
+final class ThenInstructionsTests: XCTestCase {
+    func testRemovesThenClause() {
+        XCTAssertEqual(ThenInstructions.withoutThen("Rechts abbiegen, dann links abbiegen."), "Rechts abbiegen.")
+        XCTAssertEqual(ThenInstructions.withoutThen("In 200 Metern rechts abbiegen auf Hauptstraße, dann links abbiegen"),
+                       "In 200 Metern rechts abbiegen auf Hauptstraße")
+    }
+}

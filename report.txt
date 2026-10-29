@@ -1,0 +1,92 @@
+Commit: c7f053ec4135d60e7214086533595bcc66319165
+Zeit:   2026-10-29T10:04:07Z
+Ergebnis: success
+
+Xcode-Kandidat: /Applications/Xcode_27.2.0.app (27B48)
+Xcode 27.2
+Build version 27B48
+✔︎ Bottle xcodegen (2.46.0)
+[34m==>[0m [1mPouring xcodegen--2.46.0.arm64_golden_gate.bottle.1.tar.gz[0m
+🍺  /opt/homebrew/Cellar/xcodegen/2.46.0: 38 files, 7.5MB
+Entitlements: Meeterz/Meeterz-CarPlay.entitlements
+
+== Alte CI-Zertifikate aufräumen ==
+
+== Zertifikat und Profil erzeugen ==
+Zertifikat: Apple Distribution: Gianluca Köhni 2027-10-29T09:45:23.000+00:00
+Profil: Meeterz CI 45-1793267722 aa24194a-6e28-4641-b096-462726edb9b0
+Profil: Meeterz CI W45-1793267724 3f9af456-71b8-4bda-860a-aba3eb4bd730
+1 identity imported.
+  1) 6FAA9F1208DC6F87D80F678A8C56A71D5C8658C2 "Apple Distribution: Gianluca Köhni (V47X62H4S2)"
+     1 valid identities found
+⚙️  Generating plists...
+⚙️  Generating project...
+⚙️  Writing project...
+Created project at /Users/runner/work/Meeterz/Meeterz/Meeterz.xcodeproj
+
+== Archivieren ==
+** ARCHIVE SUCCEEDED **
+
+== Signatur im Archiv ==
+Identifier=de.koeven.meeterz
+Signature size=4788
+Authority=Apple Distribution: Gianluca Köhni (V47X62H4S2)
+Authority=Apple Worldwide Developer Relations Certification Authority
+Authority=Apple Root CA
+TeamIdentifier=V47X62H4S2
+  1) 6FAA9F1208DC6F87D80F678A8C56A71D5C8658C2 "Apple Distribution: Gianluca Köhni (V47X62H4S2)"
+     1 valid identities found
+
+== Exportieren (lokal, Verteilungs-Signatur) ==
+** EXPORT SUCCEEDED **
+Exported Meeterz to: /Users/runner/work/Meeterz/Meeterz/build/export
+IPA: build/export/Meeterz.ipa
+Authority=Apple Distribution: Gianluca Köhni (V47X62H4S2)
+Authority=Apple Worldwide Developer Relations Certification Authority
+Authority=Apple Root CA
+TeamIdentifier=V47X62H4S2
+Authority=Apple Distribution: Gianluca Köhni (V47X62H4S2)
+Authority=Apple Worldwide Developer Relations Certification Authority
+Authority=Apple Root CA
+TeamIdentifier=V47X62H4S2
+build/ipa-check/Payload/Meeterz.app: valid on disk
+build/ipa-check/Payload/Meeterz.app: satisfies its Designated Requirement
+Format=app bundle with Mach-O thin (arm64)
+CodeDirectory v=20400 size=37109 flags=0x0(none) hashes=1149+7 location=embedded
+CandidateCDHash sha256=a87c0eb3f95fc134b4825655ba7f1d6ab1ce923b
+CandidateCDHashFull sha256=a87c0eb3f95fc134b4825655ba7f1d6ab1ce923b6491da8a57149cdf93603021
+CDHash=a87c0eb3f95fc134b4825655ba7f1d6ab1ce923b
+-- Provisioning-Profil im IPA --
+Name: Meeterz CI 45-1793267722
+TeamName: Gianluca Köhni
+CreationDate: Thu Oct 29 09:55:25 UTC 2026
+ExpirationDate: Fri Oct 29 09:45:23 UTC 2027
+ProvisionsAllDevices: Print: Entry, ":ProvisionsAllDevices", Does Not Exist
+Dict {
+    keychain-access-groups = Array {
+        V47X62H4S2.*
+        com.apple.token
+    }
+    get-task-allow = false
+    com.apple.developer.team-identifier = V47X62H4S2
+    com.apple.developer.applesignin = Array {
+        Default
+    }
+    application-identifier = V47X62H4S2.de.koeven.meeterz
+    beta-reports-active = true
+    com.apple.developer.carplay-maps = true
+    aps-environment = production
+}
+
+== Hochladen zu TestFlight (altool) ==
+Running altool at path '/Applications/Xcode_27.2_Release_Candidate.app/Contents/SharedFrameworks/ContentDelivery.framework/Resources/altool'...
+
+2026-10-29 10:04:07.289 ERROR: [ContentDelivery.Uploader.7C8506D600] Failed to create URL for 'CDUploaderStateInfoResumeFilePath'. The file doesn’t exist. (4) The file doesn’t exist.
+2026-10-29 10:04:07.293  INFO: [ContentDelivery.Uploader.7C8506D600] 
+==========================================
+UPLOAD SUCCEEDED with no errors
+Delivery UUID: 08884652-03a0-4c32-93ad-26879a507b9d
+Transferred 30513118 bytes in 3.364 seconds (9.1MB/s, 72.553Mbps)
+==========================================
+No errors uploading archive at 'build/export/Meeterz.ipa'.
+Hochgeladen: Version 1.0 Build 45

@@ -134,6 +134,10 @@ enum ThenInstructions {
 
     static func apply(to text: String, legProgress: RouteLegProgress) -> String {
         guard VoiceCatalog.language == "de", let first = legProgress.upcomingStep else { return text }
+        // Abfahrtsansage („Auf Waldstraße Richtung Westen fahren. Dann links abbiegen …“): Hier beschreibt der erste
+        // Satz das Losfahren und „Dann …“ schon die erste Abbiegung – nicht die zweite. Nicht anfassen (29.10.: sonst
+        // fiel die erste Abbiegung weg).
+        if legProgress.currentStep.maneuverType == .depart { return text }
         let hasThen = text.range(of: #"[,.]?\s+dann\s"#, options: [.regularExpression, .caseInsensitive]) != nil
         guard let second = legProgress.followOnStep, isTurn(second) else { return text }   // z. B. „dann Ziel erreicht“ bleibt
         guard isTurn(first), first.distance <= maxGap,

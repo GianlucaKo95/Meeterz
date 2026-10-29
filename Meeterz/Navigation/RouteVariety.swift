@@ -19,11 +19,18 @@ enum RouteVariety {
         guard options.waypoints.count == 2, !options.roadClassesToAvoid.contains(.motorway),
               usesMotorway(routes.mainRoute.route),
               // Lange Strecken (Berlin–Kopenhagen): ohne Autobahn ergibt das keinen Sinn – gar nicht erst anfragen
-              routes.mainRoute.route.distance <= maxDistanceForNoMotorway else { return routes }
+              routes.mainRoute.route.distance <= maxDistanceForNoMotorway else {
+            Diag.log("Routenauswahl: keine Zusatzroute angefragt (Autobahn auf der schnellsten: \(usesMotorway(routes.mainRoute.route)), \(Int(routes.mainRoute.route.distance / 1000)) km)")
+            return routes
+        }
         let plain = NavigationRouteOptions(waypoints: options.waypoints, profileIdentifier: options.profileIdentifier,
                                            locale: options.locale, distanceUnit: .kilometer)
         plain.roadClassesToAvoid = options.roadClassesToAvoid.union(.motorway)
-        guard let extra = try? await provider.calculateRoutes(options: plain).value.mainRoute.route else { return routes }
+        let extra: Route
+        do { extra = try await provider.calculateRoutes(options: plain).value.mainRoute.route } catch {
+            Diag.log("Routenauswahl: Route ohne Autobahn nicht berechnet (\(error.localizedDescription))")
+            return routes
+        }
 
         let fastest = routes.mainRoute.route
         // Kandidaten mit Kennung (Route ist ein Wert, kein Objekt): -1 = Zusatzroute ohne Autobahn
@@ -44,7 +51,11 @@ enum RouteVariety {
             if !picked.contains(where: { $0.id == c.id }) { picked.append(c) }
         }
         // Ohne die Zusatzroute ist nichts gewonnen – Mapbox' Auswahl bleibt
-        guard picked.contains(where: { $0.id == -1 }) else { return routes }
+        guard picked.contains(where: { $0.id == -1 }) else {
+            let mins = Int((extra.expectedTravelTime - fastest.expectedTravelTime) / 60)
+            Diag.log("Routenauswahl: Route ohne Autobahn nicht angeboten (\(mins >= 0 ? "+" : "")\(mins) Min., \(Int(extra.distance / 1000)) km – gleich oder zu langsam)")
+            return routes
+        }
 
         let all = [fastest] + picked.map(\.route)
         do {

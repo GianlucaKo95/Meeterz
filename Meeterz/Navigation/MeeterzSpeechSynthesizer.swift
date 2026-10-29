@@ -144,14 +144,14 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
             if inCall, !muted {
                 // Wie Apple Karten: statt der Ansage nur ein kurzer Ton, der das Gespräch kaum stört
                 AudioServicesPlaySystemSound(1103)
-                Diag.log("Ansage im Telefonat durch kurzen Ton ersetzt: \(instruction.text.prefix(40))")
+                Diag.log("Ansage im Telefonat durch kurzen Ton ersetzt: \(instruction.text)")
             }
             subject.send(VoiceInstructionEvents.DidSpeak(instruction: instruction))
             return
         }
         // An Autobahnkreuzen kein „Auf A 57 links halten“, wenn man auf derselben Autobahn bleibt
         if MotorwayContinuation.staysOnMotorway(legProgress) {
-            Diag.log("Ansage ausgelassen (bleibt auf der Autobahn): \(instruction.text.prefix(50))")
+            Diag.log("Ansage ausgelassen (bleibt auf der Autobahn): \(instruction.text)")
             subject.send(VoiceInstructionEvents.DidSpeak(instruction: instruction))
             return
         }
@@ -267,10 +267,9 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
             }
         }
         player.play()
-        if !wasActive {
-            let route = AVAudioSession.sharedInstance().currentRoute.outputs.map(\.portType.rawValue).joined(separator: ", ")
-            Diag.log("Ansage über \(route): \(item.text.prefix(40))")
-        }
+        // Jede Ansage vollständig ins Log (vorher nur die ersten 40 Zeichen) – um sie nachträglich prüfen zu können
+        let route = AVAudioSession.sharedInstance().currentRoute.outputs.map(\.portType.rawValue).joined(separator: ", ")
+        Diag.log("Ansage über \(route): \(item.text)")
     }
 
     private static func silence(format: AVAudioFormat, seconds: Double) -> AVAudioPCMBuffer? {

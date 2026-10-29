@@ -1,6 +1,11 @@
 name: ASC-Status
 # Zeigt die letzten TestFlight-Builds samt Verarbeitungsstatus und Upload-Fehlern (Branch "asc-report", report.txt).
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+    inputs:
+      drop_cert:
+        description: "Verwaistes Distributionszertifikat löschen (Anfang des Ablaufdatums, z. B. 2027-10-29T09:08)"
+        default: ""
 
 permissions:
   contents: write
@@ -19,6 +24,7 @@ jobs:
           printf '%s' "$ASC_KEY_P8" > "$RUNNER_TEMP/key.p8"
           export ASC_KEY_PATH="$RUNNER_TEMP/key.p8"
           python3 ci/asc.py status de.koeven.meeterz > /tmp/report.txt 2>&1 || true
+          python3 ci/asc.py certs "${{ inputs.drop_cert }}" >> /tmp/report.txt 2>&1 || true
       - name: Bericht veröffentlichen
         run: |
           git config user.name "meeterz-ci"

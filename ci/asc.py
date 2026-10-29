@@ -59,6 +59,20 @@ def create(workdir, bundle_identifier, profile_name):
         cert = api("POST", "/v1/certificates", body)["data"]
     open(f"{workdir}/cert.der", "wb").write(base64.b64decode(cert["attributes"]["certificateContent"]))
     print("Zertifikat:", cert["attributes"].get("name"), cert["attributes"].get("expirationDate"))
+    try:
+        _profile(workdir, bundle_identifier, profile_name, cert)
+    except BaseException:
+        # Scheitert danach etwas (z. B. Zeitüberschreitung bei Apple am 29.10.), blieb das Zertifikat ohne Profil zurück.
+        # „purge“ findet es dann nicht (es sucht über die Profilnamen), und Apples Zertifikatsgrenze blockierte alle
+        # weiteren Builds. Darum das gerade erzeugte Zertifikat sofort wieder löschen.
+        try:
+            api("DELETE", f"/v1/certificates/{cert['id']}")
+            print("Zertifikat nach Fehler wieder gelöscht:", cert["id"])
+        except SystemExit:
+            pass
+        raise
+
+def _profile(workdir, bundle_identifier, profile_name, cert):
 
     ids = api("GET", f"/v1/bundleIds?filter[identifier]={bundle_identifier}&limit=50")["data"]
     bundle = next((b for b in ids if b["attributes"]["identifier"] == bundle_identifier), None)
@@ -160,8 +174,26 @@ def status(bundle_identifier):
             settings = json.dumps(a.get("settings"), ensure_ascii=False) if a.get("settings") else ""
             print(f"  {a.get('capabilityType')} {settings}")
 
+def certs(drop_expiring=None):
+    """Listet die Distributionszertifikate (Ablaufdatum = Erstellung + 1 Jahr). Mit `drop_expiring` (Anfang des
+    Ablaufdatums, z. B. 2027-10-29T09:08) wird genau dieses Zertifikat gelöscht – nur wenn es zu keinem Profil gehört."""
+    used = set()
+    for prof in api("GET", "/v1/profiles?limit=200").get("data", []):
+        try:
+            for c in api("GET", f"/v1/profiles/{prof['id']}/certificates").get("data", []):
+                used.add(c["id"])
+        except SystemExit:
+            pass
+    for c in api("GET", "/v1/certificates?filter[certificateType]=DISTRIBUTION&limit=50").get("data", []):
+        a = c["attributes"]
+        print("Zertifikat:", c["id"], a.get("name"), "läuft ab", a.get("expirationDate"), "in Profil" if c["id"] in used else "ohne Profil")
+        if drop_expiring and (a.get("expirationDate") or "").startswith(drop_expiring) and c["id"] not in used:
+            api("DELETE", f"/v1/certificates/{c['id']}")
+            print("  -> gelöscht")
+
 if __name__ == "__main__":
     cmd = sys.argv[1]
+    if cmd == "certs": certs(sys.argv[2] if len(sys.argv) > 2 and sys.argv[2] else None); raise SystemExit
     if cmd == "purge": purge(); raise SystemExit
     if cmd == "status": status(sys.argv[2]); raise SystemExit
     if cmd == "create": create(sys.argv[2], sys.argv[3], sys.argv[4])

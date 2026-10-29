@@ -159,6 +159,8 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
 
         // Wie Apple: „An der nächsten Ampel rechts abbiegen“, wenn die Abbiegung an einer Ampel/einem Stoppschild liegt
         var text = LandmarkInstructions.rewrite(instruction, legProgress: legProgress) ?? instruction.text
+        // Auffahrt („rechts auf die Auffahrt A 42 Richtung Dortmund fahren“) und „… weiter der A 42 folgen“
+        text = MotorwayPhrases.apply(to: text, legProgress: legProgress)
         // Wechsel oder Ausfahrt von der Autobahn: die Richtung schon bei der ersten Ansage, nicht erst bei der letzten
         if let withDirection = MotorwayDirection.add(to: text, legProgress: legProgress,
                                                     distanceAlongStep: instruction.distanceAlongStep) { text = withDirection }

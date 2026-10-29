@@ -163,3 +163,61 @@ enum ThenInstructions {
         return cut + (period && !cut.hasSuffix(".") ? "." : "")
     }
 }
+
+/// Autobahn-Formulierungen (bisher nur Deutsch):
+/// - Auffahrt: „In 500 Metern rechts auf die Auffahrt A 42 Richtung Dortmund fahren“
+///   statt „In 500 Metern Auf die Auffahrt nach rechts auf A 42 abfahren“
+/// - Weiterfahren: „7 Kilometer weiter der A 42 folgen“ statt „7 Kilometer weiter der Route folgen“
+enum MotorwayPhrases {
+    static func apply(to text: String, legProgress: RouteLegProgress) -> String {
+        guard VoiceCatalog.language == "de" else { return text }
+        return followRoad(onRamp(text, legProgress: legProgress), legProgress: legProgress)
+    }
+
+    static func onRamp(_ text: String, legProgress: RouteLegProgress) -> String {
+        guard let next = legProgress.upcomingStep,
+              text.range(of: "Auffahrt", options: .caseInsensitive) != nil,
+              text.range(of: "Ausfahrt", options: .caseInsensitive) == nil else { return text }
+        let code = next.destinationCodes?.first.flatMap { $0.isEmpty ? nil : $0 }
+            ?? firstMatch(#"\b[AE] ?\d+\b"#, in: text)
+        guard let code else { return text }
+        let side: String?
+        switch next.maneuverDirection {
+        case .right, .slightRight, .sharpRight: side = "rechts"
+        case .left, .slightLeft, .sharpLeft: side = "links"
+        default: side = nil
+        }
+        let targets = MotorwayDirection.joinFragments(next.destinations ?? [])
+        return phrase(original: text, side: side, code: code, targets: targets)
+    }
+
+    /// Satz bauen; ein angehängtes „Dann …“ von Mapbox bleibt erhalten
+    static func phrase(original text: String, side: String?, code: String, targets: [String]) -> String {
+        var head = text.trimmingCharacters(in: .whitespaces)
+        var tail = ""
+        if let range = head.range(of: #"[.,]\s+dann\s"#, options: [.regularExpression, .caseInsensitive]) {
+            tail = String(head[range.lowerBound...])
+            head = String(head[..<range.lowerBound])
+        }
+        let prefix = firstMatch(#"^In [0-9.,]+ (Metern|Kilometern|Kilometer|Meter)"#, in: head)
+        var core = [side, "auf die Auffahrt", code].compactMap { $0 }.joined(separator: " ")
+        if !targets.isEmpty { core += " Richtung " + targets.prefix(2).joined(separator: ", ") }
+        core += " fahren"
+        let sentence = prefix.map { "\($0) \(core)" } ?? core.prefix(1).uppercased() + core.dropFirst()
+        return sentence + (tail.isEmpty ? "." : tail)
+    }
+
+    /// „7 Kilometer weiter der Route folgen.“ → „7 Kilometer weiter der A 42 folgen.“ (nur auf der Autobahn)
+    static func followRoad(_ text: String, legProgress: RouteLegProgress) -> String {
+        let current = legProgress.currentStep
+        guard text.range(of: "der Route folgen", options: .caseInsensitive) != nil,
+              (current.intersections ?? []).contains(where: { $0.outletRoadClasses?.contains(.motorway) == true }),
+              let code = current.codes?.first, !code.isEmpty else { return text }
+        return text.replacingOccurrences(of: "der Route folgen", with: "der \(code) folgen", options: .caseInsensitive)
+    }
+
+    static func firstMatch(_ pattern: String, in text: String) -> String? {
+        guard let range = text.range(of: pattern, options: .regularExpression) else { return nil }
+        return String(text[range])
+    }
+}

@@ -43,3 +43,17 @@ final class MotorwayDirectionTests: XCTestCase {
         XCTAssertEqual(MotorwayDirection.joinFragments(["Dortmund", " Oberhausen"]), ["Dortmund", "Oberhausen"])
     }
 }
+
+final class MotorwayPhrasesTests: XCTestCase {
+    func testOnRampPhrase() {
+        XCTAssertEqual(MotorwayPhrases.phrase(original: "In 500 Metern Auf die Auffahrt nach rechts auf A 42 abfahren.",
+                                              side: "rechts", code: "A 42", targets: ["Dortmund"]),
+                       "In 500 Metern rechts auf die Auffahrt A 42 Richtung Dortmund fahren.")
+        XCTAssertEqual(MotorwayPhrases.phrase(original: "Auf die Auffahrt nach rechts auf A 42 abfahren. Dann Links halten.",
+                                              side: "rechts", code: "A 42", targets: []),
+                       "Rechts auf die Auffahrt A 42 fahren. Dann Links halten.")
+        XCTAssertEqual(MotorwayPhrases.phrase(original: "In 1,5 Kilometern Auf die Auffahrt auf A 3 abfahren.",
+                                              side: nil, code: "A 3", targets: ["Köln", "Oberhausen"]),
+                       "In 1,5 Kilometern auf die Auffahrt A 3 Richtung Köln, Oberhausen fahren.")
+    }
+}

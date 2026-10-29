@@ -167,7 +167,7 @@ enum ThenInstructions {
 /// Autobahn-Formulierungen (bisher nur Deutsch):
 /// - Auffahrt: „In 500 Metern rechts auf die Auffahrt A 42 Richtung Dortmund fahren“
 ///   statt „In 500 Metern Auf die Auffahrt nach rechts auf A 42 abfahren“
-/// - Weiterfahren: „7 Kilometer weiter der A 42 fahren“ statt „7 Kilometer weiter der Route folgen“
+/// - Weiterfahren: „7 Kilometer weiter auf der A 42 fahren“ statt „7 Kilometer weiter der Route folgen“
 enum MotorwayPhrases {
     static func apply(to text: String, legProgress: RouteLegProgress) -> String {
         guard VoiceCatalog.language == "de" else { return text }
@@ -207,13 +207,13 @@ enum MotorwayPhrases {
         return sentence + (tail.isEmpty ? "." : tail)
     }
 
-    /// „7 Kilometer weiter der Route folgen.“ → „7 Kilometer weiter der A 42 fahren.“ (nur auf der Autobahn)
+    /// „7 Kilometer weiter der Route folgen.“ → „7 Kilometer weiter auf der A 42 fahren.“ (nur auf der Autobahn)
     static func followRoad(_ text: String, legProgress: RouteLegProgress) -> String {
         let current = legProgress.currentStep
         guard text.range(of: "der Route folgen", options: .caseInsensitive) != nil,
               (current.intersections ?? []).contains(where: { $0.outletRoadClasses?.contains(.motorway) == true }),
               let code = current.codes?.first, !code.isEmpty else { return text }
-        return text.replacingOccurrences(of: "der Route folgen", with: "der \(code) fahren", options: .caseInsensitive)
+        return text.replacingOccurrences(of: "der Route folgen", with: "auf der \(code) fahren", options: .caseInsensitive)
     }
 
     static func firstMatch(_ pattern: String, in text: String) -> String? {

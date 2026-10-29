@@ -1,0 +1,23 @@
+App 6824853051
+Build 41: VALID, min iOS 18.0, hochgeladen 2026-10-28T13:05:29-07:00, abgelaufen=False
+Build 40: VALID, min iOS 18.0, hochgeladen 2026-10-28T09:00:49-07:00, abgelaufen=False
+Build 39: VALID, min iOS 18.0, hochgeladen 2026-10-28T05:47:46-07:00, abgelaufen=False
+Build 38: VALID, min iOS 18.0, hochgeladen 2026-10-28T05:02:45-07:00, abgelaufen=False
+Build 37: VALID, min iOS 18.0, hochgeladen 2026-10-28T03:11:48-07:00, abgelaufen=False
+Build 36: VALID, min iOS 18.0, hochgeladen 2026-10-27T14:05:48-07:00, abgelaufen=False
+Upload 41: {"errors": [], "warnings": [], "infos": [], "state": "COMPLETE"}
+Upload 40: {"errors": [], "warnings": [], "infos": [], "state": "COMPLETE"}
+Upload 39: {"errors": [], "warnings": [], "infos": [], "state": "COMPLETE"}
+Upload 38: {"errors": [], "warnings": [], "infos": [], "state": "COMPLETE"}
+Upload 37: {"errors": [], "warnings": [], "infos": [], "state": "COMPLETE"}
+Upload 36: {"errors": [], "warnings": [], "infos": [], "state": "COMPLETE"}
+App-ID de.koeven.meeterz:
+  CARPLAY_NAVIGATION 
+  IN_APP_PURCHASE 
+  PUSH_NOTIFICATIONS 
+  APPLE_ID_AUTH [{"key": "APPLE_ID_AUTH_APP_CONSENT", "options": [{"key": "PRIMARY_APP_CONSENT"}]}]
+App-ID de.koeven.meeterz.widgets:
+  IN_APP_PURCHASE 
+Zertifikat: FX4SUV4SP5 Apple Distribution: Gianluca Köhni läuft ab 2027-10-23T11:35:47.000+00:00 in Profil
+Zertifikat: KS743UQ8Z7 Apple Distribution: Gianluca Köhni läuft ab 2027-10-29T09:08:03.000+00:00 ohne Profil
+  -> gelöscht

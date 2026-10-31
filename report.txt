@@ -1,0 +1,174 @@
+Commit: c7f053ec4135d60e7214086533595bcc66319165
+Zeit:   2026-10-31T08:49:03Z
+Ergebnis: success
+
+== Umgebung ==
+ProductName:		macOS
+ProductVersion:		27.0.1
+BuildVersion:		26A434
+Installierte Xcode-Versionen:
+/Applications/Xcode_27.0.0.app
+/Applications/Xcode_27.0.app
+/Applications/Xcode_27.1.0.app
+/Applications/Xcode_27.1.app
+/Applications/Xcode_27.2_Release_Candidate.app
+/Applications/Xcode_27.2.0.app
+/Applications/Xcode_27.2.app
+/Applications/Xcode_27.app
+/Applications/Xcode.app
+Xcode 27.2
+Build version 27B48
+iOS-Simulator-SDK: 27.2
+
+== Mapbox-Zugang ==
+ok
+
+== Projekt erzeugen ==
+✔︎ Bottle xcodegen (2.46.0)
+[34m==>[0m [1mPouring xcodegen--2.46.0.arm64_golden_gate.bottle.1.tar.gz[0m
+🍺  /opt/homebrew/Cellar/xcodegen/2.46.0: 38 files, 7.5MB
+Konfiguration: Supabase=jgtkyxlzroajtxboqgcn, Schlüssel gesetzt=ja, Mapbox-Token gesetzt=ja
+⚙️  Generating plists...
+⚙️  Generating project...
+⚙️  Writing project...
+Created project at /Users/runner/work/Meeterz/Meeterz/Meeterz.xcodeproj
+
+== Pakete laden ==
+Resolve Package Graph
+
+
+Resolved source packages:
+  swift-syntax: https://github.com/swiftlang/swift-syntax @ 604.0.0
+  xctest-dynamic-overlay: https://github.com/pointfreeco/xctest-dynamic-overlay @ 1.13.1
+  swift-custom-dump: https://github.com/pointfreeco/swift-custom-dump @ 1.7.3
+  MapboxMaps: https://github.com/mapbox/mapbox-maps-ios @ 11.32.1
+  swift-issue-reporting: https://github.com/pointfreeco/swift-issue-reporting @ 2.1.2
+  MapboxNavigationCpp: https://github.com/mapbox/mapbox-navigation-cpp-ios.git @ 0.32.1
+  MapboxNavigationNative: https://github.com/mapbox/mapbox-navigation-native-ios.git @ 324.32.1
+  swift-asn1: https://github.com/apple/swift-asn1.git @ 1.7.3
+  Supabase: https://github.com/supabase/supabase-swift @ 2.55.4
+  Turf: https://github.com/mapbox/turf-swift.git @ 4.0.0
+  swift-crypto: https://github.com/apple/swift-crypto.git @ 4.5.2
+  swift-argument-parser: https://github.com/apple/swift-argument-parser @ 1.8.2
+  swift-http-types: https://github.com/apple/swift-http-types.git @ 1.8.0
+  MapboxNavigation: https://github.com/mapbox/mapbox-navigation-ios.git @ 3.32.1
+  swift-clocks: https://github.com/pointfreeco/swift-clocks @ 1.1.1
+  MapboxCoreMaps: https://github.com/mapbox/mapbox-core-maps-ios.git @ 11.32.1
+  MapboxCommon: https://github.com/mapbox/mapbox-common-ios.git @ 24.32.1
+  swift-snapshot-testing: https://github.com/pointfreeco/swift-snapshot-testing.git @ 1.19.7
+  swift-concurrency-extras: https://github.com/pointfreeco/swift-concurrency-extras @ 1.4.3
+
+resolved source packages: swift-syntax, xctest-dynamic-overlay, swift-custom-dump, MapboxMaps, swift-issue-reporting, MapboxNavigationCpp, MapboxNavigationNative, swift-asn1, Supabase, Turf, swift-crypto, swift-argument-parser, swift-http-types, MapboxNavigation, swift-clocks, MapboxCoreMaps, MapboxCommon, swift-snapshot-testing, swift-concurrency-extras
+
+== Bauen ==
+xcodebuild Rückgabewert: 0
+
+== Warnungen (Auswahl) ==
+build/dd/Build/Products/Debug-iphonesimulator/MapboxNavigationNative.framework/PrivateHeaders/MBNNTilesManagerHandle_Internal.h:33:66: warning: 'MBNNTilesConfig' is deprecated
+    |                                                                  `- warning: 'MBNNTilesConfig' is deprecated
+build/dd/Build/Products/Debug-iphonesimulator/MapboxNavigationNative.framework/PrivateHeaders/MBNNTilesManagerHandle_Internal.h:53:48: warning: 'MBNNTilesConfig' is deprecated
+    |                                                `- warning: 'MBNNTilesConfig' is deprecated
+build/dd/Build/Products/Debug-iphonesimulator/MapboxNavigationNative.framework/PrivateHeaders/MBNNNavigator_Internal.h:269:16: warning: 'MBNNRerouteDetectorInterface' is deprecated
+    |                `- warning: 'MBNNRerouteDetectorInterface' is deprecated
+Meeterz/Services/FairMeetupFinder.swift:100:60: warning: 'data(from:)' was deprecated in iOS 15.0: Use iOS 15 API instead. [#DeprecatedDeclaration]
+    |                                                            `- warning: 'data(from:)' was deprecated in iOS 15.0: Use iOS 15 API instead. [#DeprecatedDeclaration]
+Meeterz/CarPlay/CarPlayController.swift:583:62: warning: passing non-Sendable parameter 'completion' to function expecting a '@Sendable' closure
+     |                                                              `- warning: passing non-Sendable parameter 'completion' to function expecting a '@Sendable' closure
+Meeterz/CarPlay/CarPlayController.swift:883:19: warning: value 'controller' was defined but never used; consider replacing with boolean test [#NoUsage]
+     |                   `- warning: value 'controller' was defined but never used; consider replacing with boolean test [#NoUsage]
+Meeterz/CarPlay/CarPlayController.swift:894:93: warning: variable 'self' was written to, but never read
+     |                                                                                             `- warning: variable 'self' was written to, but never read
+Meeterz/CarPlay/CarPlayController.swift:983:65: warning: variable 'self' was written to, but never read
+     |                                                                 `- warning: variable 'self' was written to, but never read
+Meeterz/CarPlay/CarPlayController.swift:1198:16: warning: call to main actor-isolated initializer 'init(titleVariants:subtitleVariants:image:primaryAction:secondaryAction:duration:)' in a synchronous nonisolated context [#ActorIsolatedCall]
+     |                `- warning: call to main actor-isolated initializer 'init(titleVariants:subtitleVariants:image:primaryAction:secondaryAction:duration:)' in a synchronous nonisolated context [#ActorIsolatedCall]
+Meeterz/CarPlay/CarPlayExtras.swift:67:22: warning: consider using asynchronous alternative function
+    |                      `- warning: consider using asynchronous alternative function
+Meeterz/Services/ChargeStatusService.swift:45:64: warning: 'data(from:)' was deprecated in iOS 15.0: Use iOS 15 API instead. [#DeprecatedDeclaration]
+   |                                                                `- warning: 'data(from:)' was deprecated in iOS 15.0: Use iOS 15 API instead. [#DeprecatedDeclaration]
+Meeterz/CarPlay/FriendsMenu.swift:65:13: warning: initialization of immutable value 'controller' was never used; consider replacing with assignment to '_' or removing it [#NoUsage]
+   |             `- warning: initialization of immutable value 'controller' was never used; consider replacing with assignment to '_' or removing it [#NoUsage]
+Meeterz/Views/MainView.swift:286:10: warning: 'onMapTapGesture(perform:)' is deprecated: Use TapInteraction [#DeprecatedDeclaration]
+    |          `- warning: 'onMapTapGesture(perform:)' is deprecated: Use TapInteraction [#DeprecatedDeclaration]
+Meeterz/Views/MainView.swift:287:10: warning: 'onMapLongPressGesture(perform:)' is deprecated: Use LongPressInteraction [#DeprecatedDeclaration]
+    |          `- warning: 'onMapLongPressGesture(perform:)' is deprecated: Use LongPressInteraction [#DeprecatedDeclaration]
+Meeterz/Services/SearchService.swift:195:60: warning: 'data(for:)' was deprecated in iOS 15.0: Use iOS 15 API instead. [#DeprecatedDeclaration]
+    |                                                            `- warning: 'data(for:)' was deprecated in iOS 15.0: Use iOS 15 API instead. [#DeprecatedDeclaration]
+
+== Unit-Tests ==
+xcodebuild test Rückgabewert: 0
+Test Case '-[MeeterzTests.ChargePlannerTests testBundledData]' started.
+Test Case '-[MeeterzTests.ChargePlannerTests testBundledData]' passed (2.961 seconds).
+Test Case '-[MeeterzTests.ChargePlannerTests testChargeTimeFollowsCurve]' started.
+Test Case '-[MeeterzTests.ChargePlannerTests testChargeTimeFollowsCurve]' passed (0.009 seconds).
+Test Case '-[MeeterzTests.ChargePlannerTests testDirectWhenEnoughCharge]' started.
+Test Case '-[MeeterzTests.ChargePlannerTests testDirectWhenEnoughCharge]' passed (0.019 seconds).
+Test Case '-[MeeterzTests.ChargePlannerTests testLearnedFactorRaisesConsumption]' started.
+Test Case '-[MeeterzTests.ChargePlannerTests testLearnedFactorRaisesConsumption]' passed (0.002 seconds).
+Test Case '-[MeeterzTests.ChargePlannerTests testLongTripNeedsStopsAndArrivesWithTarget]' started.
+Plan 600 km: 4 charging stops · 77 min charging · arrive with 20 % ["150 km 25→53 %", "250 km 10→53 %", "350 km 10→74 %", "500 km 10→63 %"]
+Test Case '-[MeeterzTests.ChargePlannerTests testLongTripNeedsStopsAndArrivesWithTarget]' passed (2.451 seconds).
+Test Case '-[MeeterzTests.ChargePlannerTests testReplanFromMidRoute]' started.
+Test Case '-[MeeterzTests.ChargePlannerTests testReplanFromMidRoute]' passed (0.006 seconds).
+Test Case '-[MeeterzTests.ChargePlannerTests testUnreachableWithoutChargers]' started.
+Test Case '-[MeeterzTests.ChargePlannerTests testUnreachableWithoutChargers]' passed (0.003 seconds).
+	 Executed 7 tests, with 0 failures (0 unexpected) in 5.450 (5.469) seconds
+Test Case '-[MeeterzTests.IncidentWatcherTests testSpokenDistance]' started.
+Test Case '-[MeeterzTests.IncidentWatcherTests testSpokenDistance]' passed (0.003 seconds).
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.003 (36.174) seconds
+Test Case '-[MeeterzTests.LandmarkInstructionsTests testPhrases]' started.
+Test Case '-[MeeterzTests.LandmarkInstructionsTests testPhrases]' passed (0.111 seconds).
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.111 (0.113) seconds
+Test Case '-[MeeterzTests.MapboxTextTests testMapboxSentenceStyle]' started.
+Test Case '-[MeeterzTests.MapboxTextTests testMapboxSentenceStyle]' passed (0.048 seconds).
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.048 (0.050) seconds
+Test Case '-[MeeterzTests.MotorwayDirectionTests testDirectionBeforeThenClause]' started.
+Test Case '-[MeeterzTests.MotorwayDirectionTests testDirectionBeforeThenClause]' passed (0.030 seconds).
+Test Case '-[MeeterzTests.MotorwayDirectionTests testJoinsDistrictFragments]' started.
+Test Case '-[MeeterzTests.MotorwayDirectionTests testJoinsDistrictFragments]' passed (0.013 seconds).
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.042 (0.045) seconds
+Test Case '-[MeeterzTests.MotorwayPhrasesTests testOnRampPhrase]' started.
+Test Case '-[MeeterzTests.MotorwayPhrasesTests testOnRampPhrase]' passed (0.007 seconds).
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.007 (0.042) seconds
+Test Case '-[MeeterzTests.RoadNamesTests testDropsCodeNextToName]' started.
+Test Case '-[MeeterzTests.RoadNamesTests testDropsCodeNextToName]' passed (0.002 seconds).
+Test Case '-[MeeterzTests.RoadNamesTests testKeepsCodeWhenItIsTheOnlyReference]' started.
+Test Case '-[MeeterzTests.RoadNamesTests testKeepsCodeWhenItIsTheOnlyReference]' passed (0.001 seconds).
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.003 (0.004) seconds
+Test Case '-[MeeterzTests.ThenInstructionsTests testRemovesThenClause]' started.
+Test Case '-[MeeterzTests.ThenInstructionsTests testRemovesThenClause]' passed (1.348 seconds).
+
+== Rauchtest ==
+Simulator:     iPhone 18 Pro (B6BCFC3D-3ADD-42C8-BB29-33FF8FE7E0B0) (Shutdown) 
+Starte App …
+de.koeven.meeterz: 18501
+Detected file type from extension: PNG
+Note: No display specified. Defaulting to display: 6D35FC0E-4640-429F-9ACE-4F19A99E0563 (screenID: 1, name: LCD)
+Wrote screenshot to: /Users/runner/work/Meeterz/Meeterz/screenshots/01-start.png
+App läuft nach 10 s: ja
+
+== UI-Test ==
+xcodebuild test Rückgabewert: 0
+Test Case '-[MeeterzUITests.MeeterzStoreShots testStoreScreenshots]' started.
+Test Case '-[MeeterzUITests.MeeterzStoreShots testStoreScreenshots]' skipped (1.885 seconds).
+Test Suite 'MeeterzStoreShots' passed at 2026-10-31 08:37:19.679.
+	 Executed 1 test, with 1 test skipped and 0 failures (0 unexpected) in 1.885 (1.895) seconds
+Test Case '-[MeeterzUITests.MeeterzTwoAccountTests testZweiKonten]' started.
+2026-10-31 08:37:40.301 xcodebuild[19967:66737] [MT] IDELaunchParametersSnapshot: debugger version lookup failed for path '<nil>': noURL
+Test Case '-[MeeterzUITests.MeeterzTwoAccountTests testZweiKonten]' passed (306.470 seconds).
+Test Suite 'MeeterzTwoAccountTests' passed at 2026-10-31 08:42:26.154.
+	 Executed 1 test, with 0 failures (0 unexpected) in 306.470 (306.472) seconds
+Test Case '-[MeeterzUITests.MeeterzUITests testGesamtablauf]' started.
+2026-10-31 08:42:27.436 xcodebuild[19967:66737] [MT] IDELaunchParametersSnapshot: debugger version lookup failed for path '<nil>': noURL
+Test Case '-[MeeterzUITests.MeeterzUITests testGesamtablauf]' passed (176.423 seconds).
+Test Suite 'MeeterzUITests' passed at 2026-10-31 08:45:22.583.
+	 Executed 1 test, with 0 failures (0 unexpected) in 176.423 (176.425) seconds
+Test Case '-[MeeterzUITests.MeeterzZLiveNavTests testLiveUndNavigation]' started.
+2026-10-31 08:45:25.472 xcodebuild[19967:66737] [MT] IDELaunchParametersSnapshot: debugger version lookup failed for path '<nil>': noURL
+Test Case '-[MeeterzUITests.MeeterzZLiveNavTests testLiveUndNavigation]' passed (201.826 seconds).
+Test Suite 'MeeterzZLiveNavTests' passed at 2026-10-31 08:48:44.415.
+	 Executed 1 test, with 0 failures (0 unexpected) in 201.826 (201.830) seconds
+Test Suite 'MeeterzUITests.xctest' passed at 2026-10-31 08:48:44.416.
+	 Executed 4 tests, with 1 test skipped and 0 failures (0 unexpected) in 686.604 (686.633) seconds
+Test Suite 'All tests' passed at 2026-10-31 08:48:44.420.
+	 Executed 4 tests, with 1 test skipped and 0 failures (0 unexpected) in 686.604 (686.637) seconds

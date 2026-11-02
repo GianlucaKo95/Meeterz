@@ -19,6 +19,7 @@ struct FriendsView: View {
     @State private var autoDelay = MessagesStore.autoDelay
     @State private var evEnabled = EVSettings.enabled
     @State private var parkingEnabled = ParkingStore.enabled
+    @State private var staleHours = StaleFriends.hours
     @State private var appearance = AppAppearance.current
     @State private var evRange = EVSettings.rangeKm
     @State private var evVehicle = EVSettings.vehicle
@@ -462,6 +463,13 @@ struct FriendsView: View {
             Toggle("3D-Ansicht", isOn: Binding(get: { mapThreeD }, set: { MapPreferences.setThreeD($0) }))
                 .tint(Theme.accent)
             Text("Gilt für iPhone und CarPlay gleichermaßen und sofort, auch während der Fahrt – egal wo du umschaltest. Satellit: Luftbild mit 3D-Gebäuden. Flyover (experimentell) zeigt Apples fotorealistisches 3D-Bild, kann aber ruckeln und Route oder Pfeil leicht versetzt zeigen.")
+                .font(.footnote).foregroundStyle(Theme.muted)
+            Picker("Freunde ausblenden nach", selection: Binding(get: { staleHours }, set: { staleHours = $0; StaleFriends.hours = $0 })) {
+                ForEach(StaleFriends.choices, id: \.self) { h in
+                    Text(h == 0 ? String(localized: "Nie") : String(localized: "\(h) Std.")).tag(h)
+                }
+            }
+            Text("Freunde, von denen so lange kein neuer Standort kam, verschwinden von der Karte – statt an einem alten Ort zu stehen. Sobald sie wieder teilen, sind sie zurück.")
                 .font(.footnote).foregroundStyle(Theme.muted)
             DisclosureGroup("Diagnose") {
                 Text(diagText.isEmpty ? String(localized: "Noch keine Einträge.") : diagText)

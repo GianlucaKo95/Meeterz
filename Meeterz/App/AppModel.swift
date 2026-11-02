@@ -299,12 +299,28 @@ final class AppModel {
     }
 
     var friendsOnMapIncludingPassengers: [FriendOnMap] {
-        friends.accepted.compactMap { f in
+        let limit = StaleFriends.maxAge
+        return friends.accepted.compactMap { f in
             hub.positions[f.friendId].map { FriendOnMap(friend: f, position: $0) }
         }
+        // Lange nichts mehr gehört (kein Update, keine Antwort auf die Standortanfrage): von der Karte nehmen,
+        // statt einen Stunden alten Standort zu zeigen. Kommt ein neuer Standort, ist der Freund sofort wieder da.
+        .filter { limit == nil || $0.position.age <= limit! }
     }
 
     func friend(_ id: UUID) -> FriendRow? {
         friends.rows.first { $0.friendId == id }
     }
+}
+
+/// Freunde ohne aktuellen Standort nach einer einstellbaren Zeit ausblenden (Einstellungen → Karte)
+enum StaleFriends {
+    static let key = "map.hideStaleHours"
+    static let choices = [1, 3, 6, 12, 24, 0]   // 0 = nie
+    /// Stunden, nach denen ein Freund ohne neuen Standort verschwindet (Standard 6, 0 = nie)
+    static var hours: Int {
+        get { UserDefaults.standard.object(forKey: key) as? Int ?? 6 }
+        set { UserDefaults.standard.set(newValue, forKey: key) }
+    }
+    static var maxAge: TimeInterval? { hours > 0 ? TimeInterval(hours) * 3600 : nil }
 }

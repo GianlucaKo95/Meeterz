@@ -3129,6 +3129,52 @@
         }
       }
     },
+    "%lld Std.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld Std."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld h"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld h"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld h"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld h"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld sa"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld h"
+          }
+        }
+      }
+    },
     "%lld Std. %lld Min.": {
       "localizations": {
         "de": {
@@ -12835,6 +12881,52 @@
         }
       }
     },
+    "Freunde ausblenden nach": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Freunde ausblenden nach"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide friends after"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masquer les amis après"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ocultar amigos tras"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ocultar amigos após"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arkadaşları şu süre sonra gizle"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nascondi amici dopo"
+          }
+        }
+      }
+    },
     "Freunde einladen": {
       "localizations": {
         "de": {
@@ -13107,6 +13199,52 @@
           "stringUnit": {
             "state": "translated",
             "value": "Gli amici non vedono né la tua posizione né il tuo percorso. Eseguilo di nuovo per terminare."
+          }
+        }
+      }
+    },
+    "Freunde, von denen so lange kein neuer Standort kam, verschwinden von der Karte – statt an einem alten Ort zu stehen. Sobald sie wieder teilen, sind sie zurück.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Freunde, von denen so lange kein neuer Standort kam, verschwinden von der Karte – statt an einem alten Ort zu stehen. Sobald sie wieder teilen, sind sie zurück."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Friends without a new location for this long disappear from the map instead of sitting at an old spot. They come back as soon as they share again."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les amis sans nouvelle position depuis ce délai disparaissent de la carte au lieu de rester à un ancien endroit. Ils reviennent dès qu’ils partagent à nouveau."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los amigos sin nueva ubicación durante ese tiempo desaparecen del mapa en lugar de quedarse en un sitio antiguo. Vuelven en cuanto comparten de nuevo."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Os amigos sem nova localização durante esse tempo desaparecem do mapa em vez de ficarem num sítio antigo. Voltam assim que partilharem de novo."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu süre boyunca yeni konumu gelmeyen arkadaşlar eski bir yerde durmak yerine haritadan kaybolur. Yeniden paylaştıklarında geri gelirler."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gli amici senza una nuova posizione per questo tempo spariscono dalla mappa invece di restare in un punto vecchio. Tornano non appena condividono di nuovo."
           }
         }
       }
@@ -19179,6 +19317,52 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nessun risultato."
+          }
+        }
+      }
+    },
+    "Nie": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Never"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jamais"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nunca"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nunca"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Asla"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mai"
           }
         }
       }

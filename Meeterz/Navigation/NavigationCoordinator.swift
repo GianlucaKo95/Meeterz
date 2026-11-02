@@ -242,6 +242,11 @@ final class NavigationCoordinator: NSObject {
                         self?.overlay = o
                     }
                     if !fromCarPlay { CarPlayController.shared.beginNavigationIfConnected() }
+                    // Prüfen statt raten: läuft die Führung wirklich (nicht Leerlauf/freie Fahrt)?
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .seconds(5))
+                        Diag.log("Mapbox-Zustand 5 s nach dem Start der Route: \(navigationProvider.tripSession().currentSession.state)")
+                    }
                 }
                 try? await Task.sleep(for: .milliseconds(600))
                 if controller.presentingViewController != nil { return }
@@ -284,6 +289,9 @@ final class NavigationCoordinator: NSObject {
     /// Übersichts-Knopf, der in der Übersicht (oder nach Verschieben) zum Ortungspfeil wird – ein Tipp führt zurück
     /// zur Abbiegeführung. Mapbox blendete stattdessen unten links einen eigenen „Fortsetzen“-Knopf ein; der entfällt.
     private func installOverviewButton(on controller: NavigationViewController) {
+        // Alles hier nur schwach festhalten: Hielt das Abo das Navigationsbild fest, wurde es erst beim Start der
+        // NÄCHSTEN Route freigegeben – und Mapbox schaltet beim Freigeben auf Leerlauf, sofern gerade eine Route läuft.
+        // Genau das hielt am 31.10. jede weitere Route an (Karte stand, kein Fortschritt, Route nur in der Übersicht).
         guard var buttons = controller.floatingButtons, !buttons.isEmpty,
               let camera = controller.navigationMapView?.navigationCamera else { return }
         let button = UIButton(type: .system)
@@ -295,16 +303,19 @@ final class NavigationCoordinator: NSObject {
         button.layer.shadowOffset = CGSize(width: 0, height: 2)
         button.widthAnchor.constraint(equalToConstant: 50).isActive = true
         button.heightAnchor.constraint(equalToConstant: 50).isActive = true
+        weak var weakController = controller
+        weak var weakCamera = camera
         func refresh(_ state: NavigationCameraState) {
             let following = state == .following
             button.setImage(UIImage(systemName: following ? "point.topleft.down.to.point.bottomright.curvepath"
                                                           : "location.north.line.fill"), for: .normal)
             button.accessibilityLabel = following ? String(localized: "Routenübersicht") : String(localized: "Zurück zur Navigation")
             // Mapbox' eigenen „Fortsetzen“-Knopf unsichtbar halten (Mapbox schaltet nur isHidden um)
-            Self.hideResumeButton(in: controller.view)
+            Self.hideResumeButton(in: weakController?.view)
         }
         refresh(camera.currentCameraState)
         button.addAction(UIAction { _ in
+            guard let camera = weakCamera else { return }
             camera.update(cameraState: camera.currentCameraState == .following ? .overview : .following)
         }, for: .touchUpInside)
         overviewToken = camera.cameraStates
@@ -434,6 +445,7 @@ final class NavigationCoordinator: NSObject {
         // mehr und lässt die Ortung in Ruhe.
         let controller = phoneController
         phoneController = nil
+        overviewToken = nil   // hielt sonst das Navigationsbild fest (siehe installOverviewButton)
         if CarPlayController.shared.isConnected || UIApplication.shared.applicationState != .background {
             navigationProvider.tripSession().startFreeDrive()
             Diag.log("Navigation beendet – Mapbox in freier Fahrt (\(CarPlayController.shared.isConnected ? "CarPlay verbunden" : "App im Vordergrund"))")
@@ -445,6 +457,13 @@ final class NavigationCoordinator: NSObject {
                 }
                 Diag.log("Freie Fahrt gemeldet nach \(String(format: "%.2f", Date().timeIntervalSince(started))) s – iPhone-Navigationsbild wird geschlossen")
                 controller?.dismiss(animated: true)
+                // Prüfen statt raten: Das Navigationsbild muss nach dem Schließen freigegeben sein. Bleibt es hängen,
+                // schaltet Mapbox beim späteren Freigeben auf Leerlauf – mitten in die nächste Route.
+                weak var released = controller
+                Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(8))
+                    Diag.log("iPhone-Navigationsbild nach dem Beenden freigegeben: \(released == nil ? "ja" : "NEIN – hält noch jemand fest")")
+                }
                 // Am Ziel schließt sich Mapbox' Navigationsbild selbst, bevor wir gefragt werden – sein Leerlauf wird dann
                 // erst nach unserer freien Fahrt fertig gemeldet und überschreibt sie. Das ist kein Zufall, sondern
                 // Mapbox' feste Reihenfolge; darum kurz nachsehen und die freie Fahrt in dem Fall noch einmal setzen.

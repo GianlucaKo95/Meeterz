@@ -19,6 +19,9 @@ final class VehicleStore {
         let lng: Double?
         let reportedAt: Date?
         let updatedAt: Date
+        /// Restladezeit laut Auto in Sekunden (über das Add-on, eigene Meldung)
+        let chargeRemainingS: Double?
+        let chargeRemainingAt: Date?
 
         enum CodingKeys: String, CodingKey {
             case soc, charging, parked, lat, lng
@@ -29,6 +32,8 @@ final class VehicleStore {
             case speedKmh = "speed_kmh"
             case reportedAt = "reported_at"
             case updatedAt = "updated_at"
+            case chargeRemainingS = "charge_remaining_s"
+            case chargeRemainingAt = "charge_remaining_at"
         }
 
         /// Wann im Auto gemessen (sonst: wann angekommen)
@@ -47,6 +52,20 @@ final class VehicleStore {
     private var client: SupabaseClient { Backend.client }
 
     /// Live-Akkustand, wenn er frisch genug für die Planung ist (beim Fahren alle ~30 s, geparkt seltener)
+    /// Reichweite laut Auto, wenn die Meldung frisch genug ist (wie liveSoc)
+    var liveRangeKm: Double? {
+        guard let status, let range = status.rangeKm, range > 0, status.age < 6 * 3600 else { return nil }
+        return range
+    }
+
+    /// Restladezeit laut Auto (Sekunden ab jetzt), wenn das Auto sie gemeldet hat und sie frisch ist
+    var liveChargeRemaining: TimeInterval? {
+        guard let status, let s = status.chargeRemainingS, s > 0, let at = status.chargeRemainingAt else { return nil }
+        let elapsed = Date().timeIntervalSince(at)
+        guard elapsed < 15 * 60 else { return nil }
+        return max(0, s - elapsed)
+    }
+
     var liveSoc: Double? {
         guard let status, let soc = status.soc, status.age < 6 * 3600 else { return nil }
         return soc

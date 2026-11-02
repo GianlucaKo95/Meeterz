@@ -100,7 +100,7 @@ final class ChargeMonitor {
         let message: (title: String, subtitle: String, plan: ChargePlanner.Plan?)?
         switch result {
         case .failure(.unreachable(let km)):
-            message = (String(localized: "Akku reicht nicht bis zum Ziel"), String(localized: "Reichweite ca. \(Int(km)) km – Ladesäulen unter „Mehr“"), nil)
+            message = (String(localized: "Akku reicht nicht bis zum Ziel"), String(localized: "Reichweite ca. \(Int(EVSettings.rangeForDisplay(planned: km))) km – Ladesäulen unter „Mehr“"), nil)
         case .failure(.noVehicle):
             message = nil
         case .success(let plan):

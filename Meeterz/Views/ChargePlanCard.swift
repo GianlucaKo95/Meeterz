@@ -33,7 +33,7 @@ struct ChargePlanCard: View {
                 case .failure(.noVehicle):
                     Text("Wähle in den Einstellungen dein Fahrzeug.").foregroundStyle(Theme.muted)
                 case .failure(.unreachable(let km)):
-                    Text("Mit den Ladesäulen entlang der Route nicht planbar (Reichweite ca. \(Int(km)) km). Meeterz kennt Schnelllader in Deutschland, den Nachbarländern und Italien.")
+                    Text("Mit den Ladesäulen entlang der Route nicht planbar (Reichweite ca. \(Int(EVSettings.rangeForDisplay(planned: km))) km). Meeterz kennt Schnelllader in Deutschland, den Nachbarländern und Italien.")
                         .font(.subheadline).foregroundStyle(Theme.muted)
                 case .success(let plan):
                     summary(plan)

@@ -43,6 +43,8 @@ final class ChargingSession {
 
     /// Geschätzte Restzeit bis zum Ziel (Ladekurve, begrenzt durch die aktuelle Leistung der Säule)
     var remaining: TimeInterval? {
+        // Wie im Auto: dessen eigene Restzeit, sobald es eine meldet (vorher stimmte die berechnete nie mit dem Auto überein)
+        if let car = AppModel.shared.vehicle.liveChargeRemaining { return car }
         guard let vehicle = EVSettings.vehicle, percent < targetPercent else { return nil }
         return ChargePlanner.chargeTime(vehicle, from: percent, to: targetPercent, siteKW: max(powerKW, 3) * 1.05)
     }

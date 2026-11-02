@@ -29,6 +29,18 @@ Deno.serve(async (req) => {
   const { data: link } = await db.from("vehicle_links").select("user_id").eq("token", token).maybeSingle();
   if (!link) return new Response("unknown device", { status: 401 });
 
+  // Restladezeit laut Auto (Sekunden) – kommt als eigene Meldung vom Add-on (MQTT des Gateways), nicht über OsmAnd.
+  // Dann nur diese Spalten setzen, damit Akkustand und Zeitstempel der letzten Vollmeldung erhalten bleiben.
+  const remaining = num(params.get("remaining_charging_time"));
+  if (remaining !== null && !params.has("soc")) {
+    const { error } = await db.from("vehicle_status").upsert(
+      { user_id: link.user_id, charge_remaining_s: remaining, charge_remaining_at: new Date().toISOString() },
+      { onConflict: "user_id" },
+    );
+    if (error) return new Response(error.message, { status: 500 });
+    return new Response("OK");
+  }
+
   const ts = num(params.get("timestamp"));
   const odometer = num(params.get("odometer"));
   const row: Record<string, unknown> = {

@@ -391,8 +391,19 @@ enum EVSettings {
         get { AppModel.shared.vehicle.liveSoc ?? UserDefaults.standard.object(forKey: "ev.charge") as? Double ?? 80 }
         set { UserDefaults.standard.set(newValue, forKey: "ev.charge") }
     }
+    /// Reichweite jetzt: laut Auto, sobald es sie meldet – sonst aus Akkustand und Fahrzeugdaten berechnet
+    @MainActor static var currentRangeKm: Double {
+        AppModel.shared.vehicle.liveRangeKm ?? rangeKm * chargePercent / 100
+    }
+    /// Kilometer je Prozent Akku (nach der Reichweite des Autos, sonst berechnet)
+    @MainActor static var kmPerPercent: Double {
+        if let car = AppModel.shared.vehicle.liveRangeKm, chargePercent > 1 { return car / chargePercent }
+        return rangeKm / 100
+    }
     /// Bis hierhin kommt man mit 10 % Reserve (Meter)
-    @MainActor static var usableMeters: Double { max(0, rangeKm * 1000 * (chargePercent - 10) / 100) }
+    @MainActor static var usableMeters: Double { max(0, kmPerPercent * 1000 * (chargePercent - 10)) }
+    /// „Reichweite ca. … km“ in Hinweisen: die des Autos, wenn bekannt
+    @MainActor static func rangeForDisplay(planned km: Double) -> Double { AppModel.shared.vehicle.liveRangeKm ?? km }
 }
 
 extension CarPlayController {
@@ -457,7 +468,7 @@ extension CarPlayController {
                 Task { @MainActor in self?.showChargingStops() }
             }
             let alert = CPNavigationAlert(
-                titleVariants: [String(localized: "Kein Ladeplan möglich – Reichweite ca. \(Int(km)) km")],
+                titleVariants: [String(localized: "Kein Ladeplan möglich – Reichweite ca. \(Int(EVSettings.rangeForDisplay(planned: km))) km")],
                 subtitleVariants: [String(localized: "Keine passenden Schnelllader mit Leistungsangabe entlang der Route")],
                 image: UIImage(systemName: "bolt.car.fill"),
                 primaryAction: ok, secondaryAction: nil, duration: 15)
@@ -488,7 +499,7 @@ extension CarPlayController {
     func showChargePicker() {
         let items: [CPListItem] = stride(from: 100, through: 10, by: -10).map { value in
             let current = Int(EVSettings.chargePercent) == value
-            let item = CPListItem(text: "\(value) %", detailText: current ? "aktuell" : String(localized: "ca. \(Int(EVSettings.rangeKm * Double(value) / 100)) km"))
+            let item = CPListItem(text: "\(value) %", detailText: current ? "aktuell" : String(localized: "ca. \(Int(EVSettings.kmPerPercent * Double(value))) km"))
             item.handler = { [weak self] _, done in
                 EVSettings.chargePercent = Double(value)
                 CarPlayUI.shared.pop(animated: true)

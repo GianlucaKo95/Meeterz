@@ -138,7 +138,7 @@ enum ThenInstructions {
         // Satz das Losfahren und „Dann …“ schon die erste Abbiegung – nicht die zweite. Nicht anfassen (29.10.: sonst
         // fiel die erste Abbiegung weg).
         if legProgress.currentStep.maneuverType == .depart { return text }
-        let hasThen = text.range(of: #"[,.]?\s+dann\s"#, options: [.regularExpression, .caseInsensitive]) != nil
+        let hasThen = text.range(of: #"[,.]?\s+dann[\s,]"#, options: [.regularExpression, .caseInsensitive]) != nil
         guard let second = legProgress.followOnStep, isTurn(second) else { return text }   // z. B. „dann Ziel erreicht“ bleibt
         guard isTurn(first), first.distance <= maxGap,
               let direction = LandmarkInstructions.directionText(second.maneuverDirection) else {
@@ -159,7 +159,7 @@ enum ThenInstructions {
     /// „Rechts abbiegen, dann links abbiegen.“ → „Rechts abbiegen.“
     static func withoutThen(_ text: String) -> String {
         let period = text.trimmingCharacters(in: .whitespaces).hasSuffix(".")
-        let cut = text.replacingOccurrences(of: #"[,.]?\s+dann\s.*$"#, with: "", options: [.regularExpression, .caseInsensitive])
+        let cut = text.replacingOccurrences(of: #"[,.]?\s+dann[\s,].*$"#, with: "", options: [.regularExpression, .caseInsensitive])
         return cut + (period && !cut.hasSuffix(".") ? "." : "")
     }
 }
@@ -195,7 +195,7 @@ enum MotorwayPhrases {
     static func phrase(original text: String, side: String?, code: String, targets: [String]) -> String {
         var head = text.trimmingCharacters(in: .whitespaces)
         var tail = ""
-        if let range = head.range(of: #"[.,]\s+dann\s"#, options: [.regularExpression, .caseInsensitive]) {
+        if let range = head.range(of: #"[.,]\s+dann[\s,]"#, options: [.regularExpression, .caseInsensitive]) {
             tail = String(head[range.lowerBound...])
             head = String(head[..<range.lowerBound])
         }

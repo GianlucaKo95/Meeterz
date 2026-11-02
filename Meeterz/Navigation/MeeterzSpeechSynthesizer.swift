@@ -369,7 +369,9 @@ enum MotorwayDirection {
     static let maxDistance: Double = 3_200
 
     static func add(to text: String, legProgress: RouteLegProgress, distanceAlongStep: Double) -> String? {
-        guard distanceAlongStep <= maxDistance, let next = legProgress.upcomingStep,
+        // Nicht bei der Abfahrtsansage („Auf A 3, E 34 Richtung Nordwesten fahren“ – sonst zweimal „Richtung“, 31.10.)
+        guard legProgress.currentStep.maneuverType != .depart,
+              distanceAlongStep <= maxDistance, let next = legProgress.upcomingStep,
               [.reachFork, .takeOffRamp, .takeOnRamp, .useLane, .continue, .merge].contains(next.maneuverType) else { return nil }
         let current = legProgress.currentStep
         let onMotorway = (current.intersections ?? []).contains { $0.outletRoadClasses?.contains(.motorway) == true }
@@ -386,7 +388,7 @@ enum MotorwayDirection {
     static func insert(_ direction: String, into text: String) -> String {
         var head = text.trimmingCharacters(in: .whitespaces)
         var tail = ""
-        if let range = head.range(of: #"[.,]\s+dann\s"#, options: [.regularExpression, .caseInsensitive]) {
+        if let range = head.range(of: #"[.,]\s+dann[\s,]"#, options: [.regularExpression, .caseInsensitive]) {
             tail = String(head[range.lowerBound...])
             head = String(head[..<range.lowerBound])
         }

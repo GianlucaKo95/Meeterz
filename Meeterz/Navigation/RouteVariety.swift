@@ -87,7 +87,9 @@ enum RouteVariety {
         let rest = all.indices.dropFirst()
         if let shortest = rest.min(by: { all[$0].distance < all[$1].distance }), shortest == index,
            route.distance < first.distance * 0.97 { return .shortest }
-        if usesMotorway(first), !usesMotorway(route) { return .noMotorway }
+        // „Ohne Autobahn“: Mapbox meidet Autobahnen nur weitgehend – ein kurzes Stück (Anschluss, Kreuz) bleibt oft.
+        // Darum zählt der Anteil: höchstens 5 % der Strecke auf der Autobahn (31.10.: hieß sonst „Alternative 2“).
+        if motorwayShare(first) > 0.2, motorwayShare(route) <= 0.05 { return .noMotorway }
         return .other
     }
 
@@ -105,6 +107,18 @@ enum RouteVariety {
         case .noMotorway: String(localized: "Ohne Autobahn")
         case .other: String(localized: "Alternative")
         }
+    }
+
+    /// Anteil der Strecke auf Autobahnen (0…1)
+    static func motorwayShare(_ route: Route) -> Double {
+        guard route.distance > 0 else { return 0 }
+        var onMotorway = 0.0
+        for leg in route.legs {
+            for step in leg.steps where (step.intersections ?? []).contains(where: { $0.outletRoadClasses?.contains(.motorway) == true }) {
+                onMotorway += step.distance
+            }
+        }
+        return min(onMotorway / route.distance, 1)
     }
 
     static func usesMotorway(_ route: Route) -> Bool {

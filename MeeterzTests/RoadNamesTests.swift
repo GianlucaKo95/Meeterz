@@ -57,3 +57,11 @@ final class MotorwayPhrasesTests: XCTestCase {
                        "In 1,5 Kilometern auf die Auffahrt A 3 Richtung Köln, Oberhausen fahren.")
     }
 }
+
+final class ThenCommaTests: XCTestCase {
+    // Mapbox: „Dann, in 20 Metern, Links abbiegen.“ – wurde nicht als „dann“ erkannt (31.10.)
+    func testThenWithComma() {
+        XCTAssertEqual(ThenInstructions.withoutThen("Links auf Aki-Schmidt-Platz abbiegen. Dann, in 20 Metern, Links abbiegen."),
+                       "Links auf Aki-Schmidt-Platz abbiegen.")
+    }
+}

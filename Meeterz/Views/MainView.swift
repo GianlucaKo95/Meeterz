@@ -191,6 +191,25 @@ struct MainView: View {
                     .exaggeration(1.3)
             }
 
+            // Satellit in 3D: Gebäude als helle 3D-Körper wie in Navigation und CarPlay (Satellite3DBuildings) –
+            // das Satellitenbild hat selbst keine Gebäude, auf dem iPhone fehlten sie bisher
+            if threeD && mapStyleKey != "classic" {
+                VectorSource(id: "meeterz-streets-3d")
+                    .url("mapbox://mapbox.mapbox-streets-v8")
+                FillExtrusionLayer(id: "meeterz-3d-buildings", source: "meeterz-streets-3d")
+                    .sourceLayer("building")
+                    .filter(Exp(.eq) { Exp(.get) { "extrude" }; "true" })
+                    .minZoom(14.5)
+                    .fillExtrusionColor(UIColor(red: 0.93, green: 0.91, blue: 0.87, alpha: 1))
+                    .fillExtrusionOpacity(0.94)
+                    .fillExtrusionEmissiveStrength(0.65)
+                    .fillExtrusionVerticalGradient(true)
+                    .fillExtrusionAmbientOcclusionIntensity(0.25)
+                    .fillExtrusionHeight(Exp(.get) { "height" })
+                    .fillExtrusionBase(Exp(.get) { "min_height" })
+                    .slot(.middle)
+            }
+
             // Routen der Freunde: dunkle Umrandung, darüber knallige Farbe (die gezeigte Route etwas breiter)
             ForEvery(Array(app.routes.friendRoutes.values)) { route in
                 PolylineAnnotation(id: "routecase-\(route.friendId)", lineCoordinates: route.coordinates)

@@ -194,6 +194,9 @@ final class NavigationCoordinator: NSObject {
     /// Turn-by-Turn auf dem iPhone anzeigen. Beim Start auf CarPlay mit den dort laufenden Routen –
     /// so sieht man die Fahrt auch auf dem Handy (wie bei Apple Karten).
     private func presentPhone(routes: NavigationRoutes, fromCarPlay: Bool) {
+        // Kein Mapbox-Neuberechnungston: Er stoppt die Sprachausgabe und schaltet die gemeinsame Audiositzung
+        // 1 s später ab – genau dann läuft die erste Ansage der neuen Route und brach mittendrin ab (03.11.)
+        navigationProvider.routeVoiceController.playsRerouteSound = false
         let options = NavigationOptions(
             mapboxNavigation: core,
             voiceController: navigationProvider.routeVoiceController,

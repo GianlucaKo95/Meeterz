@@ -56,6 +56,8 @@ final class CarPlayController: NSObject {
     private var userPanning = false
     private var browseOverlay: FriendOverlay?
     private var navigationOverlay: FriendOverlay?
+    /// Beobachter der Navigationskarte (enden mit der Navigation)
+    private var navSubscriptions = Set<AnyCancellable>()
     private var shownInvites = Set<UUID>()
     private var searchTask: Task<Void, Never>?
     private var searchCompletion: (([CPListItem]) -> Void)?
@@ -424,6 +426,7 @@ final class CarPlayController: NSObject {
         navigationOverlay?.stop()
         browseOverlay = nil
         navigationOverlay = nil
+        navSubscriptions.removeAll()
         browseRecenter?.cancel(); browseRecenter = nil
         navRecenter?.cancel(); navRecenter = nil
         flyover?.detach(); flyover = nil
@@ -1236,6 +1239,13 @@ extension CarPlayController: CarPlayManagerDelegate {
             pauseAlerts()
             navigationViewController.routeLineTracksTraversal = true
             guard let mapView = navigationViewController.navigationMapView?.mapView else { return }
+            // Verkehr auf der Route wie auf dem iPhone: Mapbox schaltet ihn in CarPlay bei jedem Stil-Laden ab
+            // (CarPlayNavigationViewController setzt showsTrafficOnRouteLine = false) – danach wieder einschalten
+            navSubscriptions.removeAll()
+            navigationViewController.navigationMapView?.showsTrafficOnRouteLine = true
+            mapView.mapboxMap.onStyleLoaded.sink { [weak navigationViewController] _ in
+                MainActor.assumeIsolated { navigationViewController?.navigationMapView?.showsTrafficOnRouteLine = true }
+            }.store(in: &navSubscriptions)
             navigationOverlay?.stop()
             Satellite3DBuildings.install(
                 on: mapView,
@@ -1437,6 +1447,7 @@ extension CarPlayController: CarPlayManagerDelegate {
             navigationEndedAt = Date()
             navigationOverlay?.stop()
             navigationOverlay = nil
+            navSubscriptions.removeAll()
             navRecenter?.cancel(); navRecenter = nil
             ManeuverGuidance.shared.stop()
             navZoom = nil

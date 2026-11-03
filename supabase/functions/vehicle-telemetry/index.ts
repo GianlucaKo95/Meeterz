@@ -33,12 +33,15 @@ Deno.serve(async (req) => {
 
   // Restladezeit laut Auto (Sekunden) – kommt als eigene Meldung vom Add-on (MQTT des Gateways), nicht über OsmAnd.
   // Dann nur diese Spalten setzen, damit Akkustand und Zeitstempel der letzten Vollmeldung erhalten bleiben.
+  // Ebenso das im Auto eingestellte Ladeziel (%), auf das sich die Restladezeit bezieht.
   const remaining = within(num(params.get("remaining_charging_time")), 0, 48 * 3600);
-  if (remaining !== null && !params.has("soc")) {
-    const { error } = await db.from("vehicle_status").upsert(
-      { user_id: link.user_id, charge_remaining_s: remaining, charge_remaining_at: new Date().toISOString() },
-      { onConflict: "user_id" },
-    );
+  const target = within(num(params.get("charge_target")), 0, 100);
+  if ((params.has("remaining_charging_time") || params.has("charge_target")) && !params.has("soc")) {
+    if (remaining === null && target === null) return new Response("OK (ungültiger Wert)");
+    const patch: Record<string, unknown> = { user_id: link.user_id };
+    if (remaining !== null) { patch.charge_remaining_s = remaining; patch.charge_remaining_at = new Date().toISOString(); }
+    if (target !== null) patch.charge_target_percent = target;
+    const { error } = await db.from("vehicle_status").upsert(patch, { onConflict: "user_id" });
     if (error) return new Response(error.message, { status: 500 });
     return new Response("OK");
   }

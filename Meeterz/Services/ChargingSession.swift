@@ -20,8 +20,11 @@ final class ChargingSession {
     private(set) var reportedAt = Date()
     /// Ladeleistung in kW (positiv)
     private(set) var powerKW: Double = 0
-    /// Bis hierhin laden (Ladeplan-Stopp, sonst 80 %)
-    var targetPercent: Double = 80
+    /// Bis hierhin laden: Ladeplan-Stopp (wenn früher als das Auto), sonst das Ladeziel des Autos, sonst 80 %
+    var targetPercent: Double = 80 { didSet { if !settingTarget { chosenByUser = true } } }
+    /// Ziel von Hand gewählt („Bis 90 %“) – dann nicht mehr automatisch nachführen
+    private var chosenByUser = false
+    private var settingTarget = false
     private var announcedDone = false
     /// Karte auf dem iPhone weggeklickt – bis zum nächsten Ladevorgang nicht mehr zeigen (CarPlay-Anzeige bleibt)
     var hiddenOnPhone = false
@@ -43,8 +46,11 @@ final class ChargingSession {
 
     /// Geschätzte Restzeit bis zum Ziel (Ladekurve, begrenzt durch die aktuelle Leistung der Säule)
     var remaining: TimeInterval? {
-        // Wie im Auto: dessen eigene Restzeit, sobald es eine meldet (vorher stimmte die berechnete nie mit dem Auto überein)
-        if let car = AppModel.shared.vehicle.liveChargeRemaining { return car }
+        // Wie im Auto: dessen eigene Restzeit – aber nur, wenn sie sich auf dasselbe Ziel bezieht. Die Zeit des Autos gilt
+        // bis zu seinem eingestellten Ladeziel; lädt Meeterz nur bis zum Ladestopp-Ziel, wird bis dorthin gerechnet.
+        let vehicleStore = AppModel.shared.vehicle
+        if let car = vehicleStore.liveChargeRemaining,
+           vehicleStore.carChargeTarget.map({ abs($0 - targetPercent) < 1 }) ?? true { return car }
         guard let vehicle = EVSettings.vehicle, percent < targetPercent else { return nil }
         return ChargePlanner.chargeTime(vehicle, from: percent, to: targetPercent, siteKW: max(powerKW, 3) * 1.05)
     }
@@ -61,8 +67,13 @@ final class ChargingSession {
                 startedAt = Date()
                 announcedDone = false
                 hiddenOnPhone = false
-                targetPercent = target(here: AppModel.shared.location.lastLocation?.coordinate)
-                Diag.log("Laden erkannt: \(Int(soc)) % → Ziel \(Int(targetPercent)) %")
+                chosenByUser = false
+                setTarget(target(here: AppModel.shared.location.lastLocation?.coordinate))
+                Diag.log("Laden erkannt: \(Int(soc)) % → Ziel \(Int(targetPercent)) %" + (AppModel.shared.vehicle.carChargeTarget.map { " (Auto: \(Int($0)) %)" } ?? ""))
+            } else if !chosenByUser {
+                // Ladeziel des Autos kann später ankommen oder im Auto geändert werden
+                let t = target(here: AppModel.shared.location.lastLocation?.coordinate)
+                if abs(t - targetPercent) >= 1 { setTarget(t); Diag.log("Ladeziel angepasst: \(Int(t)) %") }
             }
             reportedPercent = soc
             reportedAt = status.measuredAt
@@ -89,11 +100,20 @@ final class ChargingSession {
 
     /// Ziel: Abfahrts-% des nächstgelegenen Stopps im übernommenen Plan (bis 1 km), sonst 80 %
     private func target(here: CLLocationCoordinate2D?) -> Double {
+        let car = AppModel.shared.vehicle.carChargeTarget
         if let here, let stop = plan?.stops.min(by: { $0.site.coordinate.distance(to: here) < $1.site.coordinate.distance(to: here) }),
            stop.site.coordinate.distance(to: here) < 1_000 {
-            return min(100, stop.departurePercent.rounded(.up) + 1)
+            let planned = min(100, stop.departurePercent.rounded(.up) + 1)
+            // Das Auto hört bei seinem Ladeziel ohnehin auf
+            return car.map { min($0, planned) } ?? planned
         }
-        return 80
+        return car ?? 80
+    }
+
+    private func setTarget(_ value: Double) {
+        settingTarget = true
+        targetPercent = value
+        settingTarget = false
     }
 
     static func minutes(_ t: TimeInterval) -> String {

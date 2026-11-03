@@ -19,9 +19,17 @@ final class VehicleStore {
         let lng: Double?
         let reportedAt: Date?
         let updatedAt: Date
-        /// Restladezeit laut Auto in Sekunden (über das Add-on, eigene Meldung)
+        /// Ladeziel laut Auto (40–100 %)
+    var carChargeTarget: Double? {
+        guard let t = status?.chargeTargetPercent, (40...100).contains(t) else { return nil }
+        return t
+    }
+
+    /// Restladezeit laut Auto in Sekunden (über das Add-on, eigene Meldung)
         let chargeRemainingS: Double?
         let chargeRemainingAt: Date?
+        /// Ladeziel, das im Auto eingestellt ist (%) – darauf bezieht sich dessen Restladezeit
+        let chargeTargetPercent: Double?
 
         enum CodingKeys: String, CodingKey {
             case soc, charging, parked, lat, lng
@@ -34,6 +42,7 @@ final class VehicleStore {
             case updatedAt = "updated_at"
             case chargeRemainingS = "charge_remaining_s"
             case chargeRemainingAt = "charge_remaining_at"
+            case chargeTargetPercent = "charge_target_percent"
         }
 
         /// Wann im Auto gemessen (sonst: wann angekommen)

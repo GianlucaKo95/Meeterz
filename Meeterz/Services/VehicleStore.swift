@@ -39,7 +39,8 @@ final class VehicleStore {
         /// Wann im Auto gemessen (sonst: wann angekommen)
         var measuredAt: Date { reportedAt ?? updatedAt }
         /// Alter der Messung
-        var age: TimeInterval { Date().timeIntervalSince(measuredAt) }
+        /// Nie negativ (Meldung mit Zeitstempel in der Zukunft gilt als gerade eben)
+        var age: TimeInterval { max(0, Date().timeIntervalSince(measuredAt)) }
     }
 
     private(set) var status: Status?
@@ -72,7 +73,7 @@ final class VehicleStore {
     static let maxReadingAge: TimeInterval = 7 * 24 * 3600
 
     var liveSoc: Double? {
-        guard let status, let soc = status.soc, status.age < Self.maxReadingAge else { return nil }
+        guard let status, let soc = status.soc, (0...100).contains(soc), status.age < Self.maxReadingAge else { return nil }
         return soc
     }
 

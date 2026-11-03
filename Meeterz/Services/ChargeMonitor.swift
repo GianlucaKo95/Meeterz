@@ -56,7 +56,8 @@ final class ChargeMonitor {
               let progress = navigationProvider.mapboxNavigation.navigation().currentRouteProgress?.routeProgress
         else { CarPlayBatteryChip.shared.hide(); return }
         let route = routes.mainRoute.route
-        let key = "\(route.distance)-\(route.legs.count)"
+        // Eindeutig je Route (Mapbox-Routen-ID), nicht nur Länge und Abschnitte – zwei Routen können gleich lang sein
+        let key = "\(routes.mainRoute.routeId)"
         let traveled = progress.distanceTraveled
         if key != profileKey {
             let settings = EVSettings.plannerSettings
@@ -99,6 +100,7 @@ final class ChargeMonitor {
               let progress = navigationProvider.mapboxNavigation.navigation().currentRouteProgress?.routeProgress
         else { return }
         let route = routes.mainRoute.route
+        let routeId = routes.mainRoute.routeId
         let traveled = progress.distanceTraveled
         var settings = EVSettings.plannerSettings
         settings.availability = await ChargeStatusService.shared.availability(along: route)
@@ -108,6 +110,11 @@ final class ChargeMonitor {
             return ChargePlanner.plan(profile: rest, vehicle: vehicle, startPercent: soc, settings: settings,
                                       sites: ChargeSites.all)
         }.value
+        // Während der Abfrage und Berechnung kann die Navigation geendet oder die Route gewechselt haben:
+        // dann kein Hinweis zu einer Route, die es nicht mehr gibt
+        guard AppModel.shared.navigation.isNavigating,
+              navigationProvider.mapboxNavigation.tripSession().currentNavigationRoutes?.mainRoute.routeId == routeId
+        else { Diag.log("Ladeplan unterwegs verworfen: Route inzwischen gewechselt oder beendet"); return }
 
         // Zwischenziele der laufenden Route, die noch vor mir liegen (bereits übernommene Ladestopps)
         let legIndex = progress.legIndex

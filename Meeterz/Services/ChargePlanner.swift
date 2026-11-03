@@ -367,7 +367,12 @@ enum ChargePlanner {
                 let need = pct(p.energy(from: here, to: there)) + detourEnergy(s.node) / 2 + detourEnergy(j) / 2
                 let minArrival = j == destination ? settings.arrivalPercent : settings.minAtChargerPercent
                 let requiredDeparture = need + minArrival
-                if requiredDeparture > settings.maxChargePercent { break }      // weiter geht's mit keiner Ladung
+                if requiredDeparture > settings.maxChargePercent {
+                    // Schon ohne Umweg nicht schaffbar: weiter entfernte Knoten erst recht nicht.
+                    // Sonst lag es nur am Umweg zu dieser Säule – eine spätere mit kürzerem Umweg kann noch gehen.
+                    if pct(p.energy(from: here, to: there)) + minArrival > settings.maxChargePercent { break }
+                    continue
+                }
                 var depart = arrival
                 var charge = 0.0
                 if s.node == 0 {

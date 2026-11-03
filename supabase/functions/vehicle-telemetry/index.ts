@@ -15,6 +15,8 @@ const num = (v: string | null) => {
   return Number.isFinite(n) ? n : null;
 };
 const bool = (v: string | null) => (v === null ? null : ["true", "1", "True"].includes(v));
+// Nur plausible Werte übernehmen; ein unsinniger Einzelwert fällt weg, der Rest der Meldung bleibt
+const within = (v: number | null, min: number, max: number) => (v !== null && v >= min && v <= max ? v : null);
 
 Deno.serve(async (req) => {
   const params = new URL(req.url).searchParams;
@@ -31,7 +33,7 @@ Deno.serve(async (req) => {
 
   // Restladezeit laut Auto (Sekunden) – kommt als eigene Meldung vom Add-on (MQTT des Gateways), nicht über OsmAnd.
   // Dann nur diese Spalten setzen, damit Akkustand und Zeitstempel der letzten Vollmeldung erhalten bleiben.
-  const remaining = num(params.get("remaining_charging_time"));
+  const remaining = within(num(params.get("remaining_charging_time")), 0, 48 * 3600);
   if (remaining !== null && !params.has("soc")) {
     const { error } = await db.from("vehicle_status").upsert(
       { user_id: link.user_id, charge_remaining_s: remaining, charge_remaining_at: new Date().toISOString() },
@@ -41,27 +43,35 @@ Deno.serve(async (req) => {
     return new Response("OK");
   }
 
+  // Messzeitpunkt: nie in der Zukunft (Uhr des Gateways falsch → jetzt)
   const ts = num(params.get("timestamp"));
-  const odometer = num(params.get("odometer"));
+  const now = Date.now();
+  const measured = ts && ts > 0 ? Math.min(ts * 1000, now) : now;
+  // Ältere Meldung (verspätet oder doppelt zugestellt) überschreibt keine neuere
+  const { data: existing } = await db.from("vehicle_status").select("reported_at").eq("user_id", link.user_id).maybeSingle();
+  if (existing?.reported_at && new Date(existing.reported_at).getTime() > measured) return new Response("OK (älter als gespeichert)");
+
+  const odometer = within(num(params.get("odometer")), 0, 5_000_000_000);
   const row: Record<string, unknown> = {
     user_id: link.user_id,
-    reported_at: ts ? new Date(ts * 1000).toISOString() : new Date().toISOString(),
+    reported_at: new Date(measured).toISOString(),
     updated_at: new Date().toISOString(),
   };
   const set = (key: string, value: unknown) => { if (value !== null && value !== undefined) row[key] = value; };
-  set("soc", num(params.get("soc")));
-  set("range_km", num(params.get("est_battery_range")));
+  set("soc", within(num(params.get("soc")), 0, 100));
+  set("range_km", within(num(params.get("est_battery_range")), 0, 2000));
   set("charging", bool(params.get("is_charging")));
-  set("power_kw", num(params.get("power")));
+  set("power_kw", within(num(params.get("power")), -1000, 1000));
   // Geparkt meldet das Auto oft 0 °C (Sensor aus) – dann den letzten echten Wert behalten
   const parked = bool(params.get("is_parked"));
-  const temp = num(params.get("ext_temp"));
+  const temp = within(num(params.get("ext_temp")), -60, 70);
   if (!(parked && temp === 0)) set("ext_temp", temp);
   set("odometer_km", odometer === null ? null : odometer / 1000);
-  set("speed_kmh", num(params.get("speed")));
+  set("speed_kmh", within(num(params.get("speed")), 0, 400));
   set("parked", bool(params.get("is_parked")));
-  set("lat", num(params.get("lat")));
-  set("lng", num(params.get("lon")));
+  // Position nur als Paar und im gültigen Bereich (0/0 = kein GPS)
+  const lat = within(num(params.get("lat")), -90, 90), lng = within(num(params.get("lon")), -180, 180);
+  if (lat !== null && lng !== null && !(lat === 0 && lng === 0)) { set("lat", lat); set("lng", lng); }
 
   const { error } = await db.from("vehicle_status").upsert(row, { onConflict: "user_id" });
   if (error) return new Response(error.message, { status: 500 });

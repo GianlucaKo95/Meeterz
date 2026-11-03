@@ -138,8 +138,10 @@ async function isAllowed(
     case "meetup_accepted":
     case "meetup_declined": {
       if (!meetupId) return false;
+      // Nur wenn das Treffen wirklich so entschieden ist (sonst ließe sich ein falsches „Treffen steht“ auslösen)
       const { data } = await admin.from("meetups").select("id")
-        .eq("id", meetupId).eq("from_user", target).eq("to_user", me).limit(1);
+        .eq("id", meetupId).eq("from_user", target).eq("to_user", me)
+        .eq("status", kind === "meetup_accepted" ? "accepted" : "declined").limit(1);
       return !!data?.length;
     }
   }

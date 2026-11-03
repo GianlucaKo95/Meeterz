@@ -76,6 +76,9 @@ Deno.serve(async (req) => {
     (!p.sharing_until || new Date(p.sharing_until).getTime() > now) &&
     (!p.incognito_until || new Date(p.incognito_until).getTime() <= now)
   ).map((p) => p.id));
+  // Wer mich ausdrücklich ausgeblendet hat („vor diesem Freund verbergen“), wird nicht geweckt – wie private.is_sharing()
+  const { data: hiding } = await admin.from("hidden_from").select("owner").eq("viewer", user.id).in("owner", targets);
+  for (const h of hiding ?? []) sharing.delete(h.owner as string);
   const dropped = targets.filter((t) => !sharing.has(t)).length;
   targets = targets.filter((t) => sharing.has(t));
   console.log(`request_location: teilen gerade=${targets.length}, nicht teilend=${dropped}`);

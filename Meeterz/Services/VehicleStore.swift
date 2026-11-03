@@ -54,7 +54,7 @@ final class VehicleStore {
     /// Live-Akkustand, wenn er frisch genug für die Planung ist (beim Fahren alle ~30 s, geparkt seltener)
     /// Reichweite laut Auto, wenn die Meldung frisch genug ist (wie liveSoc)
     var liveRangeKm: Double? {
-        guard let status, let range = status.rangeKm, range > 0, status.age < 6 * 3600 else { return nil }
+        guard let status, let range = status.rangeKm, range > 0, status.age < Self.maxReadingAge else { return nil }
         return range
     }
 
@@ -66,8 +66,13 @@ final class VehicleStore {
         return max(0, s - elapsed)
     }
 
+    /// So lange gilt die letzte Meldung des Autos. Geparkt schläft das Auto und meldet stundenlang nichts, der
+    /// Akkustand bleibt aber gleich – vorher galt sie nur 6 h, morgens wurde dann mit dem eingestellten Wert (80 %)
+    /// statt den gemeldeten 19 % geplant („Ankunft mit 73 %“, 03.11.)
+    static let maxReadingAge: TimeInterval = 7 * 24 * 3600
+
     var liveSoc: Double? {
-        guard let status, let soc = status.soc, status.age < 6 * 3600 else { return nil }
+        guard let status, let soc = status.soc, status.age < Self.maxReadingAge else { return nil }
         return soc
     }
 

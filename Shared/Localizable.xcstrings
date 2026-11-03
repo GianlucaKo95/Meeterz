@@ -30791,6 +30791,52 @@
           }
         }
       }
+    },
+    "Ankunft mit %lld %% · kein Ladestopp auf der Strecke": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ankunft mit %lld %% · kein Ladestopp auf der Strecke"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrive with %lld %% · no charging stop on the way"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrivée avec %lld %% · aucune borne sur le trajet"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Llegada con %lld %% · sin parada de carga en el trayecto"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chegada com %lld %% · sem paragem de carregamento no trajeto"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Varışta %%%lld · yol üzerinde şarj molası yok"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrivo con %lld %% · nessuna sosta di ricarica sul percorso"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

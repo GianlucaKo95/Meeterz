@@ -125,11 +125,14 @@ enum ChargePlanner {
         let startPercent: Double
         let totalChargeTime: TimeInterval
         let driveTime: TimeInterval
+        /// Ankunft unter dem gewünschten Akkustand, weil kein Ladestopp planbar war
+        var belowTarget = false
         /// Ohne Laden erreichbar?
         var direct: Bool { stops.isEmpty }
 
         /// „2 Ladestopps · 35 Min. laden · Ankunft mit 21 %“
         var summary: String {
+            if direct, belowTarget { return String(localized: "Ankunft mit \(Int(arrivalPercent.rounded())) % · kein Ladestopp auf der Strecke") }
             if direct { return String(localized: "Kein Ladestopp nötig · Ankunft mit \(Int(arrivalPercent.rounded())) %") }
             let n = stops.count == 1 ? String(localized: "1 Ladestopp") : String(localized: "\(stops.count) Ladestopps")
             return String(localized: "\(n) · \(Int((totalChargeTime / 60).rounded())) Min. laden · Ankunft mit \(Int(arrivalPercent.rounded())) %")
@@ -306,6 +309,9 @@ enum ChargePlanner {
         }
     }
 
+    /// Darunter gilt das Ziel als nicht erreichbar (Puffer für Prognosefehler)
+    static let hardMinimumPercent: Double = 3
+
     static func plan(route: Route, vehicle: EVVehicle, startPercent: Double, settings: Settings,
                      sites: [ChargeSite]) -> Result<Plan, Failure> {
         plan(profile: profile(of: route, vehicle: vehicle, temperature: settings.temperature, factors: settings.factors),
@@ -379,6 +385,12 @@ enum ChargePlanner {
         }
 
         guard let goal else {
+            // Wunsch-Akkustand am Ziel nicht planbar (z. B. keine Säule mehr auf der Reststrecke), der Akku reicht aber:
+            // dann ohne Laden ankommen statt „Akku reicht nicht bis zum Ziel“ (03.11.: gemeldet bei 15 %, angekommen mit 11 %)
+            if directArrival >= Self.hardMinimumPercent {
+                return .success(Plan(stops: [], arrivalPercent: directArrival, startPercent: startPercent,
+                                     totalChargeTime: 0, driveTime: p.time(from: 0, to: total), belowTarget: true))
+            }
             let reach = (startPercent - settings.minAtChargerPercent) / 100 * vehicle.battery
                 / max(p.energy(from: 0, to: total) / total * 1000, 0.05)
             return .failure(.unreachable(reachKm: reach))

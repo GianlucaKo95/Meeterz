@@ -210,9 +210,13 @@ enum MotorwayPhrases {
     /// „7 Kilometer weiter der Route folgen.“ → „7 Kilometer weiter auf der A 42 fahren.“ (nur auf der Autobahn)
     static func followRoad(_ text: String, legProgress: RouteLegProgress) -> String {
         let current = legProgress.currentStep
-        guard text.range(of: "der Route folgen", options: .caseInsensitive) != nil,
-              (current.intersections ?? []).contains(where: { $0.outletRoadClasses?.contains(.motorway) == true }),
-              let code = current.codes?.first, !code.isEmpty else { return text }
+        guard text.range(of: "der Route folgen", options: .caseInsensitive) != nil else { return text }
+        // Direkt nach der Auffahrt trägt der Schritt oft noch keine Straßennummer (03.11.: „7 Kilometer weiter der
+        // Route folgen“ auf der A 42) – dann die Nummer, die die Auffahrt angekündigt hat
+        let rampCode = legProgress.priorStep?.destinationCodes?.first.flatMap { $0.hasPrefix("A") || $0.hasPrefix("E") ? $0 : nil }
+        let onMotorway = (current.intersections ?? []).contains(where: { $0.outletRoadClasses?.contains(.motorway) == true })
+        guard let code = (current.codes?.first).flatMap({ $0.isEmpty ? nil : $0 }) ?? rampCode,
+              onMotorway || code == rampCode else { return text }
         return text.replacingOccurrences(of: "der Route folgen", with: "auf der \(code) fahren", options: .caseInsensitive)
     }
 

@@ -164,6 +164,43 @@ enum ThenInstructions {
     }
 }
 
+/// Abseits der Autobahn gleich die nächste Abbiegung ansagen: „In 800 Metern rechts auf Hafenstraße abbiegen“
+/// statt „800 Meter weiter der Route folgen“ bzw. „Einen Kilometer weiter auf L 140, dann rechts abbiegen“.
+/// „… weiter fahren“ bleibt nur auf der Autobahn (längere Strecken ohne Abbiegung).
+enum ContinueInstructions {
+    static func apply(to text: String, legProgress: RouteLegProgress) -> String {
+        let current = legProgress.currentStep
+        let onMotorway = (current.intersections ?? []).contains { $0.outletRoadClasses?.contains(.motorway) == true }
+            || text.range(of: #"auf der [AE] ?\d+"#, options: .regularExpression) != nil
+        guard !onMotorway, let next = legProgress.upcomingStep, next.maneuverType != .arrive,
+              let maneuver = current.instructionsSpokenAlongStep?.min(by: { $0.distanceAlongStep < $1.distanceAlongStep })?.text
+        else { return text }
+        return rewrite(text, maneuver: maneuver) ?? text
+    }
+
+    /// Reiner Text-Teil (testbar): „800 Meter weiter der Route folgen.“ + „Rechts abbiegen.“ → „In 800 Metern rechts abbiegen.“
+    static func rewrite(_ text: String, maneuver: String) -> String? {
+        let pattern = #"^\s*(einen|einem|[0-9]+(?:[.,][0-9]+)?) (Meter|Metern|Kilometer|Kilometern) weiter (der Route folgen|auf [^,.]+)"#
+        guard let match = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive)
+                .firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+              let amountRange = Range(match.range(at: 1), in: text), let unitRange = Range(match.range(at: 2), in: text)
+        else { return nil }
+        var turn = maneuver.trimmingCharacters(in: .whitespaces)
+        // Die Abbiegeansage selbst darf keine Entfernung tragen und muss eine Abbiegung sein
+        guard !turn.lowercased().hasPrefix("in "), !turn.lowercased().contains("weiter der route") else { return nil }
+        if let first = turn.split(separator: " ").first,
+           ["Rechts", "Links", "Leicht", "Scharf", "Wenden", "An", "Am", "Auf", "Geradeaus", "Bei", "Im", "Nach", "Die", "Den", "Der"].contains(String(first)) {
+            turn = first.lowercased() + turn.dropFirst(first.count)
+        }
+        let amount = text[amountRange].lowercased()
+        let km = text[unitRange].lowercased().hasPrefix("kilo")
+        let distance: String
+        if amount == "einen" || amount == "einem" { distance = km ? "In einem Kilometer" : "In einem Meter" }
+        else { distance = "In \(amount) " + (km ? "Kilometern" : "Metern") }
+        return distance + " " + turn
+    }
+}
+
 /// Autobahn-Formulierungen (bisher nur Deutsch):
 /// - Auffahrt: „In 500 Metern rechts auf die Auffahrt A 42 Richtung Dortmund fahren“
 ///   statt „In 500 Metern Auf die Auffahrt nach rechts auf A 42 abfahren“

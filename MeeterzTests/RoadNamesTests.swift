@@ -65,3 +65,19 @@ final class ThenCommaTests: XCTestCase {
                        "Links auf Aki-Schmidt-Platz abbiegen.")
     }
 }
+
+final class ContinueInstructionsTests: XCTestCase {
+    func testAnnouncesNextTurnInstead() {
+        XCTAssertEqual(ContinueInstructions.rewrite("800 Meter weiter der Route folgen.", maneuver: "Rechts auf Hafenstraße abbiegen."),
+                       "In 800 Metern rechts auf Hafenstraße abbiegen.")
+        XCTAssertEqual(ContinueInstructions.rewrite("einen Kilometer weiter auf L 140, dann rechts abbiegen.", maneuver: "Rechts abbiegen."),
+                       "In einem Kilometer rechts abbiegen.")
+        XCTAssertEqual(ContinueInstructions.rewrite("1,5 Kilometer weiter der Route folgen.", maneuver: "An der Ausfahrt abfahren."),
+                       "In 1,5 Kilometern an der Ausfahrt abfahren.")
+    }
+
+    func testLeavesOtherTextAlone() {
+        XCTAssertNil(ContinueInstructions.rewrite("Rechts abbiegen.", maneuver: "Rechts abbiegen."))
+        XCTAssertNil(ContinueInstructions.rewrite("800 Meter weiter der Route folgen.", maneuver: "In 100 Metern rechts abbiegen."))
+    }
+}

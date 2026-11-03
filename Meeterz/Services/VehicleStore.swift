@@ -68,6 +68,12 @@ final class VehicleStore {
         return range
     }
 
+    /// Ladeziel laut Auto (40–100 %)
+    var carChargeTarget: Double? {
+        guard let t = status?.chargeTargetPercent, (40...100).contains(t) else { return nil }
+        return t
+    }
+
     /// Restladezeit laut Auto (Sekunden ab jetzt), wenn das Auto sie gemeldet hat und sie frisch ist
     var liveChargeRemaining: TimeInterval? {
         guard let status, let s = status.chargeRemainingS, s > 0, let at = status.chargeRemainingAt else { return nil }

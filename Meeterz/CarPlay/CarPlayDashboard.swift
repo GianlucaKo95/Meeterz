@@ -279,6 +279,7 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
 
     /// Zuletzt gesetzte Knöpfe (nur bei Änderung neu setzen, sonst flackert die Kachel)
     private var shortcutKey = ""
+    private var suggestionTimer: Timer?
 
     /// Schnellwahl im Dashboard: die zwei nächsten Freunde mit Profilbild – ein Tippen navigiert zu ihnen.
     /// Ist niemand sichtbar: Zuhause und Arbeit. (Apple erlaubt Apps hier höchstens zwei Knöpfe.)
@@ -307,6 +308,18 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
             return Shortcut(key: "\(f.friendId)-\(faded)", title: first, subtitle: "", image: image,
                             place: Place(id: "friend-\(f.friendId)", name: f.displayName, address: nil,
                                          coordinate: item.position.coordinate))
+        }
+        // Routenvorschlag (Termin oder häufiges Ziel) als erster Knopf – wie Apple Karten
+        if let suggestion = RouteSuggestions.shared.current, !app.navigation.isNavigating {
+            let config = UIImage.SymbolConfiguration(pointSize: 26, weight: .semibold)
+            let symbol: String
+            if case .calendar = suggestion.reason { symbol = "calendar" } else { symbol = "clock.arrow.circlepath" }
+            let minutes = Int((suggestion.travelTime / 60).rounded())
+            shortcuts.insert(Shortcut(key: "suggest-\(suggestion.place.id)-\(minutes)", title: suggestion.title,
+                                      subtitle: suggestion.subtitle,
+                                      image: UIImage(systemName: symbol, withConfiguration: config) ?? UIImage(),
+                                      place: suggestion.place), at: 0)
+            shortcuts = Array(shortcuts.prefix(2))
         }
         if shortcuts.isEmpty {
             let config = UIImage.SymbolConfiguration(pointSize: 26, weight: .semibold)
@@ -361,6 +374,7 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
         shortcutKey = ""
         subscriptions.removeAll()
         timer?.invalidate()
+        suggestionTimer?.invalidate(); suggestionTimer = nil
         timer = nil
         pins = [:]
         routeOverlays = []
@@ -456,6 +470,15 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
         // Schnellwahl (Freunde/Zuhause) aktuell halten
         timer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.updateShortcuts(); self?.syncDayNight() }
+        }
+        // Routenvorschlag (alle 5 Min. neu, sonst aus dem Zwischenspeicher)
+        Task { @MainActor in _ = await RouteSuggestions.shared.refresh() }
+        suggestionTimer?.invalidate()
+        suggestionTimer = Timer.scheduledTimer(withTimeInterval: 5 * 60, repeats: true) { _ in
+            Task { @MainActor in
+                guard !AppModel.shared.navigation.isNavigating else { return }
+                _ = await RouteSuggestions.shared.refresh()
+            }
         }
 
         Task { @MainActor [weak self, weak nav] in

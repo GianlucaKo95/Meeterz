@@ -20,6 +20,9 @@ struct FriendsView: View {
     @State private var evEnabled = EVSettings.enabled
     @State private var parkingEnabled = ParkingStore.enabled
     @State private var staleHours = StaleFriends.hours
+    @State private var suggestFrequent = RouteSuggestions.frequentEnabled
+    @State private var suggestCalendar = RouteSuggestions.calendarEnabled && RouteSuggestions.shared.calendarAuthorized
+    @State private var learnedPlaces = FrequentPlaces.shared.spots.count
     @State private var appearance = AppAppearance.current
     @State private var evRange = EVSettings.rangeKm
     @State private var evVehicle = EVSettings.vehicle
@@ -471,6 +474,30 @@ struct FriendsView: View {
             }
             Text("Freunde, von denen so lange kein neuer Standort kam, verschwinden von der Karte – statt an einem alten Ort zu stehen. Sobald sie wieder teilen, sind sie zurück.")
                 .font(.footnote).foregroundStyle(Theme.muted)
+            Toggle("Häufige Ziele vorschlagen", isOn: Binding(get: { suggestFrequent }, set: { on in
+                suggestFrequent = on
+                RouteSuggestions.frequentEnabled = on
+                AppModel.shared.location.updateVisitMonitoring()
+            }))
+            .tint(Theme.accent)
+            Toggle("Termine aus dem Kalender vorschlagen", isOn: Binding(get: { suggestCalendar }, set: { on in
+                if !on { suggestCalendar = false; RouteSuggestions.calendarEnabled = false; return }
+                Task { @MainActor in
+                    let granted = await RouteSuggestions.shared.requestCalendarAccess()
+                    suggestCalendar = granted
+                    RouteSuggestions.calendarEnabled = granted
+                    if !granted { AppModel.shared.show(String(localized: "Kein Kalenderzugriff – in den iPhone-Einstellungen unter Meeterz erlauben.")) }
+                }
+            }))
+            .tint(Theme.accent)
+            Text("Wie bei Apple Karten schlägt CarPlay beim Einsteigen ein Ziel vor: einen Termin mit Ort, zu dem du bald losfahren musst, oder einen Ort, den du um diese Zeit oft ansteuerst. Die gelernten Orte bleiben nur auf diesem iPhone.")
+                .font(.footnote).foregroundStyle(Theme.muted)
+            if learnedPlaces > 0 {
+                Button("Gelernte Orte löschen (\(learnedPlaces))", role: .destructive) {
+                    FrequentPlaces.shared.clear()
+                    learnedPlaces = 0
+                }
+            }
             DisclosureGroup("Diagnose") {
                 Text(diagText.isEmpty ? String(localized: "Noch keine Einträge.") : diagText)
                     .font(.system(size: 10, design: .monospaced)).textSelection(.enabled)

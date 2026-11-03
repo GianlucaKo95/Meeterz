@@ -1,5 +1,6 @@
 import XCTest
 @testable import Meeterz
+import CoreLocation
 
 final class RoadNamesTests: XCTestCase {
     func testDropsCodeNextToName() {
@@ -95,5 +96,28 @@ final class EuropeanCodesTests: XCTestCase {
     func testKeepsEuropeanWithoutNational() {
         XCTAssertEqual(RoadNames.dropEuropeanCodes(in: "Auf E 45 fahren", national: []), "Auf E 45 fahren")
         XCTAssertEqual(RoadNames.preferredCode(["E 35", "A 3"]), "A 3")
+    }
+}
+
+final class FrequentPlacesTests: XCTestCase {
+    private func date(_ s: String) -> Date {
+        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd HH:mm"; f.timeZone = .current
+        return f.date(from: s)!
+    }
+
+    func testPredictsWorkOnWeekdayMorning() {
+        let home = CLLocationCoordinate2D(latitude: 51.43, longitude: 6.76)
+        // Montag–Freitag gegen 08:10 an der Arbeit angekommen (drei Wochen)
+        let arrivals = ["2026-10-12 08:10", "2026-10-13 08:05", "2026-10-19 08:12", "2026-10-20 08:08", "2026-10-26 08:15", "2026-10-27 08:02"].map(date)
+        let work = FrequentPlaces.Spot(lat: 51.24, lng: 6.78, name: "Arbeit", arrivals: arrivals)
+        let gym = FrequentPlaces.Spot(lat: 51.40, lng: 6.70, name: "Sport", arrivals: [date("2026-10-28 19:00")])
+        let now = date("2026-11-02 07:45")   // Montag
+        XCTAssertEqual(FrequentPlaces.likely(in: [work, gym], now: now, from: home)?.name, "Arbeit")
+        // Abends nicht
+        XCTAssertNil(FrequentPlaces.likely(in: [work, gym], now: date("2026-11-02 18:00"), from: home))
+        // Am Wochenende nicht (andere Art Tag)
+        XCTAssertNil(FrequentPlaces.likely(in: [work], now: date("2026-11-07 07:45"), from: home))
+        // Schon dort: kein Vorschlag
+        XCTAssertNil(FrequentPlaces.likely(in: [work], now: now, from: work.coordinate))
     }
 }

@@ -202,8 +202,13 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
     private func keepRelaunchHook() {
         if authorization == .authorizedAlways {
             manager.startMonitoringSignificantLocationChanges()
+            // Aufenthalte für die Routenvorschläge (häufige Orte); ebenfalls stromsparend und ohne Ortungsanzeige
+            if RouteSuggestions.frequentEnabled { manager.startMonitoringVisits() } else { manager.stopMonitoringVisits() }
         }
     }
+
+    /// Nach Umschalten in den Einstellungen
+    func updateVisitMonitoring() { keepRelaunchHook() }
 
     /// Hat der Nutzer nur „ungefähren Standort“ erlaubt, für die Fahrt um präzisen Standort bitten
     private func requestPreciseIfReduced() {
@@ -303,6 +308,13 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
             Diag.log("Parkplatz verlassen (Wegfahr-Zaun) – App läuft")
             self.manager.stopMonitoring(for: region)
             AppModel.shared.startWithoutPhoneUI("Wegfahren")
+        }
+    }
+
+    nonisolated func locationManager(_ manager: CLLocationManager, didVisit visit: CLVisit) {
+        let coordinate = visit.coordinate, accuracy = visit.horizontalAccuracy, arrival = visit.arrivalDate
+        Task { @MainActor in
+            FrequentPlaces.shared.record(coordinate: coordinate, accuracy: accuracy, arrival: arrival)
         }
     }
 

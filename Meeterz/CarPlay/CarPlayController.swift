@@ -411,9 +411,11 @@ final class CarPlayController: NSObject {
         watchInvites()
         startSpeedWarning()
         startFreezeWatch()
-        // Läuft auf dem iPhone schon eine Navigation, übernimmt CarPlay sie
+        // Läuft auf dem iPhone schon eine Navigation, übernimmt CarPlay sie – sonst wie Apple Karten ein Ziel vorschlagen
         if AppModel.shared.navigation.isNavigating {
             beginNavigationIfConnected()
+        } else {
+            offerRouteSuggestion()
         }
     }
 

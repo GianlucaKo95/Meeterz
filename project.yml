@@ -76,6 +76,7 @@ targets:
         NSCameraUsageDescription: "Meeterz nutzt die Kamera, damit du ein Profilfoto aufnehmen kannst, das nur deine Freunde sehen."
         NSLocationWhenInUseUsageDescription: "Meeterz zeigt deinen Standort auf der Karte, navigiert dich und teilt deinen Standort mit Freunden, die du freigegeben hast."
         NSLocationAlwaysAndWhenInUseUsageDescription: "Damit Freunde dich auch sehen, wenn Meeterz im Hintergrund läuft (z. B. während der Fahrt)."
+        NSCalendarsFullAccessUsageDescription: "Meeterz schlägt dir Termine mit Ort als Ziel vor, sobald du losfahren musst. Die Termine bleiben auf deinem iPhone."
         NSLocationTemporaryUsageDescriptionDictionary:
           LocationAccuracyAuthorizationDescription: "Für die Navigation braucht Meeterz deinen genauen Standort."
         # meeterz://carplay/route – das Dashboard öffnet damit die große CarPlay-Ansicht

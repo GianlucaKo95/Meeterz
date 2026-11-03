@@ -31021,6 +31021,374 @@
           }
         }
       }
+    },
+    "Termin %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Termin %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appointment %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rendez-vous %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cita %@"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compromisso %@"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Randevu %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appuntamento %@"
+          }
+        }
+      }
+    },
+    "Häufiger Ort": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Häufiger Ort"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Frequent place"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lieu fréquent"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lugar frecuente"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Local frequente"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sık gidilen yer"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Luogo frequente"
+          }
+        }
+      }
+    },
+    "Los": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Go"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Y aller"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ir"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ir"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Git"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vai"
+          }
+        }
+      }
+    },
+    "Häufige Ziele vorschlagen": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Häufige Ziele vorschlagen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suggest frequent destinations"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suggérer les destinations fréquentes"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sugerir destinos frecuentes"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sugerir destinos frequentes"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sık gidilen yerleri öner"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suggerisci destinazioni frequenti"
+          }
+        }
+      }
+    },
+    "Termine aus dem Kalender vorschlagen": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Termine aus dem Kalender vorschlagen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suggest calendar appointments"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suggérer les rendez-vous du calendrier"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sugerir citas del calendario"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sugerir compromissos do calendário"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Takvim randevularını öner"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suggerisci appuntamenti dal calendario"
+          }
+        }
+      }
+    },
+    "Wie bei Apple Karten schlägt CarPlay beim Einsteigen ein Ziel vor: einen Termin mit Ort, zu dem du bald losfahren musst, oder einen Ort, den du um diese Zeit oft ansteuerst. Die gelernten Orte bleiben nur auf diesem iPhone.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wie bei Apple Karten schlägt CarPlay beim Einsteigen ein Ziel vor: einen Termin mit Ort, zu dem du bald losfahren musst, oder einen Ort, den du um diese Zeit oft ansteuerst. Die gelernten Orte bleiben nur auf diesem iPhone."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Like Apple Maps, CarPlay suggests a destination when you get in: an appointment with a location you need to leave for soon, or a place you often head to at this time. Learned places stay on this iPhone only."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comme Plans d’Apple, CarPlay suggère une destination quand vous montez : un rendez-vous avec lieu pour lequel vous devez bientôt partir, ou un lieu où vous allez souvent à cette heure. Les lieux appris restent uniquement sur cet iPhone."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Como Mapas de Apple, CarPlay sugiere un destino al subir: una cita con lugar a la que debes salir pronto o un sitio al que sueles ir a esta hora. Los lugares aprendidos solo se guardan en este iPhone."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Como no Mapas da Apple, o CarPlay sugere um destino ao entrar: um compromisso com local para o qual tem de sair em breve, ou um sítio onde vai muitas vezes a esta hora. Os locais aprendidos ficam apenas neste iPhone."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Haritalar gibi CarPlay da bindiğinizde bir hedef önerir: yakında yola çıkmanız gereken konumlu bir randevu veya bu saatte sık gittiğiniz bir yer. Öğrenilen yerler yalnızca bu iPhone'da kalır."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Come Mappe di Apple, CarPlay suggerisce una destinazione quando sali: un appuntamento con luogo per cui devi partire a breve, o un posto dove vai spesso a quest'ora. I luoghi appresi restano solo su questo iPhone."
+          }
+        }
+      }
+    },
+    "Gelernte Orte löschen (%lld)": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gelernte Orte löschen (%lld)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete learned places (%lld)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer les lieux appris (%lld)"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Borrar lugares aprendidos (%lld)"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apagar locais aprendidos (%lld)"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öğrenilen yerleri sil (%lld)"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elimina luoghi appresi (%lld)"
+          }
+        }
+      }
+    },
+    "Kein Kalenderzugriff – in den iPhone-Einstellungen unter Meeterz erlauben.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kein Kalenderzugriff – in den iPhone-Einstellungen unter Meeterz erlauben."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No calendar access – allow it in iPhone Settings under Meeterz."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas d’accès au calendrier – autorisez-le dans Réglages > Meeterz."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin acceso al calendario: permítelo en Ajustes > Meeterz."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sem acesso ao calendário – permita em Definições > Meeterz."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Takvim erişimi yok – iPhone Ayarlar > Meeterz'den izin verin."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nessun accesso al calendario: consentilo in Impostazioni > Meeterz."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

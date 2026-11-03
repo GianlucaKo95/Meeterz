@@ -14,15 +14,22 @@ final class ChargeMonitor {
     private var lastAlert = Date.distantPast
     private var lastSignature = ""
 
-    /// Akkustand beim Start der Fahrt (für die Prognose ohne Live-Daten)
-    private var startSoc: Double = 0
+    /// Bezugspunkt der Prognose ohne Live-Daten: Akkustand an einer Stelle der aktuellen Route.
+    /// Nach einer Neuberechnung beginnt die gefahrene Strecke der neuen Route wieder bei 0 – vorher wurde dann vom
+    /// Akkustand beim Fahrtstart aus gerechnet und der bis dahin verbrauchte Strom „vergessen“ (Ziel-% zu hoch).
+    private var anchorSoc: Double = 0
+    private var anchorTraveled: Double = 0
+    private var lastEstimate: Double?
+    private var lastLogged = ""
     private var profileKey = ""
     private var profile: ChargePlanner.Profile?
 
     func start() {
         stop()
         guard EVSettings.enabled, EVSettings.vehicle != nil else { return }
-        startSoc = EVSettings.chargePercent
+        anchorSoc = EVSettings.chargePercent
+        anchorTraveled = 0
+        lastEstimate = nil
         timer = Timer.scheduledTimer(withTimeInterval: 120, repeats: true) { _ in
             Task { @MainActor in await ChargeMonitor.shared.check() }
         }
@@ -50,16 +57,21 @@ final class ChargeMonitor {
         else { CarPlayBatteryChip.shared.hide(); return }
         let route = routes.mainRoute.route
         let key = "\(route.distance)-\(route.legs.count)"
+        let traveled = progress.distanceTraveled
         if key != profileKey {
             let settings = EVSettings.plannerSettings
             profile = ChargePlanner.profile(of: route, vehicle: vehicle, temperature: settings.temperature, factors: settings.factors)
+            // Neue Route (auch nach Neuberechnung): ab dem zuletzt geschätzten Stand weiterrechnen
+            if !profileKey.isEmpty, let lastEstimate { anchorSoc = lastEstimate }
+            anchorTraveled = traveled
             profileKey = key
         }
         guard let profile else { return }
-        let traveled = progress.distanceTraveled
         let pct = { (kwh: Double) in kwh / vehicle.battery * 100 }
         let live = (AppModel.shared.vehicle.status?.age ?? .infinity) < 5 * 60 ? AppModel.shared.vehicle.liveSoc : nil
-        let now = live ?? (startSoc - pct(profile.energy(from: 0, to: traveled)))
+        if let live { anchorSoc = live; anchorTraveled = traveled }
+        let now = anchorSoc - pct(profile.energy(from: anchorTraveled, to: max(traveled, anchorTraveled)))
+        lastEstimate = now
         // Ende des aktuellen Abschnitts: Zwischenziel oder Ziel
         var end = 0.0
         for (i, leg) in route.legs.enumerated() {
@@ -69,6 +81,12 @@ final class ChargeMonitor {
         let last = progress.legIndex >= route.legs.count - 1
         let arrival = now - pct(profile.energy(from: traveled, to: end))
         let limit = last ? EVSettings.arrivalPercent : EVSettings.minAtChargerPercent
+        // Zum Nachprüfen: Modell gegen die Reichweite des Autos (km je % laut Auto)
+        let restKm = max(0, end - traveled) / 1000
+        let modelPer100 = restKm > 0.5 ? profile.energy(from: traveled, to: end) / restKm * 100 : 0
+        let carArrival = AppModel.shared.vehicle.liveRangeKm.flatMap { r in (live ?? now) > 1 ? now - restKm / (r / (live ?? now)) : nil }
+        let line = "Akku-Prognose: jetzt \(Int(now.rounded())) % (\(live != nil ? "live" : "geschätzt")), \(last ? "Ziel" : "Stopp") \(Int(arrival.rounded())) %, Rest \(Int(restKm)) km, Modell \(String(format: "%.1f", modelPer100)) kWh/100 km" + (carArrival.map { ", nach Auto-Reichweite \(Int($0.rounded())) %" } ?? "")
+        if line != lastLogged { lastLogged = line; Diag.log(line) }
         CarPlayBatteryChip.shared.show(label: last ? String(localized: "Ziel") : String(localized: "Stopp"), percent: arrival, low: arrival < limit, live: live != nil)
     }
 

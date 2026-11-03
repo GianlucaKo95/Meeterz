@@ -99,8 +99,19 @@ struct FriendsView: View {
     /// Einstellungen hinter dem Zahnrad: Teilen, Sound-Pack, App, Konto
     private var settingsList: some View {
         List {
-            sharingSection
-            soundSection
+            Section {
+                NavigationLink { settingsPage("Standort teilen") { sharingSection } } label: {
+                    LabeledContent {
+                        Text((app.profile?.isSharingNow ?? false) ? sharingMode.title : String(localized: "Aus"))
+                    } label: { Label("Standort teilen", systemImage: "location.fill") }
+                }
+                NavigationLink { settingsPage("Sound-Pack") { soundSection } } label: {
+                    LabeledContent {
+                        Text(app.sounds.enabled ? String(localized: "An") : String(localized: "Aus"))
+                    } label: { Label("Sound-Pack", systemImage: "waveform") }
+                }
+            }
+            .listRowBackground(Theme.panel)
             appSection
             accountSection
         }

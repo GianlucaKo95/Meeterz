@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
     if (remaining !== null) { patch.charge_remaining_s = remaining; patch.charge_remaining_at = new Date().toISOString(); }
     if (target !== null) patch.charge_target_percent = target;
     const { error } = await db.from("vehicle_status").upsert(patch, { onConflict: "user_id" });
-    if (error) return new Response(error.message, { status: 500 });
+    if (error) { console.error(error.message); return new Response("error", { status: 500 }); }
     return new Response("OK");
   }
 
@@ -77,6 +77,6 @@ Deno.serve(async (req) => {
   if (lat !== null && lng !== null && !(lat === 0 && lng === 0)) { set("lat", lat); set("lng", lng); }
 
   const { error } = await db.from("vehicle_status").upsert(row, { onConflict: "user_id" });
-  if (error) return new Response(error.message, { status: 500 });
+  if (error) { console.error(error.message); return new Response("error", { status: 500 }); }
   return new Response("OK");
 });

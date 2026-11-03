@@ -38,6 +38,10 @@ final class RouteSuggestions {
 
     /// Zuletzt ermittelter Vorschlag (für die Dashboard-Schnellwahl)
     private(set) var current: Suggestion?
+    /// Route zum Vorschlag (für die Vorschau im Dashboard)
+    private(set) var currentRoutes: NavigationRoutes?
+    /// Abgelehnte Ziele: bis wann sie nicht erneut vorgeschlagen werden
+    private var dismissed: [String: Date] = [:]
     private var computedAt = Date.distantPast
     private var computing: Task<Suggestion?, Never>?
 
@@ -67,10 +71,35 @@ final class RouteSuggestions {
         computedAt = Date()
         if result != current {
             current = result
+            currentRoutes = result.flatMap { routeCache[Self.key($0.place.coordinate)]?.routes }
             Diag.log(result.map { "Routenvorschlag: \($0.title) – \($0.subtitle)" } ?? "Routenvorschlag: keiner")
-            CarPlayDashboard.shared.updateShortcuts()
+            CarPlayDashboard.suggestionChanged()
         }
         return result
+    }
+
+    /// „Nein“ in CarPlay: Vorschlag weg (auch im Dashboard) und dasselbe Ziel 3 Stunden nicht mehr vorschlagen
+    func dismissCurrent() {
+        guard let current else { return }
+        dismissed[current.place.id] = Date().addingTimeInterval(3 * 3600)
+        self.current = nil
+        currentRoutes = nil
+        Diag.log("Routenvorschlag abgelehnt: \(current.title)")
+        CarPlayDashboard.suggestionChanged()
+    }
+
+    /// Fahrt gestartet: Vorschlag ist erledigt
+    func clearCurrent() {
+        guard current != nil else { return }
+        current = nil
+        currentRoutes = nil
+        computedAt = Date()
+        CarPlayDashboard.suggestionChanged()
+    }
+
+    private func isDismissed(_ place: Place) -> Bool {
+        dismissed = dismissed.filter { $0.value > Date() }
+        return dismissed[place.id] != nil
     }
 
     private func compute() async -> Suggestion? {
@@ -110,7 +139,7 @@ final class RouteSuggestions {
             let name = event.structuredLocation?.title?.split(separator: "\n").first.map(String.init) ?? event.location ?? event.title ?? ""
             let place = Place(id: "event-\(event.eventIdentifier ?? UUID().uuidString)", name: name, address: event.location,
                               coordinate: coordinate)
-            guard let travel = await travelTime(to: coordinate, from: here) else { continue }
+            guard !isDismissed(place), let travel = await travelTime(to: coordinate, from: here) else { continue }
             let leave = event.startDate.addingTimeInterval(-travel - 5 * 60)
             guard leave.timeIntervalSince(now) <= 30 * 60 else { continue }   // noch zu früh
             return Suggestion(place: place, reason: .calendar(title: event.title ?? name, start: event.startDate), travelTime: travel)
@@ -133,18 +162,21 @@ final class RouteSuggestions {
     // MARK: Häufige Orte
 
     private func frequentSuggestion(from here: CLLocation) async -> Suggestion? {
-        guard let spot = FrequentPlaces.shared.likelyDestination(now: Date(), from: here.coordinate) else { return nil }
+        guard let spot = FrequentPlaces.shared.likelyDestination(now: Date(), from: here.coordinate),
+              !isDismissed(spot.place) else { return nil }
         guard let travel = await travelTime(to: spot.coordinate, from: here) else { return nil }
         return Suggestion(place: spot.place, reason: .frequent, travelTime: travel)
     }
 
     // MARK: Fahrzeit
 
-    private var travelCache: [String: (time: TimeInterval, at: Date)] = [:]
+    private var routeCache: [String: (time: TimeInterval, routes: NavigationRoutes, at: Date)] = [:]
+
+    private static func key(_ c: CLLocationCoordinate2D) -> String { String(format: "%.4f,%.4f", c.latitude, c.longitude) }
 
     private func travelTime(to coordinate: CLLocationCoordinate2D, from here: CLLocation) async -> TimeInterval? {
-        let key = String(format: "%.4f,%.4f", coordinate.latitude, coordinate.longitude)
-        if let c = travelCache[key], Date().timeIntervalSince(c.at) < 5 * 60 { return c.time }
+        let key = Self.key(coordinate)
+        if let c = routeCache[key], Date().timeIntervalSince(c.at) < 5 * 60 { return c.time }
         let options = NavigationRouteOptions(
             waypoints: [Waypoint(location: here, name: nil), Waypoint(coordinate: coordinate, name: nil)],
             profileIdentifier: .automobileAvoidingTraffic, locale: Locale.navigation, distanceUnit: .kilometer)
@@ -152,7 +184,7 @@ final class RouteSuggestions {
         let provider = navigationProvider.mapboxNavigation.routingProvider()
         guard let routes = try? await provider.calculateRoutes(options: options).value else { return nil }
         let time = routes.mainRoute.route.expectedTravelTime
-        travelCache[key] = (time, Date())
+        routeCache[key] = (time, routes, Date())
         return time
     }
 }

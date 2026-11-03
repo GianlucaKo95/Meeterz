@@ -219,7 +219,13 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
             // Laufende Route
             navigationProvider.mapboxNavigation.tripSession().navigationRoutes
                 .receive(on: DispatchQueue.main)
-                .sink { [weak self] routes in self?.drawRoute(routes?.mainRoute.route.shape?.coordinates) }
+                .sink { [weak self] routes in
+                    MainActor.assumeIsolated {
+                        guard let self else { return }
+                        if routes == nil, self.showingSuggestion { return }   // Vorschau des Vorschlags behalten
+                        self.drawRoute(routes?.mainRoute.route.shape?.coordinates)
+                    }
+                }
                 .store(in: &self.subscriptions)
 
             // Freunde alle 3 s abgleichen
@@ -280,6 +286,46 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
     /// Zuletzt gesetzte Knöpfe (nur bei Änderung neu setzen, sonst flackert die Kachel)
     private var shortcutKey = ""
     private var suggestionTimer: Timer?
+    /// Zeigt gerade die Route des Vorschlags (Kamera folgt dann nicht dem Standort)
+    private var showingSuggestion = false
+
+    /// Vorschlag neu/abgelehnt/erledigt: Schnellwahl und Routenvorschau in Dashboard und Kombiinstrument anpassen
+    static func suggestionChanged() {
+        for d in [shared, cluster] {
+            d.updateShortcuts()
+            d.updateSuggestionPreview()
+        }
+    }
+
+    /// Wie Apple Karten: Liegt ein Vorschlag vor (und keine Fahrt), zeigt das Dashboard dessen Route als Übersicht
+    func updateSuggestionPreview() {
+        let navigating = AppModel.shared.navigation.isNavigating
+        let routes = navigating ? nil : RouteSuggestions.shared.currentRoutes
+        if let routes {
+            showingSuggestion = true
+            if let map = mapbox {
+                map.show(routes, routeAnnotationKinds: [])
+                map.navigationCamera.stop()
+                map.showcase(routes, routeAnnotationKinds: [], animated: true, duration: 0.8)
+            } else if let map = mapView, let coords = routes.mainRoute.route.shape?.coordinates, coords.count > 1 {
+                drawRoute(coords)
+                var c = coords
+                let rect = MKPolyline(coordinates: &c, count: c.count).boundingMapRect
+                map.setVisibleMapRect(rect, edgePadding: UIEdgeInsets(top: 30, left: 30, bottom: 30, right: 30), animated: true)
+            }
+            Diag.log("\(name): Routenvorschau des Vorschlags")
+        } else if showingSuggestion {
+            showingSuggestion = false
+            if let map = mapbox {
+                if !navigating { map.removeRoutes() }
+                map.navigationCamera.update(cameraState: .following)
+                configureMapboxCamera()
+            } else if let map = mapView {
+                if !navigating { drawRoute(nil) }
+                if let here = map.userLocation.location ?? AppModel.shared.location.lastLocation { follow(here, map: map, animated: true) }
+            }
+        }
+    }
 
     /// Schnellwahl im Dashboard: die zwei nächsten Freunde mit Profilbild – ein Tippen navigiert zu ihnen.
     /// Ist niemand sichtbar: Zuhause und Arbeit. (Apple erlaubt Apps hier höchstens zwei Knöpfe.)
@@ -386,6 +432,8 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
     // MARK: Kamera: folgt dem Standort, in Fahrtrichtung, leicht geneigt
 
     private func follow(_ location: CLLocation, map: MKMapView, animated: Bool) {
+        // Routenvorschau des Vorschlags bleibt stehen, bis er angenommen oder abgelehnt ist
+        guard !showingSuggestion else { return }
         // Dashboard: so nah wie die große Karte (derselbe Zoom, umgerechnet wie die Flyover-Ebene dort).
         // Vorher fester Abstand von ~1 km – MapKit begrenzte dabei die Neigung auf 34°, und das Bild sah anders aus.
         if ownZoom == nil, map.bounds.height > 1 {
@@ -460,8 +508,9 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
             .sink { [weak self] routes in
                 MainActor.assumeIsolated {
                     guard let self, let map = self.mapbox else { return }
-                    if let routes { map.show(routes, routeAnnotationKinds: []) } else { map.removeRoutes() }
+                    if let routes { map.show(routes, routeAnnotationKinds: []) } else if !self.showingSuggestion { map.removeRoutes() }
                     self.configureMapboxCamera()
+                    if routes == nil { self.showingSuggestion = false; self.updateSuggestionPreview() }
                 }
             }
             .store(in: &subscriptions)

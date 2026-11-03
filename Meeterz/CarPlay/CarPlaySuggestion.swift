@@ -19,7 +19,9 @@ extension CarPlayController {
                     self?.startGuidance(to: suggestion.place, showProgress: true)
                 }
             }
-            let no = CPAlertAction(title: String(localized: "Nein"), style: .cancel) { _ in }
+            let no = CPAlertAction(title: String(localized: "Nein"), style: .cancel) { _ in
+                Task { @MainActor in RouteSuggestions.shared.dismissCurrent() }
+            }
             let icon: String
             if case .calendar = suggestion.reason { icon = "calendar" } else { icon = "clock.arrow.circlepath" }
             let alert = CPNavigationAlert(titleVariants: [suggestion.title],

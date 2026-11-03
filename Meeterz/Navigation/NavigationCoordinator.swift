@@ -504,6 +504,7 @@ final class NavigationCoordinator: NSObject {
 
     private func beginTracking() {
         isNavigating = true
+        RouteSuggestions.shared.clearCurrent()   // Fahrt läuft: Vorschlag (und seine Vorschau im Dashboard) ist erledigt
         ChargeMonitor.shared.start()
         AppModel.shared.location.setNavigating(true)
         subscriptions.removeAll()

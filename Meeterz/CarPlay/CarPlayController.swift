@@ -585,6 +585,7 @@ final class CarPlayController: NSObject {
     private func preview(to coordinate: CLLocationCoordinate2D, name: String, address: String? = nil,
                          completion: @escaping () -> Void) {
         let waypoint = Waypoint(coordinate: coordinate, name: name)
+        activeSuggestion = nil
         pendingDestination = Place(id: UUID().uuidString, name: name, address: address, coordinate: coordinate)
         // Eigene Routenoptionen: Deutsch (sonst gilt die Systemsprache des iPhones, z. B. Englisch) und Auto
         // Mapbox meldet den Abschluss aus einem Hintergrund-Task; CarPlay bekommt ihn auf dem Hauptthread
@@ -615,6 +616,27 @@ final class CarPlayController: NSObject {
     }
 
     private var pendingDestination: Place?
+    /// Gerade gezeigte Vorschau ist ein Routenvorschlag (Zurück = ablehnen)
+    private var activeSuggestion: RouteSuggestions.Suggestion?
+
+    /// Routenvorschlag wie bei Apple Karten: kurz nach dem Verbinden (ohne laufende Navigation) gleich die Vorschau
+    /// der vorgeschlagenen Route mit „Starten“ – eine Route, keine Auswahl. „Zurück“ lehnt ab (auch im Dashboard weg).
+    func offerRouteSuggestion() {
+        Task { @MainActor [weak self] in
+            // Standort und Sitzung brauchen nach dem Verbinden einen Moment
+            try? await Task.sleep(for: .seconds(4))
+            guard let self, self.isConnected, !AppModel.shared.navigation.isNavigating,
+                  let suggestion = await RouteSuggestions.shared.refresh(force: true),
+                  let routes = RouteSuggestions.shared.currentRoutes,
+                  !AppModel.shared.navigation.isNavigating,
+                  self.manager.currentActivity == .browsing || self.manager.currentActivity == nil,
+                  self.manager.interfaceController?.templates.count ?? 0 <= 1 else { return }   // nichts anderes offen
+            self.activeSuggestion = suggestion
+            self.pendingDestination = suggestion.place
+            await self.manager.previewRoutes(for: routes)
+            Diag.log("Routenvorschlag als Vorschau gezeigt: \(suggestion.title)")
+        }
+    }
 
     /// Ziel aus einer Liste gewählt: sofort zur Karte, Kamera zeigt Start und Ziel, am Ziel dreht ein Ladekreis.
     /// Sobald die Route da ist, öffnet Mapbox die Vorschau und rahmt die Route ein.
@@ -1062,7 +1084,8 @@ extension CarPlayController: CarPlayManagerDelegate {
 
     nonisolated func carPlayManager(_ carPlayManager: CarPlayManager, willPreview trip: CPTrip) -> CPTrip {
         MainActor.assumeIsolated {
-            let shown = Self.withRouteOptions(Self.withBatteryForecast(Self.withPhoneLabels(trip, destination: pendingDestination)))
+            var shown = Self.withRouteOptions(Self.withBatteryForecast(Self.withPhoneLabels(trip, destination: pendingDestination)))
+            if let suggestion = activeSuggestion { shown = Self.withSuggestionLabel(shown, suggestion) }
             previewTrip = shown
             return shown
         }
@@ -1095,6 +1118,28 @@ extension CarPlayController: CarPlayManagerDelegate {
             target.name = destination.name
         }
         let copy = CPTrip(origin: trip.origin, destination: target, routeChoices: choices)
+        copy.userInfo = trip.userInfo
+        return copy
+    }
+
+    /// Vorschlag: statt „Schnellste“ der Grund („Termin 09:00“ bzw. „Oft um diese Zeit“) und der Termin als Ziel
+    private static func withSuggestionLabel(_ trip: CPTrip, _ suggestion: RouteSuggestions.Suggestion) -> CPTrip {
+        let reason: String
+        if case .calendar(_, let start) = suggestion.reason {
+            reason = String(localized: "Termin \(Format.time.string(from: start))")
+        } else {
+            reason = String(localized: "Oft um diese Zeit")
+        }
+        let choices = trip.routeChoices.map { choice -> CPRouteChoice in
+            let copy = CPRouteChoice(summaryVariants: choice.summaryVariants,
+                                     additionalInformationVariants: [reason],
+                                     selectionSummaryVariants: [reason])
+            copy.userInfo = choice.userInfo
+            return copy
+        }
+        let destination = trip.destination
+        destination.name = suggestion.title
+        let copy = CPTrip(origin: trip.origin, destination: destination, routeChoices: choices)
         copy.userInfo = trip.userInfo
         return copy
     }
@@ -1402,6 +1447,10 @@ extension CarPlayController: CarPlayManagerDelegate {
 
     nonisolated func carPlayManagerDidCancelPreview(_ carPlayManager: CarPlayManager) {
         MainActor.assumeIsolated {
+            if activeSuggestion != nil {
+                activeSuggestion = nil
+                RouteSuggestions.shared.dismissCurrent()
+            }
             splitTrips = []
             framePreview(nil)
             flyover?.showPreview(nil)
@@ -1431,6 +1480,8 @@ extension CarPlayController: CarPlayManagerDelegate {
 
     nonisolated func carPlayManagerDidBeginNavigation(_ carPlayManager: CarPlayManager) {
         MainActor.assumeIsolated {
+            if let suggestion = activeSuggestion { Diag.log("Routenvorschlag angenommen: \(suggestion.title)") }
+            activeSuggestion = nil
             framePreview(nil)
             pauseAlerts()
             let coordinator = AppModel.shared.navigation

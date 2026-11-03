@@ -23,6 +23,7 @@ final class WidgetSnapshotWriter {
             || snapshot.sharing != lastSaved?.sharing
             || snapshot.incognito != lastSaved?.incognito
             || snapshot.friends.map(\.name) != lastSaved?.friends.map(\.name)
+            || snapshot.suggestion?.title != lastSaved?.suggestion?.title
         lastSaved = snapshot
         if force || important || Date().timeIntervalSince(lastReload) > 15 * 60 {
             lastReload = Date()
@@ -69,6 +70,14 @@ final class WidgetSnapshotWriter {
                               sharingUntil: profile?.sharingUntil,
                               incognito: profile?.isIncognito ?? false,
                               friends: Array(friends.prefix(6)),
-                              meetup: meetup)
+                              meetup: meetup,
+                              suggestion: RouteSuggestions.shared.current.map { s in
+                                  var calendar = false
+                                  if case .calendar = s.reason { calendar = true }
+                                  return WidgetSnapshot.Suggestion(
+                                      title: s.title, detail: s.subtitle, minutes: max(1, Int((s.travelTime / 60).rounded())),
+                                      arrival: s.arrival, calendar: calendar,
+                                      lat: s.place.coordinate.latitude, lng: s.place.coordinate.longitude, name: s.place.name)
+                              })
     }
 }

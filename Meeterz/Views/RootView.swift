@@ -22,6 +22,20 @@ struct RootView: View {
             }
         }
         .foregroundStyle(Theme.text)
+        // Widget „Nächstes Ziel“: meeterz://route?lat=…&lng=…&name=… – Route berechnen und zeigen
+        .onOpenURL { url in
+            guard url.host == "route",
+                  let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems,
+                  let lat = items.first(where: { $0.name == "lat" })?.value.flatMap(Double.init),
+                  let lng = items.first(where: { $0.name == "lng" })?.value.flatMap(Double.init) else { return }
+            let name = items.first(where: { $0.name == "name" })?.value ?? String(localized: "Ziel")
+            Diag.log("Widget: Route nach \(name)")
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(800))   // Hauptansicht erst aufbauen lassen
+                await AppModel.shared.navigation.planRoute(to: Place(id: "widget-\(lat),\(lng)", name: name, address: nil,
+                                                                    coordinate: .init(latitude: lat, longitude: lng)))
+            }
+        }
         // Standortdienst sparsam: volles GPS nur bei sichtbarer App (siehe LocationService)
         .onChange(of: scenePhase, initial: true) { _, phase in
             AppModel.shared.location.setForeground(phase != .background)
@@ -115,6 +129,8 @@ struct SignInView: View {
 
 enum Legal {
     static let privacyURL = URL(string: "https://gianlucako95.github.io/Meeterz/datenschutz")!
+    /// Webseite der App (bis zum App-Store-Eintrag der Link für Einladungen)
+    static let appStoreURL = URL(string: "https://gianlucako95.github.io/Meeterz/")!
 }
 
 #if DEV_LOGIN

@@ -265,3 +265,63 @@ private struct SharingWidgetView: View {
         }
     }
 }
+
+// MARK: Nächstes Ziel (Routenvorschlag)
+
+struct SuggestionWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "meeterz.suggestion", provider: SnapshotProvider()) { entry in
+            SuggestionWidgetView(snapshot: entry.snapshot)
+                .containerBackground(panel, for: .widget)
+                .widgetURL(entry.snapshot.suggestion.flatMap { s in
+                    var c = URLComponents(); c.scheme = "meeterz"; c.host = "route"
+                    c.queryItems = [.init(name: "lat", value: "\(s.lat)"), .init(name: "lng", value: "\(s.lng)"),
+                                    .init(name: "name", value: s.name)]
+                    return c.url
+                } ?? URL(string: "meeterz://"))
+        }
+        .configurationDisplayName("Nächstes Ziel")
+        .description("Termin mit Ort oder ein Ziel, das du um diese Zeit oft ansteuerst – mit Fahrzeit. Tippen startet die Route.")
+        .supportedFamilies([.systemSmall, .accessoryRectangular, .accessoryInline])
+    }
+}
+
+private struct SuggestionWidgetView: View {
+    @Environment(\.widgetFamily) private var family
+    let snapshot: WidgetSnapshot
+
+    var body: some View {
+        if let s = snapshot.suggestion {
+            switch family {
+            case .accessoryInline:
+                Text("\(s.title) · \(s.minutes) Min.")
+            case .accessoryRectangular:
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(s.title).font(.headline).widgetAccentable().lineLimit(1)
+                    Text(s.detail).font(.caption).lineLimit(2)
+                }
+            default:
+                VStack(alignment: .leading, spacing: 6) {
+                    Label(s.calendar ? String(localized: "Termin") : String(localized: "Nächstes Ziel"),
+                          systemImage: s.calendar ? "calendar" : "clock.arrow.circlepath")
+                        .font(.caption.weight(.bold)).foregroundStyle(accent)
+                    Text(s.title).font(.headline).foregroundStyle(.white).lineLimit(2)
+                    Spacer(minLength: 0)
+                    Text("\(s.minutes) Min.").font(.system(size: 28, weight: .heavy, design: .rounded)).foregroundStyle(.white)
+                    Text("Ankunft \(ActivityFormat.time(s.arrival))").font(.caption).foregroundStyle(.secondary)
+                }
+            }
+        } else {
+            switch family {
+            case .accessoryInline: Text("Kein Vorschlag")
+            default:
+                VStack(alignment: .leading, spacing: 6) {
+                    Label("Nächstes Ziel", systemImage: "clock.arrow.circlepath")
+                        .font(.caption.weight(.bold)).foregroundStyle(accent)
+                    Text("Meeterz lernt deine häufigen Ziele und zeigt hier das nächste – oder einen Termin mit Ort.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+}

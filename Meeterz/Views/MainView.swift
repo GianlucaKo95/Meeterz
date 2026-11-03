@@ -68,6 +68,7 @@ struct MainView: View {
                 if ChargingSession.shared.active, !ChargingSession.shared.hiddenOnPhone {
                     ChargingCard()
                 }
+                MeetingPointCard()
             }
             .padding(.horizontal, 16)
             .chromeVisibility(hidden: chromeHidden)
@@ -438,7 +439,7 @@ struct BackgroundHint: View {
     var body: some View {
         if app.location.authorization == .authorizedWhenInUse, !dismissed {
             HStack(spacing: 8) {
-                Button { app.location.requestAlways() } label: {
+                Button { Task { _ = await Permissions.ask(.always) } } label: {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Nur bei offener App sichtbar").font(.system(size: 13, weight: .semibold, design: .rounded))
                         Text("Tippen: Standort „Immer“ erlauben").font(.system(size: 11, design: .rounded)).foregroundStyle(Theme.muted)
@@ -592,8 +593,11 @@ struct UnterwegsSheet: View {
                         .accessibilityIdentifier("meetups-overview")
                     }
                     if app.friends.accepted.isEmpty {
-                        Text("Noch keine Freunde. Füge jemanden über den Benutzernamen hinzu.")
-                            .font(.subheadline).foregroundStyle(Theme.muted)
+                        EmptyStateView(symbol: "person.2.fill", title: "Noch keine Freunde",
+                                       message: "Lade jemanden ein oder füge ihn über den Benutzernamen hinzu. Dann seht ihr euch hier auf der Karte.") {
+                            ShareLink(item: InviteText.current) { Label("Einladung senden", systemImage: "square.and.arrow.up") }
+                                .buttonStyle(SecondaryButtonStyle())
+                        }
                     } else {
                         Text("\(app.friendsOnMap.count) von \(app.friends.accepted.count) sichtbar")
                             .font(.footnote).foregroundStyle(Theme.muted)
@@ -605,8 +609,8 @@ struct UnterwegsSheet: View {
                             }
                         }
                         if app.friendsOnMapIncludingPassengers.isEmpty {
-                            Text("Gerade teilt niemand seinen Standort.")
-                                .font(.subheadline).foregroundStyle(Theme.muted)
+                            EmptyStateView(symbol: "location.slash", title: "Gerade teilt niemand",
+                                           message: "Sobald Freunde ihren Standort teilen, erscheinen sie hier. Lange nicht aktualisierte Freunde blendet Meeterz aus (Einstellungen → Karte & Navigation).")
                         }
                     }
                     if !app.friendsOnMap.isEmpty {
@@ -771,4 +775,72 @@ struct PinCard: View {
 private struct SheetContentHeight: PreferenceKey {
     static let defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
+
+// MARK: - Treffpunkt: wer ist wann da
+
+/// Fahren Freunde zum selben Ziel (Treffen oder mein Navigationsziel), zeigt diese Karte alle Ankunftszeiten
+/// nebeneinander – die Routen sind auf der Karte schon in den Farben der Freunde eingezeichnet.
+struct MeetingPointCard: View {
+    @Environment(AppModel.self) private var app
+
+    private struct Arrival: Identifiable {
+        let id: String
+        let name: String
+        let color: Color
+        let eta: Date?
+        let here: Bool
+    }
+
+    /// Ziel: laufende Navigation, sonst das nächste zugesagte Treffen
+    private var target: (name: String, coordinate: CLLocationCoordinate2D)? {
+        if app.navigation.isNavigating, let d = app.navigation.destination { return (d.name, d.coordinate) }
+        if let m = app.meetups.accepted.first { return (m.placeName, m.coordinate) }
+        return nil
+    }
+
+    private func arrivals(at place: CLLocationCoordinate2D) -> [Arrival] {
+        var list: [Arrival] = []
+        for item in app.friendsOnMap {
+            let id = item.friend.friendId
+            let first = item.friend.displayName.split(separator: " ").first.map(String.init) ?? item.friend.displayName
+            let here = item.position.coordinate.distance(to: place) < 150
+            let route = app.routes.friendRoutes[id].flatMap { $0.destination.distance(to: place) < 300 ? $0 : nil }
+            guard here || route != nil else { continue }
+            list.append(Arrival(id: id.uuidString, name: first, color: FriendPalette.routeColor(for: id), eta: route?.eta, here: here))
+        }
+        return list.sorted { ($0.here ? 0 : 1, $0.eta ?? .distantFuture) < ($1.here ? 0 : 1, $1.eta ?? .distantFuture) }
+    }
+
+    var body: some View {
+        if let target, case let friends = arrivals(at: target.coordinate), !friends.isEmpty {
+            let me: [Arrival] = app.navigation.isNavigating
+                ? [Arrival(id: "me", name: String(localized: "Du"), color: Theme.accent, eta: app.navigation.eta, here: false)] : []
+            VStack(alignment: .leading, spacing: 8) {
+                Label(target.name, systemImage: "flag.checkered")
+                    .font(Theme.title(14)).lineLimit(1)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach((me + friends).sorted { ($0.here ? 0 : 1, $0.eta ?? .distantFuture) < ($1.here ? 0 : 1, $1.eta ?? .distantFuture) }) { a in
+                            HStack(spacing: 6) {
+                                Circle().fill(a.color).frame(width: 10, height: 10)
+                                Text(a.name).font(.system(size: 13, weight: .semibold, design: .rounded))
+                                Text(a.here ? String(localized: "da") : (a.eta.map { $0.formatted(date: .omitted, time: .shortened) } ?? "–"))
+                                    .font(.system(size: 13, weight: .heavy, design: .rounded)).monospacedDigit()
+                                    .foregroundStyle(a.here ? Theme.go : Theme.text)
+                            }
+                            .padding(.horizontal, 10).padding(.vertical, 6)
+                            .background(Capsule().fill(Theme.panelRaised))
+                        }
+                    }
+                }
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 18).fill(Theme.panel.opacity(0.95)))
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Wer ist wann da")
+        }
+    }
 }

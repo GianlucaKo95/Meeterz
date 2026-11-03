@@ -230,3 +230,40 @@ enum Format {
         return String(localized: "vor \(Int(seconds / 3600)) Std.")
     }
 }
+
+/// Leerer Zustand: Symbol, kurze Erklärung und (optional) der passende nächste Schritt
+struct EmptyStateView<Action: View>: View {
+    let symbol: String
+    let title: LocalizedStringKey
+    let message: LocalizedStringKey
+    @ViewBuilder var action: () -> Action
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Image(systemName: symbol)
+                .font(.system(size: 34, weight: .semibold))
+                .foregroundStyle(Theme.accent)
+                .frame(width: 64, height: 64)
+                .background(Circle().fill(Theme.panelRaised))
+            Text(title).font(Theme.title()).foregroundStyle(Theme.text)
+            Text(message).font(.footnote).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
+            action().padding(.top, 4)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 18)
+    }
+}
+
+extension EmptyStateView where Action == EmptyView {
+    init(symbol: String, title: LocalizedStringKey, message: LocalizedStringKey) {
+        self.init(symbol: symbol, title: title, message: message) { EmptyView() }
+    }
+}
+
+/// Einladung zu Meeterz mit dem eigenen Benutzernamen (zum Teilen per Nachricht)
+enum InviteText {
+    @MainActor static var current: String {
+        let handle = AppModel.shared.profile?.handle ?? ""
+        return String(localized: "Lass uns bei Meeterz sehen, wo wir gerade sind – füge mich hinzu: @\(handle)") + "\n" + Legal.appStoreURL.absoluteString
+    }
+}

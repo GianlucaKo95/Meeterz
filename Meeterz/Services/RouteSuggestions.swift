@@ -74,6 +74,7 @@ final class RouteSuggestions {
             currentRoutes = result.flatMap { routeCache[Self.key($0.place.coordinate)]?.routes }
             Diag.log(result.map { "Routenvorschlag: \($0.title) – \($0.subtitle)" } ?? "Routenvorschlag: keiner")
             CarPlayDashboard.suggestionChanged()
+            WidgetSnapshotWriter.shared.update(force: true)
         }
         return result
     }
@@ -181,6 +182,7 @@ final class RouteSuggestions {
             waypoints: [Waypoint(location: here, name: nil), Waypoint(coordinate: coordinate, name: nil)],
             profileIdentifier: .automobileAvoidingTraffic, locale: Locale.navigation, distanceUnit: .kilometer)
         RoutePreferences.apply(to: options)
+        options.includesAlternativeRoutes = false   // ein Vorschlag, eine Route
         let provider = navigationProvider.mapboxNavigation.routingProvider()
         guard let routes = try? await provider.calculateRoutes(options: options).value else { return nil }
         let time = routes.mainRoute.route.expectedTravelTime

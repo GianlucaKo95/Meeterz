@@ -23,12 +23,25 @@ struct WidgetSnapshot: Codable {
         var myArrival: Date?
     }
 
+    /// Routenvorschlag (Termin oder häufiges Ziel) für das Widget „Nächstes Ziel“
+    struct Suggestion: Codable, Hashable {
+        var title: String
+        var detail: String
+        var minutes: Int
+        var arrival: Date
+        var calendar: Bool
+        var lat: Double
+        var lng: Double
+        var name: String
+    }
+
     var updated: Date
     var sharing: Bool
     var sharingUntil: Date?
     var incognito: Bool
     var friends: [Friend]
     var meetup: Meetup?
+    var suggestion: Suggestion? = nil
 
     static let empty = WidgetSnapshot(updated: .distantPast, sharing: false, sharingUntil: nil,
                                       incognito: false, friends: [], meetup: nil)

@@ -6,6 +6,7 @@ import CoreLocation
 struct MeetupsOverviewView: View {
     @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
+    @State private var showGroupMeetup = false
 
     /// Ein Treffen (Gruppen-Einladungen derselben Gruppe zusammengefasst)
     struct Entry: Identifiable {
@@ -33,13 +34,14 @@ struct MeetupsOverviewView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     if entries.isEmpty {
-                        VStack(spacing: 8) {
-                            Image(systemName: "calendar.badge.clock").font(.largeTitle).foregroundStyle(Theme.muted)
-                            Text("Keine Treffen geplant").font(Theme.title())
-                            Text("Plane ein Treffen über einen Freund oder „Gruppen-Treffen planen“.")
-                                .font(.footnote).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
+                        EmptyStateView(symbol: "calendar.badge.clock", title: "Keine Treffen geplant",
+                                       message: "Meeterz findet einen Treffpunkt, der für alle ungefähr gleich weit ist.") {
+                            if !app.friendsOnMap.isEmpty {
+                                Button { showGroupMeetup = true } label: { Label("Gruppen-Treffen planen", systemImage: "person.3.fill") }
+                                    .buttonStyle(SecondaryButtonStyle())
+                            }
                         }
-                        .frame(maxWidth: .infinity).padding(.top, 40)
+                        .padding(.top, 30)
                     }
                     ForEach(entries) { entry in
                         MeetupCard(entry: entry) { place in
@@ -56,6 +58,7 @@ struct MeetupsOverviewView: View {
             .background(Theme.ink)
             .navigationTitle("Treffen")
             .navigationBarTitleDisplayMode(.inline)
+            .sheet(isPresented: $showGroupMeetup) { GroupMeetupView().environment(app) }
         }
         .presentationDragIndicator(.visible)
         .presentationBackground(Theme.ink)

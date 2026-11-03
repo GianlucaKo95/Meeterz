@@ -127,6 +127,6 @@ extension CarPlayController {
             titleVariants: [String(localized: "Fährt \(first) bei dir mit?"), String(localized: "\(first) fährt mit?")],
             subtitleVariants: [String(localized: "Dann blende ich \(first) für diese Fahrt aus")],
             image: image, primaryAction: yes, secondaryAction: no, duration: 20)
-        return CarPlayUI.shared.alert(alert)
+        return CarPlayUI.shared.alert(alert, priority: .low)
     }
 }

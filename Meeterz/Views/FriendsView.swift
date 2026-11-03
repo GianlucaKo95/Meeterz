@@ -134,7 +134,7 @@ struct FriendsView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Menu(hasPhoto ? String(localized: "Foto ändern") : String(localized: "Foto hinzufügen")) {
                         if CameraPicker.isAvailable {
-                            Button("Foto aufnehmen", systemImage: "camera") { showCamera = true }
+                            Button("Foto aufnehmen", systemImage: "camera") { Task { if await Permissions.ask(.camera) { showCamera = true } } }
                         }
                         Button("Aus Mediathek wählen", systemImage: "photo.on.rectangle") { showLibrary = true }
                     }
@@ -245,8 +245,11 @@ struct FriendsView: View {
     private var friendsSection: some View {
         Section("Deine Freunde") {
             if friends.accepted.isEmpty {
-                Text("Noch keine Freunde – füge jemanden über den Benutzernamen hinzu.")
-                    .foregroundStyle(Theme.muted)
+                EmptyStateView(symbol: "person.2.fill", title: "Noch keine Freunde",
+                               message: "Füge jemanden oben über den Benutzernamen hinzu – oder schick eine Einladung.") {
+                    ShareLink(item: InviteText.current) { Label("Einladung senden", systemImage: "square.and.arrow.up") }
+                        .buttonStyle(SecondaryButtonStyle())
+                }
             }
             ForEach(friends.accepted) { row in
                 let hidden = friends.isHidden(row.friendId)
@@ -327,7 +330,7 @@ struct FriendsView: View {
 
             if !app.location.canShareInBackground {
                 Button(app.location.alwaysAskedBefore ? String(localized: "Standort-Einstellung öffnen („Immer“ wählen)") : String(localized: "Auch im Hintergrund teilen")) {
-                    app.location.requestAlways()
+                    Task { _ = await Permissions.ask(.always) }
                 }
             }
         } header: {
@@ -413,6 +416,7 @@ struct FriendsView: View {
         return app.vehicle.token == nil ? String(localized: "Aus") : String(localized: "Verbunden")
     }
 
+    /// App-Einstellungen in Unterseiten wie bei Apple (vorher eine lange Liste in einem Abschnitt)
     private var appSection: some View {
         Section("App") {
             Picker("Darstellung", selection: Binding(
@@ -421,8 +425,98 @@ struct FriendsView: View {
             )) {
                 ForEach(AppAppearance.allCases) { Text($0.title).tag($0) }
             }
-            Toggle("Geparktes Auto merken", isOn: Binding(get: { parkingEnabled }, set: { parkingEnabled = $0; ParkingStore.enabled = $0 }))
+            NavigationLink { settingsPage("Karte & Navigation") { mapSettings } } label: {
+                Label("Karte & Navigation", systemImage: "map")
+            }
+            NavigationLink { settingsPage("Sprachansagen") { voiceSettings } } label: {
+                Label("Sprachansagen", systemImage: "speaker.wave.2")
+            }
+            NavigationLink { settingsPage("E-Auto") { evSettings } } label: {
+                LabeledContent {
+                    Text(evEnabled ? (evVehicle?.name ?? String(localized: "An")) : String(localized: "Aus"))
+                } label: { Label("E-Auto", systemImage: "bolt.car") }
+            }
+            .accessibilityIdentifier("ev-settings")
+            NavigationLink { settingsPage("Routenvorschläge") { suggestionSettings } } label: {
+                Label("Routenvorschläge", systemImage: "clock.arrow.circlepath")
+            }
+            NavigationLink { settingsPage("Datenschutz") { privacySettings } } label: {
+                Label("Datenschutz", systemImage: "hand.raised")
+            }
+            NavigationLink { settingsPage("Für Entwickler") { developerSettings } } label: {
+                Label("Für Entwickler", systemImage: "wrench.and.screwdriver")
+            }
+            LabeledContent("Version", value: Self.versionText)
+        }
+        .listRowBackground(Theme.panel)
+    }
+
+    /// Eine Unterseite der Einstellungen im Stil der App
+    private func settingsPage<Content: View>(_ title: LocalizedStringKey, @ViewBuilder _ content: () -> Content) -> some View {
+        List { content() }
+            .scrollContentBackground(.hidden)
+            .background(Theme.ink)
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+    }
+
+    @ViewBuilder private var mapSettings: some View {
+        Section {
+            Picker("Karte", selection: Binding<String>(
+                get: { mapStyleKey },
+                set: { MapPreferences.setStyle(MapPreferences.Style(rawValue: $0) ?? .satellite) }
+            )) {
+                ForEach(MapPreferences.Style.allCases) { Text($0.title).tag($0.rawValue) }
+            }
+            Toggle("3D-Ansicht", isOn: Binding(get: { mapThreeD }, set: { MapPreferences.setThreeD($0) }))
                 .tint(Theme.accent)
+        } footer: {
+            Text("Gilt für iPhone und CarPlay gleichermaßen und sofort, auch während der Fahrt – egal wo du umschaltest. Satellit: Luftbild mit 3D-Gebäuden. Flyover (experimentell) zeigt Apples fotorealistisches 3D-Bild, kann aber ruckeln und Route oder Pfeil leicht versetzt zeigen.")
+        }
+        .listRowBackground(Theme.panel)
+        Section {
+            Picker("Freunde ausblenden nach", selection: Binding(get: { staleHours }, set: { staleHours = $0; StaleFriends.hours = $0 })) {
+                ForEach(StaleFriends.choices, id: \.self) { h in
+                    Text(h == 0 ? String(localized: "Nie") : String(localized: "\(h) Std.")).tag(h)
+                }
+            }
+        } footer: {
+            Text("Freunde, von denen so lange kein neuer Standort kam, verschwinden von der Karte – statt an einem alten Ort zu stehen. Sobald sie wieder teilen, sind sie zurück.")
+        }
+        .listRowBackground(Theme.panel)
+        Section {
+            Toggle("Maut meiden", isOn: $avoidTolls).tint(Theme.accent)
+            Toggle("Autobahnen meiden", isOn: $avoidMotorways).tint(Theme.accent)
+            Toggle("Fähren meiden", isOn: $avoidFerries).tint(Theme.accent)
+        } header: {
+            Text("Routenoptionen (Auto)")
+        } footer: {
+            Text("Gilt für alle Routen, auch in CarPlay und für den Ladeplan. Geht ein Ziel nur mit Maut oder Fähre, nimmt Meeterz die normale Route und sagt Bescheid.")
+        }
+        .listRowBackground(Theme.panel)
+        Section {
+            Toggle("Geparktes Auto merken", isOn: Binding(get: { parkingEnabled }, set: { on in
+                parkingEnabled = on
+                ParkingStore.enabled = on
+                if on { Task { if await Permissions.ask(.motion) { ParkingDetector.shared.start() } } }
+            }))
+                .tint(Theme.accent)
+        }
+        .listRowBackground(Theme.panel)
+    }
+
+    @ViewBuilder private var voiceSettings: some View {
+        Section {
+            Toggle("Sprachansagen", isOn: $voiceOn)
+                .tint(Theme.accent)
+                .onChange(of: voiceOn) { _, v in MeeterzSpeechSynthesizer.shared.muted = !v }
+            NavigationLink("Navigationsstimme") { VoicePickerView() }
+        }
+        .listRowBackground(Theme.panel)
+    }
+
+    @ViewBuilder private var evSettings: some View {
+        Section {
             Toggle("E-Auto", isOn: Binding(get: { evEnabled }, set: { evEnabled = $0; EVSettings.enabled = $0 }))
                 .tint(Theme.accent)
             if evEnabled {
@@ -438,6 +532,15 @@ struct FriendsView: View {
                     LabeledContent("Live-Daten", value: liveDataSummary)
                 }
                 .accessibilityIdentifier("ev-live")
+            }
+        } footer: {
+            if evEnabled {
+                Text("Den Akkustand stellst du beim Losfahren in CarPlay unter „Mehr“ ein. Reicht er nicht bis zum Ziel, schlägt Meeterz Ladesäulen entlang der Route vor (mit 10 % Reserve).")
+            }
+        }
+        .listRowBackground(Theme.panel)
+        if evEnabled {
+            Section("Ladeplanung") {
                 if let vehicle = evVehicle {
                     LabeledContent("Reichweite bei 100 %", value: String(localized: "ca. \(Int(vehicle.rangeKm)) km"))
                     Stepper(value: Binding(get: { evArrival }, set: { evArrival = $0; EVSettings.arrivalPercent = $0 }),
@@ -454,26 +557,13 @@ struct FriendsView: View {
                         LabeledContent("Reichweite bei 100 %", value: "\(Int(evRange)) km")
                     }
                 }
-                Text("Den Akkustand stellst du beim Losfahren in CarPlay unter „Mehr“ ein. Reicht er nicht bis zum Ziel, schlägt Meeterz Ladesäulen entlang der Route vor (mit 10 % Reserve).")
-                    .font(.footnote).foregroundStyle(Theme.muted)
             }
-            Picker("Karte", selection: Binding<String>(
-                get: { mapStyleKey },
-                set: { MapPreferences.setStyle(MapPreferences.Style(rawValue: $0) ?? .satellite) }
-            )) {
-                ForEach(MapPreferences.Style.allCases) { Text($0.title).tag($0.rawValue) }
-            }
-            Toggle("3D-Ansicht", isOn: Binding(get: { mapThreeD }, set: { MapPreferences.setThreeD($0) }))
-                .tint(Theme.accent)
-            Text("Gilt für iPhone und CarPlay gleichermaßen und sofort, auch während der Fahrt – egal wo du umschaltest. Satellit: Luftbild mit 3D-Gebäuden. Flyover (experimentell) zeigt Apples fotorealistisches 3D-Bild, kann aber ruckeln und Route oder Pfeil leicht versetzt zeigen.")
-                .font(.footnote).foregroundStyle(Theme.muted)
-            Picker("Freunde ausblenden nach", selection: Binding(get: { staleHours }, set: { staleHours = $0; StaleFriends.hours = $0 })) {
-                ForEach(StaleFriends.choices, id: \.self) { h in
-                    Text(h == 0 ? String(localized: "Nie") : String(localized: "\(h) Std.")).tag(h)
-                }
-            }
-            Text("Freunde, von denen so lange kein neuer Standort kam, verschwinden von der Karte – statt an einem alten Ort zu stehen. Sobald sie wieder teilen, sind sie zurück.")
-                .font(.footnote).foregroundStyle(Theme.muted)
+            .listRowBackground(Theme.panel)
+        }
+    }
+
+    @ViewBuilder private var suggestionSettings: some View {
+        Section {
             Toggle("Häufige Ziele vorschlagen", isOn: Binding(get: { suggestFrequent }, set: { on in
                 suggestFrequent = on
                 RouteSuggestions.frequentEnabled = on
@@ -483,57 +573,67 @@ struct FriendsView: View {
             Toggle("Termine aus dem Kalender vorschlagen", isOn: Binding(get: { suggestCalendar }, set: { on in
                 if !on { suggestCalendar = false; RouteSuggestions.calendarEnabled = false; return }
                 Task { @MainActor in
-                    let granted = await RouteSuggestions.shared.requestCalendarAccess()
+                    let granted = await Permissions.ask(.calendar)
                     suggestCalendar = granted
                     RouteSuggestions.calendarEnabled = granted
                     if !granted { AppModel.shared.show(String(localized: "Kein Kalenderzugriff – in den iPhone-Einstellungen unter Meeterz erlauben.")) }
                 }
             }))
             .tint(Theme.accent)
+        } footer: {
             Text("Wie bei Apple Karten schlägt CarPlay beim Einsteigen ein Ziel vor: einen Termin mit Ort, zu dem du bald losfahren musst, oder einen Ort, den du um diese Zeit oft ansteuerst. Die gelernten Orte bleiben nur auf diesem iPhone.")
-                .font(.footnote).foregroundStyle(Theme.muted)
-            if learnedPlaces > 0 {
+        }
+        .listRowBackground(Theme.panel)
+        if learnedPlaces > 0 {
+            Section {
                 Button("Gelernte Orte löschen (\(learnedPlaces))", role: .destructive) {
                     FrequentPlaces.shared.clear()
                     learnedPlaces = 0
                 }
             }
-            DisclosureGroup("Diagnose") {
-                Text(diagText.isEmpty ? String(localized: "Noch keine Einträge.") : diagText)
-                    .font(.system(size: 10, design: .monospaced)).textSelection(.enabled)
-                HStack {
-                    Button("Aktualisieren") { diagText = Diag.text }
-                    Spacer()
-                    ShareLink(item: diagText)
-                    Button("Leeren", role: .destructive) { Diag.clear(); diagText = "" }
-                }
-                .buttonStyle(.borderless)
-            }
-            #if DEBUG
-            Toggle("Fahrten simulieren (Test)", isOn: $simulate)
-                .tint(Theme.accent)
-                .onChange(of: simulate) { _, v in NavigationCoordinator.simulate = v }
-            #endif
-            DisclosureGroup("Routenoptionen (Auto)") {
-                Toggle("Maut meiden", isOn: $avoidTolls).tint(Theme.accent)
-                Toggle("Autobahnen meiden", isOn: $avoidMotorways).tint(Theme.accent)
-                Toggle("Fähren meiden", isOn: $avoidFerries).tint(Theme.accent)
-                Text("Gilt für alle Routen, auch in CarPlay und für den Ladeplan. Geht ein Ziel nur mit Maut oder Fähre, nimmt Meeterz die normale Route und sagt Bescheid.")
-                    .font(.footnote).foregroundStyle(Theme.muted)
-            }
+            .listRowBackground(Theme.panel)
+        }
+    }
+
+    @ViewBuilder private var privacySettings: some View {
+        Section {
             Toggle("Mapbox beim Verbessern der Karten helfen", isOn: Binding(
                 get: { mapboxTelemetry }, set: { mapboxTelemetry = $0; MapboxTelemetry.enabled = $0 }))
                 .tint(Theme.accent)
+        } footer: {
             Text("Sendet anonymisierte Standort- und Nutzungsdaten an Mapbox, damit Straßen, Abbiegeverbote und Verkehrsdaten besser werden. Freiwillig, standardmäßig aus.")
-                .font(.footnote).foregroundStyle(Theme.muted)
-            Toggle("Sprachansagen", isOn: $voiceOn)
-                .tint(Theme.accent)
-                .onChange(of: voiceOn) { _, v in MeeterzSpeechSynthesizer.shared.muted = !v }
-            NavigationLink("Navigationsstimme") { VoicePickerView() }
-            Link("Datenschutzerklärung", destination: Legal.privacyURL)
-            LabeledContent("Version", value: Self.versionText)
         }
         .listRowBackground(Theme.panel)
+        Section {
+            Link("Datenschutzerklärung", destination: Legal.privacyURL)
+            Button("Berechtigungen in den iPhone-Einstellungen") {
+                if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+            }
+        }
+        .listRowBackground(Theme.panel)
+    }
+
+    @ViewBuilder private var developerSettings: some View {
+        Section("Diagnose") {
+            Text(diagText.isEmpty ? String(localized: "Noch keine Einträge.") : diagText)
+                .font(.system(size: 10, design: .monospaced)).textSelection(.enabled)
+            HStack {
+                Button("Aktualisieren") { diagText = Diag.text }
+                Spacer()
+                ShareLink(item: diagText)
+                Button("Leeren", role: .destructive) { Diag.clear(); diagText = "" }
+            }
+            .buttonStyle(.borderless)
+        }
+        .listRowBackground(Theme.panel)
+        #if DEBUG
+        Section {
+            Toggle("Fahrten simulieren (Test)", isOn: $simulate)
+                .tint(Theme.accent)
+                .onChange(of: simulate) { _, v in NavigationCoordinator.simulate = v }
+        }
+        .listRowBackground(Theme.panel)
+        #endif
     }
 
     private var accountSection: some View {

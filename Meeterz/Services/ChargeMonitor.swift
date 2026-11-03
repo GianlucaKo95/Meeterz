@@ -173,7 +173,7 @@ final class ChargeMonitor {
                                       primaryAction: primary,
                                       secondaryAction: CPAlertAction(title: String(localized: "Nein"), style: .cancel) { _ in },
                                       duration: 20)
-        if !CarPlayUI.shared.alert(alert) { AppModel.shared.show("\(title) – \(subtitle)", isError: plan == nil) }
+        if !CarPlayUI.shared.alert(alert, priority: plan == nil ? .high : .normal) { AppModel.shared.show("\(title) – \(subtitle)", isError: plan == nil) }
     }
 }
 

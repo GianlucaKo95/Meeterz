@@ -63,19 +63,25 @@ final class AppModel {
             guard let p = self?.profile else { return false }
             return p.isIncognito && !p.isIncognitoIndefinitely
         }
-        location.requestPermission()
+        // Beim ersten Mal mit Erklärseite (Standort, dann Mitteilungen, dann Bewegung fürs Parken), sonst direkt
+        if location.authorization != .notDetermined { location.requestPermission() }
 
         await hub.startPublishing(userId: profile.id)
         await meetups.startListening(userId: profile.id)
+        MeetupLiveActivityController.shared.start()
         await messages.startListening(userId: profile.id)
         await vehicle.startListening(userId: profile.id)
-        ParkingDetector.shared.start()
-        await push.registerIfPossible()
+        Task { @MainActor in
+            if self.location.authorization == .notDetermined { _ = await Permissions.ask(.location) }
+            _ = await Permissions.ask(.notifications)
+            if ParkingStore.enabled, await Permissions.ask(.motion) { ParkingDetector.shared.start() }
+        }
 
         refreshLoop?.cancel()
         refreshLoop = Task { [weak self] in
             while !Task.isCancelled {
                 await self?.refreshSocial()
+                _ = await RouteSuggestions.shared.refresh()   // für das Widget „Nächstes Ziel“ (höchstens alle 5 Min.)
                 try? await Task.sleep(for: .seconds(30))
             }
         }
@@ -89,6 +95,7 @@ final class AppModel {
         recents.reset()
         refreshLoop?.cancel()
         refreshLoop = nil
+        MeetupLiveActivityController.shared.stop()
         sessionUser = nil
         location.onUpdate = nil
         navigation.stop()

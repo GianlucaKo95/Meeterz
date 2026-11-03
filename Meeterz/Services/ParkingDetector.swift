@@ -18,7 +18,9 @@ final class ParkingDetector {
     private var wasParked: Bool?
 
     func start() {
-        guard ParkingStore.enabled, !running, CMMotionActivityManager.isActivityAvailable() else { return }
+        // Ohne Erlaubnis nicht starten: Die Abfrage kommt mit Erklärseite (Permissions.ask(.motion))
+        guard ParkingStore.enabled, !running, CMMotionActivityManager.isActivityAvailable(),
+              CMMotionActivityManager.authorizationStatus() == .authorized else { return }
         running = true
         motion.startActivityUpdates(to: .main) { [weak self] activity in
             guard let activity else { return }

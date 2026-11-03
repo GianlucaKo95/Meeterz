@@ -50,7 +50,7 @@ final class IncidentWatcher {
         let alert = CPNavigationAlert(titleVariants: [title], subtitleVariants: subtitle.map { [$0] },
                                       image: UIImage(systemName: symbol), primaryAction: ok, secondaryAction: nil,
                                       duration: 10)
-        return CarPlayUI.shared.alert(alert)
+        return CarPlayUI.shared.alert(alert, priority: .high)   // Gefahr vor anderen Hinweisen
     }
 
     struct Message {

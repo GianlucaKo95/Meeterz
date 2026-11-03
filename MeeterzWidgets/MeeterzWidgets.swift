@@ -6,6 +6,8 @@ import ActivityKit
 struct MeeterzWidgets: WidgetBundle {
     var body: some Widget {
         NavigationLiveActivity()
+        MeetupLiveActivity()
+        SuggestionWidget()
         FriendsWidget()
         MeetupWidget()
         SharingWidget()

@@ -49,7 +49,7 @@ extension CarPlayController {
         let ok = CPAlertAction(title: "OK", style: .cancel) { _ in }
         let alert = CPNavigationAlert(titleVariants: title, subtitleVariants: subtitle, image: image,
                                       primaryAction: ok, secondaryAction: nil, duration: seconds)
-        CarPlayUI.shared.alert(alert)
+        CarPlayUI.shared.alert(alert, priority: .low)
     }
 
     // MARK: Schnellere Route (wie Google Maps: fragen statt still wechseln)
@@ -434,7 +434,7 @@ extension CarPlayController {
             subtitleVariants: [String(localized: "Bei \(Int(EVSettings.chargePercent)) % Akku und 10 % Reserve")],
             image: UIImage(systemName: "bolt.car.fill"),
             primaryAction: show, secondaryAction: later, duration: 15)
-        CarPlayUI.shared.alert(alert)
+        CarPlayUI.shared.alert(alert, priority: .high)
     }
 
     /// Nach dem Start: Ladeplan für die laufende Route; fehlen Ladestopps, mit einem Tipp übernehmen

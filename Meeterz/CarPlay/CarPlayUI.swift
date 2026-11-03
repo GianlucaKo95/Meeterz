@@ -75,18 +75,66 @@ final class CarPlayUI {
 
     // MARK: Hinweise über der Karte
 
-    /// Hinweis auf der Karte – nur, wenn sie ganz oben liegt und gerade kein Wechsel läuft. Gibt zurück, ob er erschien.
+    /// Wichtigkeit eines Hinweises: Es steht immer nur einer auf der Karte. Ein wichtigerer ersetzt einen weniger
+    /// wichtigen; sonst wartet er (höchstens eine Minute) und kommt mit kurzem Abstand danach – statt dass Baustelle,
+    /// Ladeplan und Vorschlag direkt hintereinander aufpoppen.
+    enum AlertPriority: Int, Comparable {
+        case low, normal, high
+        static func < (a: Self, b: Self) -> Bool { a.rawValue < b.rawValue }
+    }
+
+    private var shownPriority: AlertPriority = .normal
+    private var pending: [(alert: CPNavigationAlert, priority: AlertPriority, until: Date)] = []
+    private var pendingTimer: Timer?
+    private var lastAlertGone = Date.distantPast
+
+    /// Hinweis auf der Karte – nur, wenn sie ganz oben liegt und gerade kein Wechsel läuft. Gibt zurück, ob er
+    /// erschien oder zum Nachreichen vorgemerkt ist.
     @discardableResult
-    func alert(_ alert: CPNavigationAlert, replacing: Bool = false) -> Bool {
-        guard !busy, queue.isEmpty, let template = CarPlayController.shared.alertTemplate else { return false }
+    func alert(_ alert: CPNavigationAlert, replacing: Bool = false, priority: AlertPriority = .normal) -> Bool {
+        guard let template = CarPlayController.shared.alertTemplate else { return false }
+        let title = alert.titleVariants.first ?? ""
+        if busy || !queue.isEmpty || (template.currentNavigationAlert != nil && !replacing && priority <= shownPriority) {
+            // Später zeigen (gleicher Titel nur einmal vormerken)
+            pending.removeAll { ($0.alert.titleVariants.first ?? "") == title }
+            pending.append((alert, priority, Date().addingTimeInterval(60)))
+            pending.sort { $0.priority > $1.priority }
+            if pending.count > 3 { pending.removeLast(pending.count - 3) }
+            startPendingTimer()
+            return true
+        }
         if template.currentNavigationAlert != nil {
-            guard replacing else { return false }
             template.dismissNavigationAlert(animated: false) { _ in }
         }
         alertHost = template
-        StallLogger.shared.note("Hinweis \(alert.titleVariants.first ?? "")")
+        shownPriority = priority
+        StallLogger.shared.note("Hinweis \(title)")
         template.present(navigationAlert: alert, animated: true)
         return true
+    }
+
+    /// Wartende Hinweise nachreichen, sobald die Karte frei ist (mit 3 s Abstand zum vorigen)
+    private func startPendingTimer() {
+        guard pendingTimer == nil else { return }
+        pendingTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+            MainActor.assumeIsolated { CarPlayUI.shared.showPendingIfFree() }
+        }
+    }
+
+    private func showPendingIfFree() {
+        pending.removeAll { $0.until < Date() }
+        guard !pending.isEmpty, let template = CarPlayController.shared.alertTemplate else {
+            if pending.isEmpty { pendingTimer?.invalidate(); pendingTimer = nil }
+            return
+        }
+        if template.currentNavigationAlert != nil { lastAlertGone = Date(); return }
+        guard Date().timeIntervalSince(lastAlertGone) > 3, !busy, queue.isEmpty else { return }
+        let next = pending.removeFirst()
+        alertHost = template
+        shownPriority = next.priority
+        StallLogger.shared.note("Hinweis (nachgereicht) \(next.alert.titleVariants.first ?? "")")
+        template.present(navigationAlert: next.alert, animated: true)
+        lastAlertGone = Date()
     }
 
     /// Vor einem Wechsel der Navigationsansicht (Start/Ende der Navigation): offenen Hinweis wegräumen,
@@ -100,6 +148,8 @@ final class CarPlayUI {
 
     /// Beim Trennen von CarPlay: nichts Altes nachholen
     func reset() {
+        pending = []
+        pendingTimer?.invalidate(); pendingTimer = nil
         queue = []
         busy = false
         waiting = false

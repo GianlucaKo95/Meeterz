@@ -374,6 +374,14 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
                 Shortcut(key: fav.id.uuidString, title: fav.label, subtitle: fav.address ?? "",
                          image: UIImage(systemName: fav.symbol, withConfiguration: config) ?? UIImage(), place: fav.place)
             }
+            // Noch keine Favoriten: die letzten Ziele – sonst zeigt CarPlay im Dashboard nur Platzhalter
+            if shortcuts.isEmpty {
+                shortcuts = app.recents.items.prefix(2).map { r in
+                    Shortcut(key: "recent-\(r.id)", title: r.name, subtitle: r.address ?? "",
+                             image: UIImage(systemName: "clock.arrow.circlepath", withConfiguration: config) ?? UIImage(),
+                             place: Place(id: "recent-\(r.id)", name: r.name, address: r.address, coordinate: r.coordinate))
+                }
+            }
         }
 
         let key = shortcuts.map(\.key).joined(separator: "|")

@@ -107,7 +107,7 @@ final class SoundStore: NSObject {
     // MARK: Eigene Schnipsel
 
     func requestMicrophone() async -> Bool {
-        await AVAudioApplication.requestRecordPermission()
+        await Permissions.ask(.microphone)
     }
 
     func startRecording(_ moment: SoundMoment) async {

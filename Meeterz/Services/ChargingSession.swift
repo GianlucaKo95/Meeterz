@@ -157,12 +157,18 @@ final class CarPlayChargingOverlay {
     private func layout() {
         guard let view, let host = view.superview else { return }
         let s = ChargingSession.shared
-        let size = CGSize(width: 200, height: 200)
+        let size = CGSize(width: 220, height: 232)
         // Mitte der freien Kartenfläche (rechts neben den CarPlay-Leisten)
         let safe = host.bounds.inset(by: host.safeAreaInsets)
         view.frame = CGRect(x: safe.midX - size.width / 2 + 40, y: safe.midY - size.height / 2, width: size.width, height: size.height)
+        // Läuft eine Route (Ladestopp unterwegs): Ankunft am Ziel = Ladezeit + restliche Fahrt
+        var arrival: Date?
+        if AppModel.shared.navigation.isNavigating,
+           let progress = navigationProvider.mapboxNavigation.navigation().currentRouteProgress?.routeProgress {
+            arrival = Date().addingTimeInterval((s.done ? 0 : (s.remaining ?? 0)) + progress.durationRemaining)
+        }
         view.update(progress: s.progress, percent: s.percent, target: s.targetPercent, power: s.powerKW,
-                    remaining: s.remaining, done: s.done)
+                    remaining: s.remaining, done: s.done, arrival: arrival)
     }
 }
 
@@ -192,7 +198,7 @@ final class ChargingRingView: UIView {
         detailLabel.font = .systemFont(ofSize: 12, weight: .semibold)
         detailLabel.textColor = UIColor.white.withAlphaComponent(0.85)
         detailLabel.textAlignment = .center
-        detailLabel.numberOfLines = 2
+        detailLabel.numberOfLines = 3
         addSubview(percentLabel)
         addSubview(detailLabel)
     }
@@ -206,18 +212,23 @@ final class ChargingRingView: UIView {
         track.path = path.cgPath
         bar.path = path.cgPath
         percentLabel.frame = CGRect(x: 0, y: center.y - 22, width: bounds.width, height: 44)
-        detailLabel.frame = CGRect(x: 8, y: bounds.height - 48, width: bounds.width - 16, height: 40)
+        detailLabel.frame = CGRect(x: 8, y: bounds.height - 66, width: bounds.width - 16, height: 58)
     }
 
-    func update(progress: Double, percent: Double, target: Double, power: Double, remaining: TimeInterval?, done: Bool) {
+    func update(progress: Double, percent: Double, target: Double, power: Double, remaining: TimeInterval?, done: Bool,
+                arrival: Date? = nil) {
         CATransaction.begin()
         CATransaction.setAnimationDuration(1)
         bar.strokeEnd = CGFloat(progress)
         bar.strokeColor = (done ? UIColor(red: 1, green: 0.78, blue: 0.34, alpha: 1) : Theme.mintUI).cgColor
         CATransaction.commit()
         percentLabel.text = String(localized: "\(Int(percent.rounded())) %")
-        var lines = [(power > 0 ? "\(Int(power.rounded())) kW · " : "") + String(localized: "Ziel \(Int(target)) %")]
-        lines.append(done ? String(localized: "Genug geladen") : (remaining.map { String(localized: "noch \(ChargingSession.minutes($0))") } ?? String(localized: "lädt …")))
+        // „bis 80 % · noch 1 Std. 12 Min.“, darunter Leistung und – unterwegs – die Ankunft am Ziel
+        let time = done ? String(localized: "Genug geladen")
+            : (remaining.map { String(localized: "noch \(ChargingSession.minutes($0))") } ?? String(localized: "lädt …"))
+        var lines = [String(localized: "bis \(Int(target)) %") + " · " + time]
+        if power > 0 { lines.append("\(Int(power.rounded())) kW") }
+        if let arrival { lines.append(String(localized: "Ankunft am Ziel \(Format.time.string(from: arrival))")) }
         detailLabel.text = lines.joined(separator: "\n")
     }
 }

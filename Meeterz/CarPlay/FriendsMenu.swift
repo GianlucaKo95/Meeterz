@@ -28,7 +28,10 @@ extension CarPlayController {
         }
 
         let me = app.location.lastLocation
-        let items: [CPListItem] = all.map { item in
+        // Von mir ausgeblendete Freunde stehen nicht in der Liste (03.11.) – nur eine Zeile zum Wiedereinblenden
+        let hiddenForMe = all.filter { passengers.isHiddenForMe($0.friend.friendId) }
+        let listed = all.filter { !passengers.isHiddenForMe($0.friend.friendId) }
+        let items: [CPListItem] = listed.map { item in
             let f = item.friend
             let hidden = passengers.riding.contains(f.friendId)
             let riding = hidden && !passengers.isHiddenForMe(f.friendId)
@@ -55,7 +58,37 @@ extension CarPlayController {
 
         var sections = [CPListSection(items: [toggle])]
         if !items.isEmpty { sections.append(CPListSection(items: items, header: String(localized: "Freunde"), sectionIndexTitle: nil)) }
+        if !hiddenForMe.isEmpty {
+            let row = CPListItem(text: hiddenForMe.count == 1 ? String(localized: "1 ausgeblendeter Freund")
+                                                              : String(localized: "\(hiddenForMe.count) ausgeblendete Freunde"),
+                                 detailText: String(localized: "Zum Einblenden tippen"),
+                                 image: UIImage(systemName: "eye.slash", withConfiguration: config))
+            row.handler = { [weak self] _, done in
+                done()
+                self?.showHiddenFriends(hiddenForMe)
+            }
+            sections.append(CPListSection(items: [row]))
+        }
         return CPListTemplate(title: String(localized: "Freunde"), sections: sections)
+    }
+
+    /// Ausgeblendete Freunde: nur Name, ohne Ort – ein Tipp blendet wieder ein
+    private func showHiddenFriends(_ hidden: [AppModel.FriendOnMap]) {
+        let items: [CPListItem] = hidden.map { item in
+            let f = item.friend
+            let row = CPListItem(text: f.displayName.split(separator: " ").first.map(String.init) ?? f.displayName,
+                                 detailText: String(localized: "Einblenden"),
+                                 image: AvatarRenderer.image(initials: f.initials, color: FriendPalette.uiColor(for: f.friendId),
+                                                             faded: true, photo: AppModel.shared.avatars.image(for: f.friendId)))
+            row.handler = { [weak self] _, done in
+                Passengers.shared.setHiddenForMe(f.friendId, false)
+                self?.refreshFriendsAfterPassengerChange()
+                done()
+                CarPlayUI.shared.popToRoot(animated: true)
+            }
+            return row
+        }
+        CarPlayUI.shared.push(CPListTemplate(title: String(localized: "Ausgeblendet"), sections: [CPListSection(items: items)]), animated: true)
     }
 
     private func showFriendActions(_ item: AppModel.FriendOnMap) {

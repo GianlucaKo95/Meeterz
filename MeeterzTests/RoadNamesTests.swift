@@ -81,3 +81,19 @@ final class ContinueInstructionsTests: XCTestCase {
         XCTAssertNil(ContinueInstructions.rewrite("800 Meter weiter der Route folgen.", maneuver: "In 100 Metern rechts abbiegen."))
     }
 }
+
+final class EuropeanCodesTests: XCTestCase {
+    func testDropsEuropeanNextToNational() {
+        XCTAssertEqual(RoadNames.dropEuropeanCodes(in: "Auf A 3/E 35 fahren", national: []), "Auf A 3 fahren")
+        XCTAssertEqual(RoadNames.dropEuropeanCodes(in: "Rechts halten auf A 3, E 35 Richtung Köln", national: []), "Rechts halten auf A 3 Richtung Köln")
+    }
+
+    func testReplacesEuropeanWithKnownNational() {
+        XCTAssertEqual(RoadNames.dropEuropeanCodes(in: "7 Kilometer weiter auf der E 35 fahren.", national: ["A 3"]), "7 Kilometer weiter auf der A 3 fahren.")
+    }
+
+    func testKeepsEuropeanWithoutNational() {
+        XCTAssertEqual(RoadNames.dropEuropeanCodes(in: "Auf E 45 fahren", national: []), "Auf E 45 fahren")
+        XCTAssertEqual(RoadNames.preferredCode(["E 35", "A 3"]), "A 3")
+    }
+}

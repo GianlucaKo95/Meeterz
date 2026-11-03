@@ -215,7 +215,7 @@ enum MotorwayPhrases {
         guard let next = legProgress.upcomingStep,
               text.range(of: "Auffahrt", options: .caseInsensitive) != nil,
               text.range(of: "Ausfahrt", options: .caseInsensitive) == nil else { return text }
-        let code = next.destinationCodes?.first.flatMap { $0.isEmpty ? nil : $0 }
+        let code = RoadNames.preferredCode(next.destinationCodes)
             ?? firstMatch(#"\b[AE] ?\d+\b"#, in: text)
         guard let code else { return text }
         let side: String?
@@ -250,9 +250,9 @@ enum MotorwayPhrases {
         guard text.range(of: "der Route folgen", options: .caseInsensitive) != nil else { return text }
         // Direkt nach der Auffahrt trägt der Schritt oft noch keine Straßennummer (03.11.: „7 Kilometer weiter der
         // Route folgen“ auf der A 42) – dann die Nummer, die die Auffahrt angekündigt hat
-        let rampCode = legProgress.priorStep?.destinationCodes?.first.flatMap { $0.hasPrefix("A") || $0.hasPrefix("E") ? $0 : nil }
+        let rampCode = RoadNames.preferredCode(legProgress.priorStep?.destinationCodes).flatMap { $0.hasPrefix("A") || $0.hasPrefix("E") ? $0 : nil }
         let onMotorway = (current.intersections ?? []).contains(where: { $0.outletRoadClasses?.contains(.motorway) == true })
-        guard let code = (current.codes?.first).flatMap({ $0.isEmpty ? nil : $0 }) ?? rampCode,
+        guard let code = RoadNames.preferredCode(current.codes) ?? rampCode,
               onMotorway || code == rampCode else { return text }
         return text.replacingOccurrences(of: "der Route folgen", with: "auf der \(code) fahren", options: .caseInsensitive)
     }

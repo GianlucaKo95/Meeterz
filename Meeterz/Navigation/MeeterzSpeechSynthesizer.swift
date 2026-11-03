@@ -168,6 +168,8 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
                                                     distanceAlongStep: instruction.distanceAlongStep) { text = withDirection }
         // Innerorts mit Straßennamen: „auf Hauptstraße“ statt „auf Hauptstraße/L 91“
         text = RoadNames.dropCodes(in: text, legProgress: legProgress)
+        // Autobahnen mit A-Nummer, nie mit der Europastraße („A 3“, nicht „A 3/E 35“ oder „E 35“)
+        text = RoadNames.dropEuropeanCodes(in: text, legProgress: legProgress)
         // „Jetzt rechts abbiegen, dann links abbiegen“ nur, wenn die zweite Abbiegung sofort folgt
         text = ThenInstructions.apply(to: text, legProgress: legProgress)
         if text != instruction.text { Diag.log("Ansage angepasst: „\(instruction.text)“ → „\(text)“") }
@@ -422,6 +424,45 @@ enum RoadNames {
             for code in codes { result = remove(code: code, from: result) }
         }
         return result
+    }
+
+    /// Autobahnnummer bevorzugen: „A 3“ vor „E 35“ (Europastraßen nur, wenn es keine A-Nummer gibt, z. B. Dänemark)
+    static func preferredCode(_ codes: [String]?) -> String? {
+        let list = (codes ?? []).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+        return list.first(where: isNational) ?? list.first
+    }
+
+    static func isNational(_ code: String) -> Bool { code.range(of: #"^A ?\d+"#, options: .regularExpression) != nil }
+    static func isEuropean(_ code: String) -> Bool { code.range(of: #"^E ?\d+"#, options: .regularExpression) != nil }
+
+    /// E-Nummern aus der Ansage nehmen, wenn die Autobahn eine A-Nummer hat:
+    /// „Auf A 3/E 35 fahren“ → „Auf A 3 fahren“, „Auf E 35 fahren“ (Schritt kennt A 3) → „Auf A 3 fahren“
+    static func dropEuropeanCodes(in text: String, legProgress: RouteLegProgress) -> String {
+        let steps = [legProgress.priorStep, legProgress.currentStep, legProgress.upcomingStep, legProgress.followOnStep].compactMap { $0 }
+        let known = steps.flatMap { ($0.codes ?? []) + ($0.destinationCodes ?? []) }.filter(isNational)
+        return dropEuropeanCodes(in: text, national: known)
+    }
+
+    static func dropEuropeanCodes(in text: String, national known: [String]) -> String {
+        let eCodes = matches(#"\bE ?\d+\b"#, in: text)
+        guard !eCodes.isEmpty else { return text }
+        var out = text
+        if matches(#"\bA ?\d+\b"#, in: text).isEmpty {
+            // Nur die E-Nummer im Text: durch die A-Nummer ersetzen, wenn eindeutig bekannt
+            guard let a = Set(known.map { $0.replacingOccurrences(of: " ", with: "") }).first, Set(known.map { $0.replacingOccurrences(of: " ", with: "") }).count == 1,
+                  let digits = a.range(of: #"\d+"#, options: .regularExpression).map({ String(a[$0]) }) else { return text }
+            let national = "A \(digits)"
+            out = out.replacingOccurrences(of: eCodes[0], with: national)
+            for e in eCodes.dropFirst() { out = remove(code: e, from: out) }
+            return out
+        }
+        for e in eCodes { out = remove(code: e, from: out) }
+        return out
+    }
+
+    private static func matches(_ pattern: String, in text: String) -> [String] {
+        guard let re = try? NSRegularExpression(pattern: pattern) else { return [] }
+        return re.matches(in: text, range: NSRange(text.startIndex..., in: text)).compactMap { Range($0.range, in: text).map { String(text[$0]) } }
     }
 
     /// Nummer samt Trennzeichen entfernen: „Name/L 91“, „L 91/Name“, „Name (L 91)“, „Name, L 91“

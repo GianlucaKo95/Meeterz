@@ -461,9 +461,12 @@ final class CarPlayController: NSObject {
     }
 
     func endNavigationIfNeeded() {
-        guard isConnected, manager.currentActivity == .navigating else { return }
+        // Nicht nur bei „navigating“: liegt eine Vorschau über der Fahrt, meldet Mapbox „previewing“ – die Navigation
+        // in CarPlay lief dann ohne Führung weiter, während das iPhone schon beendet hatte (03.11.)
+        guard isConnected, let navigation = manager.carPlayNavigationViewController else { return }
         pauseAlerts()   // Mapbox tauscht gleich die Ansicht
-        manager.carPlayNavigationViewController?.exitNavigation(byCanceling: true)
+        Diag.log("CarPlay-Navigation wird mit dem iPhone beendet (Zustand: \(manager.currentActivity.map { "\($0)" } ?? "–"))")
+        navigation.exitNavigation(byCanceling: true)
     }
 
     // MARK: Freunde-Schaltfläche und Freundesliste
@@ -1358,6 +1361,12 @@ extension CarPlayController: CarPlayManagerDelegate {
         using routeChoice: CPRouteChoice
     ) {
         MainActor.assumeIsolated {
+            // Läuft schon die Navigation, ist das eine verspätete Auswahl aus der Vorschau (03.11.: kam nach einem
+            // Hänger 11 s nach dem Start an) – keine neue Vorschau über die laufende Fahrt legen
+            guard manager.carPlayNavigationViewController == nil else {
+                Diag.log("Routenvorschau während der Navigation ignoriert")
+                return
+            }
             splitRoutesIfNeeded(trip)
             framePreview(routeChoice.navigationRoutes)
             flyover?.showPreview(routeChoice.navigationRoutes)
@@ -1370,6 +1379,7 @@ extension CarPlayController: CarPlayManagerDelegate {
     /// Routenliste wie bei Apple Karten bekommen andere Apps von CarPlay nicht.
     private func splitRoutesIfNeeded(_ trip: CPTrip) {
         guard trip.routeChoices.count > 1, !splitTrips.contains(where: { $0 === trip }),
+              manager.carPlayNavigationViewController == nil,
               let template = manager.interfaceController?.topTemplate as? CPMapTemplate else { return }
         let trips = trip.routeChoices.map { choice -> CPTrip in
             let single = CPTrip(origin: trip.origin, destination: trip.destination, routeChoices: [choice])

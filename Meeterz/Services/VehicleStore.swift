@@ -19,13 +19,7 @@ final class VehicleStore {
         let lng: Double?
         let reportedAt: Date?
         let updatedAt: Date
-        /// Ladeziel laut Auto (40–100 %)
-    var carChargeTarget: Double? {
-        guard let t = status?.chargeTargetPercent, (40...100).contains(t) else { return nil }
-        return t
-    }
-
-    /// Restladezeit laut Auto in Sekunden (über das Add-on, eigene Meldung)
+        /// Restladezeit laut Auto in Sekunden (über das Add-on, eigene Meldung)
         let chargeRemainingS: Double?
         let chargeRemainingAt: Date?
         /// Ladeziel, das im Auto eingestellt ist (%) – darauf bezieht sich dessen Restladezeit

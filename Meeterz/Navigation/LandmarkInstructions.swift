@@ -243,7 +243,10 @@ enum MotorwayPhrases {
         }
         let prefix = firstMatch(#"^In [0-9.,]+ (Metern|Kilometern|Kilometer|Meter)"#, in: head)
         var core = [side, "auf die Auffahrt", code].compactMap { $0 }.joined(separator: " ")
-        if !targets.isEmpty { core += " Richtung " + targets.prefix(2).joined(separator: ", ") }
+        // Ein Ziel genügt, und nie die Autobahn selbst („Auffahrt A 40 Richtung A 40“, 04.11.)
+        if let target = targets.first(where: { $0.replacingOccurrences(of: " ", with: "") != code.replacingOccurrences(of: " ", with: "") }) {
+            core += " Richtung " + target
+        }
         core += " fahren"
         let sentence = prefix.map { "\($0) \(core)" } ?? core.prefix(1).uppercased() + core.dropFirst()
         return sentence + (tail.isEmpty ? "." : tail)
@@ -276,12 +279,20 @@ enum FinalTurn {
     /// Die letzte Ansage eines Abschnitts ist die an der Abbiegung. Ihr Abstand hängt bei Mapbox vom Tempo ab
     /// (89–190 m), eine feste Grenze von 150 m ließ sie außerorts durchrutschen (04.11.).
     static func apply(to text: String, instruction: SpokenInstruction, legProgress: RouteLegProgress) -> String {
-        guard VoiceCatalog.language == "de", legProgress.currentStep.maneuverType != .depart,
+        let spoken = legProgress.currentStep.instructionsSpokenAlongStep ?? []
+        let d = instruction.distanceAlongStep
+        // Abstände mit 1 m Spielraum vergleichen: Mapbox reicht sie über die Navigator-Bibliothek durch, ein exakter
+        // Vergleich traf nur manchmal (04.11.: „Rechts auf Friedensstraße abbiegen.“ blieb lang)
+        let isLast = !spoken.contains { $0.distanceAlongStep < d - 1 }
+        let isFirst = !spoken.contains { $0.distanceAlongStep > d + 1 }
+        guard VoiceCatalog.language == "de",
               let next = legProgress.upcomingStep, isTurn(next),
               let direction = LandmarkInstructions.directionText(next.maneuverDirection),
               instruction.text.range(of: #"^In [0-9]"#, options: .regularExpression) == nil,
-              let last = legProgress.currentStep.instructionsSpokenAlongStep?.min(by: { $0.distanceAlongStep < $1.distanceAlongStep }),
-              last.distanceAlongStep == instruction.distanceAlongStep else { return text }
+              isLast,
+              // Losfahren („Auf X Richtung Norden fahren. Dann rechts abbiegen“) ist keine Abbiegeansage – auch nicht
+              // nach einer Neuberechnung, die jedes Mal mit einem Losfahr-Abschnitt beginnt (04.11.: dort fehlte „Jetzt“)
+              !(legProgress.currentStep.maneuverType == .depart && isFirst && spoken.count > 1) else { return text }
         return short(direction: direction, from: text)
     }
 
@@ -311,6 +322,8 @@ enum FinalTurn {
 /// Autobahn: Die erste Ansage einer Ausfahrt oder eines Wechsels erst bei 2 km statt bei 3 km
 enum MotorwayTiming {
     static let firstDistance: Double = 2000
+    /// Ansagen weiter vorher werden auf 2 km verschoben oder ausgelassen
+    static let deferAbove: Double = 2400
 
     enum Decision {
         /// Ansage weglassen (es kommt ohnehin eine um 2 km)
@@ -321,12 +334,12 @@ enum MotorwayTiming {
 
     static func decide(_ instruction: SpokenInstruction, legProgress: RouteLegProgress) -> Decision? {
         let current = legProgress.currentStep
-        guard VoiceCatalog.language == "de", instruction.distanceAlongStep > 2400,
+        guard VoiceCatalog.language == "de", instruction.distanceAlongStep > deferAbove,
               let next = legProgress.upcomingStep, next.maneuverType != .arrive,
               (current.intersections ?? []).contains(where: { $0.outletRoadClasses?.contains(.motorway) == true }),
               let range = instruction.text.range(of: #"^In [0-9.,]+ (Kilometern|Kilometer)"#, options: .regularExpression)
         else { return nil }
-        if current.instructionsSpokenAlongStep?.contains(where: { $0.distanceAlongStep >= 1600 && $0.distanceAlongStep < 2400 }) == true {
+        if current.instructionsSpokenAlongStep?.contains(where: { $0.distanceAlongStep >= 1600 && $0.distanceAlongStep < deferAbove }) == true {
             return .skip
         }
         let text = instruction.text.replacingCharacters(in: range, with: "In 2 Kilometern")

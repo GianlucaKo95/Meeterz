@@ -415,6 +415,11 @@ enum MotorwayDirection {
         let current = legProgress.currentStep
         let onMotorway = (current.intersections ?? []).contains { $0.outletRoadClasses?.contains(.motorway) == true }
         guard onMotorway else { return nil }
+        // Richtung nur in der ersten Ansage dieses Manövers (Ansagen über 2,4 km sagt MotorwayTiming erst bei 2 km)
+        let spokenBefore = (current.instructionsSpokenAlongStep ?? []).contains {
+            $0.distanceAlongStep > distanceAlongStep + 1 && $0.distanceAlongStep <= MotorwayTiming.deferAbove
+        }
+        if spokenBefore { return shortExit(withoutDirection(text)) }
         let targets = joinFragments(next.destinations ?? [])
         guard let first = targets.first else { return nil }
         // Mapbox' eigene Richtung kommt zerstückelt („in Richtung Duisburg, -Baerl“) und deckte sich dann nicht mit
@@ -454,6 +459,20 @@ enum MotorwayDirection {
             }
         }
         return out
+    }
+
+    /// „…, Richtung Köln“ / „in Richtung Köln, Krefeld“ weg – die Richtung stand schon in der ersten Ansage
+    static func withoutDirection(_ text: String) -> String {
+        let word = #"[\p{Lu}0-9][\p{L}0-9\-]*"#
+        let name = "\(word)(?: \(word))*"
+        return repairFragments(in: text).replacingOccurrences(of: ",? (?:in )?Richtung \(name)(?:, \(name))*", with: "",
+                                                               options: .regularExpression)
+    }
+
+    /// „Auf A 57 über die Ausfahrt 8 abfahren“ → „An der Ausfahrt 8 abfahren“
+    static func shortExit(_ text: String) -> String {
+        text.replacingOccurrences(of: #"Auf [AB] ?\d+(?:, [AE] ?\d+)? über die Ausfahrt (\S+) abfahren"#,
+                                  with: "An der Ausfahrt $1 abfahren", options: .regularExpression)
     }
 
     /// „Richtung Arnhem, Hannover“ → „Richtung Arnhem“: alle Ziele des Schilds vorzulesen dauerte zu lang (04.11.)

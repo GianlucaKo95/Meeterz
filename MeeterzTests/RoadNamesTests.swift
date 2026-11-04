@@ -52,6 +52,13 @@ final class MotorwayDirectionTests: XCTestCase {
         XCTAssertEqual(MotorwayDirection.firstTargetOnly(in: "In 800 Metern An der Ausfahrt 3 abfahren in Richtung Duisburg, -Baerl, -Homberg."),
                        "In 800 Metern An der Ausfahrt 3 abfahren in Richtung Duisburg-Baerl.")
         XCTAssertEqual(MotorwayDirection.firstTargetOnly(in: "In Richtung B 7, A 52 nach Rechts abbiegen."), "In Richtung B 7 nach Rechts abbiegen.")
+        // Folgeansagen ohne Richtung, und knapp
+        XCTAssertEqual(MotorwayDirection.shortExit(MotorwayDirection.withoutDirection("In 800 Metern Auf A 57 in Richtung Köln, Krefeld über die Ausfahrt 8 abfahren.")),
+                       "In 800 Metern An der Ausfahrt 8 abfahren.")
+        XCTAssertEqual(MotorwayDirection.withoutDirection("In 800 Metern An der Ausfahrt 3 abfahren in Richtung Duisburg, -Baerl."),
+                       "In 800 Metern An der Ausfahrt 3 abfahren.")
+        XCTAssertEqual(MotorwayDirection.withoutDirection("Rechts halten auf A 42 in Richtung Dortmund, Oberhausen. Dann Rechts halten auf A 42."),
+                       "Rechts halten auf A 42. Dann Rechts halten auf A 42.")
         XCTAssertEqual(MotorwayDirection.firstTargetOnly(in: "Rechts halten auf A 42, Richtung Dortmund, Oberhausen. Dann Rechts halten auf A 42."),
                        "Rechts halten auf A 42, Richtung Dortmund. Dann Rechts halten auf A 42.")
     }
@@ -67,7 +74,9 @@ final class MotorwayPhrasesTests: XCTestCase {
                        "Rechts auf die Auffahrt A 42 fahren. Dann Links halten.")
         XCTAssertEqual(MotorwayPhrases.phrase(original: "In 1,5 Kilometern Auf die Auffahrt auf A 3 abfahren.",
                                               side: nil, code: "A 3", targets: ["Köln", "Oberhausen"]),
-                       "In 1,5 Kilometern auf die Auffahrt A 3 Richtung Köln, Oberhausen fahren.")
+                       "In 1,5 Kilometern auf die Auffahrt A 3 Richtung Köln fahren.")
+        XCTAssertEqual(MotorwayPhrases.phrase(original: "Auf die Auffahrt A 40 abbiegen.", side: "rechts", code: "A 40", targets: ["A 40"]),
+                       "Rechts auf die Auffahrt A 40 fahren.")
     }
 }
 

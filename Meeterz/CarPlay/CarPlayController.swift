@@ -104,11 +104,20 @@ final class CarPlayController: NSObject {
     /// Zoombereich während der Navigation. Mapbox zoomt weiter selbst (auf der Autobahn weiter heraus, vor Abbiegungen
     /// heran); manueller Zoom hat Vorrang. Mapbox' Vorgabe (ab 10,5) ging aber bis auf Stadtgröße – mit der Neigung
     /// sah man dann Himmel. Die Untergrenze 13,5 hält die Autobahn im Blick, ohne bis zum Horizont zu reichen.
-    static let navigationZoomRange: ClosedRange<Double> = 13.5...17.5
+    /// 04.11.: überall eine Stufe näher (vorher 13,5…17,5)
+    static let navigationZoomRange: ClosedRange<Double> = 14.5...18.5
 
     /// Zoom außerhalb der Fahrt (mit +/− gewählt, bleibt gespeichert)
     var browseZoom: Double {
-        get { UserDefaults.standard.object(forKey: "carplay.zoom") as? Double ?? 16.5 }
+        get {
+            // 04.11.: freie Fahrt eine Stufe näher – auch ein schon gespeicherter Wert (einmalig)
+            let d = UserDefaults.standard
+            if !d.bool(forKey: "carplay.zoom.closer"), let old = d.object(forKey: "carplay.zoom") as? Double {
+                d.set(min(old + 1, 19), forKey: "carplay.zoom")
+            }
+            d.set(true, forKey: "carplay.zoom.closer")
+            return d.object(forKey: "carplay.zoom") as? Double ?? 17.5
+        }
         set { UserDefaults.standard.set(newValue, forKey: "carplay.zoom") }
     }
 
@@ -150,6 +159,7 @@ final class CarPlayController: NSObject {
             options.followingCameraOptions.pitchUpdatesAllowed = true
             options.followingCameraOptions.zoomUpdatesAllowed = navZoom == nil
             options.followingCameraOptions.zoomRange = Self.navigationZoomRange
+            options.followingCameraOptions.intersectionDensity.averageDistanceMultiplier = NavigationZoom.lookaheadMultiplier
             if let navZoom { current.followingCamera.zoom = navZoom }
         } else {
             options.followingCameraOptions.pitchUpdatesAllowed = false

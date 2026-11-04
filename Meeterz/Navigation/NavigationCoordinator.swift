@@ -250,6 +250,7 @@ final class NavigationCoordinator: NSObject {
                     Self.installMuteButton(on: controller)
                     self?.installOverviewButton(on: controller)
                     self?.startAutoRecenter(controller)
+                    NavigationZoom.closer(controller.navigationMapView)
                     if let mapView = controller.navigationMapView?.mapView {
                         Satellite3DBuildings.install(
                             on: mapView,
@@ -738,5 +739,22 @@ extension UIApplication {
         var vc = scene?.windows.first { $0.isKeyWindow }?.rootViewController ?? scene?.windows.first?.rootViewController
         while let presented = vc?.presentedViewController { vc = presented }
         return vc
+    }
+}
+
+/// Navigationskamera eine Zoomstufe näher – Autobahn, außerorts und innerorts gleichermaßen.
+/// Mapbox rahmt die Strecke bis zum 7-Fachen des mittleren Kreuzungsabstands; die Hälfte davon ist genau eine
+/// Zoomstufe näher, ohne die Anpassung an die Straßenart zu verlieren (04.11.).
+enum NavigationZoom {
+    static let lookaheadMultiplier = 3.5
+
+    /// iPhone-Navigation (CarPlay: CarPlayController.configureCamera)
+    @MainActor static func closer(_ map: NavigationMapView?) {
+        guard let source = map?.navigationCamera.viewportDataSource as? MobileViewportDataSource else { return }
+        var options = source.options
+        options.followingCameraOptions.intersectionDensity.averageDistanceMultiplier = lookaheadMultiplier
+        let range = options.followingCameraOptions.zoomRange
+        options.followingCameraOptions.zoomRange = (range.lowerBound + 1)...(range.upperBound + 1)
+        source.options = options
     }
 }

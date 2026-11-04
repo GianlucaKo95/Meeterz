@@ -97,7 +97,7 @@ final class ManeuverGuidance {
         // Rechtzeitig: ca. 12 s vor dem Manöver, mindestens 250 m, bei Ausfahrten mindestens 600 m
         let lead = max(speed * 12, exit ? 600 : 250)
         if turn, stepProgress.distanceRemaining < lead {
-            let target = exit ? 16.5 : 17.0
+            let target = exit ? 17.5 : 18.0
             if zoomedFor != index {
                 zoomedFor = index
                 applyZoom?(target)   // setzt nur, wenn die Karte weiter weg ist (siehe CarPlayController)

@@ -139,7 +139,9 @@ enum ThenInstructions {
         // fiel die erste Abbiegung weg).
         if legProgress.currentStep.maneuverType == .depart { return text }
         let hasThen = text.range(of: #"[,.]?\s+dann[\s,]"#, options: [.regularExpression, .caseInsensitive]) != nil
-        // Nur der erste Satz – „Dann rechts halten auf A 42“, „Dann befindet sich das Ziel …“ war zu viel (04.11.)
+        // Nur der erste Satz – „Dann rechts halten auf A 42“ war zu viel (04.11.). Die Seite des Ziels
+        // („Dann befindet sich das Ziel auf der rechten Seite“) bleibt.
+        if legProgress.followOnStep?.maneuverType == .arrive { return text }
         guard let second = legProgress.followOnStep, isTurn(second) else { return hasThen ? withoutThen(text) : text }
         guard isTurn(first), first.distance <= maxGap,
               let direction = LandmarkInstructions.directionText(second.maneuverDirection) else {

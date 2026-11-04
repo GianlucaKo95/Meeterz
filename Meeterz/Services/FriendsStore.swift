@@ -17,12 +17,18 @@ final class FriendsStore {
 
     func refresh() async {
         do {
+            let before = accepted.map { "\($0.friendId)\($0.displayName)" }
             rows = try await client.rpc("my_friends").execute().value
             if let hidden: [UUID] = try? await client.rpc("my_hidden_friends").execute().value {
                 hiddenFrom = Set(hidden)
             }
-            // Siri kennt die Namen der Freunde („Navigiere mit Meeterz zu Lisa“)
-            MeeterzShortcuts.updateAppShortcutParameters()
+            // Siri kennt die Namen der Freunde („Navigiere mit Meeterz zu Lisa“) – nur bei Änderung melden.
+            // Vorher bei JEDEM Laden: iOS fragt daraufhin die Freundesliste ab (FriendQuery), die bei leerer Liste
+            // wieder lud und wieder meldete – eine Endlosschleife mit ~80 000 Anfragen in wenigen Minuten, die am
+            // 04.11. die Datenbank lahmlegte.
+            if accepted.map({ "\($0.friendId)\($0.displayName)" }) != before {
+                MeeterzShortcuts.updateAppShortcutParameters()
+            }
             errorMessage = nil   // vorher blieb ein einmaliger Fehler (z. B. kurz offline) für immer stehen
         } catch where AuthStore.isOffline(error) {
             // Kurz kein Netz: letzten Stand behalten, beim nächsten Aktualisieren klappt es wieder – keine Meldung

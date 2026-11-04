@@ -19,10 +19,16 @@ struct FriendEntity: AppEntity {
 }
 
 struct FriendQuery: EntityStringQuery {
+    @MainActor private static var lastLoad = Date.distantPast
+
     @MainActor
     private func all() async -> [FriendEntity] {
         let app = AppModel.shared
-        if app.friends.accepted.isEmpty { await app.friends.refresh() }
+        // Höchstens einmal pro Minute nachladen (nie aus jeder Siri-Abfrage heraus – das wurde zur Endlosschleife)
+        if app.friends.accepted.isEmpty, Date().timeIntervalSince(Self.lastLoad) > 60 {
+            Self.lastLoad = Date()
+            await app.friends.refresh()
+        }
         return app.friends.accepted.map { FriendEntity(id: $0.friendId, name: $0.displayName) }
     }
 

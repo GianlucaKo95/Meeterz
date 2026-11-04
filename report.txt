@@ -1,0 +1,104 @@
+Commit: f7f5cb569085eb8650d5f06631c1f435263bc72f
+Zeit:   2026-11-04T19:04:35Z
+Ergebnis: success
+
+Xcode-Kandidat: /Applications/Xcode_27.2.0.app (27B48)
+Xcode 27.2
+Build version 27B48
+✔︎ Bottle xcodegen (2.46.0)
+[34m==>[0m [1mPouring xcodegen--2.46.0.arm64_golden_gate.bottle.1.tar.gz[0m
+🍺  /opt/homebrew/Cellar/xcodegen/2.46.0: 38 files, 7.5MB
+Entitlements: Meeterz/Meeterz-CarPlay.entitlements
+
+== Alte CI-Zertifikate aufräumen ==
+API DELETE /v1/certificates/9K7397686S -> 409: {
+  "errors" : [ {
+    "id" : "b15b8dd0-a23d-4cb3-89ef-d09b04a6e45e",
+    "status" : "409",
+    "code" : "ENTITY_ERROR",
+    "title" : "There is a problem with the request entity",
+    "detail" : "This certificate cannot be revoked because it is not in an &quot;issued&quot; state."
+  } ]
+}
+gelöscht: profiles 56G8ZGADAC Meeterz CI 55-1793808389
+gelöscht: certificates 9K7397686S Meeterz CI 55-1793808389
+gelöscht: profiles 97BWH2VH52 Meeterz CI W55-1793808395
+
+== Zertifikat und Profil erzeugen ==
+Zertifikat: Apple Distribution: Gianluca Köhni 2027-11-04T18:45:02.000+00:00
+Profil: Meeterz CI 56-1793818499 74b0ed4d-1004-4915-a41f-853e4afe4012
+Profil: Meeterz CI W56-1793818503 77feb8f9-9c1b-481c-b536-5227a034b65f
+1 identity imported.
+  1) 33985913D5DB3644889C63D303511C8D19C36464 "Apple Distribution: Gianluca Köhni (V47X62H4S2)"
+     1 valid identities found
+⚙️  Generating plists...
+⚙️  Generating project...
+⚙️  Writing project...
+Created project at /Users/runner/work/Meeterz/Meeterz/Meeterz.xcodeproj
+
+== Archivieren ==
+** ARCHIVE SUCCEEDED **
+
+== Signatur im Archiv ==
+Identifier=de.koeven.meeterz
+Signature size=4788
+Authority=Apple Distribution: Gianluca Köhni (V47X62H4S2)
+Authority=Apple Worldwide Developer Relations Certification Authority
+Authority=Apple Root CA
+TeamIdentifier=V47X62H4S2
+  1) 33985913D5DB3644889C63D303511C8D19C36464 "Apple Distribution: Gianluca Köhni (V47X62H4S2)"
+     1 valid identities found
+
+== Exportieren (lokal, Verteilungs-Signatur) ==
+** EXPORT SUCCEEDED **
+Exported Meeterz to: /Users/runner/work/Meeterz/Meeterz/build/export
+IPA: build/export/Meeterz.ipa
+Authority=Apple Distribution: Gianluca Köhni (V47X62H4S2)
+Authority=Apple Worldwide Developer Relations Certification Authority
+Authority=Apple Root CA
+TeamIdentifier=V47X62H4S2
+Authority=Apple Distribution: Gianluca Köhni (V47X62H4S2)
+Authority=Apple Worldwide Developer Relations Certification Authority
+Authority=Apple Root CA
+TeamIdentifier=V47X62H4S2
+build/ipa-check/Payload/Meeterz.app: valid on disk
+build/ipa-check/Payload/Meeterz.app: satisfies its Designated Requirement
+Format=app bundle with Mach-O thin (arm64)
+CodeDirectory v=20400 size=37941 flags=0x0(none) hashes=1175+7 location=embedded
+CandidateCDHash sha256=70758f4e7933021ff7c2e0b09506f55117d8ff3b
+CandidateCDHashFull sha256=70758f4e7933021ff7c2e0b09506f55117d8ff3b254f3933a3d753ba2dd6e209
+CDHash=70758f4e7933021ff7c2e0b09506f55117d8ff3b
+-- Provisioning-Profil im IPA --
+Name: Meeterz CI 56-1793818499
+TeamName: Gianluca Köhni
+CreationDate: Wed Nov 04 18:55:04 UTC 2026
+ExpirationDate: Thu Nov 04 18:45:02 UTC 2027
+ProvisionsAllDevices: Print: Entry, ":ProvisionsAllDevices", Does Not Exist
+Dict {
+    keychain-access-groups = Array {
+        V47X62H4S2.*
+        com.apple.token
+    }
+    get-task-allow = false
+    com.apple.developer.team-identifier = V47X62H4S2
+    com.apple.developer.applesignin = Array {
+        Default
+    }
+    application-identifier = V47X62H4S2.de.koeven.meeterz
+    beta-reports-active = true
+    com.apple.developer.carplay-maps = true
+    aps-environment = production
+}
+
+== Hochladen zu TestFlight (altool) ==
+Running altool at path '/Applications/Xcode_27.2_Release_Candidate.app/Contents/SharedFrameworks/ContentDelivery.framework/Resources/altool'...
+
+2026-11-04 19:04:34.685 ERROR: [ContentDelivery.Uploader.7AFF099600] Failed to create URL for 'CDUploaderStateInfoResumeFilePath'. The file doesn’t exist. (4) The file doesn’t exist.
+2026-11-04 19:04:34.690  INFO: [ContentDelivery.Uploader.7AFF099600] 
+==========================================
+UPLOAD SUCCEEDED with no errors
+Delivery UUID: ddcb63e7-df89-4b36-ba54-d48241e11c7f
+Transferred 30792662 bytes in 4.649 seconds (6.6MB/s, 52.985Mbps)
+==========================================
+No errors uploading archive at 'build/export/Meeterz.ipa'.
+Hochgeladen: Version 1.0 Build 56

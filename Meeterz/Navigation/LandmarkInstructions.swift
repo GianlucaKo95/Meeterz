@@ -273,17 +273,22 @@ enum MotorwayPhrases {
 /// Ende der Straße; die ausführliche Ansage kam schon vorher. Eine direkt folgende zweite Abbiegung bleibt dran
 /// („Jetzt rechts abbiegen, dann links abbiegen“).
 enum FinalTurn {
-    /// Bis zu dieser Entfernung zur Abbiegung gilt eine Ansage als die letzte
-    static let maxDistance: Double = 150
-
+    /// Die letzte Ansage eines Abschnitts ist die an der Abbiegung. Ihr Abstand hängt bei Mapbox vom Tempo ab
+    /// (89–190 m), eine feste Grenze von 150 m ließ sie außerorts durchrutschen (04.11.).
     static func apply(to text: String, instruction: SpokenInstruction, legProgress: RouteLegProgress) -> String {
         guard VoiceCatalog.language == "de", legProgress.currentStep.maneuverType != .depart,
-              let next = legProgress.upcomingStep, ThenInstructions.isTurn(next),
+              let next = legProgress.upcomingStep, isTurn(next),
               let direction = LandmarkInstructions.directionText(next.maneuverDirection),
-              instruction.distanceAlongStep <= maxDistance,
+              instruction.text.range(of: #"^In [0-9]"#, options: .regularExpression) == nil,
               let last = legProgress.currentStep.instructionsSpokenAlongStep?.min(by: { $0.distanceAlongStep < $1.distanceAlongStep }),
               last.distanceAlongStep == instruction.distanceAlongStep else { return text }
         return short(direction: direction, from: text)
+    }
+
+    /// Abbiegen, auch „Am Ende der Straße …“ und „Rechts abbiegen, um auf … zu bleiben“
+    static func isTurn(_ step: RouteStep) -> Bool {
+        ThenInstructions.isTurn(step)
+            || (step.maneuverType == .continue && [.left, .right, .sharpLeft, .sharpRight].contains(step.maneuverDirection))
     }
 
     /// „Jetzt rechts abbiegen“ + ggf. „, dann links abbiegen“ aus dem bisherigen Text

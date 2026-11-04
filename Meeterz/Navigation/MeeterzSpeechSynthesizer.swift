@@ -415,8 +415,11 @@ enum MotorwayDirection {
         guard onMotorway else { return nil }
         let targets = joinFragments(next.destinations ?? [])
         guard let first = targets.first else { return nil }
+        // Mapbox' eigene Richtung kommt zerstückelt („in Richtung Duisburg, -Baerl“) und deckte sich dann nicht mit
+        // unserer – beide standen hintereinander (04.11.). Erst reparieren, dann vergleichen.
+        let text = repairFragments(in: text)
         // Steht die Richtung schon drin (meist in der letzten Ansage), nichts doppelt
-        if text.range(of: first, options: [.caseInsensitive, .diacriticInsensitive]) != nil { return nil }
+        if text.range(of: first, options: [.caseInsensitive, .diacriticInsensitive]) != nil { return text }
         return insert(String(localized: "Richtung \(targets.prefix(2).joined(separator: ", "))"), into: text)
     }
 
@@ -434,13 +437,35 @@ enum MotorwayDirection {
         return head + ", " + direction + (period ? "." : "") + tail
     }
 
-    /// Mapbox trennt Ziele am Komma; Ortsteile wie „Duisburg-Baerl“ kamen dabei als „Duisburg“, „-Baerl“ an
+    /// Mapbox trennt Ziele am Komma; Ortsteile kommen als „Duisburg“, „-Baerl“, „-Homberg“ an.
+    /// Gemeint ist „Duisburg-Baerl“ und „Duisburg-Homberg“ – jeder Ortsteil hängt an der Stadt davor.
     static func joinFragments(_ raw: [String]) -> [String] {
         var out: [String] = []
+        var city: String?
         for part in raw.map({ $0.trimmingCharacters(in: .whitespaces) }) where !part.isEmpty {
-            if part.hasPrefix("-"), let last = out.popLast() { out.append(last + part) } else { out.append(part) }
+            if part.hasPrefix("-"), let city {
+                if out.last == city { out.removeLast() }
+                out.append(city + part)
+            } else {
+                out.append(part)
+                city = part
+            }
         }
         return out
+    }
+
+    /// Dasselbe im Ansagetext: „in Richtung Duisburg, -Baerl, -Homberg“ → „in Richtung Duisburg-Baerl, Duisburg-Homberg“
+    static func repairFragments(in text: String) -> String {
+        guard let regex = try? NSRegularExpression(pattern: #"([\p{L}][\p{L}\-]*)((?:,\s*-[\p{L}]+)+)"#) else { return text }
+        var result = text
+        for match in regex.matches(in: text, range: NSRange(text.startIndex..., in: text)).reversed() {
+            guard let all = Range(match.range, in: text), let cityRange = Range(match.range(at: 1), in: text),
+                  let restRange = Range(match.range(at: 2), in: text) else { continue }
+            let city = String(text[cityRange])
+            let parts = text[restRange].split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+            result.replaceSubrange(all, with: joinFragments([city] + parts).joined(separator: ", "))
+        }
+        return result
     }
 }
 

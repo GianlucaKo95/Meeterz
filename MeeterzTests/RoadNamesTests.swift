@@ -42,6 +42,11 @@ final class MotorwayDirectionTests: XCTestCase {
     func testJoinsDistrictFragments() {
         XCTAssertEqual(MotorwayDirection.joinFragments(["Duisburg", "-Baerl"]), ["Duisburg-Baerl"])
         XCTAssertEqual(MotorwayDirection.joinFragments(["Dortmund", " Oberhausen"]), ["Dortmund", "Oberhausen"])
+        XCTAssertEqual(MotorwayDirection.joinFragments(["Duisburg", "-Baerl", "-Homberg", "Moers-Meerbeck"]),
+                       ["Duisburg-Baerl", "Duisburg-Homberg", "Moers-Meerbeck"])
+        XCTAssertEqual(MotorwayDirection.repairFragments(in: "In 800 Metern An der Ausfahrt 3 abfahren in Richtung Duisburg, -Baerl."),
+                       "In 800 Metern An der Ausfahrt 3 abfahren in Richtung Duisburg-Baerl.")
+        XCTAssertEqual(MotorwayDirection.repairFragments(in: "Richtung Dortmund, Oberhausen."), "Richtung Dortmund, Oberhausen.")
     }
 }
 

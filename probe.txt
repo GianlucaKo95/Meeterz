@@ -1,0 +1,25 @@
+Ort: Adolf-Dembach-Straße, 47829 Krefeld → Adolf-Dembach-Straße, 47829 Krefeld, Germany
+Ort: Parkstraße 81, 47829 Krefeld → Parkstraße 81, 47829 Krefeld, Germany
+#0 depart  | Adolf-Dembach-Straße ref= dest= exits= | 249 m
+    🪧 249 m: Adolf-Dembach-Straße / K 2 | ['Adolf-Dembach-Straße', '/', 'K 2']
+    🔊 249 m: Auf Adolf-Dembach-Straße Richtung Westen fahren. Dann Rechts auf Adolf-Dembach-Straße abbiegen.
+    🔊 66 m: Rechts auf Adolf-Dembach-Straße, K 2 abbiegen.
+#1 turn right | Adolf-Dembach-Straße ref=K 2 dest= exits= | 192 m
+    🪧 192 m: Friedensstraße | ['Friedensstraße']
+    🔊 182 m: In 200 Metern Rechts auf Friedensstraße abbiegen.
+    🔊 47 m: Rechts auf Friedensstraße abbiegen.
+#2 turn right | Friedensstraße ref= dest= exits= | 249 m
+    🪧 249 m: Parkstraße | ['Parkstraße']
+    🔊 233 m: In 200 Metern Links auf Parkstraße abbiegen.
+    🔊 68 m: Links auf Parkstraße abbiegen.
+#3 turn left | Parkstraße ref= dest= exits= | 935 m
+    🪧 935 m: Nikolaus-Groß-Straße | ['Nikolaus-Groß-Straße']
+    K0 ['traffic_signal'] 929 m vor dem nächsten Manöver
+    🔊 924 m: 900 Meter weiter der Route folgen.
+    🔊 400 m: In 400 Metern Rechts auf Nikolaus-Groß-Straße abbiegen.
+    🔊 103 m: Rechts auf Nikolaus-Groß-Straße abbiegen. Dann befindet sich das Ziel auf der rechten Seite.
+#4 turn right | Nikolaus-Groß-Straße ref= dest= exits= | 19 m
+    🪧 19 m: Das Ziel befindet sich auf der rechten Seite | ['Das Ziel befindet sich auf der rechten Seite']
+    🔊 15 m: Das Ziel befindet sich auf der rechten Seite.
+#5 arrive right | Nikolaus-Groß-Straße ref= dest= exits= | 0 m
+Ampeln gesamt: 1, Stoppschilder: 0

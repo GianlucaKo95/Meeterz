@@ -19,6 +19,13 @@ struct NavigationActivityAttributes: ActivityAttributes {
         var friendInitials: String?
         var friendArrival: Date?
         var friendHere: Bool
+        /// Live-Daten des Autos (nur mit verbundenem Auto). Die kleine Ansicht (CarPlay-Dashboard) zeigt sie statt
+        /// der Abbiegung – die steht dort schon in Meeterz' eigener Karte daneben.
+        var soc: Double? = nil
+        var rangeKm: Double? = nil
+        var arrivalSoc: Double? = nil
+        /// Verbrauch dieser Fahrt in kWh/100 km
+        var consumption: Double? = nil
     }
 
     var destinationName: String

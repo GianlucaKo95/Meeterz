@@ -15,6 +15,8 @@ final class NavigationLiveActivityController {
     private var lastState: NavigationActivityAttributes.ContentState?
     private var lastPush = Date.distantPast
     private var destination: CLLocationCoordinate2D?
+    /// Akkustand und Kilometerstand beim Losfahren – für den Verbrauch dieser Fahrt
+    private var tripStart: (soc: Double, odometer: Double)?
     /// Token, mit dem unser Server die Live-Aktivität per Push starten darf (iOS erlaubt das Starten sonst nur mit der
     /// App im Vordergrund – CarPlay-Fahrten beginnen aber meist bei gesperrtem iPhone)
     private var pushToStartToken: String?
@@ -135,11 +137,13 @@ final class NavigationLiveActivityController {
             remainingDistance: progress.distanceRemaining,
             friendName: nil, friendInitials: nil, friendArrival: nil, friendHere: false)
         addFriend(to: &state)
+        addCar(to: &state)
 
         let changedTurn = state.symbol != lastState?.symbol || state.instruction != lastState?.instruction
         let distanceJump = abs(state.distanceToTurn - (lastState?.distanceToTurn ?? 0)) > max(50, state.distanceToTurn * 0.2)
         let friendChanged = state.friendHere != lastState?.friendHere || state.friendName != lastState?.friendName
-        guard changedTurn || distanceJump || friendChanged || Date().timeIntervalSince(lastPush) > 15 else { return }
+        let carChanged = state.soc != lastState?.soc || state.rangeKm != lastState?.rangeKm
+        guard changedTurn || distanceJump || friendChanged || carChanged || Date().timeIntervalSince(lastPush) > 15 else { return }
 
         lastState = state
         lastPush = Date()
@@ -156,7 +160,23 @@ final class NavigationLiveActivityController {
         self.activity = nil
         lastState = nil
         destination = nil
+        tripStart = nil
         Task { await activity.end(nil, dismissalPolicy: .immediate) }
+    }
+
+    /// Akku, Reichweite, Ankunft-% und Verbrauch dieser Fahrt
+    private func addCar(to state: inout NavigationActivityAttributes.ContentState) {
+        let vehicle = AppModel.shared.vehicle
+        guard let soc = vehicle.liveSoc else { return }
+        state.soc = soc
+        state.rangeKm = vehicle.liveRangeKm
+        if EVSettings.enabled { state.arrivalSoc = ChargeMonitor.shared.arrivalPercent }
+        guard let odometer = vehicle.status?.odometerKm, let battery = EVSettings.vehicle?.battery else { return }
+        if tripStart == nil { tripStart = (soc, odometer) }
+        // Akkustand kommt in ganzen Prozent – erst ab ein paar Kilometern ist der Wert halbwegs ruhig
+        if let start = tripStart, odometer - start.odometer >= 5, start.soc > soc {
+            state.consumption = (start.soc - soc) / 100 * battery / (odometer - start.odometer) * 100
+        }
     }
 
     /// Freund, der zum selben Ziel unterwegs ist (oder schon dort steht)

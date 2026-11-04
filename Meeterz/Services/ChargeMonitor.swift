@@ -20,6 +20,8 @@ final class ChargeMonitor {
     private var anchorSoc: Double = 0
     private var anchorTraveled: Double = 0
     private var lastEstimate: Double?
+    /// Akkustand bei Ankunft am Ziel bzw. am nächsten Stopp (für die Live-Aktivität)
+    private(set) var arrivalPercent: Double?
     private var lastLogged = ""
     private var profileKey = ""
     private var profile: ChargePlanner.Profile?
@@ -30,6 +32,7 @@ final class ChargeMonitor {
         anchorSoc = EVSettings.chargePercent
         anchorTraveled = 0
         lastEstimate = nil
+        arrivalPercent = nil
         timer = Timer.scheduledTimer(withTimeInterval: 120, repeats: true) { _ in
             Task { @MainActor in await ChargeMonitor.shared.check() }
         }
@@ -82,6 +85,7 @@ final class ChargeMonitor {
         let last = progress.legIndex >= route.legs.count - 1
         let arrival = now - pct(profile.energy(from: traveled, to: end))
         let limit = last ? EVSettings.arrivalPercent : EVSettings.minAtChargerPercent
+        arrivalPercent = arrival
         // Zum Nachprüfen: Modell gegen die Reichweite des Autos (km je % laut Auto)
         let restKm = max(0, end - traveled) / 1000
         let modelPer100 = restKm > 0.5 ? profile.energy(from: traveled, to: end) / restKm * 100 : 0

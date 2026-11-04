@@ -20,7 +20,7 @@ private let accent = Color(red: 0.435, green: 0.953, blue: 0.855)  // Mint aus d
 struct NavigationLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: NavigationActivityAttributes.self) { context in
-            LockScreenView(attributes: context.attributes, state: context.state)
+            FamilyView(attributes: context.attributes, state: context.state)
                 .activityBackgroundTint(Color.black.opacity(0.85))
                 .activitySystemActionForegroundColor(accent)
         } dynamicIsland: { context in
@@ -70,6 +70,70 @@ struct NavigationLiveActivity: Widget {
             }
             .keylineTint(accent)
         }
+        // Kleine Ansicht: CarPlay-Dashboard (und Apple Watch)
+        .supplementalActivityFamilies([.small])
+    }
+}
+
+/// Sperrbildschirm groß; klein (CarPlay-Dashboard) die Autodaten statt einer zweiten Abbiegeanzeige
+private struct FamilyView: View {
+    @Environment(\.activityFamily) private var family
+    let attributes: NavigationActivityAttributes
+    let state: NavigationActivityAttributes.ContentState
+
+    var body: some View {
+        if family == .small {
+            if state.soc != nil { CarDataView(state: state) } else { SmallTurnView(state: state) }
+        } else {
+            LockScreenView(attributes: attributes, state: state)
+        }
+    }
+}
+
+/// Akku, Reichweite, Ankunft und Verbrauch dieser Fahrt
+private struct CarDataView: View {
+    let state: NavigationActivityAttributes.ContentState
+
+    var body: some View {
+        Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 8) {
+            GridRow {
+                value("battery.75percent", state.soc.map { "\(Int($0.rounded())) %" }, "Akku")
+                value("road.lanes", state.rangeKm.map { "\(Int($0.rounded())) km" }, "Reichweite")
+            }
+            GridRow {
+                value("flag.checkered", state.arrivalSoc.map { "\(Int($0.rounded())) %" }, "Ankunft")
+                value("bolt.fill", state.consumption.map { $0.formatted(.number.precision(.fractionLength(1))) }, "kWh/100 km")
+            }
+        }
+        .padding(12)
+        .foregroundStyle(.white)
+    }
+
+    private func value(_ symbol: String, _ text: String?, _ label: LocalizedStringKey) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Label(text ?? "–", systemImage: symbol)
+                .font(.system(size: 17, weight: .bold, design: .rounded)).monospacedDigit()
+                .labelStyle(.titleAndIcon)
+                .symbolRenderingMode(.hierarchical)
+            Text(label).font(.caption2).foregroundStyle(.secondary)
+        }
+    }
+}
+
+/// Ohne Auto: kleine Abbiegeanzeige
+private struct SmallTurnView: View {
+    let state: NavigationActivityAttributes.ContentState
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: state.symbol).font(.system(size: 26, weight: .bold)).foregroundStyle(accent)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(ActivityFormat.distance(state.distanceToTurn)).font(.headline).monospacedDigit()
+                Text("\(ActivityFormat.time(state.arrival)) Ankunft").font(.caption).foregroundStyle(.secondary).monospacedDigit()
+            }
+        }
+        .padding(12)
+        .foregroundStyle(.white)
     }
 }
 

@@ -584,9 +584,15 @@ final class CarPlayController: NSObject {
     }
 
     private func preview(to coordinate: CLLocationCoordinate2D, name: String, address: String? = nil,
-                         completion: @escaping () -> Void) {
+                         fromMap: Bool = false, completion: @escaping () -> Void) {
         let waypoint = Waypoint(coordinate: coordinate, name: name)
         activeSuggestion = nil
+        // Jede neue Auswahl macht eine noch laufende Planung ungültig (harter Abbruch)
+        previewGeneration &+= 1
+        previewTask?.cancel()
+        let generation = previewGeneration
+        // Von wo aus gewählt wurde: Ist diese Ansicht weg (Zurück/Verlassen), wird die Planung verworfen
+        let origin: CPTemplate? = fromMap ? manager.interfaceController?.rootTemplate : manager.interfaceController?.topTemplate
         pendingDestination = Place(id: UUID().uuidString, name: name, address: address, coordinate: coordinate)
         // Eigene Routenoptionen: Deutsch (sonst gilt die Systemsprache des iPhones, z. B. Englisch) und Auto
         // Mapbox meldet den Abschluss aus einem Hintergrund-Task; CarPlay bekommt ihn auf dem Hauptthread
@@ -603,17 +609,40 @@ final class CarPlayController: NSObject {
         RoutePreferences.apply(to: options)
         // Selbst berechnen, um bis zu drei Routen anzubieten (schnellste, kürzeste, ohne Autobahn).
         // Scheitert die Berechnung, übernimmt Mapbox wie bisher (mit seiner Fehlermeldung).
-        Task { @MainActor [weak self] in
+        previewTask = Task { @MainActor [weak self] in
             guard let self else { return }
             let provider = navigationProvider.mapboxNavigation.routingProvider()
             guard let routes = try? await provider.calculateRoutes(options: options).value else {
+                guard self.previewStillWanted(generation, origin: origin, fromMap: fromMap) else { completion(); return }
                 self.manager.previewRoutes(for: options, completionHandler: completion)
                 return
             }
             let wide = await RouteVariety.widen(routes, options: options, using: provider)
+            guard self.previewStillWanted(generation, origin: origin, fromMap: fromMap) else { completion(); return }
             await self.manager.previewRoutes(for: wide)
             completion()
         }
+    }
+
+    private var previewGeneration = 0
+    private var previewTask: Task<Void, Never>?
+
+    /// Darf die berechnete Vorschau noch erscheinen? Nicht, wenn inzwischen ein anderes Ziel gewählt wurde, eine
+    /// Navigation läuft oder die Ansicht, aus der gewählt wurde, verlassen ist (Liste geschlossen, auf der Karte etwas
+    /// anderes geöffnet). Vorher öffnete sich die Vorschau trotzdem – auch über einer schon laufenden Fahrt.
+    private func previewStillWanted(_ generation: Int, origin: CPTemplate?, fromMap: Bool) -> Bool {
+        let interface = manager.interfaceController
+        var reason: String?
+        if Task.isCancelled || generation != previewGeneration { reason = "anderes Ziel gewählt" }
+        else if AppModel.shared.navigation.isNavigating || manager.carPlayNavigationViewController != nil { reason = "Navigation läuft" }
+        else if let origin, !(interface?.templates.contains { $0 === origin } ?? false) { reason = "Ansicht verlassen" }
+        else if fromMap, let top = interface?.topTemplate, top !== origin { reason = "auf der Karte etwas anderes geöffnet" }
+        guard let reason else { return true }
+        Diag.log("Routenplanung abgebrochen (\(reason)) – keine Vorschau")
+        if generation == previewGeneration { hideLoading(); pendingDestination = nil }
+        autoStart = false          // sonst startete danach die vorige Vorschau
+        guidanceStarting = nil
+        return false
     }
 
     private var pendingDestination: Place?
@@ -654,7 +683,7 @@ final class CarPlayController: NSObject {
         CarPlayUI.shared.popToRoot(animated: true)
         done()
         showLoading(at: place)
-        preview(to: place.coordinate, name: place.name, address: place.address) { [weak self] in
+        preview(to: place.coordinate, name: place.name, address: place.address, fromMap: true) { [weak self] in
             MainActor.assumeIsolated { self?.hideLoading() }
         }
     }
@@ -769,7 +798,7 @@ final class CarPlayController: NSObject {
             CarPlayUI.shared.popToRoot(animated: false)
             showLoading(at: place)
         }
-        preview(to: place.coordinate, name: place.name, address: place.address) { [weak self] in
+        preview(to: place.coordinate, name: place.name, address: place.address, fromMap: true) { [weak self] in
             MainActor.assumeIsolated {
                 self?.hideLoading()
                 self?.startPendingTrip()

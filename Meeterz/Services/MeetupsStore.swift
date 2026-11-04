@@ -27,29 +27,22 @@ final class MeetupsStore {
     }
 
     private var client: SupabaseClient { Backend.client }
-    @ObservationIgnored private var channel: RealtimeChannelV2?
-    @ObservationIgnored private var listener: Task<Void, Never>?
+    @ObservationIgnored private var feed: RealtimeFeed?
 
     // MARK: Live-Updates für Vorschläge
 
     func startListening(userId: UUID) async {
-        guard channel == nil else { return }
-        let ch = client.channel("meetups-\(userId.uuidString.lowercased())")
-        let changes = ch.postgresChange(AnyAction.self, schema: "public", table: "meetups")
-        channel = ch
-        try? await ch.subscribeWithError()
-        listener = Task { [weak self] in
-            for await _ in changes {
-                await self?.refreshMeetups()
-            }
+        guard feed == nil else { return }
+        let feed = RealtimeFeed(topic: "meetups-\(userId.uuidString.lowercased())", table: "meetups") { [weak self] in
+            await self?.refreshMeetups()
         }
+        self.feed = feed
+        await feed.start()
     }
 
     func stopListening() async {
-        listener?.cancel()
-        listener = nil
-        if let ch = channel { await client.removeChannel(ch) }
-        channel = nil
+        await feed?.stop()
+        feed = nil
         candidates = []
         meetups = []
     }

@@ -51,8 +51,7 @@ final class VehicleStore {
     private(set) var token: String?
     private(set) var loaded = false
 
-    @ObservationIgnored private var channel: RealtimeChannelV2?
-    @ObservationIgnored private var listener: Task<Void, Never>?
+    @ObservationIgnored private var feed: RealtimeFeed?
     private var client: SupabaseClient { Backend.client }
 
     /// Live-Akkustand, wenn er frisch genug für die Planung ist (beim Fahren alle ~30 s, geparkt seltener)
@@ -92,23 +91,17 @@ final class VehicleStore {
     }
 
     func startListening(userId: UUID) async {
-        guard channel == nil else { return }
-        let ch = client.channel("vehicle-\(userId.uuidString.lowercased())")
-        let changes = ch.postgresChange(AnyAction.self, schema: "public", table: "vehicle_status",
-                                        filter: .eq("user_id", value: userId))
-        channel = ch
-        try? await ch.subscribeWithError()
-        listener = Task { [weak self] in
-            for await _ in changes { await self?.refresh() }
-        }
+        guard feed == nil else { return }
+        let feed = RealtimeFeed(topic: "vehicle-\(userId.uuidString.lowercased())", table: "vehicle_status",
+                                filter: .eq("user_id", value: userId)) { [weak self] in await self?.refresh() }
+        self.feed = feed
+        await feed.start()
         await refresh()
     }
 
     func stopListening() async {
-        listener?.cancel()
-        listener = nil
-        if let ch = channel { await client.removeChannel(ch) }
-        channel = nil
+        await feed?.stop()
+        feed = nil
         status = nil
         token = nil
         loaded = false

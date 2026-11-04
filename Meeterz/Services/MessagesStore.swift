@@ -37,8 +37,7 @@ final class MessagesStore {
 
     @ObservationIgnored private var seen = Set<UUID>()
     @ObservationIgnored private var loadedOnce = false
-    @ObservationIgnored private var channel: RealtimeChannelV2?
-    @ObservationIgnored private var listener: Task<Void, Never>?
+    @ObservationIgnored private var feed: RealtimeFeed?
     private var client: SupabaseClient { Backend.client }
 
     var incoming: [Message] { messages.filter(\.incoming) }
@@ -46,22 +45,19 @@ final class MessagesStore {
     // MARK: Empfangen
 
     func startListening(userId: UUID) async {
-        guard channel == nil else { return }
-        let ch = client.channel("messages-\(userId.uuidString.lowercased())")
-        let changes = ch.postgresChange(InsertAction.self, schema: "public", table: "messages")
-        channel = ch
-        try? await ch.subscribeWithError()
-        listener = Task { [weak self] in
-            for await _ in changes { await self?.refresh() }
+        guard feed == nil else { return }
+        // refresh() kennt schon gesehene Nachrichten – auch bei Änderungen statt nur neuen Zeilen harmlos
+        let feed = RealtimeFeed(topic: "messages-\(userId.uuidString.lowercased())", table: "messages") { [weak self] in
+            await self?.refresh()
         }
+        self.feed = feed
+        await feed.start()
         await refresh()
     }
 
     func stopListening() async {
-        listener?.cancel()
-        listener = nil
-        if let ch = channel { await client.removeChannel(ch) }
-        channel = nil
+        await feed?.stop()
+        feed = nil
         messages = []
         seen = []
         loadedOnce = false

@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import SwiftUI
 import Combine
 import CoreLocation
 import Observation

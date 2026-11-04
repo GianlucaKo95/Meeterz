@@ -188,6 +188,11 @@ enum ContinueInstructions {
         var turn = maneuver.trimmingCharacters(in: .whitespaces)
         // Die Abbiegeansage selbst darf keine Entfernung tragen und muss eine Abbiegung sein
         guard !turn.lowercased().hasPrefix("in "), !turn.lowercased().contains("weiter der route") else { return nil }
+        // „Dann …“ gehört zur Ansage kurz vor der Abbiegung, nicht schon Kilometer vorher (04.11.: „In 8 Kilometern
+        // rechts auf Ruhrorter Straße abbiegen. Dann Rechts abbiegen.“)
+        if let r = turn.range(of: #"[.,]?\s+dann[\s,].*$"#, options: [.regularExpression, .caseInsensitive]) {
+            turn = String(turn[..<r.lowerBound]) + "."
+        }
         if let first = turn.split(separator: " ").first,
            ["Rechts", "Links", "Leicht", "Scharf", "Wenden", "An", "Am", "Auf", "Geradeaus", "Bei", "Im", "Nach", "Die", "Den", "Der"].contains(String(first)) {
             turn = first.lowercased() + turn.dropFirst(first.count)

@@ -75,6 +75,8 @@ final class ContinueInstructionsTests: XCTestCase {
                        "In einem Kilometer rechts abbiegen.")
         XCTAssertEqual(ContinueInstructions.rewrite("1,5 Kilometer weiter der Route folgen.", maneuver: "An der Ausfahrt abfahren."),
                        "In 1,5 Kilometern an der Ausfahrt abfahren.")
+        XCTAssertEqual(ContinueInstructions.rewrite("8 Kilometer weiter der Route folgen.", maneuver: "Rechts auf Ruhrorter Straße abbiegen. Dann Rechts abbiegen."),
+                       "In 8 Kilometern rechts auf Ruhrorter Straße abbiegen.")
     }
 
     func testLeavesOtherTextAlone() {

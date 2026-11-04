@@ -45,6 +45,7 @@ struct RootView: View {
                 Task { @MainActor in
                     try? await Task.sleep(for: .milliseconds(600))   // Hauptansicht erst aufbauen lassen
                     AppModel.shared.navigation.showCarPlayDriveOnPhoneIfNeeded()
+                    NavigationLiveActivityController.shared.ensureRunning()
                 }
             }
         }

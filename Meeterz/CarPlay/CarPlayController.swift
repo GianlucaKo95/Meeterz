@@ -445,6 +445,7 @@ final class CarPlayController: NSObject {
         AppModel.shared.location.setCarPlay(false)
         // Läuft die Fahrt weiter (z. B. zu Fuß das letzte Stück), übernimmt wieder die Live-Aktivität auf dem iPhone
         let nav = AppModel.shared.navigation
+        nav.carPlayDisconnectedDuringDrive()
         if nav.isNavigating {
             NavigationLiveActivityController.shared.start(destinationName: nav.destination?.name,
                                                           destination: nav.destination?.coordinate)

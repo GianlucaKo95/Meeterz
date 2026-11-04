@@ -70,6 +70,8 @@ final class NavigationCoordinator: NSObject {
     var effectiveMode: TravelMode { CarPlayController.shared.isConnected ? .car : travelMode }
 
     @ObservationIgnored private weak var phoneController: NavigationViewController?
+    /// Während CarPlay führt: nur die Liste der Anweisungen auf dem iPhone (wie Apple Karten), keine zweite Karte
+    @ObservationIgnored private weak var phoneSteps: UIViewController?
     @ObservationIgnored private var overlay: FriendOverlay?
     @ObservationIgnored private var recenterTask: Task<Void, Never>?
     @ObservationIgnored private var signTimer: Timer?
@@ -194,6 +196,10 @@ final class NavigationCoordinator: NSObject {
     /// Turn-by-Turn auf dem iPhone anzeigen. Beim Start auf CarPlay mit den dort laufenden Routen –
     /// so sieht man die Fahrt auch auf dem Handy (wie bei Apple Karten).
     private func presentPhone(routes: NavigationRoutes, fromCarPlay: Bool) {
+        if fromCarPlay, CarPlayController.shared.isConnected {
+            presentStepsList()
+            return
+        }
         // Kein Mapbox-Neuberechnungston: Er stoppt die Sprachausgabe und schaltet die gemeinsame Audiositzung
         // 1 s später ab – genau dann läuft die erste Ansage der neuen Route und brach mittendrin ab (03.11.)
         navigationProvider.routeVoiceController.playsRerouteSound = false
@@ -370,11 +376,11 @@ final class NavigationCoordinator: NSObject {
         activeMode = .car
         beginTracking()
         // Auch auf dem iPhone die laufende Fahrt zeigen (offene Sheets wie die Vorschau vorher schließen)
-        guard phoneController == nil else { return }
+        guard phoneController == nil, phoneSteps == nil else { return }
         preview = nil
         Task { @MainActor [weak self] in
             for _ in 0..<20 {
-                guard let self, self.isNavigating, self.phoneController == nil else { return }
+                guard let self, self.isNavigating, self.phoneController == nil, self.phoneSteps == nil else { return }
                 if let routes = self.core.tripSession().currentNavigationRoutes {
                     self.presentPhone(routes: routes, fromCarPlay: true)
                     return
@@ -388,7 +394,7 @@ final class NavigationCoordinator: NSObject {
     /// Fall: CarPlay hat Meeterz frisch gestartet (App war ganz geschlossen) – dann gab es beim Start der Route noch
     /// gar kein iPhone-Fenster, in dem die Navigation hätte erscheinen können. Jetzt nachholen.
     func showCarPlayDriveOnPhoneIfNeeded() {
-        guard isNavigating, phoneController == nil, CarPlayController.shared.isConnected,
+        guard isNavigating, phoneController == nil, phoneSteps == nil, CarPlayController.shared.isConnected,
               let routes = core.tripSession().currentNavigationRoutes else { return }
         Diag.log("iPhone geöffnet während CarPlay-Fahrt – zeige Navigation auch hier")
         preview = nil
@@ -423,7 +429,43 @@ final class NavigationCoordinator: NSObject {
         navigationProvider.tripSession().setToIdle()
     }
 
+    /// iPhone während einer CarPlay-Fahrt: Anweisungen als Liste
+    private func presentStepsList() {
+        guard phoneSteps == nil else { return }
+        let name = destination?.name ?? String(localized: "Ziel")
+        let host = UIHostingController(rootView: DriveStepsView(destinationName: name) {
+            Task { @MainActor in
+                Diag.log("Route auf dem iPhone beendet (Anweisungsliste)")
+                CarPlayController.shared.endNavigationIfNeeded()
+                AppModel.shared.navigation.stop()
+            }
+        }.environment(AppModel.shared))
+        host.modalPresentationStyle = .fullScreen
+        phoneSteps = host
+        Task { @MainActor [weak self] in
+            for attempt in 0..<30 {
+                try? await Task.sleep(for: .milliseconds(attempt == 0 ? 450 : 300))
+                guard self?.phoneSteps === host, self?.isNavigating == true else { return }
+                guard let top = UIApplication.topViewController(), !top.isBeingDismissed, !top.isBeingPresented,
+                      top !== host else { continue }
+                top.present(host, animated: true)
+                Diag.log("iPhone zeigt die Anweisungen der CarPlay-Fahrt als Liste")
+                return
+            }
+        }
+    }
+
+    /// CarPlay getrennt, Fahrt läuft weiter: statt der Liste wieder die Navigationskarte auf dem iPhone
+    func carPlayDisconnectedDuringDrive() {
+        guard isNavigating, let list = phoneSteps else { return }
+        phoneSteps = nil
+        list.dismiss(animated: false)
+        if let routes = core.tripSession().currentNavigationRoutes { presentPhone(routes: routes, fromCarPlay: true) }
+    }
+
     func stop() {
+        phoneSteps?.dismiss(animated: true)
+        phoneSteps = nil
         guard isNavigating || phoneController != nil else { return }
         subscriptions.removeAll()
         overlay?.stop()

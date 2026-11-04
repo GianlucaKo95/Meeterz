@@ -69,6 +69,7 @@ final class AppModel {
         await hub.startPublishing(userId: profile.id)
         await meetups.startListening(userId: profile.id)
         MeetupLiveActivityController.shared.start()
+        NavigationLiveActivityController.shared.watch()
         await messages.startListening(userId: profile.id)
         await vehicle.startListening(userId: profile.id)
         Task { @MainActor in

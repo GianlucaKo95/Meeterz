@@ -466,7 +466,6 @@ enum RoadNames {
     }
 
     static func isNational(_ code: String) -> Bool { code.range(of: #"^A ?\d+"#, options: .regularExpression) != nil }
-    static func isEuropean(_ code: String) -> Bool { code.range(of: #"^E ?\d+"#, options: .regularExpression) != nil }
 
     /// E-Nummern aus der Ansage nehmen, wenn die Autobahn eine A-Nummer hat:
     /// „Auf A 3/E 35 fahren“ → „Auf A 3 fahren“, „Auf E 35 fahren“ (Schritt kennt A 3) → „Auf A 3 fahren“

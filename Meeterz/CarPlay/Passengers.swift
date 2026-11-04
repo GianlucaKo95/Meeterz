@@ -113,7 +113,7 @@ extension CarPlayController {
         guard let template = alertTemplate, template.currentNavigationAlert == nil else { return false }
         _ = template
         Diag.log("Mitfahrer-Frage: \(friend.displayName)")
-        let first = friend.displayName.split(separator: " ").first.map(String.init) ?? friend.displayName
+        let first = friend.firstName
         let yes = CPAlertAction(title: String(localized: "Ja, ausblenden"), style: .default) { [weak self] _ in
             Task { @MainActor in
                 Passengers.shared.setRiding(friend.friendId, true)

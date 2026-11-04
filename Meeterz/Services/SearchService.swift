@@ -9,7 +9,6 @@ enum SearchService {
         var id: String { rawValue }
 
         /// Raststätten und Tankstellen sind nur mit dem Auto erreichbar und als Treffpunkt sinnvoll
-        var carOnly: Bool { self == .restArea || self == .gasStation }
 
         /// Welche Orte passen zu den Fortbewegungsarten beider? Ist einer zu Fuß oder mit dem Rad unterwegs,
         /// entfallen Raststätte und Tankstelle; dann gibt es zusätzlich Parks.

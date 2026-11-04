@@ -100,10 +100,10 @@ private struct MeetupCard: View {
         if let pos = app.hub.positions[id] {
             let d = pos.coordinate.distance(to: target)
             if d < 150, pos.age < 600 { return (String(localized: "ist da"), true) }
-            if let route = app.routes.friendRoutes[id], route.destination.distance(to: target) < 300 {
-                return (String(localized: "unterwegs · an \(Format.time.string(from: route.eta))"), false)
+            if let route = app.routes.route(of: id, to: target) {
+                return (String(localized: "unterwegs · an \(ActivityFormat.time(route.eta))"), false)
             }
-            return (String(localized: "\(Format.distance(d)) entfernt"), false)
+            return (String(localized: "\(ActivityFormat.distance(d)) entfernt"), false)
         }
         return (String(localized: "Standort nicht geteilt"), false)
     }
@@ -114,9 +114,9 @@ private struct MeetupCard: View {
         if d < 150 { return String(localized: "Du bist da") }
         if app.navigation.isNavigating, let dest = app.navigation.destination,
            dest.coordinate.distance(to: meetup.coordinate) < 300, let eta = app.navigation.eta {
-            return String(localized: "Du bist an \(Format.time.string(from: eta))")
+            return String(localized: "Du bist an \(ActivityFormat.time(eta))")
         }
-        return String(localized: "Du: \(Format.distance(d)) entfernt")
+        return String(localized: "Du: \(ActivityFormat.distance(d)) entfernt")
     }
 
     private var recentMessages: [MessagesStore.Message] {
@@ -179,7 +179,7 @@ private struct MeetupCard: View {
                                 .foregroundStyle(m.incoming ? Theme.text : Theme.accent)
                             Text(m.body).font(.caption).foregroundStyle(Theme.text)
                             Spacer(minLength: 4)
-                            Text(Format.time.string(from: m.createdAt)).font(.caption2).foregroundStyle(Theme.muted)
+                            Text(ActivityFormat.time(m.createdAt)).font(.caption2).foregroundStyle(Theme.muted)
                         }
                     }
                 }

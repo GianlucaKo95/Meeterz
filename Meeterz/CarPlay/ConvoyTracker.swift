@@ -17,18 +17,18 @@ final class ConvoyTracker {
         let gap: Double?
         let arrival: Date?
         let stopped: Bool
-        var firstName: String { friend.displayName.split(separator: " ").first.map(String.init) ?? friend.displayName }
+        var firstName: String { friend.firstName }
 
         var summary: String {
             var parts: [String] = []
             if let gap {
                 if abs(gap) < 150 { parts.append(String(localized: "direkt bei dir")) }
-                else { parts.append((gap > 0 ? String(localized: "\(Format.distance(abs(gap))) vor dir") : String(localized: "\(Format.distance(abs(gap))) hinter dir"))) }
+                else { parts.append((gap > 0 ? String(localized: "\(ActivityFormat.distance(abs(gap))) vor dir") : String(localized: "\(ActivityFormat.distance(abs(gap))) hinter dir"))) }
             } else {
                 parts.append(String(localized: "andere Strecke"))
             }
             if stopped { parts.append(String(localized: "hält gerade")) }
-            if let arrival { parts.append(String(localized: "an \(Format.time.string(from: arrival))")) }
+            if let arrival { parts.append(String(localized: "an \(ActivityFormat.time(arrival))")) }
             return parts.joined(separator: " · ")
         }
     }
@@ -55,8 +55,7 @@ final class ConvoyTracker {
         return app.friendsOnMap.compactMap { item in
             let id = item.friend.friendId
             let route = app.routes.friendRoutes[id]
-            let sameDestination = route.map { $0.destination.distance(to: destination.coordinate) < 300 } ?? false
-            guard sameDestination || meetupIds.contains(id) else { return nil }
+            guard app.routes.route(of: id, to: destination.coordinate) != nil || meetupIds.contains(id) else { return nil }
             var gap: Double?
             if let myIndex, let hit = nearest(to: item.position.coordinate), hit.distance < 300 {
                 gap = cumulative[hit.index] - cumulative[myIndex]
@@ -77,7 +76,7 @@ final class ConvoyTracker {
             var s = states[m.friend.friendId] ?? State()
             // Zurückgefallen: mehr als 3 km hinter mir (erst wieder melden, wenn er unter 1,5 km aufholt)
             if let gap = m.gap {
-                if gap < -3_000, !s.behindFar { s.behindFar = true; notify(String(localized: "\(m.firstName) ist \(Format.distance(-gap)) hinter dir"), m.friend) }
+                if gap < -3_000, !s.behindFar { s.behindFar = true; notify(String(localized: "\(m.firstName) ist \(ActivityFormat.distance(-gap)) hinter dir"), m.friend) }
                 if gap > -1_500 { s.behindFar = false }
             }
             // Andere Strecke

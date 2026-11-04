@@ -109,7 +109,7 @@ extension CarPlayController {
     }
 
     private func firstName(_ friend: FriendRow) -> String {
-        friend.displayName.split(separator: " ").first.map(String.init) ?? friend.displayName
+        friend.firstName
     }
 
     /// Hinweis zu den Momenten des Soundpakets – erscheint zusätzlich zum Schnipsel bzw. der Ansage
@@ -145,7 +145,7 @@ extension CarPlayController {
                 continue
             }
             friendArrivalAnnounced[friend.friendId] = (eta, Date())
-            var subtitle = String(localized: "Ankunft \(Format.time.string(from: eta))")
+            var subtitle = String(localized: "Ankunft \(ActivityFormat.time(eta))")
             if let myEta {
                 let diff = Int((eta.timeIntervalSince(myEta) / 60).rounded())
                 if diff > 0 { subtitle += String(localized: " · \(diff) Min. nach dir") }
@@ -275,9 +275,9 @@ extension CarPlayController {
                 places.sort { $0.coordinate.distance(to: me) < $1.coordinate.distance(to: me) }
             }
             let items: [CPListItem] = places.prefix(CPListTemplate.maximumItemCount).map { place in
-                var away = Format.distance(place.coordinate.distance(to: me))
+                var away = ActivityFormat.distance(place.coordinate.distance(to: me))
                 if let route = ahead, let i = Self.nearestIndex(of: place.coordinate, in: route), i < along.count {
-                    away = String(localized: "nach \(Format.distance(along[i]))")   // entlang der Route
+                    away = String(localized: "nach \(ActivityFormat.distance(along[i]))")   // entlang der Route
                 }
                 let item = CPListItem(text: place.name, detailText: [away, place.address].compactMap { $0 }.joined(separator: " · "))
                 item.handler = { [weak self] _, done in self?.select(place, done: done) }
@@ -391,10 +391,6 @@ enum EVSettings {
         get { AppModel.shared.vehicle.liveSoc ?? UserDefaults.standard.object(forKey: "ev.charge") as? Double ?? 80 }
         set { UserDefaults.standard.set(newValue, forKey: "ev.charge") }
     }
-    /// Reichweite jetzt: laut Auto, sobald es sie meldet – sonst aus Akkustand und Fahrzeugdaten berechnet
-    @MainActor static var currentRangeKm: Double {
-        AppModel.shared.vehicle.liveRangeKm ?? rangeKm * chargePercent / 100
-    }
     /// Kilometer je Prozent Akku (nach der Reichweite des Autos, sonst berechnet)
     @MainActor static var kmPerPercent: Double {
         if let car = AppModel.shared.vehicle.liveRangeKm, chargePercent > 1 { return car / chargePercent }
@@ -430,7 +426,7 @@ extension CarPlayController {
         }
         let later = CPAlertAction(title: String(localized: "Später"), style: .cancel) { _ in }
         let alert = CPNavigationAlert(
-            titleVariants: [String(localized: "Ladestopp nötig – Akku reicht ca. \(Format.distance(usable))"), String(localized: "Ladestopp nötig")],
+            titleVariants: [String(localized: "Ladestopp nötig – Akku reicht ca. \(ActivityFormat.distance(usable))"), String(localized: "Ladestopp nötig")],
             subtitleVariants: [String(localized: "Bei \(Int(EVSettings.chargePercent)) % Akku und 10 % Reserve")],
             image: UIImage(systemName: "bolt.car.fill"),
             primaryAction: show, secondaryAction: later, duration: 15)
@@ -516,7 +512,7 @@ extension CarPlayController {
         guard EVSettings.enabled else { return nil }
         let live = AppModel.shared.vehicle.liveSoc != nil
         let battery = CPListItem(text: live ? String(localized: "Akku (live): \(Int(EVSettings.chargePercent)) %") : String(localized: "Akku beim Losfahren: \(Int(EVSettings.chargePercent)) %"),
-                                 detailText: String(localized: "Reicht ca. \(Format.distance(EVSettings.usableMeters))"),
+                                 detailText: String(localized: "Reicht ca. \(ActivityFormat.distance(EVSettings.usableMeters))"),
                                  image: UIImage(systemName: "battery.75percent"))
         // Mit Live-Daten gibt es nichts einzustellen
         battery.handler = { [weak self] _, done in if !live { self?.showChargePicker() }; done() }

@@ -650,7 +650,7 @@ final class NavigationCoordinator: NSObject {
             guard late >= 5 * 60 else { continue }
             announcedArrival[meetup.id] = eta
             let minutes = Int((late / 60).rounded())
-            let text = String(localized: "Ich komme ca. \(minutes) Min. später – neue Ankunft \(Format.time.string(from: eta))")
+            let text = String(localized: "Ich komme ca. \(minutes) Min. später – neue Ankunft \(ActivityFormat.time(eta))")
             Task { await AppModel.shared.messages.send(text, to: [meetup.otherId], meetupId: meetup.id, automatic: true) }
             Diag.log("Verspätung gemeldet an \(meetup.otherName): +\(minutes) Min.")
         }

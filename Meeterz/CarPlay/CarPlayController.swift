@@ -97,20 +97,6 @@ final class CarPlayController: NSObject {
     }
     static var threeDEnabled: Bool { UserDefaults.standard.object(forKey: "carplay.3d") as? Bool ?? true }
 
-    private static func textImage(_ text: String) -> UIImage {
-        let size = CGSize(width: 44, height: 44)
-        let image = UIGraphicsImageRenderer(size: size).image { _ in
-            let attrs: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: 20, weight: .heavy),
-                .foregroundColor: UIColor.black,
-            ]
-            let str = NSAttributedString(string: text, attributes: attrs)
-            let box = str.size()
-            str.draw(at: CGPoint(x: (size.width - box.width) / 2, y: (size.height - box.height) / 2))
-        }
-        return image.withRenderingMode(.alwaysTemplate)
-    }
-
     /// Neigung für 3D. MapKit (Flyover) übernimmt sie 1:1 von der Mapbox-Kamera; das Dashboard nutzt dieselbe.
     /// Vorher 65°: zusammen mit dem weiten Zoom auf der Autobahn sah man Horizont und Himmel (Fahrt am 27.10.).
     static let tilt3D: Double = 53
@@ -693,7 +679,6 @@ final class CarPlayController: NSObject {
     private var loadingView: RouteLoadingView?
     private var loadingTarget: CLLocationCoordinate2D?
     private var loadingTimer: Timer?
-    var isLoadingPreview: Bool { loadingView != nil }
 
     private func showLoading(at place: Place) {
         hideLoading()
@@ -1014,7 +999,7 @@ final class CarPlayController: NSObject {
             items.append(all)
         }
         for friend in friends.prefix(max(0, CPListTemplate.maximumItemCount - items.count - 4)) {
-            let detail = friendArrival(friend.friendId, at: place).map { String(localized: "Kommt auch hierher · an \(Format.time.string(from: $0))") } ?? String(localized: "Einladen")
+            let detail = friendArrival(friend.friendId, at: place).map { String(localized: "Kommt auch hierher · an \(ActivityFormat.time($0))") } ?? String(localized: "Einladen")
             let item = CPListItem(text: friend.displayName, detailText: detail)
             item.handler = { [weak self] _, done in
                 self?.sendInvites(to: [friend.friendId], place: place)
@@ -1132,7 +1117,7 @@ extension CarPlayController: CarPlayManagerDelegate {
             guard let route = mainRoute(in: choice.userInfo) else { return choice }
             let label = all.count == trip.routeChoices.count ? RouteVariety.label(for: index, in: all)
                 : (index == 0 ? String(localized: "Schnellste") : String(localized: "Alternative \(index)"))
-            let detail = "\(Format.minutes(seconds: route.expectedTravelTime)) · \(Format.distance(route.distance))"
+            let detail = "\(Format.minutes(seconds: route.expectedTravelTime)) · \(ActivityFormat.distance(route.distance))"
             let copy = CPRouteChoice(summaryVariants: [detail],
                                      additionalInformationVariants: [label],
                                      selectionSummaryVariants: [label])
@@ -1156,7 +1141,7 @@ extension CarPlayController: CarPlayManagerDelegate {
     private static func withSuggestionLabel(_ trip: CPTrip, _ suggestion: RouteSuggestions.Suggestion) -> CPTrip {
         let reason: String
         if case .calendar(_, let start) = suggestion.reason {
-            reason = String(localized: "Termin \(Format.time.string(from: start))")
+            reason = String(localized: "Termin \(ActivityFormat.time(start))")
         } else {
             reason = String(localized: "Oft um diese Zeit")
         }

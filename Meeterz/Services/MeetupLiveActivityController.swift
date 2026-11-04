@@ -36,12 +36,10 @@ final class MeetupLiveActivityController {
         let ids = Set(group.map(\.otherId))
         let members: [MeetupActivityAttributes.Member] = ids.compactMap { id in
             guard let friend = app.friend(id) else { return nil }
-            let first = friend.displayName.split(separator: " ").first.map(String.init) ?? friend.displayName
+            let first = friend.firstName
             let position = app.hub.positions[id]
             let distance = position.map { $0.coordinate.distance(to: place) }
-            var eta: Date?
-            if let route = app.routes.friendRoutes[id], route.destination.distance(to: place) < 300 { eta = route.eta }
-            return .init(name: first, initials: friend.initials, distance: distance, eta: eta, here: (distance ?? .infinity) < 150)
+            return .init(name: first, initials: friend.initials, distance: distance, eta: app.routes.route(of: id, to: place)?.eta, here: (distance ?? .infinity) < 150)
         }
         .sorted { ($0.here ? 1 : 0, $0.eta ?? .distantFuture) < ($1.here ? 1 : 0, $1.eta ?? .distantFuture) }
         guard !members.isEmpty else { end(); return }

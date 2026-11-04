@@ -345,7 +345,7 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
         struct Shortcut { let key: String; let title: String; let subtitle: String; let image: UIImage; let place: Place }
         var shortcuts: [Shortcut] = friends.map { item in
             let f = item.friend
-            let first = f.displayName.split(separator: " ").first.map(String.init) ?? f.displayName
+            let first = f.firstName
             let faded = item.position.age > 5 * 60
             let image = AvatarRenderer.image(initials: f.initials, color: FriendPalette.uiColor(for: f.friendId),
                                              faded: faded, photo: app.avatars.image(for: f.friendId))

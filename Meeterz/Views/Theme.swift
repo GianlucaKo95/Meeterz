@@ -17,7 +17,6 @@ enum Theme {
         static let danger = dynamic(dark: 0xFF5A5F, light: 0xD92D35)
         /// Bernstein: „ist unterwegs“ / „ist da“ – bewusst nicht Mint, damit es sich vom Akzent abhebt
         static let go = dynamic(dark: 0xFFC857, light: 0xA86B00)
-        static let amber = go
     }
 
     static let ink = Color(uiColor: UI.ink)
@@ -31,7 +30,6 @@ enum Theme {
     /// „ist unterwegs“ / „ist da“ in Bernstein (bewusst nicht Mint wie der Akzent)
     static let go = Color(uiColor: UI.go)
 
-    static let accentUI = UI.accent
     /// Feste Markenfarben für Karte und CarPlay (dort gibt es kein App-Erscheinungsbild)
     static let mintUI = UIColor(hex: 0x6FF3DA)
     static let petrolUI = UIColor(hex: 0x062A32)
@@ -203,25 +201,9 @@ struct Card<Content: View>: View {
 }
 
 enum Format {
-    static let time: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = .current                       // 24 h oder 12 h wie auf dem iPhone eingestellt
-        f.setLocalizedDateFormatFromTemplate("jmm")
-        return f
-    }()
-
     static func minutes(seconds: TimeInterval) -> String {
         let m = max(1, Int((seconds / 60).rounded()))
         return m < 60 ? String(localized: "\(m) Min") : String(localized: "\(m / 60) Std \(m % 60) Min")
-    }
-
-    static func minutes(until date: Date) -> String {
-        let m = max(0, Int(date.timeIntervalSinceNow / 60))
-        return m < 60 ? String(localized: "\(m) Min") : String(localized: "\(m / 60) Std \(m % 60) Min")
-    }
-
-    static func distance(_ meters: Double) -> String {
-        meters < 1000 ? "\(Int(meters.rounded())) m" : (meters / 1000).formatted(.number.precision(.fractionLength(1))) + " km"
     }
 
     static func age(_ seconds: TimeInterval) -> String {

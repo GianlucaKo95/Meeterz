@@ -30,9 +30,9 @@ final class RouteSuggestions {
         var subtitle: String {
             let minutes = String(localized: "\(max(1, Int((travelTime / 60).rounded()))) Min.")
             if case .calendar(_, let start) = reason {
-                return minutes + " · " + String(localized: "Termin \(Format.time.string(from: start))")
+                return minutes + " · " + String(localized: "Termin \(ActivityFormat.time(start))")
             }
-            return minutes + " · " + String(localized: "Ankunft \(Format.time.string(from: arrival))")
+            return minutes + " · " + String(localized: "Ankunft \(ActivityFormat.time(arrival))")
         }
     }
 
@@ -244,7 +244,7 @@ final class FrequentPlaces {
                 spots.removeLast(spots.count - Self.maxSpots)
             }
         }
-        Diag.log("Aufenthalt gemerkt: \(spots.firstIndex(where: { $0.coordinate.distance(to: coordinate) < Self.radius }).map { spots[$0].name ?? "Ort \($0 + 1)" } ?? "?") (\(Format.time.string(from: arrival)))")
+        Diag.log("Aufenthalt gemerkt: \(spots.firstIndex(where: { $0.coordinate.distance(to: coordinate) < Self.radius }).map { spots[$0].name ?? "Ort \($0 + 1)" } ?? "?") (\(ActivityFormat.time(arrival)))")
         if index < spots.count, spots[index].name == nil { Task { await self.name(spotAt: coordinate) } }
         save()
     }

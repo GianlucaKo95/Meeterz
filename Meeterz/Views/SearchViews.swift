@@ -242,7 +242,7 @@ struct RoutePreviewView: View {
                     VStack(spacing: 2) {
                         Text(RouteVariety.label(for: index, in: current.options))
                             .font(.caption.weight(.bold))
-                        Text("\(Format.minutes(until: Date().addingTimeInterval(route.expectedTravelTime))) · \(Format.distance(route.distance))")
+                        Text("\(Format.minutes(seconds: route.expectedTravelTime)) · \(ActivityFormat.distance(route.distance))")
                             .font(.caption)
                     }
                     .frame(maxWidth: .infinity).padding(.vertical, 8)
@@ -333,9 +333,9 @@ struct RoutePreviewView: View {
             }
 
             HStack(spacing: 10) {
-                stat(String(localized: "Ankunft"), Format.time.string(from: eta), highlight: true)
-                stat(String(localized: "Dauer"), Format.minutes(until: eta))
-                stat(String(localized: "Strecke"), Format.distance(shown.distance))
+                stat(String(localized: "Ankunft"), ActivityFormat.time(eta), highlight: true)
+                stat(String(localized: "Dauer"), Format.minutes(seconds: eta.timeIntervalSinceNow))
+                stat(String(localized: "Strecke"), ActivityFormat.distance(shown.distance))
             }
 
             if current.mode == .car, EVSettings.enabled {

@@ -18,14 +18,6 @@ final class PushService {
 
     private var client: SupabaseClient { Backend.client }
 
-    func registerIfPossible() async {
-        let center = UNUserNotificationCenter.current()
-        let granted = (try? await center.requestAuthorization(options: [.alert, .sound, .badge])) ?? false
-        if granted {
-            UIApplication.shared.registerForRemoteNotifications()
-        }
-    }
-
     func store(token: String) async {
         struct Params: Encodable { let device_token: String; let env: String }
         _ = try? await client.rpc("register_device",

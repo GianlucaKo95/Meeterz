@@ -34,10 +34,5 @@ enum ActivityFormat {
         return (meters / 1000).formatted(.number.precision(.fractionLength(1))) + " km"
     }
 
-    static func time(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.locale = .current
-        f.setLocalizedDateFormatFromTemplate("jmm")
-        return f.string(from: date)
-    }
+    static func time(_ date: Date) -> String { date.formatted(date: .omitted, time: .shortened) }
 }

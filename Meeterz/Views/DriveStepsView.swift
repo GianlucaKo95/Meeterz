@@ -77,7 +77,7 @@ struct DriveStepsView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(steps.arrival.map { String(localized: "Ankunft \($0.formatted(date: .omitted, time: .shortened))") } ?? "–")
                             .font(Theme.display(28)).monospacedDigit()
-                        Text("\(Format.minutes(seconds: steps.remainingTime)) · \(Format.distance(steps.remainingDistance)) · \(destinationName)")
+                        Text("\(Format.minutes(seconds: steps.remainingTime)) · \(ActivityFormat.distance(steps.remainingDistance)) · \(destinationName)")
                             .font(.subheadline).foregroundStyle(Theme.muted).lineLimit(1)
                         Label("Führung läuft in CarPlay", systemImage: "car.fill")
                             .font(.caption.weight(.semibold)).foregroundStyle(Theme.accent).padding(.top, 2)
@@ -95,7 +95,7 @@ struct DriveStepsView: View {
                                 .frame(width: 44, height: 44)
                                 .background(RoundedRectangle(cornerRadius: 12).fill(row.id == 0 ? Theme.accent : Theme.panelRaised))
                             VStack(alignment: .leading, spacing: 3) {
-                                Text(Format.distance(row.distance))
+                                Text(ActivityFormat.distance(row.distance))
                                     .font(Theme.title(row.id == 0 ? 20 : 16)).monospacedDigit()
                                 Text(row.text).font(row.id == 0 ? .body.weight(.semibold) : .subheadline)
                                     .fixedSize(horizontal: false, vertical: true)

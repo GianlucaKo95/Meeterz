@@ -111,7 +111,7 @@ final class MessagesStore {
     /// Vorgefertigte Antworten – mit Ankunftszeit, wenn gerade navigiert wird
     static func quickReplies(eta: Date?) -> [String] {
         var replies: [String] = []
-        if let eta { replies.append(String(localized: "Bin um \(Format.time.string(from: eta)) da")) }
+        if let eta { replies.append(String(localized: "Bin um \(ActivityFormat.time(eta)) da")) }
         replies += [
             String(localized: "Bin gleich da"),
             String(localized: "Bin unterwegs"),

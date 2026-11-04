@@ -21,7 +21,7 @@ struct FriendActionSheet: View {
                             Image(systemName: "bubble.left.fill").font(.caption).foregroundStyle(Theme.accent)
                             Text(last.incoming ? last.body : "Du: \(last.body)").font(.subheadline).foregroundStyle(Theme.text)
                             Spacer(minLength: 4)
-                            Text(Format.time.string(from: last.createdAt)).font(.caption2).foregroundStyle(Theme.muted)
+                            Text(ActivityFormat.time(last.createdAt)).font(.caption2).foregroundStyle(Theme.muted)
                         }
                         .padding(10)
                         .background(RoundedRectangle(cornerRadius: 12).fill(Theme.panel))
@@ -99,7 +99,7 @@ struct FriendActionSheet: View {
     private func status(_ item: AppModel.FriendOnMap, route: FriendRoute?) -> String {
         if let route {
             let dest = route.destinationName.map { String(localized: "Nach \($0)") } ?? String(localized: "Unterwegs")
-            return String(localized: "\(dest) · an \(Format.time.string(from: route.eta))")
+            return String(localized: "\(dest) · an \(ActivityFormat.time(route.eta))")
         }
         return String(localized: "Standort \(Format.age(item.position.age))")
     }
@@ -114,13 +114,13 @@ struct FriendActionSheet: View {
 
                 VStack(spacing: 0) {
                     row(String(localized: "Standort"), Format.age(item.position.age))
-                    if let distance { row(String(localized: "Entfernung"), Format.distance(distance)) }
+                    if let distance { row(String(localized: "Entfernung"), ActivityFormat.distance(distance)) }
                     if item.position.speed.map({ $0 > 1 }) == true, let speed = item.position.speed {
                         row(String(localized: "Tempo"), String(localized: "\(Int((speed * 3.6).rounded())) km/h"))
                     }
                     if let route {
                         row(String(localized: "Ziel"), route.destinationName ?? String(localized: "Unterwegs"))
-                        row(String(localized: "Ankunft"), Format.time.string(from: route.eta))
+                        row(String(localized: "Ankunft"), ActivityFormat.time(route.eta))
                     }
                 }
                 .background(RoundedRectangle(cornerRadius: 14).fill(Theme.panel))

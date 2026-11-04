@@ -29,11 +29,11 @@ final class IncidentWatcher {
                 if distance <= 300 { announced.insert(incident.identifier) }
                 continue
             }
-            let title = String(localized: "\(message.title) in \(Format.distance(distance))")
+            let title = String(localized: "\(message.title) in \(ActivityFormat.distance(distance))")
             if present(title: title, subtitle: message.subtitle, symbol: message.symbol) {
                 announced.insert(incident.identifier)
                 Diag.log("Verkehrsmeldung: \(title)\(message.subtitle.map { " – \($0)" } ?? "")")
-                MeeterzSpeechSynthesizer.shared.announce(String(localized: "Achtung, \(message.title) in \(VoiceCatalog.language == "de" ? Self.spoken(distance) : Format.distance(distance))."))
+                MeeterzSpeechSynthesizer.shared.announce(String(localized: "Achtung, \(message.title) in \(VoiceCatalog.language == "de" ? Self.spoken(distance) : ActivityFormat.distance(distance))."))
             }
             return   // höchstens eine Meldung auf einmal
         }
@@ -64,7 +64,7 @@ final class IncidentWatcher {
     static func message(_ incident: Incident, length: Double?) -> Message? {
         let road = incident.affectedRoadNames?.first
         let lanes = incident.numberOfBlockedLanes ?? 0
-        let lengthText = length.flatMap { $0 > 300 ? String(localized: "\(Format.distance($0)) lang") : nil }
+        let lengthText = length.flatMap { $0 > 300 ? String(localized: "\(ActivityFormat.distance($0)) lang") : nil }
         let severe = incident.impact == .major || incident.impact == .critical
         if incident.roadIsClosed == true || incident.kind == .roadClosure {
             return Message(title: String(localized: "Sperrung"), subtitle: road.map { String(localized: "\($0) gesperrt") } ?? String(localized: "Straße gesperrt"),

@@ -44,7 +44,7 @@ final class WidgetSnapshotWriter {
         let friends: [WidgetSnapshot.Friend] = app.friendsOnMap.map { item in
             let route = app.routes.friendRoutes[item.friend.friendId]
             return WidgetSnapshot.Friend(
-                name: item.friend.displayName.split(separator: " ").first.map(String.init) ?? item.friend.displayName,
+                name: item.friend.firstName,
                 initials: item.friend.initials,
                 distance: me.map { item.position.coordinate.distance(to: $0) },
                 heading: route.map { r in r.destinationName.map { String(localized: "nach \($0)") } ?? "unterwegs" },
@@ -55,8 +55,7 @@ final class WidgetSnapshotWriter {
 
         var meetup: WidgetSnapshot.Meetup?
         if let m = app.meetups.accepted.first {
-            let friendEta = app.routes.friendRoutes[m.otherId]
-                .flatMap { $0.destination.distance(to: m.coordinate) < 300 ? $0.eta : nil }
+            let friendEta = app.routes.route(of: m.otherId, to: m.coordinate)?.eta
             let myEta = app.navigation.destination
                 .flatMap { $0.coordinate.distance(to: m.coordinate) < 300 ? app.navigation.eta : nil }
             meetup = WidgetSnapshot.Meetup(place: m.placeName,

@@ -115,11 +115,6 @@ final class ChargingSession {
         targetPercent = value
         settingTarget = false
     }
-
-    static func minutes(_ t: TimeInterval) -> String {
-        let m = Int((t / 60).rounded(.up))
-        return m < 60 ? String(localized: "\(m) Min.") : String(localized: "\(m / 60) Std. \(m % 60) Min.")
-    }
 }
 
 // MARK: - CarPlay: Anzeige über der Karte
@@ -225,10 +220,10 @@ final class ChargingRingView: UIView {
         percentLabel.text = String(localized: "\(Int(percent.rounded())) %")
         // „bis 80 % · noch 1 Std. 12 Min.“, darunter Leistung und – unterwegs – die Ankunft am Ziel
         let time = done ? String(localized: "Genug geladen")
-            : (remaining.map { String(localized: "noch \(ChargingSession.minutes($0))") } ?? String(localized: "lädt …"))
+            : (remaining.map { String(localized: "noch \(Format.minutes(seconds: $0))") } ?? String(localized: "lädt …"))
         var lines = [String(localized: "bis \(Int(target)) %") + " · " + time]
         if power > 0 { lines.append("\(Int(power.rounded())) kW") }
-        if let arrival { lines.append(String(localized: "Ankunft am Ziel \(Format.time.string(from: arrival))")) }
+        if let arrival { lines.append(String(localized: "Ankunft am Ziel \(ActivityFormat.time(arrival))")) }
         detailLabel.text = lines.joined(separator: "\n")
     }
 }
@@ -284,7 +279,7 @@ struct ChargingCard: View {
         var parts: [String] = []
         if session.powerKW > 0 { parts.append(String(localized: "\(Int(session.powerKW.rounded())) kW")) }
         if session.done { parts.append(String(localized: "Genug geladen")) }
-        else if let r = session.remaining { parts.append(String(localized: "noch \(ChargingSession.minutes(r)) · fertig \(Format.time.string(from: Date().addingTimeInterval(r)))")) }
+        else if let r = session.remaining { parts.append(String(localized: "noch \(Format.minutes(seconds: r)) · fertig \(ActivityFormat.time(Date().addingTimeInterval(r)))")) }
         return parts.joined(separator: " · ")
     }
 }

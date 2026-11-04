@@ -106,13 +106,9 @@ final class SoundStore: NSObject {
 
     // MARK: Eigene Schnipsel
 
-    func requestMicrophone() async -> Bool {
-        await Permissions.ask(.microphone)
-    }
-
     func startRecording(_ moment: SoundMoment) async {
         guard !isRecording else { return }
-        guard await requestMicrophone() else {
+        guard await Permissions.ask(.microphone) else {
             AppModel.shared.show(String(localized: "Mikrofon-Zugriff fehlt (Einstellungen → Meeterz)."))
             return
         }
@@ -220,7 +216,7 @@ final class SoundStore: NSObject {
                 return
             }
         }
-        speak(moment.fallback(name: friend.displayName.split(separator: " ").first.map(String.init) ?? friend.displayName))
+        speak(moment.fallback(name: friend.firstName))
     }
 
     private func play(_ url: URL, key: String) {

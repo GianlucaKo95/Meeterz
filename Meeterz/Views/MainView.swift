@@ -523,10 +523,10 @@ struct SharingPill: View {
     private func label(_ profile: Profile?) -> String {
         if let profile, profile.isIncognito {
             if profile.isIncognitoIndefinitely { return String(localized: "Inkognito") }
-            if let until = profile.incognitoUntil { return String(localized: "Inkognito bis \(Format.time.string(from: until))") }
+            if let until = profile.incognitoUntil { return String(localized: "Inkognito bis \(ActivityFormat.time(until))") }
         }
         guard let profile, profile.isSharingNow else { return String(localized: "Teilen pausiert") }
-        if let until = profile.sharingUntil { return String(localized: "Teilst live bis \(Format.time.string(from: until))") }
+        if let until = profile.sharingUntil { return String(localized: "Teilst live bis \(ActivityFormat.time(until))") }
         return String(localized: "Teilst live")
     }
 }
@@ -699,7 +699,7 @@ private struct FriendRowView: View {
                 }
                 Spacer()
                 if let distance {
-                    Text(Format.distance(distance))
+                    Text(ActivityFormat.distance(distance))
                         .font(.footnote.weight(.bold))
                         .foregroundStyle(route != nil ? Theme.accent : Theme.muted)
                 }
@@ -721,7 +721,7 @@ private struct FriendRowView: View {
         if Passengers.shared.riding.contains(item.friend.friendId) { return String(localized: "Auf deiner Karte ausgeblendet") }
         if let route {
             let dest = route.destinationName.map { String(localized: "Nach \($0)") } ?? String(localized: "Unterwegs")
-            return String(localized: "\(dest) · an \(Format.time.string(from: route.eta))")
+            return String(localized: "\(dest) · an \(ActivityFormat.time(route.eta))")
         }
         return item.position.age < 60 ? String(localized: "Live") : String(localized: "Zuletzt \(Format.age(item.position.age))")
     }
@@ -804,9 +804,9 @@ struct MeetingPointCard: View {
         var list: [Arrival] = []
         for item in app.friendsOnMap {
             let id = item.friend.friendId
-            let first = item.friend.displayName.split(separator: " ").first.map(String.init) ?? item.friend.displayName
+            let first = item.friend.firstName
             let here = item.position.coordinate.distance(to: place) < 150
-            let route = app.routes.friendRoutes[id].flatMap { $0.destination.distance(to: place) < 300 ? $0 : nil }
+            let route = app.routes.route(of: id, to: place)
             guard here || route != nil else { continue }
             list.append(Arrival(id: id.uuidString, name: first, color: FriendPalette.routeColor(for: id), eta: route?.eta, here: here))
         }

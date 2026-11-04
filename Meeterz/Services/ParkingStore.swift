@@ -78,7 +78,7 @@ struct ParkedCarMarker: View {
                     .frame(width: 34, height: 34)
                     .background(Circle().fill(Theme.accent))
                     .overlay(Circle().stroke(Theme.ink, lineWidth: 2))
-                Text("Dein Auto · \(Format.time.string(from: spot.date))")
+                Text("Dein Auto · \(ActivityFormat.time(spot.date))")
                     .font(.caption2.bold())
                     .foregroundStyle(Theme.text)
                     .padding(.horizontal, 6).padding(.vertical, 2)

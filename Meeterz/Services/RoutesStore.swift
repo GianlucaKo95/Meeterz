@@ -10,6 +10,11 @@ final class RoutesStore {
 
     private var client: SupabaseClient { Backend.client }
 
+    /// Route des Freundes, wenn sie (bis auf 300 m) zu diesem Ort führt
+    func route(of id: UUID, to place: CLLocationCoordinate2D) -> FriendRoute? {
+        friendRoutes[id].flatMap { $0.destination.distance(to: place) < 300 ? $0 : nil }
+    }
+
     private struct Row: Decodable {
         let friend_id: UUID
         let destination_name: String?

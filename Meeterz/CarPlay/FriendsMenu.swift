@@ -40,13 +40,13 @@ extension CarPlayController {
             else if let route = app.routes.friendRoutes[f.friendId] {
                 detail.append(route.destinationName.map { String(localized: "fährt nach \($0)") } ?? "unterwegs")
             } else if let me {
-                detail.append(Format.distance(item.position.coordinate.distance(to: me.coordinate)))
+                detail.append(ActivityFormat.distance(item.position.coordinate.distance(to: me.coordinate)))
             }
             if item.position.age > 120 { detail.append(Format.age(item.position.age)) }
             if hidden { detail.append("ausgeblendet") }
             let image = AvatarRenderer.image(initials: f.initials, color: FriendPalette.uiColor(for: f.friendId),
                                              faded: hidden, photo: app.avatars.image(for: f.friendId))
-            let row = CPListItem(text: f.displayName.split(separator: " ").first.map(String.init) ?? f.displayName,
+            let row = CPListItem(text: f.firstName,
                                  detailText: detail.joined(separator: " · "), image: image,
                                  accessoryImage: UIImage(systemName: hidden ? "eye.slash" : "eye"), accessoryType: .none)
             row.handler = { [weak self] _, done in
@@ -76,7 +76,7 @@ extension CarPlayController {
     private func showHiddenFriends(_ hidden: [AppModel.FriendOnMap]) {
         let items: [CPListItem] = hidden.map { item in
             let f = item.friend
-            let row = CPListItem(text: f.displayName.split(separator: " ").first.map(String.init) ?? f.displayName,
+            let row = CPListItem(text: f.firstName,
                                  detailText: String(localized: "Einblenden"),
                                  image: AvatarRenderer.image(initials: f.initials, color: FriendPalette.uiColor(for: f.friendId),
                                                              faded: true, photo: AppModel.shared.avatars.image(for: f.friendId)))
@@ -93,7 +93,7 @@ extension CarPlayController {
 
     private func showFriendActions(_ item: AppModel.FriendOnMap) {
         let f = item.friend
-        let first = f.displayName.split(separator: " ").first.map(String.init) ?? f.displayName
+        let first = f.firstName
         let hidden = Passengers.shared.riding.contains(f.friendId)
         let controller = manager.interfaceController
         let close: () -> Void = { CarPlayUI.shared.dismiss(animated: true) }

@@ -36,7 +36,7 @@ private struct CandidateCard: View {
                 Avatar(initials: friend.initials, color: FriendPalette.color(for: friend.friendId), userId: friend.friendId)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(friend.displayName) kreuzt deinen Weg").font(Theme.title(16))
-                    Text("In \(Format.minutes(until: max(candidate.myEta, candidate.friendEta))) seid ihr nah beieinander")
+                    Text("In \(Format.minutes(seconds: max(candidate.myEta, candidate.friendEta).timeIntervalSinceNow)) seid ihr nah beieinander")
                         .font(.footnote).foregroundStyle(Theme.muted)
                 }
                 Spacer()
@@ -176,9 +176,9 @@ struct MeetupPlannerView: View {
                 }
 
                 HStack(spacing: 10) {
-                    TimeTile(title: String(localized: "Du"), value: Format.time.string(from: candidate.myEta), highlight: true)
-                    TimeTile(title: friend?.displayName ?? String(localized: "Freund"), value: Format.time.string(from: candidate.friendEta))
-                    TimeTile(title: String(localized: "Abstand"), value: Format.distance(candidate.distanceM))
+                    TimeTile(title: String(localized: "Du"), value: ActivityFormat.time(candidate.myEta), highlight: true)
+                    TimeTile(title: friend?.displayName ?? String(localized: "Freund"), value: ActivityFormat.time(candidate.friendEta))
+                    TimeTile(title: String(localized: "Abstand"), value: ActivityFormat.distance(candidate.distanceM))
                 }
 
                 Text("Wo wollt ihr euch treffen?").font(Theme.title())
@@ -304,7 +304,7 @@ struct PlaceRow: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     if let distance {
-                        Text(Format.distance(distance)).font(.footnote).foregroundStyle(Theme.muted)
+                        Text(ActivityFormat.distance(distance)).font(.footnote).foregroundStyle(Theme.muted)
                     }
                 }
                 .contentShape(Rectangle())

@@ -74,6 +74,8 @@ struct FriendRow: Codable, Identifiable, Equatable {
                             ts: locationUpdatedAt.timeIntervalSince1970)
     }
 
+    var firstName: String { displayName.split(separator: " ").first.map(String.init) ?? displayName }
+
     var initials: String {
         displayName.split(separator: " ").prefix(2)
             .compactMap(\.first).map(String.init).joined().uppercased()
@@ -124,7 +126,6 @@ struct MeetupCandidate: Codable, Identifiable, Equatable {
     var id: UUID { friendId }
     var coordinate: CLLocationCoordinate2D { .init(latitude: lat, longitude: lng) }
     /// Wer wartet wie lange am Treffpunkt (positiv: ich warte)
-    var waitSeconds: TimeInterval { friendEta.timeIntervalSince(myEta) }
 
     enum CodingKeys: String, CodingKey {
         case friendId = "friend_id"

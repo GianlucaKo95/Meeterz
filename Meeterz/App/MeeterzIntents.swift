@@ -160,14 +160,14 @@ struct WhereIsFriendIntent: AppIntent {
         }
         var parts: [String] = []
         if let me = app.location.lastLocation?.coordinate {
-            parts.append(String(localized: "\(first) ist \(Format.distance(item.position.coordinate.distance(to: me))) entfernt"))
+            parts.append(String(localized: "\(first) ist \(ActivityFormat.distance(item.position.coordinate.distance(to: me))) entfernt"))
         } else {
             parts.append(String(localized: "\(first) ist auf der Karte"))
         }
         if item.position.age > 120 { parts.append(String(localized: "Stand \(Format.age(item.position.age))")) }
         if let route = app.routes.friendRoutes[friend.id] {
             let target = route.destinationName.map { String(localized: "nach \($0)") } ?? String(localized: "zu einem Ziel")
-            parts.append(String(localized: "unterwegs \(target), Ankunft \(Format.time.string(from: route.eta))"))
+            parts.append(String(localized: "unterwegs \(target), Ankunft \(ActivityFormat.time(route.eta))"))
         }
         return .result(dialog: "\(parts.joined(separator: ", ")).")
     }

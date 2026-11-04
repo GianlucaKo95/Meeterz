@@ -100,7 +100,7 @@ struct GroupMeetupView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(item.friend.displayName).foregroundStyle(Theme.text)
                         if let me = app.location.lastLocation?.coordinate {
-                            Text(Format.distance(item.position.coordinate.distance(to: me)))
+                            Text(ActivityFormat.distance(item.position.coordinate.distance(to: me)))
                                 .font(.caption).foregroundStyle(Theme.muted)
                         }
                     }
@@ -190,7 +190,7 @@ struct GroupMeetupView: View {
         var list = [FairMeetupFinder.Participant(id: myId, name: String(localized: "Du"), coordinate: me,
                                                  mode: modes[myId] ?? app.navigation.travelMode)]
         for item in app.friendsOnMap where selected.contains(item.friend.friendId) {
-            let first = item.friend.displayName.split(separator: " ").first.map(String.init) ?? item.friend.displayName
+            let first = item.friend.firstName
             list.append(.init(id: item.friend.friendId, name: first, coordinate: item.position.coordinate,
                               mode: modes[item.friend.friendId] ?? .car))
         }

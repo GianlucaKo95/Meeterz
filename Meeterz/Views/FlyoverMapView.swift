@@ -43,25 +43,6 @@ struct FlyoverMapView: View {
         }
     }
 
-    /// Orte (Restaurant, Café, Tankstelle …) in Tippnähe; der Suchradius wächst mit dem Kartenabstand
-    private func openPlace(near coordinate: CLLocationCoordinate2D) {
-        guard detail == nil, !UserDefaults.standard.bool(forKey: "ui.reset") else { return }   // UI-Tests tippen nur zum Ein-/Ausblenden
-        let distance = lastCamera?.distance ?? 1000
-        let radius = min(max(distance * 0.03, 15), 80)
-        Task {
-            let request = MKLocalPointsOfInterestRequest(center: coordinate, radius: radius)
-            request.pointOfInterestFilter = MKPointOfInterestFilter(including: [.restaurant, .cafe, .parking, .gasStation, .publicTransport, .hospital, .bakery, .pharmacy, .hotel, .museum, .park, .store, .foodMarket, .evCharger])
-            guard let response = try? await MKLocalSearch(request: request).start() else { return }
-            let target = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
-            let nearest = response.mapItems.min {
-                CLLocation(latitude: $0.coordinate.latitude, longitude: $0.coordinate.longitude).distance(from: target)
-                < CLLocation(latitude: $1.coordinate.latitude, longitude: $1.coordinate.longitude).distance(from: target)
-            }
-            Diag.log("Kartentipp: \(nearest?.name ?? "kein Ort in \(Int(radius)) m")")
-            if let nearest, detail == nil { detail = PlaceDetailItem(mapItem: nearest) }
-        }
-    }
-
     /// Tipp auf ein POI: Auswahl sofort wieder zurücknehmen und Apples Ortsdetails laden
     private var featureSelection: Binding<MapFeature?> {
         Binding(get: { nil }, set: { feature in

@@ -164,7 +164,7 @@ final class NavigationLiveActivityController {
         guard let destination else { return }
         let app = AppModel.shared
         for friend in app.friends.accepted {
-            let firstName = friend.displayName.split(separator: " ").first.map(String.init) ?? friend.displayName
+            let firstName = friend.firstName
             if let pos = app.friendsOnMap.first(where: { $0.friend.friendId == friend.friendId })?.position,
                pos.coordinate.distance(to: destination) < 100, pos.age < 10 * 60 {
                 state.friendName = firstName
@@ -172,8 +172,7 @@ final class NavigationLiveActivityController {
                 state.friendHere = true
                 return
             }
-            if let route = app.routes.friendRoutes[friend.friendId],
-               route.destination.distance(to: destination) < 300, route.eta > Date() {
+            if let route = app.routes.route(of: friend.friendId, to: destination), route.eta > Date() {
                 state.friendName = firstName
                 state.friendInitials = friend.initials
                 state.friendArrival = route.eta

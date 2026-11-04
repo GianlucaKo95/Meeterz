@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       coords:
-        description: "lng,lat;lng,lat"
+        description: "lng,lat;lng,lat (oder Adressen)"
         default: "6.7759,51.4296;6.7605,51.4386"
 permissions:
   contents: write
@@ -26,14 +26,22 @@ jobs:
               return math.hypot(dx, dy)
           q = urllib.parse.urlencode({"access_token": os.environ["TOKEN"], "steps": "true", "voice_instructions": "true",
                "banner_instructions": "true", "language": "de", "overview": "false", "geometries": "polyline6", "voice_units": "metric"})
-          url = f"https://api.mapbox.com/directions/v5/mapbox/driving-traffic/{os.environ['COORDS']}?{q}"
+          def point(x):
+              # „lng,lat“ oder eine Adresse (wird über Mapbox geokodiert)
+              if x[:1].isdigit(): return x
+              g = json.load(urllib.request.urlopen("https://api.mapbox.com/geocoding/v5/mapbox.places/" + urllib.parse.quote(x) + ".json?country=de&limit=1&access_token=" + os.environ["TOKEN"]))
+              f = g["features"][0]; print(f"Ort: {x} → {f['place_name']}")
+              return f"{f['center'][0]},{f['center'][1]}"
+          coords = ";".join(point(x.strip()) for x in os.environ["COORDS"].split(";"))
+          url = f"https://api.mapbox.com/directions/v5/mapbox/driving-traffic/{coords}?{q}"
           d = json.load(urllib.request.urlopen(url))
           signals = stops = 0
           steps = d["routes"][0]["legs"][0]["steps"]
           for i, s in enumerate(steps):
               mv = s["maneuver"]
               nxt = steps[i+1]["maneuver"]["location"] if i + 1 < len(steps) else None
-              print(f"#{i} {mv.get('type')} {mv.get('modifier','')} | {s.get('name','')} ref={s.get('ref','')} dest={s.get('destinations','')} | {s['distance']:.0f} m")
+              print(f"#{i} {mv.get('type')} {mv.get('modifier','')} | {s.get('name','')} ref={s.get('ref','')} dest={s.get('destinations','')} exits={s.get('exits','')} | {s['distance']:.0f} m")
+              for b in s.get("bannerInstructions", []): print(f"    🪧 {b['distanceAlongGeometry']:.0f} m: {b['primary'].get('text')} | {[c.get('text') for c in b['primary'].get('components', [])]}")
               for j, x in enumerate(s.get("intersections", [])):
                   flags = [k for k in ("traffic_signal", "stop_sign", "yield_sign", "railway_crossing") if x.get(k)]
                   signals += bool(x.get("traffic_signal")); stops += bool(x.get("stop_sign"))

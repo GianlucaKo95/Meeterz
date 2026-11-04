@@ -626,8 +626,11 @@ struct FriendsView: View {
 
     @ViewBuilder private var developerSettings: some View {
         Section("Diagnose") {
-            Text(diagText.isEmpty ? String(localized: "Noch keine Einträge.") : diagText)
-                .font(.system(size: 10, design: .monospaced)).textSelection(.enabled)
+            // Eingeklappt: das Protokoll ist lang – zum Senden reicht „Teilen“
+            DisclosureGroup("Protokoll anzeigen") {
+                Text(diagText.isEmpty ? String(localized: "Noch keine Einträge.") : diagText)
+                    .font(.system(size: 10, design: .monospaced)).textSelection(.enabled)
+            }
             HStack {
                 Button("Aktualisieren") { diagText = Diag.text }
                 Spacer()

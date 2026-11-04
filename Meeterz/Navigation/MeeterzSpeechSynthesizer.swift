@@ -118,6 +118,8 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
     /// Auf 2 km verschobene Autobahn-Ansage und das Abo auf den Fortschritt, das sie zur richtigen Stelle auslöst
     private var speakingDeferred = false
     private var deferredSubscription: AnyCancellable?
+    /// Abbiegung, deren erste Ansage schon „Am Ende der Straße …“ / „An der Ampel …“ war
+    private var landmarkAnnounced: String?
 
     private func deferUntil2km(_ instruction: SpokenInstruction, stepIndex: Int) {
         deferredSubscription = navigationProvider.mapboxNavigation.navigation().routeProgress
@@ -186,10 +188,22 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
             }
             return
         }
+        let position = StepAnnouncements.position(of: instruction, in: legProgress)
+        let maneuverKey = legProgress.upcomingStep.map { "\(legProgress.stepIndex)|\($0.maneuverLocation.latitude),\($0.maneuverLocation.longitude)" }
+        // „Am Ende der Straße …“ / „An der Ampel …“ kam schon in der ersten Ansage: die mittlere entfällt
+        if !position.first, !position.last, let maneuverKey, maneuverKey == landmarkAnnounced {
+            Diag.log("Ansage ausgelassen (schon angekündigt): \(instruction.text)")
+            subject.send(VoiceInstructionEvents.DidSpeak(instruction: instruction))
+            return
+        }
         subject.send(VoiceInstructionEvents.WillSpeak(instruction: instruction))
 
-        // Wie Apple: „An der nächsten Ampel rechts abbiegen“, wenn die Abbiegung an einer Ampel/einem Stoppschild liegt
-        var text = LandmarkInstructions.rewrite(instruction, legProgress: legProgress) ?? instruction.text
+        // Wie Apple: „An der nächsten Ampel rechts abbiegen“, wenn die Abbiegung an einer Ampel/einem Stoppschild liegt.
+        // Schon in der ersten Ansage (bis 1 km), dann ohne die mittlere „In 400 Metern …“
+        let landmark = LandmarkInstructions.rewrite(instruction, legProgress: legProgress,
+                                                    maxDistance: position.first ? StepAnnouncements.landmarkFirstDistance : 800)
+        if landmark != nil, position.first, !position.last { landmarkAnnounced = maneuverKey }
+        var text = landmark ?? instruction.text
         // Auffahrt („rechts auf die Auffahrt A 42 Richtung Dortmund fahren“) und „… weiter der A 42 folgen“
         text = MotorwayPhrases.apply(to: text, legProgress: legProgress)
         // Abseits der Autobahn: „In 800 Metern rechts abbiegen“ statt „800 Meter weiter der Route folgen“
@@ -205,6 +219,10 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
         text = RoadNames.dropEuropeanCodes(in: text, legProgress: legProgress)
         // „Jetzt rechts abbiegen, dann links abbiegen“ nur, wenn die zweite Abbiegung sofort folgt
         text = ThenInstructions.apply(to: text, legProgress: legProgress)
+        // Straßenname nur in der ersten Ansage einer Abbiegung
+        if !position.first, let next = legProgress.upcomingStep {
+            text = StepAnnouncements.withoutStreet(text, name: next.names?.first, code: next.codes?.first)
+        }
         // Letzte Ansage an der Abbiegung: nur „Jetzt rechts abbiegen“ (auch an Ampeln)
         text = FinalTurn.apply(to: text, instruction: instruction, legProgress: legProgress)
         if text != instruction.text { Diag.log("Ansage angepasst: „\(instruction.text)“ → „\(text)“") }

@@ -155,3 +155,17 @@ final class FinalTurnTests: XCTestCase {
                        "Jetzt links abbiegen, dann rechts abbiegen.")
     }
 }
+
+final class StepAnnouncementsTests: XCTestCase {
+    func testStreetOnlyOnce() {
+        XCTAssertEqual(StepAnnouncements.withoutStreet("Rechts auf Friedensstraße abbiegen.", name: "Friedensstraße", code: nil),
+                       "Rechts abbiegen.")
+        XCTAssertEqual(StepAnnouncements.withoutStreet("An der nächsten Ampel links abbiegen auf Parkstraße", name: "Parkstraße", code: nil),
+                       "An der nächsten Ampel links abbiegen")
+        XCTAssertEqual(StepAnnouncements.withoutStreet("In 400 Metern Links auf L 473 abbiegen.", name: "Charlottering", code: "L 473"),
+                       "In 400 Metern Links abbiegen.")
+        XCTAssertEqual(StepAnnouncements.withoutStreet("Links auf L 473, Charlottering abbiegen.", name: "Charlottering", code: "L 473"),
+                       "Links abbiegen.")
+        XCTAssertEqual(StepAnnouncements.withoutStreet("Rechts halten auf A 42.", name: nil, code: "A 42"), "Rechts halten auf A 42.")
+    }
+}

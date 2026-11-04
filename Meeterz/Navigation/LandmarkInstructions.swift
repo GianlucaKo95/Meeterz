@@ -14,7 +14,7 @@ enum LandmarkInstructions {
     enum Landmark { case trafficLight, stopSign }
 
     /// Neue Ansage oder nil (dann Mapbox' Text)
-    static func rewrite(_ instruction: SpokenInstruction, legProgress: RouteLegProgress) -> String? {
+    static func rewrite(_ instruction: SpokenInstruction, legProgress: RouteLegProgress, maxDistance: Double = 800) -> String? {
         // Die Formulierung („An der nächsten Ampel …“) gibt es bisher nur auf Deutsch – sonst bleibt Mapbox' Ansage
         guard VoiceCatalog.language == "de" else { return nil }
         let stepProgress = legProgress.currentStepProgress
@@ -22,7 +22,7 @@ enum LandmarkInstructions {
               [.turn, .reachEnd].contains(upcoming.maneuverType),
               let direction = directionText(upcoming.maneuverDirection),
               instruction.distanceAlongStep > 60,                         // nicht die „Jetzt …“-Ansage
-              stepProgress.distanceRemaining < 800,
+              stepProgress.distanceRemaining < maxDistance,
               !instruction.text.localizedCaseInsensitiveContains("ampel") else { return nil }
 
         // Kreuzungen vom aktuellen Standort bis einschließlich der Abbiegung
@@ -139,7 +139,8 @@ enum ThenInstructions {
         // fiel die erste Abbiegung weg).
         if legProgress.currentStep.maneuverType == .depart { return text }
         let hasThen = text.range(of: #"[,.]?\s+dann[\s,]"#, options: [.regularExpression, .caseInsensitive]) != nil
-        guard let second = legProgress.followOnStep, isTurn(second) else { return text }   // z. B. „dann Ziel erreicht“ bleibt
+        // Nur der erste Satz – „Dann rechts halten auf A 42“, „Dann befindet sich das Ziel …“ war zu viel (04.11.)
+        guard let second = legProgress.followOnStep, isTurn(second) else { return hasThen ? withoutThen(text) : text }
         guard isTurn(first), first.distance <= maxGap,
               let direction = LandmarkInstructions.directionText(second.maneuverDirection) else {
             return hasThen ? withoutThen(text) : text
@@ -344,5 +345,38 @@ enum MotorwayTiming {
         }
         let text = instruction.text.replacingCharacters(in: range, with: "In 2 Kilometern")
         return .later(SpokenInstruction(distanceAlongStep: firstDistance, text: text, ssmlText: "<speak>\(text)</speak>"))
+    }
+}
+
+/// Mehrere Ansagen zur selben Abbiegung: Straßenname nur in der ersten, und steht dort schon „An der Ampel“ /
+/// „Am Ende der Straße“, entfällt die mittlere „In 400 Metern …“ (04.11.: drei Ansagen für eine Abbiegung).
+enum StepAnnouncements {
+    /// Erste bzw. letzte Ansage dieses Abschnitts (1 m Spielraum, Ansagen über 2,4 km zählen auf der Autobahn nicht)
+    static func position(of instruction: SpokenInstruction, in legProgress: RouteLegProgress) -> (first: Bool, last: Bool) {
+        let spoken = legProgress.currentStep.instructionsSpokenAlongStep ?? []
+        let d = instruction.distanceAlongStep
+        let onMotorway = (legProgress.currentStep.intersections ?? []).contains { $0.outletRoadClasses?.contains(.motorway) == true }
+        let first = !spoken.contains { $0.distanceAlongStep > d + 1 && (!onMotorway || $0.distanceAlongStep <= MotorwayTiming.deferAbove) }
+        let last = !spoken.contains { $0.distanceAlongStep < d - 1 }
+        return (first, last)
+    }
+
+    /// Bis zu dieser Entfernung darf schon die erste Ansage „Am Ende der Straße …“ / „An der Ampel …“ lauten
+    static let landmarkFirstDistance: Double = 1000
+
+    /// „Rechts auf Friedensstraße abbiegen.“ → „Rechts abbiegen.“ (Name und Nummer der Zielstraße weg)
+    static func withoutStreet(_ text: String, name: String?, code: String?) -> String {
+        var out = text
+        let n = name.flatMap { $0.isEmpty ? nil : NSRegularExpression.escapedPattern(for: $0) }
+        // Autobahnnummern bleiben – „auf A 42“ ist dort die eigentliche Information
+        let c = code.flatMap { $0.isEmpty || $0.hasPrefix("A") || $0.hasPrefix("E") ? nil : NSRegularExpression.escapedPattern(for: $0) }
+        var patterns: [String] = []
+        if let n, let c { patterns += [" auf \(n),? \(c)", " auf \(c),? \(n)"] }
+        if let n { patterns.append(" auf \(n)") }
+        if let c { patterns.append(" auf \(c)") }
+        for p in patterns {
+            out = out.replacingOccurrences(of: p + #"(?=[\s.,]|$)"#, with: "", options: .regularExpression)
+        }
+        return out
     }
 }

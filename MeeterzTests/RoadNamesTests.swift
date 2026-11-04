@@ -123,3 +123,14 @@ final class FrequentPlacesTests: XCTestCase {
         XCTAssertNil(FrequentPlaces.likely(in: [work], now: now, from: work.coordinate))
     }
 }
+
+final class FinalTurnTests: XCTestCase {
+    func testShortFinalTurn() {
+        XCTAssertEqual(FinalTurn.short(direction: "rechts", from: "An der nächsten Ampel rechts abbiegen auf Hafenstraße"),
+                       "Jetzt rechts abbiegen.")
+        XCTAssertEqual(FinalTurn.short(direction: "rechts", from: "Am Ende der Straße rechts abbiegen auf Ruhrorter Straße, dann rechts abbiegen"),
+                       "Jetzt rechts abbiegen, dann rechts abbiegen.")
+        XCTAssertEqual(FinalTurn.short(direction: "links", from: "Links auf Bergiusstraße abbiegen. Dann Rechts abbiegen."),
+                       "Jetzt links abbiegen, dann rechts abbiegen.")
+    }
+}

@@ -267,3 +267,64 @@ enum MotorwayPhrases {
         return String(text[range])
     }
 }
+
+
+/// Letzte Ansage einer Abbiegung (an der Kreuzung selbst): nur kurz „Jetzt rechts abbiegen“ – auch an Ampeln oder am
+/// Ende der Straße; die ausführliche Ansage kam schon vorher. Eine direkt folgende zweite Abbiegung bleibt dran
+/// („Jetzt rechts abbiegen, dann links abbiegen“).
+enum FinalTurn {
+    /// Bis zu dieser Entfernung zur Abbiegung gilt eine Ansage als die letzte
+    static let maxDistance: Double = 150
+
+    static func apply(to text: String, instruction: SpokenInstruction, legProgress: RouteLegProgress) -> String {
+        guard VoiceCatalog.language == "de", legProgress.currentStep.maneuverType != .depart,
+              let next = legProgress.upcomingStep, ThenInstructions.isTurn(next),
+              let direction = LandmarkInstructions.directionText(next.maneuverDirection),
+              instruction.distanceAlongStep <= maxDistance,
+              let last = legProgress.currentStep.instructionsSpokenAlongStep?.min(by: { $0.distanceAlongStep < $1.distanceAlongStep }),
+              last.distanceAlongStep == instruction.distanceAlongStep else { return text }
+        return short(direction: direction, from: text)
+    }
+
+    /// „Jetzt rechts abbiegen“ + ggf. „, dann links abbiegen“ aus dem bisherigen Text
+    static func short(direction: String, from text: String) -> String {
+        var tail = ""
+        if let r = text.range(of: #"[,.]?\s+dann[\s,].*$"#, options: [.regularExpression, .caseInsensitive]) {
+            var then = String(text[r]).trimmingCharacters(in: CharacterSet(charactersIn: " ,."))
+            if then.lowercased().hasPrefix("dann") { then = "dann" + then.dropFirst(4) }
+            then = then.replacingOccurrences(of: "dann, ", with: "dann ")
+            if let first = then.dropFirst(5).first, first.isUppercase {
+                // „dann Links abbiegen“ → „dann links abbiegen“
+                then = "dann " + then.dropFirst(5).prefix(1).lowercased() + then.dropFirst(6)
+            }
+            tail = ", " + then
+        }
+        return "Jetzt \(direction) abbiegen\(tail)."
+    }
+}
+
+/// Autobahn: Die erste Ansage einer Ausfahrt oder eines Wechsels erst bei 2 km statt bei 3 km
+enum MotorwayTiming {
+    static let firstDistance: Double = 2000
+
+    enum Decision {
+        /// Ansage weglassen (es kommt ohnehin eine um 2 km)
+        case skip
+        /// Später bei 2 km sagen
+        case later(SpokenInstruction)
+    }
+
+    static func decide(_ instruction: SpokenInstruction, legProgress: RouteLegProgress) -> Decision? {
+        let current = legProgress.currentStep
+        guard VoiceCatalog.language == "de", instruction.distanceAlongStep > 2400,
+              let next = legProgress.upcomingStep, next.maneuverType != .arrive,
+              (current.intersections ?? []).contains(where: { $0.outletRoadClasses?.contains(.motorway) == true }),
+              let range = instruction.text.range(of: #"^In [0-9.,]+ (Kilometern|Kilometer)"#, options: .regularExpression)
+        else { return nil }
+        if current.instructionsSpokenAlongStep?.contains(where: { $0.distanceAlongStep >= 1600 && $0.distanceAlongStep < 2400 }) == true {
+            return .skip
+        }
+        let text = instruction.text.replacingCharacters(in: range, with: "In 2 Kilometern")
+        return .later(SpokenInstruction(distanceAlongStep: firstDistance, text: text, ssmlText: "<speak>\(text)</speak>"))
+    }
+}

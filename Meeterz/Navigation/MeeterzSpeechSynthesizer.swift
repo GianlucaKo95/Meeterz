@@ -115,6 +115,25 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
         let instruction: SpokenInstruction?
     }
     private var queue: [Item] = []
+    /// Auf 2 km verschobene Autobahn-Ansage und das Abo auf den Fortschritt, das sie zur richtigen Stelle auslöst
+    private var speakingDeferred = false
+    private var deferredSubscription: AnyCancellable?
+
+    private func deferUntil2km(_ instruction: SpokenInstruction, stepIndex: Int) {
+        deferredSubscription = navigationProvider.mapboxNavigation.navigation().routeProgress
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] state in
+                MainActor.assumeIsolated {
+                    guard let self, let leg = state?.routeProgress.currentLegProgress else { return }
+                    guard leg.stepIndex == stepIndex else { self.deferredSubscription = nil; return }   // Schritt vorbei/neue Route
+                    guard leg.currentStepProgress.distanceRemaining <= MotorwayTiming.firstDistance + 30 else { return }
+                    self.deferredSubscription = nil
+                    self.speakingDeferred = true
+                    self.speak(instruction, during: leg, locale: self.locale)
+                    self.speakingDeferred = false
+                }
+            }
+    }
     private var playing: Item?
     private var lastEndedAt = Date.distantPast
 
@@ -155,6 +174,18 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
             subject.send(VoiceInstructionEvents.DidSpeak(instruction: instruction))
             return
         }
+        // Autobahn: erste Ansage einer Ausfahrt erst bei 2 km (Mapbox sagt sie schon bei ~3 km)
+        if !speakingDeferred, let decision = MotorwayTiming.decide(instruction, legProgress: legProgress) {
+            subject.send(VoiceInstructionEvents.DidSpeak(instruction: instruction))
+            switch decision {
+            case .skip:
+                Diag.log("Ansage ausgelassen (Autobahn, erst ab 2 km): \(instruction.text)")
+            case .later(let later):
+                Diag.log("Ansage auf 2 km verschoben: \(instruction.text)")
+                deferUntil2km(later, stepIndex: legProgress.stepIndex)
+            }
+            return
+        }
         subject.send(VoiceInstructionEvents.WillSpeak(instruction: instruction))
 
         // Wie Apple: „An der nächsten Ampel rechts abbiegen“, wenn die Abbiegung an einer Ampel/einem Stoppschild liegt
@@ -172,6 +203,8 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
         text = RoadNames.dropEuropeanCodes(in: text, legProgress: legProgress)
         // „Jetzt rechts abbiegen, dann links abbiegen“ nur, wenn die zweite Abbiegung sofort folgt
         text = ThenInstructions.apply(to: text, legProgress: legProgress)
+        // Letzte Ansage an der Abbiegung: nur „Jetzt rechts abbiegen“ (auch an Ampeln)
+        text = FinalTurn.apply(to: text, instruction: instruction, legProgress: legProgress)
         if text != instruction.text { Diag.log("Ansage angepasst: „\(instruction.text)“ → „\(text)“") }
 
         // Eine neue Abbiegeansage ersetzt eine laufende oder wartende – die alte ist überholt

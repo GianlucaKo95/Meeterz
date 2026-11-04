@@ -140,10 +140,15 @@ final class NavigationLiveActivityController {
         addCar(to: &state)
 
         let changedTurn = state.symbol != lastState?.symbol || state.instruction != lastState?.instruction
-        let distanceJump = abs(state.distanceToTurn - (lastState?.distanceToTurn ?? 0)) > max(50, state.distanceToTurn * 0.2)
+        // Senden, sobald sich etwas Sichtbares ändert: Entfernung (10/50 m, 0,1 km), Ankunftsminute, Restkilometer.
+        // Vorher erst ab 20 % Abstandsänderung oder alle 15 s – die Anzeige hing hinterher (04.11.).
+        let shown = { (s: NavigationActivityAttributes.ContentState?) in
+            s.map { [ActivityFormat.distance($0.distanceToTurn), ActivityFormat.time($0.arrival), ActivityFormat.distance($0.remainingDistance)] }
+        }
+        let distanceJump = shown(state) != shown(lastState)
         let friendChanged = state.friendHere != lastState?.friendHere || state.friendName != lastState?.friendName
         let carChanged = state.soc != lastState?.soc || state.rangeKm != lastState?.rangeKm
-        guard changedTurn || distanceJump || friendChanged || carChanged || Date().timeIntervalSince(lastPush) > 15 else { return }
+        guard changedTurn || distanceJump || friendChanged || carChanged || Date().timeIntervalSince(lastPush) > 10 else { return }
 
         lastState = state
         lastPush = Date()

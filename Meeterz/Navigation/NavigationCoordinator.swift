@@ -587,7 +587,7 @@ final class NavigationCoordinator: NSObject {
                                                       destination: destination?.coordinate)
         core.navigation().routeProgress
             .compactMap { $0?.routeProgress }
-            .throttle(for: .seconds(2), scheduler: RunLoop.main, latest: true)
+            .throttle(for: .seconds(1), scheduler: RunLoop.main, latest: true)
             .sink { progress in
                 Task { @MainActor in NavigationLiveActivityController.shared.update(progress) }
             }

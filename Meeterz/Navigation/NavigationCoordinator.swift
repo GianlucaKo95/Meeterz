@@ -161,9 +161,17 @@ final class NavigationCoordinator: NSObject {
     func planRoute(to place: Place, mode requested: TravelMode? = nil) async {
         let mode = requested ?? .car
         travelMode = mode
+        // Nur die jeweils letzte Planung zählt; läuft inzwischen eine Fahrt, keine Vorschau mehr darüber legen
+        planGeneration &+= 1
+        let generation = planGeneration
         guard let routes = await calculate(to: place, mode: mode) else { return }
+        guard generation == planGeneration, !isNavigating else {
+            Diag.log("Routenplanung auf dem iPhone verworfen (\(isNavigating ? "Navigation läuft" : "neueres Ziel"))")
+            return
+        }
         preview = Preview(destination: place, routes: routes, mode: mode)
     }
+    @ObservationIgnored private var planGeneration = 0
 
     /// Vorschau mit anderer Fortbewegungsart neu berechnen (gleiche Vorschau-ID, das Fenster bleibt offen)
     func recalculate(_ old: Preview, mode: TravelMode) async -> Preview? {

@@ -47,6 +47,13 @@ final class MotorwayDirectionTests: XCTestCase {
         XCTAssertEqual(MotorwayDirection.repairFragments(in: "In 800 Metern An der Ausfahrt 3 abfahren in Richtung Duisburg, -Baerl."),
                        "In 800 Metern An der Ausfahrt 3 abfahren in Richtung Duisburg-Baerl.")
         XCTAssertEqual(MotorwayDirection.repairFragments(in: "Richtung Dortmund, Oberhausen."), "Richtung Dortmund, Oberhausen.")
+        XCTAssertEqual(MotorwayDirection.firstTargetOnly(in: "In 800 Metern Auf A 3 in Richtung Arnhem, Hannover über die Ausfahrt 8 abfahren."),
+                       "In 800 Metern Auf A 3 in Richtung Arnhem über die Ausfahrt 8 abfahren.")
+        XCTAssertEqual(MotorwayDirection.firstTargetOnly(in: "In 800 Metern An der Ausfahrt 3 abfahren in Richtung Duisburg, -Baerl, -Homberg."),
+                       "In 800 Metern An der Ausfahrt 3 abfahren in Richtung Duisburg-Baerl.")
+        XCTAssertEqual(MotorwayDirection.firstTargetOnly(in: "In Richtung B 7, A 52 nach Rechts abbiegen."), "In Richtung B 7 nach Rechts abbiegen.")
+        XCTAssertEqual(MotorwayDirection.firstTargetOnly(in: "Rechts halten auf A 42, Richtung Dortmund, Oberhausen. Dann Rechts halten auf A 42."),
+                       "Rechts halten auf A 42, Richtung Dortmund. Dann Rechts halten auf A 42.")
     }
 }
 

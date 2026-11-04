@@ -197,6 +197,8 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
         // Wechsel oder Ausfahrt von der Autobahn: die Richtung schon bei der ersten Ansage, nicht erst bei der letzten
         if let withDirection = MotorwayDirection.add(to: text, legProgress: legProgress,
                                                     distanceAlongStep: instruction.distanceAlongStep) { text = withDirection }
+        // Vom Schild nur das erste Ziel („Richtung Arnhem“ statt „Richtung Arnhem, Hannover“)
+        text = MotorwayDirection.firstTargetOnly(in: text)
         // Innerorts mit Straßennamen: „auf Hauptstraße“ statt „auf Hauptstraße/L 91“
         text = RoadNames.dropCodes(in: text, legProgress: legProgress)
         // Autobahnen mit A-Nummer, nie mit der Europastraße („A 3“, nicht „A 3/E 35“ oder „E 35“)
@@ -420,7 +422,7 @@ enum MotorwayDirection {
         let text = repairFragments(in: text)
         // Steht die Richtung schon drin (meist in der letzten Ansage), nichts doppelt
         if text.range(of: first, options: [.caseInsensitive, .diacriticInsensitive]) != nil { return text }
-        return insert(String(localized: "Richtung \(targets.prefix(2).joined(separator: ", "))"), into: text)
+        return insert(String(localized: "Richtung \(first)"), into: text)
     }
 
     /// Richtung direkt hinter das erste Manöver setzen – nicht hinter ein angehängtes „Dann …“, sonst klang es, als
@@ -452,6 +454,14 @@ enum MotorwayDirection {
             }
         }
         return out
+    }
+
+    /// „Richtung Arnhem, Hannover“ → „Richtung Arnhem“: alle Ziele des Schilds vorzulesen dauerte zu lang (04.11.)
+    static func firstTargetOnly(in text: String) -> String {
+        let word = #"[\p{Lu}0-9][\p{L}0-9\-]*"#
+        let name = "\(word)(?: \(word))*"
+        return repairFragments(in: text).replacingOccurrences(of: "(Richtung \(name))(?:, \(name))+", with: "$1",
+                                                               options: .regularExpression)
     }
 
     /// Dasselbe im Ansagetext: „in Richtung Duisburg, -Baerl, -Homberg“ → „in Richtung Duisburg-Baerl, Duisburg-Homberg“

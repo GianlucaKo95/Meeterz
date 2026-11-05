@@ -13,7 +13,7 @@ val navVersion = "3.32.3"
 
 android {
     namespace = "de.koeven.meeterz"
-    compileSdk = 37
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "de.koeven.meeterz"

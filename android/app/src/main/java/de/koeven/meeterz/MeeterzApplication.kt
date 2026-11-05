@@ -13,5 +13,6 @@ class MeeterzApplication : Application() {
         // Eine Navigation für App und Android Auto
         if (!MapboxNavigationApp.isSetup()) MapboxNavigationApp.setup { NavigationOptions.Builder(this).build() }
         NavigationController.init(this)
+        AppState.init(this)
     }
 }

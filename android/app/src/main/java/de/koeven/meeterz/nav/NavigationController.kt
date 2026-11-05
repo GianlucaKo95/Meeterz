@@ -28,7 +28,7 @@ import kotlin.coroutines.suspendCoroutine
  * mit denselben Regeln wie auf iOS (Announcer).
  */
 object NavigationController : MapboxNavigationObserver {
-    data class Destination(val name: String, val lat: Double, val lng: Double)
+    data class Destination(val name: String, val lat: Double, val lng: Double, val address: String? = null)
 
     data class Guidance(
         val destination: Destination,

@@ -95,5 +95,8 @@ class AuthRepository(private val scope: CoroutineScope) {
         }.onFailure { error.value = it.message }
     }
 
+    /** Profil neu laden (z. B. nach Änderung am Teilen) */
+    suspend fun reload() = load((state.value as? State.Ready)?.profile?.id)
+
     suspend fun signOut() { runCatching { client.auth.signOut() } }
 }

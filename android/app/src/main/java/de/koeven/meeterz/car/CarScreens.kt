@@ -75,6 +75,7 @@ class FreeDriveScreen(carContext: CarContext, private val carMap: MapboxCarMap) 
         .setActionStrip(
             ActionStrip.Builder()
                 .addAction(Action.Builder().setTitle("Suchen").setOnClickListener { screenManager.push(CarSearchScreen(carContext)) }.build())
+                .addAction(Action.Builder().setTitle("Ziele").setOnClickListener { screenManager.push(CarPlacesScreen(carContext)) }.build())
                 .addAction(Action.Builder().setTitle("Freunde").setOnClickListener { screenManager.push(CarFriendsScreen(carContext)) }.build())
                 .build(),
         )
@@ -177,5 +178,21 @@ class CarSearchScreen(carContext: CarContext) : Screen(carContext) {
             results = PlaceSearch.search(text, me?.latitude, me?.longitude)
             invalidate()
         }
+    }
+}
+
+/** Gespeicherte Orte (Zuhause, Arbeit, Favoriten) – Antippen fährt los */
+class CarPlacesScreen(carContext: CarContext) : Screen(carContext) {
+    override fun onGetTemplate(): Template {
+        val list = ItemList.Builder().setNoItemsMessage("Noch keine Orte gespeichert – in der App bei der Routenvorschau „Als Zuhause“ o. Ä. wählen.")
+        AppState.favorites.items.value.sortedBy { listOf("home", "work", "other").indexOf(it.kind) }.forEach { fav ->
+            list.addItem(
+                Row.Builder().setTitle(fav.label)
+                    .apply { fav.address?.let { addText(it) } }
+                    .setOnClickListener { navigateTo(fav.label, fav.lat, fav.lng); screenManager.pop() }
+                    .build(),
+            )
+        }
+        return ListTemplate.Builder().setTitle("Ziele").setHeaderAction(Action.BACK).setSingleList(list.build()).build()
     }
 }

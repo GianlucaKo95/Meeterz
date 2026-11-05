@@ -22,6 +22,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.People
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material3.Button
@@ -122,6 +125,21 @@ fun MapScreen() {
     var results by remember { mutableStateOf<List<PlaceSearch.Place>>(emptyList()) }
     var preview by remember { mutableStateOf<Pair<NavigationController.Destination, List<NavigationRoute>>?>(null) }
     var planning by remember { mutableStateOf(false) }
+    var showFriends by remember { mutableStateOf(false) }
+    val favorites by AppState.favorites.items.collectAsState()
+    val car by AppState.vehicle.status.collectAsState()
+
+    fun planTo(name: String, address: String?, lat: Double, lng: Double) {
+        val me = AppState.lastLocation ?: return
+        val dest = NavigationController.Destination(name, lat, lng, address)
+        planning = true
+        results = emptyList()
+        scope.launch {
+            val routes = NavigationController.plan(context, Point.fromLngLat(me.longitude, me.latitude), dest)
+            planning = false
+            if (routes.isNotEmpty()) preview = dest to routes
+        }
+    }
     LaunchedEffect(query) {
         delay(300)   // erst suchen, wenn kurz nicht getippt wird
         val me = AppState.lastLocation
@@ -148,21 +166,27 @@ fun MapScreen() {
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
+                if (query.isEmpty() && preview == null) {
+                    Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        for (fav in favorites.sortedBy { listOf("home", "work", "other").indexOf(it.kind) }.take(3)) {
+                            AssistChip(onClick = { planTo(fav.label, fav.address, fav.lat, fav.lng) }, label = { Text(fav.label) })
+                        }
+                        Spacer(Modifier.weight(1f))
+                        car?.takeIf { it.soc != null && it.ageSeconds < 7 * 86400 }?.let { c ->
+                            Surface(shape = RoundedCornerShape(12.dp), shadowElevation = 2.dp) {
+                                Text("${c.soc!!.toInt()} %" + (c.rangeKm?.let { " · ${it.toInt()} km" } ?: "") + if (c.charging == true) " ⚡" else "",
+                                    Modifier.padding(horizontal = 10.dp, vertical = 6.dp), fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                        FilledTonalIconButton(onClick = { showFriends = true }) { Icon(Icons.Default.People, "Freunde") }
+                    }
+                }
                 if (results.isNotEmpty() && preview == null) {
                     Surface(shape = RoundedCornerShape(16.dp), shadowElevation = 4.dp, modifier = Modifier.padding(top = 8.dp)) {
                         LazyColumn(Modifier.heightIn(max = 360.dp)) {
                             items(results) { place ->
-                                Column(Modifier.fillMaxWidth().clickable {
-                                    val dest = NavigationController.Destination(place.name, place.lat, place.lng)
-                                    val me = AppState.lastLocation ?: return@clickable
-                                    planning = true
-                                    results = emptyList()
-                                    scope.launch {
-                                        val routes = NavigationController.plan(context, Point.fromLngLat(me.longitude, me.latitude), dest)
-                                        planning = false
-                                        if (routes.isNotEmpty()) preview = dest to routes
-                                    }
-                                }.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                                Column(Modifier.fillMaxWidth().clickable { planTo(place.name, place.address, place.lat, place.lng) }
+                                    .padding(horizontal = 16.dp, vertical = 12.dp)) {
                                     Text(place.name, fontWeight = FontWeight.SemiBold)
                                     place.address?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
                                 }
@@ -173,8 +197,10 @@ fun MapScreen() {
                 }
             }
             if (planning) CircularProgressIndicator(Modifier.align(Alignment.Center))
+            if (showFriends) FriendsScreen(onClose = { showFriends = false })
             preview?.let { (dest, routes) ->
                 PreviewCard(dest, routes, Modifier.align(Alignment.BottomCenter),
+                    onSave = { kind, label -> AppState.favorites.save(kind, label, dest.address, dest.lat, dest.lng) },
                     onStart = { NavigationController.start(routes, dest); preview = null; query = "" },
                     onCancel = { preview = null })
             }
@@ -183,12 +209,19 @@ fun MapScreen() {
 }
 
 @Composable
-private fun PreviewCard(dest: NavigationController.Destination, routes: List<NavigationRoute>, modifier: Modifier, onStart: () -> Unit, onCancel: () -> Unit) {
+private fun PreviewCard(dest: NavigationController.Destination, routes: List<NavigationRoute>, modifier: Modifier,
+                        onSave: (String, String) -> Unit, onStart: () -> Unit, onCancel: () -> Unit) {
+    var saved by remember(dest) { mutableStateOf(false) }
     val r = routes.first().directionsRoute
     Surface(modifier.fillMaxWidth().navigationBarsPadding().padding(12.dp), shape = RoundedCornerShape(20.dp), shadowElevation = 6.dp) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(dest.name, style = MaterialTheme.typography.titleMedium)
             Text("${minutes(r.duration())} · ${km(r.distance())} · Ankunft ${clock(r.duration())}")
+            if (!saved) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                AssistChip(onClick = { onSave("home", "Zuhause"); saved = true }, label = { Text("Als Zuhause") })
+                AssistChip(onClick = { onSave("work", "Arbeit"); saved = true }, label = { Text("Als Arbeit") })
+                AssistChip(onClick = { onSave("other", dest.name); saved = true }, label = { Text("Merken") })
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedButton(onClick = onCancel) { Text("Abbrechen") }
                 Button(onClick = onStart, modifier = Modifier.weight(1f)) { Text("Los") }

@@ -190,8 +190,10 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
         }
         let position = StepAnnouncements.position(of: instruction, in: legProgress)
         let maneuverKey = legProgress.upcomingStep.map { "\(legProgress.stepIndex)|\($0.maneuverLocation.latitude),\($0.maneuverLocation.longitude)" }
-        // „Am Ende der Straße …“ / „An der Ampel …“ kam schon in der ersten Ansage: die mittlere entfällt
-        if !position.first, !position.last, let maneuverKey, maneuverKey == landmarkAnnounced {
+        // Mittlere Ansage („In 400 Metern …“) entfällt auf Abschnitten unter 1 km – und wenn die erste schon
+        // „Am Ende der Straße …“ / „An der Ampel …“ war (05.11.: drei Ansagen auf kurzen Stücken waren zu viel)
+        if !position.first, !position.last,
+           legProgress.currentStep.distance < StepAnnouncements.shortStep || (maneuverKey != nil && maneuverKey == landmarkAnnounced) {
             Diag.log("Ansage ausgelassen (schon angekündigt): \(instruction.text)")
             subject.send(VoiceInstructionEvents.DidSpeak(instruction: instruction))
             return

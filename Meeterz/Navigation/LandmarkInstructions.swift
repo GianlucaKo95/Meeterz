@@ -365,6 +365,9 @@ enum StepAnnouncements {
         return (first, last)
     }
 
+    /// Auf kürzeren Abschnitten nur erste und letzte Ansage
+    static let shortStep: Double = 1000
+
     /// Bis zu dieser Entfernung darf schon die erste Ansage „Am Ende der Straße …“ / „An der Ampel …“ lauten
     static let landmarkFirstDistance: Double = 1000
 

@@ -295,7 +295,9 @@ enum FinalTurn {
               isLast,
               // Losfahren („Auf X Richtung Norden fahren. Dann rechts abbiegen“) ist keine Abbiegeansage – auch nicht
               // nach einer Neuberechnung, die jedes Mal mit einem Losfahr-Abschnitt beginnt (04.11.: dort fehlte „Jetzt“)
-              !(legProgress.currentStep.maneuverType == .depart && isFirst && spoken.count > 1) else { return text }
+              // Auch wenn der Losfahr-Abschnitt nur diese eine Ansage hat (05.11.: „Auf Waldstraße Richtung Südwesten
+              // fahren. Dann links abbiegen …“ wurde zu „Jetzt links abbiegen, dann links abbiegen …“)
+              !(legProgress.currentStep.maneuverType == .depart && isFirst) else { return text }
         return short(direction: direction, from: text)
     }
 

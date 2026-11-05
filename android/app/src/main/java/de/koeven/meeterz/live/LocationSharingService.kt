@@ -40,6 +40,7 @@ class LocationSharingService : Service() {
         if (listener == null) {
             val manager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
             val l = LocationListener { loc ->
+                AppState.lastLocation = loc
                 val profile = (AppState.auth.state.value as? AuthRepository.State.Ready)?.profile ?: return@LocationListener
                 AppState.scope.launch { AppState.hub.publish(loc, profile.id, profile.sharingEnabled) }
             }

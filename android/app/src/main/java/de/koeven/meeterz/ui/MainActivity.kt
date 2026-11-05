@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import com.mapbox.navigation.core.lifecycle.MapboxNavigationApp
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -43,6 +44,7 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        MapboxNavigationApp.attach(this)
         setContent {
             MeeterzTheme {
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { Root() }

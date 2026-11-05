@@ -21,6 +21,9 @@ object AppState {
     val auth = AuthRepository(scope).also { it.start() }
     val hub = LiveLocationHub(scope)
 
+    /** Letzter eigener Standort (für Suche und Routenplanung) */
+    @Volatile var lastLocation: android.location.Location? = null
+
     private val _friends = MutableStateFlow<List<FriendRow>>(emptyList())
     val friends: StateFlow<List<FriendRow>> = _friends
 

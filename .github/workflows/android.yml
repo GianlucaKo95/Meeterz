@@ -1,0 +1,90 @@
+name: Android
+
+# Baut die Android-App (Ordner android/), führt die Unit-Tests aus und legt die APK als Release
+# „android-latest“ ab (zum Installieren auf dem Handy). Bericht auf den Branch „ci-report-android“.
+#
+# Secrets: MAPBOX_DOWNLOADS_TOKEN, MAPBOX_PUBLIC_TOKEN, SUPABASE_ANON_KEY (wie iOS),
+# GOOGLE_WEB_CLIENT_ID (Google-Login), optional ANDROID_KEYSTORE_B64 + ANDROID_KEYSTORE_PASSWORD
+# (fester Signaturschlüssel – ohne ihn ändert sich der SHA-1 und Google-Login schlägt fehl).
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "APK als Release „android-latest“ veröffentlichen"
+        type: boolean
+        default: true
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: "platforms;android-37 build-tools;36.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.14.3"
+
+      - name: Signaturschlüssel
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/meeterz.jks"
+            echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/meeterz.jks" >> "$GITHUB_ENV"
+          else
+            echo "Kein Signaturschlüssel – Debug-Signatur (Google-Login geht damit nicht)"
+          fi
+
+      - name: Bauen und testen
+        id: build
+        continue-on-error: true
+        working-directory: android
+        env:
+          MAPBOX_DOWNLOADS_TOKEN: ${{ secrets.MAPBOX_DOWNLOADS_TOKEN }}
+          MAPBOX_PUBLIC_TOKEN: ${{ secrets.MAPBOX_PUBLIC_TOKEN }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: |
+          set -o pipefail
+          gradle --no-daemon assembleDebug testDebugUnitTest 2>&1 | tee "$RUNNER_TEMP/build.log"
+
+      - name: Bericht veröffentlichen
+        if: always()
+        run: |
+          { echo "Commit: $GITHUB_SHA"; echo "Ergebnis: ${{ steps.build.outcome }}";
+            echo "== Fehler =="; grep -E "^e: |error:|FAILED|What went wrong" -A6 "$RUNNER_TEMP/build.log" | head -150;
+            echo "== Ende =="; tail -60 "$RUNNER_TEMP/build.log"; } > "$RUNNER_TEMP/report.txt"
+          git config user.name "meeterz-ci"; git config user.email "ci@users.noreply.github.com"
+          git checkout --orphan ci-report-android; git rm -rf . >/dev/null 2>&1 || true
+          cp "$RUNNER_TEMP/report.txt" report.txt; git add report.txt; git commit -qm "Android-Bericht"
+          git push -f origin ci-report-android
+
+      - name: APK veröffentlichen
+        if: steps.build.outcome == 'success' && inputs.publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/Meeterz.apk"
+          gh release delete android-latest --yes --cleanup-tag 2>/dev/null || true
+          gh release create android-latest "$RUNNER_TEMP/Meeterz.apk" --prerelease \
+            --title "Android (Build ${{ github.run_number }})" --notes "Stand ${GITHUB_SHA::7}"
+
+      - name: Ergebnis
+        if: steps.build.outcome != 'success'
+        run: exit 1

@@ -60,5 +60,6 @@ export async function sendFcm(
   if (res.ok) return "ok";
   const text = await res.text();
   console.log(`FCM → ${res.status}: ${text.slice(0, 200)}`);
-  return res.status === 404 || text.includes("UNREGISTERED") || text.includes("INVALID_ARGUMENT") ? "gone" : "error";
+  // Nur „Gerät unbekannt“ heißt Token löschen – INVALID_ARGUMENT kann auch an der Nachricht liegen
+  return res.status === 404 || text.includes("UNREGISTERED") ? "gone" : "error";
 }

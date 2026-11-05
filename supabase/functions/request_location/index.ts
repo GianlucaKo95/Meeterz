@@ -4,7 +4,7 @@
 // so muss das GPS im Hintergrund nicht dauernd laufen. Nur für Freunde, die gerade teilen, und höchstens
 // wenn ihre letzte Position älter als 45 Sekunden ist.
 //
-// Secrets: dieselben wie bei „notify“ (APNS_KEY_ID, APNS_TEAM_ID, APNS_PRIVATE_KEY, APNS_BUNDLE_ID).
+// Secrets: dieselben wie bei „notify“ (APNS_* fürs iPhone, FCM_SERVICE_ACCOUNT für Android).
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import * as jose from "npm:jose@5";

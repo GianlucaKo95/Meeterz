@@ -1,9 +1,10 @@
-// Meeterz – Push-Benachrichtigungen über APNs.
+// Meeterz – Push-Benachrichtigungen über APNs (iPhone) und FCM (Android).
 // Aufruf aus der App: functions.invoke("notify", { kind, target, meetup_id? })
 // Prüft, ob der Aufrufer dem Empfänger wirklich etwas schicken darf, und sendet dann an alle Geräte des Empfängers.
 //
-// Secrets (Supabase → Edge Functions → Secrets), erst nötig mit bezahltem Apple Developer Account:
+// Secrets (Supabase → Edge Functions → Secrets):
 //   APNS_KEY_ID, APNS_TEAM_ID, APNS_PRIVATE_KEY (Inhalt der .p8-Datei), APNS_BUNDLE_ID (de.koeven.meeterz)
+//   FCM_SERVICE_ACCOUNT (JSON des Firebase-Dienstkontos)
 // Ohne Secrets antwortet die Funktion mit { skipped: true } – die App funktioniert normal weiter.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -161,7 +162,7 @@ async function isAllowed(
 }
 
 // Texte übersetzt das iPhone selbst (in der Sprache der App): loc-key/loc-args verweisen auf Einträge in
-// Localizable.xcstrings (push.*). title/body bleiben als Rückfall für ältere App-Versionen.
+// Localizable.xcstrings (push.*). title/body bleiben als Rückfall für ältere App-Versionen – und für Android.
 function message(kind: Kind, name: string, place?: string, text?: string) {
   const loc = (key: string, args: string[], titleArgs: string[] = []) => ({
     "title-loc-key": `push.${key}.title`, "title-loc-args": titleArgs,

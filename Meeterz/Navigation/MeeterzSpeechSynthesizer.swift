@@ -146,7 +146,7 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
         callObserver.setDelegate(self, queue: .main)
         // Audioweg geändert (z. B. CarPlay getrennt): Engine hält an – beim nächsten Mal neu verbinden
         NotificationCenter.default.addObserver(forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.playerFormat = nil }
+            MainActor.assumeIsolated { self?.engineReconfigured() }
         }
     }
 
@@ -295,8 +295,26 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
         play(done.buffers, item: done.item)
     }
 
+    /// Ton der laufenden Ansage – falls iOS die Engine mittendrin anhält, wird sie damit neu gestartet
+    private var playingBuffers: [AVAudioPCMBuffer] = []
+    /// Nur der Abschluss des jüngsten Abspielens zählt (nach einem Neustart meldet sich der alte nicht mehr)
+    private var playGeneration = 0
+
+    /// Audioweg umgeschaltet: iOS hält dann die Engine an, die eingereihten Puffer gehen verloren und ihr
+    /// „fertig“ kommt nie. Folge (05.11.): die erste Ansage nach dem Start blieb stumm, die Musik leise bis zur
+    /// nächsten Ansage – das Umschalten aufs Navigationsprofil im Auto passiert genau beim ersten Mal.
+    private func engineReconfigured() {
+        playerFormat = nil
+        guard let item = playing, rendering == nil, !playingBuffers.isEmpty, !engine.isRunning else { return }
+        Diag.log("Ansage: Audioweg gewechselt – neu gestartet")
+        play(playingBuffers, item: item)
+    }
+
     private func play(_ buffers: [AVAudioPCMBuffer], item: Item) {
         guard let format = buffers.first?.format else { finish(item); return }
+        playingBuffers = buffers
+        playGeneration += 1
+        let generation = playGeneration
         let wasActive = engine.isRunning
         activateAudio()
         if playerFormat != format {
@@ -319,7 +337,12 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
         for (index, buffer) in buffers.enumerated() {
             if index == buffers.count - 1 {
                 player.scheduleBuffer(buffer, completionCallbackType: .dataPlayedBack) { [weak self] _ in
-                    DispatchQueue.main.async { MainActor.assumeIsolated { self?.finish(item) } }
+                    DispatchQueue.main.async {
+                        MainActor.assumeIsolated {
+                            guard let self, self.playGeneration == generation else { return }
+                            self.finish(item)
+                        }
+                    }
                 }
             } else {
                 player.scheduleBuffer(buffer)
@@ -350,6 +373,7 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
     private func finish(_ item: Item) {
         guard playing?.id == item.id else { return }
         playing = nil
+        playingBuffers = []
         if let instruction = item.instruction { subject.send(VoiceInstructionEvents.DidSpeak(instruction: instruction)) }
         if queue.isEmpty { finishSession() } else { pump() }
     }
@@ -358,8 +382,10 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
     private func stopCurrent() {
         rendering = nil
         renderer.stopSpeaking(at: .immediate)
+        playGeneration += 1   // Abschluss des abgebrochenen Abspielens ignorieren
         player.stop()
         playing = nil
+        playingBuffers = []
     }
 
     /// Ansage zu Ende: Ton aus und dem Auto melden, dass die Musik wieder laut darf

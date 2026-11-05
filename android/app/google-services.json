@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "1009411722007",
+    "project_id": "meeterz",
+    "storage_bucket": "meeterz.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1009411722007:android:c5967b00fe5aa6d0120552",
+        "android_client_info": {
+          "package_name": "de.koeven.meeterz"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1009411722007-emqu07irshp6lkfb9riskusl9tds1llr.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBj2p6vqCI7TPpQNowOylCdsu3YCpCwh2g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1009411722007-emqu07irshp6lkfb9riskusl9tds1llr.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

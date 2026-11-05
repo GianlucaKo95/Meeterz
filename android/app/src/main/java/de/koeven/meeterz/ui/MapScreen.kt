@@ -63,6 +63,8 @@ import com.mapbox.maps.plugin.annotation.annotations
 import com.mapbox.maps.plugin.annotation.generated.PointAnnotationManager
 import com.mapbox.maps.plugin.annotation.generated.PointAnnotationOptions
 import com.mapbox.maps.plugin.annotation.generated.createPointAnnotationManager
+import com.mapbox.maps.plugin.annotation.generated.createPolylineAnnotationManager
+import com.mapbox.maps.plugin.annotation.generated.PolylineAnnotationOptions
 import com.mapbox.maps.plugin.locationcomponent.createDefault2DPuck
 import com.mapbox.maps.plugin.locationcomponent.location
 import com.mapbox.maps.plugin.viewport.viewport
@@ -102,8 +104,23 @@ fun MapScreen() {
         if (guidance == null) mapView.viewport.transitionTo(mapView.viewport.makeFollowPuckViewportState())
     }
 
+    val friendRoutes by AppState.routes.routes.collectAsState()
+    val lines = remember { mapView.annotations.createPolylineAnnotationManager() }
+    LaunchedEffect(friendRoutes) {
+        // Routen der Freunde in Bernstein (wie iOS: „ist unterwegs“)
+        lines.deleteAll()
+        for (r in friendRoutes.values) {
+            lines.create(
+                PolylineAnnotationOptions()
+                    .withPoints(r.coordinates.map { Point.fromLngLat(it.first, it.second) })
+                    .withLineColor(MeeterzColors.amber.toArgb())
+                    .withLineWidth(5.0)
+                    .withLineOpacity(0.8)
+            )
+        }
+    }
     val annotations: PointAnnotationManager = remember { mapView.annotations.createPointAnnotationManager() }
-    LaunchedEffect(friends, live) {
+    LaunchedEffect(friends, live, friendRoutes) {
         annotations.deleteAll()
         for (f in friends.filter { it.isAccepted }) {
             val pos = live[f.friendId]
@@ -113,7 +130,7 @@ fun MapScreen() {
                 PointAnnotationOptions()
                     .withPoint(Point.fromLngLat(lng, lat))
                     .withIconImage(initialsBubble(f.initials))
-                    .withTextField(f.firstName)
+                    .withTextField(friendRoutes[f.friendId]?.let { "${f.firstName} · ${clockAt(it.eta)}" } ?: f.firstName)
                     .withTextOffset(listOf(0.0, 2.2))
                     .withTextSize(12.0)
             )
@@ -272,6 +289,8 @@ fun km(meters: Double): String {
     }
     return String.format(java.util.Locale.GERMANY, "%.1f km", meters / 1000)
 }
+
+private fun clockAt(at: java.time.Instant): String = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(at.toEpochMilli()))
 
 private fun clock(secondsFromNow: Double): String =
     DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(System.currentTimeMillis() + (secondsFromNow * 1000).toLong()))

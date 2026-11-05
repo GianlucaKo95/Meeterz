@@ -28,6 +28,7 @@ object AppState {
     val auth = AuthRepository(scope).also { it.start() }
     val hub = LiveLocationHub(scope)
     val vehicle = VehicleStore()
+    val routes = de.koeven.meeterz.data.FriendRoutesStore()
     lateinit var favorites: FavoritesStore
         private set
 
@@ -62,6 +63,7 @@ object AppState {
     suspend fun refreshFriends() {
         runCatching { Backend.client.postgrest.rpc("my_friends").decodeList<FriendRow>() }
             .onSuccess { _friends.value = it; hub.sync(it) }
+        routes.refresh()
     }
 
     // Freunde verwalten (gleiche RPCs wie FriendsStore auf iOS)

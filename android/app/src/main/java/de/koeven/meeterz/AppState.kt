@@ -7,6 +7,7 @@ import de.koeven.meeterz.data.FavoritesStore
 import de.koeven.meeterz.data.FriendRow
 import de.koeven.meeterz.data.VehicleStore
 import de.koeven.meeterz.live.LiveLocationHub
+import de.koeven.meeterz.live.PushService
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.CoroutineScope
@@ -41,7 +42,9 @@ object AppState {
 
     private var session: Job? = null
 
-    fun init(context: Context) { favorites = FavoritesStore(context) }
+    private lateinit var appContext: Context
+
+    fun init(context: Context) { appContext = context.applicationContext; favorites = FavoritesStore(context) }
 
     /** Nach der Anmeldung: Senden starten, alle 30 s Freunde und Auto laden (wie refreshSocial auf iOS) */
     fun startSession(userId: String) {
@@ -49,6 +52,7 @@ object AppState {
         favorites.load(userId)
         session = scope.launch {
             hub.startPublishing(userId)
+            PushService.registerCurrent(appContext)
             while (isActive) {
                 refreshFriends()
                 // ponytail: Auto alle 30 s abfragen statt Live-Kanal wie auf iOS – reicht für die Anzeige
@@ -62,18 +66,39 @@ object AppState {
 
     suspend fun refreshFriends() {
         runCatching { Backend.client.postgrest.rpc("my_friends").decodeList<FriendRow>() }
-            .onSuccess { _friends.value = it; hub.sync(it) }
+            .onSuccess { _friends.value = it; hub.sync(it); requestFreshPositions(it) }
         routes.refresh()
+    }
+
+    private val lastPoke = mutableMapOf<String, Long>()
+    /** App sichtbar? (nur dann Freunde wecken – wie iOS bei offener App) */
+    @Volatile var foreground = false
+
+    /** Freunde mit veralteter Position (> 45 s) bitten, kurz ihren Standort zu senden – je Freund höchstens alle 2 Min. */
+    private fun requestFreshPositions(rows: List<FriendRow>) {
+        if (!foreground) return
+        val now = System.currentTimeMillis()
+        val stale = rows.filter { it.isAccepted }.filter { f ->
+            val age = hub.positions.value[f.friendId]?.ageSeconds ?: f.locationUpdatedAt?.let { runCatching { now / 1000.0 - java.time.Instant.parse(it).epochSecond }.getOrNull() } ?: return@filter false
+            age > 45 && now - (lastPoke[f.friendId] ?: 0) > 120_000
+        }.map { it.friendId }
+        stale.forEach { lastPoke[it] = now }
+        PushService.requestLocations(stale)
     }
 
     // Freunde verwalten (gleiche RPCs wie FriendsStore auf iOS)
 
-    suspend fun sendFriendRequest(handle: String) = mutate {
-        Backend.client.postgrest.rpc("send_friend_request", buildJsonObject { put("target_handle", handle.trim().lowercase()) })
+    suspend fun sendFriendRequest(handle: String): Boolean {
+        val h = handle.trim().lowercase()
+        val ok = mutate { Backend.client.postgrest.rpc("send_friend_request", buildJsonObject { put("target_handle", h) }) }
+        if (ok) _friends.value.firstOrNull { it.handle == h }?.let { PushService.notify("friend_request", it.friendId) }
+        return ok
     }
 
-    suspend fun respond(row: FriendRow, accept: Boolean) = mutate {
-        Backend.client.postgrest.rpc("respond_friend_request", buildJsonObject { put("request_id", row.friendshipId); put("accept", accept) })
+    suspend fun respond(row: FriendRow, accept: Boolean): Boolean {
+        val ok = mutate { Backend.client.postgrest.rpc("respond_friend_request", buildJsonObject { put("request_id", row.friendshipId); put("accept", accept) }) }
+        if (ok && accept) PushService.notify("friend_accepted", row.friendId)
+        return ok
     }
 
     suspend fun removeFriend(row: FriendRow) = mutate {

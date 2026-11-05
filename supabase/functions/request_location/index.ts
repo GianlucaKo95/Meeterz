@@ -8,6 +8,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import * as jose from "npm:jose@5";
+import { fcmConfigured, sendFcm } from "../_shared/fcm.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -46,7 +47,8 @@ Deno.serve(async (req) => {
   const teamId = Deno.env.get("APNS_TEAM_ID");
   const privateKey = Deno.env.get("APNS_PRIVATE_KEY");
   const bundleId = Deno.env.get("APNS_BUNDLE_ID") ?? "de.koeven.meeterz";
-  if (!keyId || !teamId || !privateKey) return json({ skipped: true, reason: "apns not configured" });
+  const apns = !!(keyId && teamId && privateKey);
+  if (!apns && !fcmConfigured()) return json({ skipped: true, reason: "push not configured" });
 
   const admin = createClient(url, serviceKey);
 
@@ -95,17 +97,26 @@ Deno.serve(async (req) => {
     return json({ requested: 0 });
   }
 
-  const { data: tokens } = await admin.from("device_tokens").select("token, environment").in("user_id", targets);
-  console.log(`request_location: ${tokens?.length ?? 0} Gerätetoken für ${targets.length} Freunde`);
-  if (!tokens?.length) return json({ requested: 0 });
-
-  const jwt = await new jose.SignJWT({})
-    .setProtectedHeader({ alg: "ES256", kid: keyId })
-    .setIssuer(teamId)
-    .setIssuedAt()
-    .sign(await jose.importPKCS8(privateKey, "ES256"));
+  const { data: all } = await admin.from("device_tokens").select("token, environment, platform").in("user_id", targets);
+  console.log(`request_location: ${all?.length ?? 0} Gerätetoken für ${targets.length} Freunde`);
+  if (!all?.length) return json({ requested: 0 });
 
   let sent = 0;
+  // Android: stiller Push (nur Daten), die App sendet daraufhin einmal ihren Standort
+  for (const t of all.filter((t) => t.platform === "android")) {
+    const r = await sendFcm(t.token, { kind: "locate" });
+    if (r === "ok") sent++;
+    if (r === "gone") await admin.from("device_tokens").delete().eq("token", t.token);
+  }
+  const tokens = all.filter((t) => t.platform !== "android");
+  if (!tokens.length || !apns) return json({ requested: targets.length, sent });
+
+  const jwt = await new jose.SignJWT({})
+    .setProtectedHeader({ alg: "ES256", kid: keyId! })
+    .setIssuer(teamId!)
+    .setIssuedAt()
+    .sign(await jose.importPKCS8(privateKey!, "ES256"));
+
   for (const t of tokens) {
     const host = t.environment === "production" ? "api.push.apple.com" : "api.sandbox.push.apple.com";
     const res = await fetch(`https://${host}/3/device/${t.token}`, {

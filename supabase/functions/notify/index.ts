@@ -8,6 +8,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import * as jose from "npm:jose@5";
+import { fcmConfigured, sendFcm } from "../_shared/fcm.ts";
 
 type Kind = "friend_request" | "friend_accepted" | "meetup_proposed" | "meetup_accepted" | "meetup_declined" | "message";
 
@@ -54,7 +55,8 @@ Deno.serve(async (req) => {
   const teamId = Deno.env.get("APNS_TEAM_ID");
   const privateKey = Deno.env.get("APNS_PRIVATE_KEY");
   const bundleId = Deno.env.get("APNS_BUNDLE_ID") ?? "de.koeven.meeterz";
-  if (!keyId || !teamId || !privateKey) return json({ skipped: true, reason: "apns not configured" });
+  const apns = !!(keyId && teamId && privateKey);
+  if (!apns && !fcmConfigured()) return json({ skipped: true, reason: "push not configured" });
 
   const { data: sender } = await admin.from("profiles").select("display_name").eq("id", user.id).single();
   const name = sender?.display_name ?? "Jemand";
@@ -71,16 +73,27 @@ Deno.serve(async (req) => {
   }
   const alert = message(kind, name, placeName, text);
 
-  const { data: tokens } = await admin.from("device_tokens").select("token, environment").eq("user_id", target);
-  if (!tokens?.length) return json({ sent: 0 });
-
-  const jwt = await new jose.SignJWT({})
-    .setProtectedHeader({ alg: "ES256", kid: keyId })
-    .setIssuer(teamId)
-    .setIssuedAt()
-    .sign(await jose.importPKCS8(privateKey, "ES256"));
+  const { data: all } = await admin.from("device_tokens").select("token, environment, platform").eq("user_id", target);
+  if (!all?.length) return json({ sent: 0 });
 
   let sent = 0;
+  // Android (FCM): Texte kommen fertig auf Deutsch (title/body)
+  for (const t of all.filter((t) => t.platform === "android")) {
+    const r = await sendFcm(t.token, { kind, meetup_id: meetup_id ?? "", message_id: message_id ?? "" },
+      { title: alert.title, body: alert.body });
+    console.log(`notify: FCM → ${r} (${kind})`);
+    if (r === "ok") sent++;
+    if (r === "gone") await admin.from("device_tokens").delete().eq("token", t.token);
+  }
+  const tokens = all.filter((t) => t.platform !== "android");
+  if (!tokens.length || !apns) return json({ sent });
+
+  const jwt = await new jose.SignJWT({})
+    .setProtectedHeader({ alg: "ES256", kid: keyId! })
+    .setIssuer(teamId!)
+    .setIssuedAt()
+    .sign(await jose.importPKCS8(privateKey!, "ES256"));
+
   for (const t of tokens) {
     const host = t.environment === "production" ? "api.push.apple.com" : "api.sandbox.push.apple.com";
     const res = await fetch(`https://${host}/3/device/${t.token}`, {
@@ -100,7 +113,7 @@ Deno.serve(async (req) => {
       await admin.from("device_tokens").delete().eq("token", t.token);
     }
   }
-  console.log(`notify: ${sent} von ${tokens.length} gesendet, gesamt ${Date.now() - started} ms`);
+  console.log(`notify: ${sent} von ${all.length} gesendet, gesamt ${Date.now() - started} ms`);
   return json({ sent });
 });
 

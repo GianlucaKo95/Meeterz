@@ -5,6 +5,9 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
+// Push (Firebase): nur mit google-services.json – ohne sie baut die App trotzdem, nur ohne Push
+if (file("google-services.json").exists()) apply(plugin = "com.google.gms.google-services")
+
 /** Wert aus Umgebung (CI) oder ~/.gradle/gradle.properties / local.properties */
 fun config(name: String): String =
     providers.environmentVariable(name).orElse(providers.gradleProperty(name)).getOrElse("")
@@ -84,6 +87,11 @@ dependencies {
     implementation("io.github.jan-tennert.supabase:realtime-kt")
     implementation("io.github.jan-tennert.supabase:functions-kt")
     implementation("io.ktor:ktor-client-okhttp:3.5.1")
+
+    // Push über Firebase Cloud Messaging
+    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
+    implementation("com.google.firebase:firebase-messaging")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.1")
 
     // Mit Google anmelden
     implementation("androidx.credentials:credentials:1.5.0")

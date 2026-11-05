@@ -47,7 +47,7 @@ class LiveLocationHub(private val scope: CoroutineScope) {
         own = ch
     }
 
-    suspend fun publish(location: Location, userId: String, sharing: Boolean) {
+    suspend fun publish(location: Location, userId: String, sharing: Boolean, force: Boolean = false) {
         val ch = own ?: return
         if (!sharing) return
         val pos = LivePosition(
@@ -58,11 +58,11 @@ class LiveLocationHub(private val scope: CoroutineScope) {
             speed = if (location.hasSpeed()) location.speed.toDouble() else null,
             ts = location.time / 1000.0,
         )
-        if (!shouldSend(pos)) return
+        if (!force && !shouldSend(pos)) return
         runCatching { ch.broadcast("pos", pos) }.onSuccess { lastSent = pos }
 
         // Letzte Position seltener dauerhaft speichern (für den App-Start der Freunde)
-        if (System.currentTimeMillis() - lastPersisted > 120_000) {
+        if (force || System.currentTimeMillis() - lastPersisted > 120_000) {
             lastPersisted = System.currentTimeMillis()
             val params = buildJsonObject {
                 put("lat", pos.lat); put("lng", pos.lng); put("heading", pos.heading); put("speed", pos.speed)

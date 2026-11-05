@@ -45,6 +45,13 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         MapboxNavigationApp.attach(this)
+        lifecycle.addObserver(object : androidx.lifecycle.DefaultLifecycleObserver {
+            override fun onStart(owner: androidx.lifecycle.LifecycleOwner) {
+                AppState.foreground = true
+                AppState.scope.launch { AppState.refreshFriends() }
+            }
+            override fun onStop(owner: androidx.lifecycle.LifecycleOwner) { AppState.foreground = false }
+        })
         setContent {
             MeeterzTheme {
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { Root() }

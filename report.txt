@@ -1,0 +1,64 @@
+Commit: e9b09692c8d77925dc39e516d305a953cfa1f02d
+Ergebnis: success
+== Fehler ==
+== Ende ==
+> Task :app:generateDebugResources
+> Task :app:packageDebugResources
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksDebug
+> Task :app:mergeDebugResources
+> Task :app:parseDebugLocalResources
+> Task :app:processDebugMainManifest
+> Task :app:processDebugManifest
+> Task :app:processDebugManifestForPackage
+> Task :app:javaPreCompileDebug
+> Task :app:mergeDebugShaders
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets
+> Task :app:desugarDebugFileDependencies
+> Task :app:compressDebugAssets
+> Task :app:mergeDebugJniLibFolders
+> Task :app:checkDebugDuplicateClasses
+> Task :app:processDebugResources
+> Task :app:mergeDebugNativeLibs
+> Task :app:mergeLibDexDebug
+> Task :app:validateSigningDebug
+> Task :app:writeDebugAppMetadata
+> Task :app:writeDebugSigningConfigVersions
+> Task :app:preDebugUnitTestBuild UP-TO-DATE
+> Task :app:javaPreCompileDebugUnitTest
+
+> Task :app:stripDebugDebugSymbols
+Unable to strip the following libraries, packaging them as they are: libSearchCore.so, libandroidx.graphics.path.so, libc++_shared.so, libmapbox-common.so, libmapbox-maps.so, libnavigator-android.so, libnn-perf-replay.so. Run with --info option to learn more.
+
+> Task :app:mergeExtDexDebug
+> Task :app:compileDebugKotlin
+w: file:///home/runner/work/Meeterz/Meeterz/android/app/src/main/java/de/koeven/meeterz/car/CarScreens.kt:143:39 'fun setTitle(p0: CharSequence): ListTemplate.Builder' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/Meeterz/Meeterz/android/app/src/main/java/de/koeven/meeterz/car/CarScreens.kt:143:59 'fun setHeaderAction(p0: Action): ListTemplate.Builder' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/Meeterz/Meeterz/android/app/src/main/java/de/koeven/meeterz/car/CarScreens.kt:196:39 'fun setTitle(p0: CharSequence): ListTemplate.Builder' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/Meeterz/Meeterz/android/app/src/main/java/de/koeven/meeterz/car/CarScreens.kt:196:57 'fun setHeaderAction(p0: Action): ListTemplate.Builder' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/Meeterz/Meeterz/android/app/src/main/java/de/koeven/meeterz/nav/RouteSampler.kt:35:93 'fun coordinates(): (Mutable)List<Point!>' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/Meeterz/Meeterz/android/app/src/main/java/de/koeven/meeterz/nav/Speaker.kt:31:13 'lateinit' is unnecessary: definitely initialized in constructors.
+
+> Task :app:compileDebugJavaWithJavac
+> Task :app:dexBuilderDebug
+> Task :app:mergeDebugGlobalSynthetics
+> Task :app:processDebugJavaRes
+> Task :app:bundleDebugClassesToRuntimeJar
+> Task :app:bundleDebugClassesToCompileJar
+> Task :app:mergeProjectDexDebug
+> Task :app:mergeDebugJavaResource
+> Task :app:compileDebugUnitTestKotlin
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:processDebugUnitTestJavaRes
+> Task :app:testDebugUnitTest
+> Task :app:packageDebug
+> Task :app:createDebugApkListingFileRedirect
+> Task :app:assembleDebug
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/build-1793884576652.json
+
+[Incubating] Problems report is available at: file:///home/runner/work/Meeterz/Meeterz/android/build/reports/problems/problems-report.html
+
+BUILD SUCCESSFUL in 1m 8s
+44 actionable tasks: 44 executed

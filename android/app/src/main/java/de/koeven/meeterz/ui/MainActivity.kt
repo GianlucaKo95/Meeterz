@@ -1,11 +1,9 @@
 package de.koeven.meeterz.ui
 
 import android.Manifest
-import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
-import android.location.LocationListener
-import android.location.LocationManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -24,7 +22,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -40,6 +37,7 @@ import androidx.core.content.ContextCompat
 import de.koeven.meeterz.AppState
 import de.koeven.meeterz.auth.AuthRepository
 import de.koeven.meeterz.data.Profile
+import de.koeven.meeterz.live.LocationSharingService
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -106,27 +104,23 @@ private fun OnboardingScreen(userId: String, suggestedName: String?) {
     }
 }
 
-/** Standort holen (nach Erlaubnis) und an die Freunde senden, solange die App offen ist */
-@SuppressLint("MissingPermission")
+/** Nach der Erlaubnis den Dienst starten, der den Standort auch im Hintergrund sendet */
 @Composable
 private fun LocationPublisher(profile: Profile) {
     val context = LocalContext.current
     var granted by remember { mutableStateOf(hasLocation(context)) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
-        granted = result.values.any { it }
+        granted = result[Manifest.permission.ACCESS_FINE_LOCATION] == true || result[Manifest.permission.ACCESS_COARSE_LOCATION] == true
     }
     LaunchedEffect(Unit) {
-        if (!granted) launcher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
-    }
-    if (!granted) return
-    DisposableEffect(profile.id) {
-        val manager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        val listener = LocationListener { loc ->
-            AppState.scope.launch { AppState.hub.publish(loc, profile.id, profile.sharingEnabled) }
+        if (!granted) {
+            val wanted = mutableListOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+            if (Build.VERSION.SDK_INT >= 33) wanted += Manifest.permission.POST_NOTIFICATIONS
+            launcher.launch(wanted.toTypedArray())
         }
-        val provider = if (manager.isProviderEnabled(LocationManager.GPS_PROVIDER)) LocationManager.GPS_PROVIDER else LocationManager.NETWORK_PROVIDER
-        manager.requestLocationUpdates(provider, 2_000L, 5f, listener)
-        onDispose { manager.removeUpdates(listener) }
+    }
+    LaunchedEffect(granted, profile.id) {
+        if (granted) LocationSharingService.start(context)
     }
 }
 

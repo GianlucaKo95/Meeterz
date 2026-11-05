@@ -30,6 +30,12 @@
             </intent-filter>
         </activity>
 
+        <!-- Standort im Hintergrund teilen -->
+        <service
+            android:name=".live.LocationSharingService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
+
         <!-- Android Auto -->
         <meta-data
             android:name="com.google.android.gms.car.application"

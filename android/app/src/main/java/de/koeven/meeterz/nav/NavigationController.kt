@@ -18,6 +18,16 @@ import com.mapbox.navigation.core.lifecycle.MapboxNavigationApp
 import com.mapbox.navigation.core.lifecycle.MapboxNavigationObserver
 import com.mapbox.navigation.core.trip.session.RouteProgressObserver
 import com.mapbox.navigation.core.trip.session.VoiceInstructionsObserver
+import de.koeven.meeterz.AppState
+import de.koeven.meeterz.auth.AuthRepository
+import de.koeven.meeterz.data.Backend
+import io.github.jan.supabase.postgrest.postgrest
+import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import java.time.Instant
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlin.coroutines.resume
@@ -102,6 +112,8 @@ object NavigationController : MapboxNavigationObserver {
     }
 
     fun stop() {
+        if (_guidance.value != null) AppState.scope.launch { runCatching { Backend.client.postgrest.rpc("clear_active_route") } }
+        lastShare = 0L
         navigation?.setNavigationRoutes(emptyList())
         speaker?.stop()
         deferred = null
@@ -117,8 +129,32 @@ object NavigationController : MapboxNavigationObserver {
         if (result.navigationRoutes.isEmpty()) _progress.value = null
     }
 
+    private var lastShare = 0L
+
+    /** Eigene Route für Freunde (alle 60 s, wie iOS); nicht bei Inkognito oder verborgenen Routen */
+    private fun share(progress: RouteProgress, destination: Destination) {
+        val now = System.currentTimeMillis()
+        if (now - lastShare < 60_000) return
+        lastShare = now
+        val profile = (AppState.auth.state.value as? AuthRepository.State.Ready)?.profile ?: return
+        if (profile.hideRoutes == true || (profile.incognitoUntil?.let { runCatching { Instant.parse(it) > Instant.now() }.getOrNull() } == true)) return
+        val samples = RouteSampler.samples(RouteSampler.pieces(progress.navigationRoute.directionsRoute))
+        val points = RouteSampler.sharePoints(samples, progress.distanceTraveled.toDouble(), progress.durationRemaining, now / 1000.0)
+        if (points.size < 2) return
+        val params = buildJsonObject {
+            put("destination_name", destination.name)
+            put("dest_lat", destination.lat)
+            put("dest_lng", destination.lng)
+            put("eta_unix", now / 1000.0 + progress.durationRemaining)
+            put("points", JsonArray(points.map { p -> JsonArray(p.map { JsonPrimitive(it) }) }))
+            put("travel_mode", "car")
+        }
+        AppState.scope.launch { runCatching { Backend.client.postgrest.rpc("set_active_route", params) } }
+    }
+
     private val progressObserver = RouteProgressObserver { progress ->
         _progress.value = progress
+        _guidance.value?.let { share(progress, it.destination) }
         val g = _guidance.value ?: return@RouteProgressObserver
         val banner = progress.bannerInstructions?.primary()?.text().orEmpty()
         _guidance.value = g.copy(

@@ -144,3 +144,14 @@ class AnnouncementsTest {
         assertEquals(listOf("Duisburg", "-Baerl"), Step.parseDestinations("Duisburg, -Baerl").second)
     }
 }
+
+class RouteSamplerTest {
+    @Test fun sharePointsScaleToForecast() {
+        // 2 km geradeaus, laut Route 120 s – Prognose sagt 240 s (Stau): Zeiten verdoppeln sich
+        val piece = de.koeven.meeterz.nav.RouteSampler.Piece(listOf(6.70 to 51.40, 6.70 to 51.409, 6.70 to 51.418), 120.0)
+        val samples = de.koeven.meeterz.nav.RouteSampler.samples(listOf(piece))
+        val pts = de.koeven.meeterz.nav.RouteSampler.sharePoints(samples, 0.0, 240.0, 1000.0)
+        assertEquals(3, pts.size)
+        assertEquals(1240.0, pts.last()[2], 1.0)
+    }
+}

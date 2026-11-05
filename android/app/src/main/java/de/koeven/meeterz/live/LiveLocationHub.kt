@@ -17,7 +17,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 /**
  * Wie LiveLocationHub auf iOS: eigene Position in den privaten Kanal „loc:<id>“ senden und die Kanäle der
@@ -63,8 +64,10 @@ class LiveLocationHub(private val scope: CoroutineScope) {
         // Letzte Position seltener dauerhaft speichern (für den App-Start der Freunde)
         if (System.currentTimeMillis() - lastPersisted > 120_000) {
             lastPersisted = System.currentTimeMillis()
-            @Serializable data class Params(val lat: Double, val lng: Double, val heading: Double?, val speed: Double?)
-            runCatching { client.postgrest.rpc("update_last_location", Params(pos.lat, pos.lng, pos.heading, pos.speed)) }
+            val params = buildJsonObject {
+                put("lat", pos.lat); put("lng", pos.lng); put("heading", pos.heading); put("speed", pos.speed)
+            }
+            runCatching { client.postgrest.rpc("update_last_location", params) }
         }
     }
 

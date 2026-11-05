@@ -1,23 +1,25 @@
 package de.koeven.meeterz.car
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import androidx.car.app.CarAppService
 import androidx.car.app.Screen
+import androidx.car.app.ScreenManager
 import androidx.car.app.Session
 import androidx.car.app.validation.HostValidator
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.lifecycleScope
 import com.mapbox.maps.MapInitOptions
 import com.mapbox.maps.extension.androidauto.MapboxCarMap
-import com.mapbox.navigation.base.options.NavigationOptions
 import com.mapbox.navigation.core.lifecycle.MapboxNavigationApp
-import com.mapbox.navigation.ui.androidauto.MapboxCarContext
 import com.mapbox.navigation.ui.androidauto.map.MapboxCarMapLoader
-import com.mapbox.navigation.ui.androidauto.screenmanager.MapboxScreen
-import com.mapbox.navigation.ui.androidauto.screenmanager.MapboxScreenManager
-import com.mapbox.navigation.ui.androidauto.screenmanager.prepareScreens
+import de.koeven.meeterz.nav.NavigationController
+import kotlinx.coroutines.launch
 
-/** Android Auto (Gegenstück zu CarPlay). Erster Stand: Mapbox' fertige Bildschirme für freie Fahrt und Navigation. */
+/** Android Auto (Gegenstück zu CarPlay) */
 class MeeterzCarAppService : CarAppService() {
     // ponytail: alle Hosts zulassen, bis die App bei Google eingereicht wird – dann HostValidator mit Googles Liste
     override fun createHostValidator() = HostValidator.ALLOW_ALL_HOSTS_VALIDATOR
@@ -25,31 +27,48 @@ class MeeterzCarAppService : CarAppService() {
     override fun onCreateSession(): Session = MeeterzCarSession()
 }
 
+/**
+ * Eigene Bildschirme (statt Mapbox' fertiger), damit die Ansagen mit unseren Regeln laufen – Mapbox' eigene
+ * Sprachausgabe käme sonst doppelt – und damit Freunde auf der Karte und im Menü erscheinen.
+ * Karte, Pfeil, Routenlinie, Kamera und Abbiegeanzeige kommen weiter aus Mapbox' Android-Auto-Bausteinen.
+ */
 class MeeterzCarSession : Session() {
-    private val mapboxCarMap = MapboxCarMap()
-    private val mapboxCarContext = MapboxCarContext(lifecycle, mapboxCarMap).prepareScreens()
+    val carMap = MapboxCarMap()
     private val mapLoader = MapboxCarMapLoader()
 
     init {
         lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onCreate(owner: LifecycleOwner) {
-                if (!MapboxNavigationApp.isSetup()) {
-                    MapboxNavigationApp.setup { NavigationOptions.Builder(carContext).build() }
-                }
                 MapboxNavigationApp.attach(owner)
-                mapboxCarMap.setup(carContext, MapInitOptions(carContext))
-                mapboxCarMap.registerObserver(mapLoader)
+                carMap.setup(carContext, MapInitOptions(carContext))
+                carMap.registerObserver(mapLoader)
+                // Freie Fahrt: Standort auf der Straße auch ohne Route (wie CarPlay)
+                if (ContextCompat.checkSelfPermission(carContext, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                    @Suppress("MissingPermission")
+                    MapboxNavigationApp.current()?.startTripSession()
+                }
             }
 
             override fun onDestroy(owner: LifecycleOwner) {
-                mapboxCarMap.unregisterObserver(mapLoader)
+                carMap.unregisterObserver(mapLoader)
                 MapboxNavigationApp.detach(owner)
             }
         })
     }
 
     override fun onCreateScreen(intent: Intent): Screen {
-        val key = MapboxScreenManager.current()?.key ?: MapboxScreen.FREE_DRIVE
-        return mapboxCarContext.mapboxScreenManager.createScreen(key)
+        // Führung beginnt oder endet (auch vom Handy aus): Bildschirm wechseln – erst nach dem Start-Bildschirm
+        lifecycleScope.launch {
+            var guidingShown = false
+            NavigationController.guidance.collect { g ->
+                val guiding = g != null
+                if (guiding == guidingShown) return@collect
+                guidingShown = guiding
+                val sm = carContext.getCarService(ScreenManager::class.java)
+                sm.popToRoot()
+                if (guiding) sm.push(GuidanceScreen(carContext, carMap))
+            }
+        }
+        return FreeDriveScreen(carContext, carMap)
     }
 }

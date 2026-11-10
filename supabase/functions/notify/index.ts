@@ -45,6 +45,8 @@ Deno.serve(async (req) => {
   }
   const { kind, target, meetup_id, message_id } = body;
   if (!kind || !target || target === user.id) return json({ error: "invalid body" }, 400);
+  // Nur UUIDs (target landet u. a. in einem PostgREST-Filter)
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(target)) return json({ error: "invalid body" }, 400);
   console.log(`notify: ${kind} von ${user.id} an ${target}`);
 
   const admin = createClient(url, serviceKey);
@@ -136,10 +138,11 @@ async function isAllowed(
       if (!meetupId) return false;
       const { data: m } = await admin.from("meetups").select("from_user, to_user, group_id, status").eq("id", meetupId).single();
       if (!m || m.status !== "accepted" || ![m.from_user, m.to_user].includes(me)) return false;
-      if ([m.from_user, m.to_user].includes(target)) return true;
+      const t = target.toLowerCase();   // Swift schickt UUIDs groß, die Datenbank liefert sie klein
+      if ([m.from_user, m.to_user].includes(t)) return true;
       if (!m.group_id) return false;
       const { data } = await admin.from("meetups").select("id").eq("group_id", m.group_id).eq("status", "accepted")
-        .or(`from_user.eq.${target},to_user.eq.${target}`).limit(1);
+        .or(`from_user.eq.${t},to_user.eq.${t}`).limit(1);
       return !!data?.length;
     }
     case "meetup_accepted":

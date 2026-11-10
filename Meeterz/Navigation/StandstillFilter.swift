@@ -58,19 +58,20 @@ struct StandstillFilter {
     }
 }
 
-/// Standortquelle für Mapbox wie dessen eigene (`LocationClient.liveValue`), nur mit StandstillFilter dazwischen
-@MainActor
-final class FilteredLocationSource: NSObject, CLLocationManagerDelegate {
+/// Standortquelle für Mapbox wie dessen eigene (`LocationClient.liveValue`), nur mit StandstillFilter dazwischen.
+/// Wie dort ohne Actor: CLLocationManager meldet auf dem Thread, auf dem er angelegt wurde (Hauptthread).
+final class FilteredLocationSource: NSObject, CLLocationManagerDelegate, @unchecked Sendable {
     static let shared = FilteredLocationSource()
 
     private let manager = CLLocationManager()
     private let locations = PassthroughSubject<CLLocation, Never>()
     private let headings = PassthroughSubject<CLHeading, Never>()
-    nonisolated(unsafe) private var filter = StandstillFilter()
-    nonisolated(unsafe) private var wasFrozen = false
+    private var filter = StandstillFilter()
+    private var wasFrozen = false
 
     override private init() {
         super.init()
+        assert(Thread.isMainThread)   // CLLocationManager muss auf dem Hauptthread entstehen
         manager.requestWhenInUseAuthorization()
         if (Bundle.main.object(forInfoDictionaryKey: "UIBackgroundModes") as? [String])?.contains("location") == true {
             manager.allowsBackgroundLocationUpdates = true
@@ -89,7 +90,7 @@ final class FilteredLocationSource: NSObject, CLLocationManagerDelegate {
         )
     }
 
-    nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let raw = locations.last else { return }
         let out = filter.filter(raw)
         if filter.frozen != wasFrozen {
@@ -101,7 +102,7 @@ final class FilteredLocationSource: NSObject, CLLocationManagerDelegate {
         self.locations.send(out)
     }
 
-    nonisolated func locationManager(_ manager: CLLocationManager, didUpdateHeading newHeading: CLHeading) {
+    func locationManager(_ manager: CLLocationManager, didUpdateHeading newHeading: CLHeading) {
         headings.send(newHeading)
     }
 }

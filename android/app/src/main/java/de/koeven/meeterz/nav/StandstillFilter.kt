@@ -63,7 +63,7 @@ class StandstillFilter {
 
 /** Standortquelle für Mapbox: die des Geräts, mit StandstillFilter dazwischen */
 class FilteredLocationProviderFactory : DeviceLocationProviderFactory {
-    override fun build(request: LocationProviderRequest): Expected<LocationError, DeviceLocationProvider> {
+    override fun build(request: LocationProviderRequest?): Expected<LocationError, DeviceLocationProvider> {
         val inner = LocationServiceFactory.getOrCreate().getDeviceLocationProvider(request)
         return inner.value?.let { ExpectedFactory.createValue<LocationError, DeviceLocationProvider>(FilteredProvider(it)) } ?: inner
     }

@@ -643,7 +643,14 @@ final class CarPlayController: NSObject {
 
     private var pendingDestination: Place?
     /// Gerade gezeigte Vorschau ist ein Routenvorschlag (Zurück = ablehnen)
-    private var activeSuggestion: RouteSuggestions.Suggestion?
+    private var activeSuggestion: RouteSuggestions.Suggestion? {
+        didSet {
+            // Infofenster rechts oben, neben CarPlays Auswahlkarte (die verdeckt die linke Seite)
+            SuggestionCardView.place(&suggestionCard, suggestion: activeSuggestion,
+                                     in: manager.carPlayMapViewController?.view, rightAligned: true)
+        }
+    }
+    private var suggestionCard: SuggestionCardView?
 
     /// Routenvorschlag wie bei Apple Karten: kurz nach dem Verbinden (ohne laufende Navigation) gleich die Vorschau
     /// der vorgeschlagenen Route mit „Starten“ – eine Route, keine Auswahl. „Zurück“ lehnt ab (auch im Dashboard weg).
@@ -1153,8 +1160,8 @@ extension CarPlayController: CarPlayManagerDelegate {
     /// Vorschlag: statt „Schnellste“ der Grund („Termin 09:00“ bzw. „Oft um diese Zeit“) und der Termin als Ziel
     private static func withSuggestionLabel(_ trip: CPTrip, _ suggestion: RouteSuggestions.Suggestion) -> CPTrip {
         let reason: String
-        if case .calendar(_, let start) = suggestion.reason {
-            reason = String(localized: "Termin \(ActivityFormat.time(start))")
+        if case .calendar(let title, let start) = suggestion.reason {
+            reason = String(localized: "Termin \(ActivityFormat.time(start))") + ": " + title
         } else {
             reason = String(localized: "Oft um diese Zeit")
         }
@@ -1165,8 +1172,9 @@ extension CarPlayController: CarPlayManagerDelegate {
             copy.userInfo = choice.userInfo
             return copy
         }
+        // Ziel bleibt der Ort (vorher stand hier der Termintitel – man sah nicht, wohin es geht)
         let destination = trip.destination
-        destination.name = suggestion.title
+        destination.name = suggestion.place.name.isEmpty ? suggestion.title : suggestion.place.name
         let copy = CPTrip(origin: trip.origin, destination: destination, routeChoices: choices)
         copy.userInfo = trip.userInfo
         return copy

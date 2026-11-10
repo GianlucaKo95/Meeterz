@@ -26,6 +26,24 @@ final class RouteSuggestions {
             if case .calendar(let title, _) = reason { return title }
             return place.name
         }
+        /// Wohin: beim Termin der Ort (Name bzw. Adresse), sonst die Adresse des häufigen Ziels
+        var destinationText: String {
+            if case .calendar = reason {
+                let address = place.address?.replacingOccurrences(of: "\n", with: ", ")
+                if place.name.isEmpty || place.name == title { return address ?? "" }
+                if let address, !address.hasPrefix(place.name) { return place.name + " · " + address }
+                return address ?? place.name
+            }
+            return place.address?.replacingOccurrences(of: "\n", with: ", ") ?? ""
+        }
+        /// „Termin 09:00 · 24 Min. · an 08:41“ bzw. „Oft um diese Zeit · 24 Min. · an 08:12“
+        var detailText: String {
+            let minutes = String(localized: "\(max(1, Int((travelTime / 60).rounded()))) Min.")
+            let reasonText: String
+            if case .calendar(_, let start) = reason { reasonText = String(localized: "Termin \(ActivityFormat.time(start))") }
+            else { reasonText = String(localized: "Oft um diese Zeit") }
+            return [reasonText, minutes, String(localized: "Ankunft \(ActivityFormat.time(arrival))")].joined(separator: " · ")
+        }
         /// „24 Min. · Termin 09:00“ bzw. „24 Min. · Ankunft 08:12“
         var subtitle: String {
             let minutes = String(localized: "\(max(1, Int((travelTime / 60).rounded()))) Min.")

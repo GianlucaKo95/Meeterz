@@ -288,6 +288,10 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
     private var suggestionTimer: Timer?
     /// Zeigt gerade die Route des Vorschlags (Kamera folgt dann nicht dem Standort)
     private var showingSuggestion = false
+    /// Infofenster zum Vorschlag (wohin, warum, Ankunft)
+    private var suggestionCard: SuggestionCardView?
+    /// Kartenrand vor der Vorschau (während der Vorschau oben Platz fürs Infofenster)
+    private var paddingBefore: UIEdgeInsets?
 
     /// Vorschlag neu/abgelehnt/erledigt: Schnellwahl und Routenvorschau in Dashboard und Kombiinstrument anpassen
     static func suggestionChanged() {
@@ -301,9 +305,14 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
     func updateSuggestionPreview() {
         let navigating = AppModel.shared.navigation.isNavigating
         let routes = navigating ? nil : RouteSuggestions.shared.currentRoutes
+        SuggestionCardView.place(&suggestionCard, suggestion: routes == nil ? nil : RouteSuggestions.shared.current,
+                                 in: window?.rootViewController?.view, rightAligned: false)
         if let routes {
             showingSuggestion = true
+            let top = (suggestionCard?.frame.maxY ?? 20) + 10
             if let map = mapbox {
+                if paddingBefore == nil { paddingBefore = map.viewportPadding }
+                map.viewportPadding = UIEdgeInsets(top: top, left: 20, bottom: 20, right: 20)
                 map.show(routes, routeAnnotationKinds: [])
                 map.navigationCamera.stop()
                 map.showcase(routes, routeAnnotationKinds: [], animated: true, duration: 0.8)
@@ -311,12 +320,13 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
                 drawRoute(coords)
                 var c = coords
                 let rect = MKPolyline(coordinates: &c, count: c.count).boundingMapRect
-                map.setVisibleMapRect(rect, edgePadding: UIEdgeInsets(top: 30, left: 30, bottom: 30, right: 30), animated: true)
+                map.setVisibleMapRect(rect, edgePadding: UIEdgeInsets(top: top, left: 30, bottom: 30, right: 30), animated: true)
             }
             Diag.log("\(name): Routenvorschau des Vorschlags")
         } else if showingSuggestion {
             showingSuggestion = false
             if let map = mapbox {
+                if let before = paddingBefore { map.viewportPadding = before; paddingBefore = nil }
                 if !navigating { map.removeRoutes() }
                 map.navigationCamera.update(cameraState: .following)
                 configureMapboxCamera()

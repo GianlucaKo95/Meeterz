@@ -155,3 +155,19 @@ class RouteSamplerTest {
         assertEquals(1240.0, pts.last()[2], 1.0)
     }
 }
+
+class RouteSamplerCornerTest {
+    @Test fun keepsCorners() {
+        val s = listOf(
+            de.koeven.meeterz.nav.RouteSampler.Sample(6.7000, 51.4000, 0.0, 0.0),
+            de.koeven.meeterz.nav.RouteSampler.Sample(6.7000, 51.4009, 100.0, 10.0),
+            de.koeven.meeterz.nav.RouteSampler.Sample(6.7000, 51.4018, 200.0, 20.0),
+            de.koeven.meeterz.nav.RouteSampler.Sample(6.7014, 51.4018, 300.0, 30.0),
+            de.koeven.meeterz.nav.RouteSampler.Sample(6.7029, 51.4018, 400.0, 40.0),
+        )
+        val pts = de.koeven.meeterz.nav.RouteSampler.sharePoints(s, 0.0, 40.0, 1000.0)
+        assertTrue(pts.toString(), pts.any { it[1] == 51.4018 && it[0] == 6.7000 })
+        assertTrue(pts.none { it[1] == 51.4009 })
+        assertEquals(1040.0, pts.last()[2], 0.5)
+    }
+}

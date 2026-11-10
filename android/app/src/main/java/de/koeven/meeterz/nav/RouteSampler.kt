@@ -36,23 +36,54 @@ object RouteSampler {
         Piece(coords.orEmpty(), s.duration())
     }
 
-    /** Stützpunkte ab der aktuellen Position, ca. alle [spacing] Meter, als [lng, lat, eta_unix]; Restzeit auf die Prognose skaliert */
-    fun sharePoints(all: List<Sample>, traveled: Double, durationRemaining: Double, nowSeconds: Double, spacing: Double = 300.0): List<List<Double>> {
+    /** Server nimmt höchstens 10 000 Punkte (set_active_route) */
+    const val MAX_POINTS = 9_000
+
+    /**
+     * Stützpunkte ab der aktuellen Position als [lng, lat, eta_unix]: mindestens alle [spacing] Meter und jede Ecke,
+     * an der die Strecke mehr als [tolerance] Meter von der Geraden abweicht (sonst schneidet die Route der Freunde
+     * quer durch Häuser). Restzeit auf die Prognose skaliert. Wie RouteSampler.swift.
+     */
+    fun sharePoints(all: List<Sample>, traveled: Double, durationRemaining: Double, nowSeconds: Double,
+                    spacing: Double = 300.0, tolerance: Double = 5.0): List<List<Double>> {
         val last = all.lastOrNull() ?: return emptyList()
         if (all.size < 2) return emptyList()
         val base = interpolatedTime(traveled, all)
         val raw = last.time - base
         val factor = if (raw > 1) durationRemaining / raw else 1.0
-        val points = mutableListOf<List<Double>>()
+        val ahead = all.filter { it.distance >= traveled }
+        if (ahead.size < 2) return emptyList()
+        val keep = corners(ahead, tolerance).toMutableSet()
         var next = traveled
-        for (s in all) {
-            if (s.distance < traveled) continue
-            if (s.distance >= next || s.distance == last.distance) {
-                points += listOf(s.lng, s.lat, nowSeconds + (s.time - base) * factor)
-                next = s.distance + spacing
+        ahead.forEachIndexed { i, s -> if (s.distance >= next) { keep += i; next = s.distance + spacing } }
+        keep += ahead.lastIndex
+        if (keep.size > MAX_POINTS && tolerance < 200) return sharePoints(all, traveled, durationRemaining, nowSeconds, spacing, tolerance * 2)
+        return keep.sorted().map { i -> ahead[i].let { s -> listOf(s.lng, s.lat, nowSeconds + (s.time - base) * factor) } }
+    }
+
+    /** Ramer-Douglas-Peucker: Indizes der Punkte, ohne die die Linie um mehr als [tolerance] Meter abwiche */
+    fun corners(s: List<Sample>, tolerance: Double): Set<Int> {
+        if (s.size <= 2) return s.indices.toSet()
+        val keep = mutableSetOf(0, s.lastIndex)
+        val lat0 = Math.toRadians(s[0].lat)
+        val xs = s.map { it.lng * 111_320 * kotlin.math.cos(lat0) }
+        val ys = s.map { it.lat * 110_540 }
+        val stack = ArrayDeque(listOf(0 to s.lastIndex))
+        while (stack.isNotEmpty()) {
+            val (a, b) = stack.removeLast()
+            if (b <= a + 1) continue
+            val dx = xs[b] - xs[a]; val dy = ys[b] - ys[a]
+            val len2 = dx * dx + dy * dy
+            var worst = 0.0; var worstIndex = a
+            for (i in a + 1 until b) {
+                val t = if (len2 > 0) (((xs[i] - xs[a]) * dx + (ys[i] - ys[a]) * dy) / len2).coerceIn(0.0, 1.0) else 0.0
+                val ex = xs[a] + t * dx - xs[i]; val ey = ys[a] + t * dy - ys[i]
+                val d = kotlin.math.sqrt(ex * ex + ey * ey)
+                if (d > worst) { worst = d; worstIndex = i }
             }
+            if (worst > tolerance) { keep += worstIndex; stack.addLast(a to worstIndex); stack.addLast(worstIndex to b) }
         }
-        return points
+        return keep
     }
 
     private fun interpolatedTime(distance: Double, samples: List<Sample>): Double {

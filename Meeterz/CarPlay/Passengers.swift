@@ -14,8 +14,26 @@ final class Passengers {
     private(set) var ridingNow: Set<UUID> = []
     /// Auf meiner Karte ausgeblendet, bis ich sie wieder einblende. Nur für mich: Teilen läuft in beide Richtungen weiter.
     private(set) var hiddenForMe: Set<UUID> = Set((UserDefaults.standard.array(forKey: "map.hiddenFriends") as? [String] ?? []).compactMap(UUID.init))
-    /// Alles, was auf meinen Karten nicht erscheint
-    var riding: Set<UUID> { ridingNow.union(hiddenForMe) }
+    /// Alles, was auf meinen Karten nicht erscheint. Wer mit mir verabredet ist, bleibt bis zur Ankunft am
+    /// Treffpunkt sichtbar – auch wenn ich ihn ausgeblendet habe (10.11.).
+    var riding: Set<UUID> { ridingNow.union(hiddenForMe).subtracting(meetingPartners) }
+
+    /// Treffen, bei denen der Freund schon angekommen ist (danach gilt wieder „ausgeblendet“)
+    @ObservationIgnored private var arrivedAt: Set<UUID> = []
+
+    /// Freunde mit angenommenem Treffen, die noch nicht am Treffpunkt sind
+    var meetingPartners: Set<UUID> {
+        let app = AppModel.shared
+        var ids = Set<UUID>()
+        for m in app.meetups.accepted where !arrivedAt.contains(m.id) {
+            if let p = app.hub.positions[m.otherId], p.coordinate.distance(to: m.coordinate) < 100 {
+                arrivedAt.insert(m.id)
+                continue
+            }
+            ids.insert(m.otherId)
+        }
+        return ids
+    }
 
     func isHiddenForMe(_ id: UUID) -> Bool { hiddenForMe.contains(id) }
 
@@ -73,13 +91,19 @@ final class Passengers {
         return newest.ts - oldest.ts >= minSpan
     }
 
-    /// „Fährt vorbei“: zeitgleich < 300 m, aber kein Mitfahrer – Gegenverkehr/kreuzend,
-    /// oder vorher fahrend deutlich weiter weg (wirklich herangekommen – nicht: wartet und steigt zu). Wer von Anfang an dicht dabei ist, fährt nicht vorbei.
-    func isPassing(_ id: UUID) -> Bool {
+    enum Encounter { case pass, catchUp }
+
+    /// Begegnung unterwegs: zeitgleich < 300 m, aber kein Mitfahrer. Wer von Anfang an dicht dabei ist, begegnet mir nicht.
+    /// - `.pass`: Gegenverkehr/kreuzend – oder Richtung unbekannt und vorher deutlich weiter weg
+    /// - `.catchUp`: gleiche Richtung und vorher fahrend deutlich weiter weg – einer hat zum anderen aufgeholt.
+    ///   Das war vorher ebenfalls „fährt an dir vorbei“, obwohl man danach zusammen weiterfährt (10.11.).
+    func encounter(_ id: UUID) -> Encounter? {
         guard let list = samples[id], let now = list.last, now.distance < 300, now.moving,
-              !isCompanion(id) else { return false }
-        if now.sameDirection == false { return true }
-        return list.dropLast().contains { now.ts - $0.ts < 5 * 60 && $0.distance > 800 && $0.friendMoving }
+              !isCompanion(id) else { return nil }
+        if now.sameDirection == false { return .pass }
+        let wasFar = list.dropLast().contains { now.ts - $0.ts < 5 * 60 && $0.distance > 800 && $0.friendMoving }
+        guard wasFar else { return nil }
+        return now.sameDirection == true ? .catchUp : .pass
     }
 
     /// Alle 30 s aus CarPlay: wer fährt seit ≥ 1,5 Minuten zeitgleich dicht bei mir?

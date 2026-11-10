@@ -3,14 +3,15 @@ import AVFoundation
 import Observation
 import Supabase
 
-/// Die vier Momente, in denen ein Freund-Schnipsel abgespielt wird.
+/// Die Momente, in denen ein Freund-Schnipsel abgespielt wird.
 enum SoundMoment: String, CaseIterable, Codable, Identifiable {
-    case pass, soon, arrived, accepted
+    case pass, catchUp = "catchup", soon, arrived, accepted
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .pass: String(localized: "Fährt an dir vorbei")
+        case .catchUp: String(localized: "Holt unterwegs zu dir auf")
         case .soon: String(localized: "Noch 5 Minuten bis zum Treffpunkt")
         case .arrived: String(localized: "Am Treffpunkt angekommen")
         case .accepted: String(localized: "Nimmt dein Treffen an")
@@ -20,6 +21,7 @@ enum SoundMoment: String, CaseIterable, Codable, Identifiable {
     var example: String {
         switch self {
         case .pass: String(localized: "„Hup mal, ich bin's!“")
+        case .catchUp: String(localized: "„Na, fahren wir zusammen weiter?“")
         case .soon: String(localized: "„Bin gleich da, bestell schon mal!“")
         case .arrived: String(localized: "„Wo bleibst du denn?“")
         case .accepted: String(localized: "„Deal, wir sehen uns!“")
@@ -30,6 +32,7 @@ enum SoundMoment: String, CaseIterable, Codable, Identifiable {
     func fallback(name: String) -> String {
         switch self {
         case .pass: String(localized: "\(name) ist gerade an dir vorbeigefahren.")
+        case .catchUp: String(localized: "\(name) und du seid jetzt zusammen unterwegs.")
         case .soon: String(localized: "\(name) ist in etwa fünf Minuten am Treffpunkt.")
         case .arrived: String(localized: "\(name) ist am Treffpunkt angekommen.")
         case .accepted: String(localized: "\(name) hat dein Treffen angenommen.")

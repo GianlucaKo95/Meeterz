@@ -220,9 +220,10 @@ final class AppModel {
 
     @ObservationIgnored private var announced = Set<String>()
 
-    /// „Fährt vorbei“ höchstens alle 15 Minuten je Freund (Schlüssel wechselt mit dem Viertelstunden-Takt)
-    private func passKey(_ id: UUID) -> String {
-        "pass-\(id)-\(Int(Date().timeIntervalSince1970 / (15 * 60)))"
+    /// Begegnung („fährt vorbei“, „holt auf“) höchstens alle 15 Minuten je Freund
+    /// (Schlüssel wechselt mit dem Viertelstunden-Takt)
+    private func encounterKey(_ id: UUID) -> String {
+        "encounter-\(id)-\(Int(Date().timeIntervalSince1970 / (15 * 60)))"
     }
 
     /// Prüft bei jeder eigenen Positionsmeldung, ob ein Schnipsel fällig ist.
@@ -234,13 +235,14 @@ final class AppModel {
             let friendSpeed = f.position.speed ?? 0
             Passengers.shared.observe(f.friend.friendId, f.position)
 
-            // 1. Freund fährt an mir vorbei: zeitgleich < 300 m, aber kein Mitfahrer (Gegenrichtung oder
-            //    vorher weit weg), höchstens alle 15 Min. Wer von Anfang an dicht dabei ist, fährt nicht „vorbei“.
-            if myMoving, friendSpeed > 3, Passengers.shared.isPassing(f.friend.friendId),
-               !announced.contains(passKey(f.friend.friendId)) {
-                announced.insert(passKey(f.friend.friendId))
-                CarPlayController.shared.friendNotice(.pass, friend: f.friend)
-                await sounds.trigger(.pass, friend: f.friend, cooldown: 15 * 60)
+            // 1. Begegnung: Freund fährt an mir vorbei (Gegenrichtung) oder einer holt zum anderen auf
+            //    (gleiche Richtung, vorher weit weg) – höchstens alle 15 Min. je Freund.
+            if myMoving, friendSpeed > 3, let encounter = Passengers.shared.encounter(f.friend.friendId),
+               !announced.contains(encounterKey(f.friend.friendId)) {
+                announced.insert(encounterKey(f.friend.friendId))
+                let moment: SoundMoment = encounter == .pass ? .pass : .catchUp
+                CarPlayController.shared.friendNotice(moment, friend: f.friend)
+                await sounds.trigger(moment, friend: f.friend, cooldown: 15 * 60)
             }
 
             // 2./3. Treffpunkt: Freund etwa 5 Min. entfernt bzw. angekommen (je Treffen einmal)

@@ -118,6 +118,7 @@ extension CarPlayController {
         let title: [String]
         switch moment {
         case .pass: title = [String(localized: "\(name) fährt gerade an dir vorbei"), String(localized: "\(name) fährt vorbei")]
+        case .catchUp: title = [String(localized: "\(name) fährt jetzt mit dir"), String(localized: "Mit \(name) unterwegs")]
         case .soon: title = [String(localized: "\(name) ist in ca. 5 Min. am Treffpunkt"), String(localized: "\(name) in 5 Min. da")]
         case .arrived: title = [String(localized: "\(name) ist am Treffpunkt angekommen"), String(localized: "\(name) ist da")]
         case .accepted: title = [String(localized: "\(name) hat dein Treffen angenommen"), String(localized: "\(name) kommt")]

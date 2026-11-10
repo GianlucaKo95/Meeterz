@@ -23,7 +23,8 @@ func meeterzCoreConfig(simulate: Bool, initialLocation: CLLocation? = nil) -> Co
                 await CarPlayController.shared.approveFasterRoute(context.1)
             })
         )),
-        locationSource: simulate ? .simulation(initialLocation: initialLocation) : .live,
+        // Im Stand Position festhalten (StandstillFilter): kein Abschnittswechsel durch GPS-Springen an der Ampel
+        locationSource: simulate ? .simulation(initialLocation: initialLocation) : .custom(FilteredLocationSource.shared.client),
         locale: Locale.navigation,
         ttsConfig: .custom(speechSynthesizer: MeeterzSpeechSynthesizer.shared)
     )

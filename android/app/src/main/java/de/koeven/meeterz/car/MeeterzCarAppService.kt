@@ -5,6 +5,12 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.car.app.CarAppService
 import androidx.car.app.CarToast
+import androidx.car.app.AppManager
+import androidx.car.app.model.Action
+import androidx.car.app.model.Alert
+import androidx.car.app.model.CarText
+import androidx.car.app.versioning.CarAppApiLevels
+import de.koeven.meeterz.ev.ChargeMonitor
 import androidx.car.app.Screen
 import androidx.car.app.ScreenManager
 import androidx.car.app.Session
@@ -35,6 +41,27 @@ class MeeterzCarAppService : CarAppService() {
  * Karte, Pfeil, Routenlinie, Kamera und Abbiegeanzeige kommen weiter aus Mapbox' Android-Auto-Bausteinen.
  */
 class MeeterzCarSession : Session() {
+    private fun showSuggestion(sg: ChargeMonitor.Suggestion) {
+        val plan = sg.plan
+        if (carContext.carAppApiLevel < CarAppApiLevels.LEVEL_5 || plan == null) {
+            CarToast.makeText(carContext, "${sg.title} – ${sg.subtitle}", CarToast.LENGTH_LONG).show()
+            NavigationController.announce(sg.title)
+            return
+        }
+        val alert = Alert.Builder(1, CarText.create(sg.title), 20_000)
+            .setSubtitle(CarText.create(sg.subtitle))
+            .addAction(Action.Builder().setTitle("Übernehmen").setOnClickListener {
+                carContext.getCarService(AppManager::class.java).dismissAlert(1)
+                AppState.scope.launch { ChargeMonitor.adopt(carContext, plan) }
+            }.build())
+            .addAction(Action.Builder().setTitle("Nein").setOnClickListener {
+                carContext.getCarService(AppManager::class.java).dismissAlert(1)
+            }.build())
+            .build()
+        carContext.getCarService(AppManager::class.java).showAlert(alert)
+        NavigationController.announce(sg.title)
+    }
+
     val carMap = MapboxCarMap()
     private val mapLoader = MapboxCarMapLoader()
 
@@ -77,6 +104,10 @@ class MeeterzCarSession : Session() {
                 CarToast.makeText(carContext, "${m.firstName}: ${m.body}", CarToast.LENGTH_LONG).show()
                 NavigationController.announce("${m.firstName} schreibt: ${m.body}")
             }
+        }
+        // Neuer Ladeplan unterwegs: Hinweis mit „Übernehmen“ (CarPlay: Navigationshinweis)
+        lifecycleScope.launch {
+            ChargeMonitor.suggestions.collect { sg -> showSuggestion(sg) }
         }
         return FreeDriveScreen(carContext, carMap)
     }

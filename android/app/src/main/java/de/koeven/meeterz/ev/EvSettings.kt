@@ -79,13 +79,27 @@ object EvSettings {
         return out
     }
 
-    /** Ladeplan für eine Route (null ohne E-Auto/Fahrzeug); lädt Höhen und Wetter dazu */
+    /**
+     * Einstellungen wie EVSettings.plannerSettings auf iOS: gelernter Verbrauch, Außentemperatur nur aus frischen
+     * Fahrdaten (geparkt liefert das Auto teils 0 °C). Mit `points` kommen Live-Belegung, Höhe und Wetter dazu.
+     */
+    suspend fun plannerSettings(key: String? = null, points: List<ChargePlanner.RoutePoint>? = null): ChargePlanner.Settings {
+        val status = AppState.vehicle.status.value
+        val temperature = status?.takeIf { it.parked != true && it.ageSeconds < 3 * 3600 }?.extTemp
+        return ChargePlanner.Settings(
+            arrivalPercent = arrivalPercent, minAtChargerPercent = minAtChargerPercent, temperature = temperature,
+            factors = vehicle?.let { ConsumptionLearner.factors(it) } ?: listOf(1.0, 1.0, 1.0),
+            conditions = if (key != null && points != null) RouteConditions.load(key, points) else null,
+            availability = if (points != null) ChargeStatusService.availability(appContext, points) else emptyMap(),
+        )
+    }
+
+    /** Ladeplan für eine Route (null ohne E-Auto/Fahrzeug); ab `fromMeters` mit `startPercent` (Neuplanung unterwegs) */
     suspend fun plan(route: NavigationRoute, startPercent: Double = chargePercent, fromMeters: Double = 0.0): ChargePlanner.Outcome? {
         if (!enabled) return null
         val vehicle = vehicle ?: return null
         val points = points(route)
-        val conditions = RouteConditions.load(route.id, points)
-        val settings = ChargePlanner.Settings(arrivalPercent = arrivalPercent, minAtChargerPercent = minAtChargerPercent, conditions = conditions)
+        val settings = plannerSettings(route.id, points)
         return withContext(Dispatchers.Default) {
             val profile = ChargePlanner.profile(points, vehicle, settings).suffix(fromMeters)
             ChargePlanner.plan(profile, vehicle, startPercent, settings, EvData.sites(appContext))

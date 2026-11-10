@@ -56,6 +56,8 @@ data class ChargeSite(
     val operatorName: String,
     val city: String,
     val country: String = "DE",
+    /** Ladepunkt-IDs für die Live-Belegung (bisher Schweiz) */
+    val evseIds: List<String> = emptyList(),
 ) {
     val powerKnown get() = maxKW > 0
     val plannedKW get() = if (powerKnown) maxKW else 50.0
@@ -72,6 +74,15 @@ data class ChargeSite(
             return n.trim()
         }
     }
+}
+
+/** Live-Belegung eines Standorts */
+data class ChargeAvailability(val free: Int = 0, val occupied: Int = 0, val outOfService: Int = 0) {
+    val total get() = free + occupied + outOfService
+    val full get() = total > 0 && free == 0 && occupied > 0
+    val allOutOfService get() = total > 0 && outOfService == total
+    /** „2 von 4 frei“ */
+    val text get() = if (allOutOfService) "außer Betrieb" else "$free von $total frei"
 }
 
 object EvData {
@@ -97,7 +108,8 @@ object EvData {
             if (r.size < 7) return@mapNotNull null
             fun d(i: Int) = (r[i] as? JsonPrimitive)?.doubleOrNull ?: 0.0
             fun s(i: Int) = (r[i] as? JsonPrimitive)?.takeIf { it.isString }?.content ?: ""
-            ChargeSite(d(0), d(1), d(2), d(3).toInt(), s(4), s(5), s(6), if (r.size > 7) s(7) else "DE")
+            val evse = (r.getOrNull(8) as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.content } ?: emptyList()
+            ChargeSite(d(0), d(1), d(2), d(3).toInt(), s(4), s(5), s(6), if (r.size > 7) s(7) else "DE", evse)
         }
     }.getOrDefault(emptyList())
 }

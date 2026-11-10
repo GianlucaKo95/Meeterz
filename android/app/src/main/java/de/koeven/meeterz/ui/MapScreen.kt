@@ -26,6 +26,9 @@ import androidx.compose.material3.TextButton
 import android.widget.Toast
 import de.koeven.meeterz.data.MessagesStore
 import de.koeven.meeterz.ev.ChargePlanner
+import de.koeven.meeterz.ev.ChargeMonitor
+import de.koeven.meeterz.ev.ChargingSession
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material.icons.filled.ElectricCar
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
@@ -173,7 +176,7 @@ fun MapScreen() {
         val me = AppState.lastLocation ?: return
         val routes = NavigationController.plan(context, Point.fromLngLat(me.longitude, me.latitude), dest,
             via = plan.stops.map { Point.fromLngLat(it.site.lng, it.site.lat) })
-        if (routes.isNotEmpty()) { preview = dest to routes; adopted = plan }
+        if (routes.isNotEmpty()) { preview = dest to routes; adopted = plan; ChargingSession.plan = plan }
     }
     LaunchedEffect(query) {
         delay(300)   // erst suchen, wenn kurz nicht getippt wird
@@ -183,6 +186,23 @@ fun MapScreen() {
 
     Box(Modifier.fillMaxSize()) {
         AndroidView(factory = { mapView }, modifier = Modifier.fillMaxSize())
+
+        // Neuer Ladeplan unterwegs (ChargeMonitor) und Laden (ChargingSession)
+        var suggestion by remember { mutableStateOf<ChargeMonitor.Suggestion?>(null) }
+        LaunchedEffect(Unit) { ChargeMonitor.suggestions.collect { suggestion = it } }
+        suggestion?.let { sg ->
+            AlertDialog(
+                onDismissRequest = { suggestion = null },
+                title = { Text(sg.title) },
+                text = { Text(sg.subtitle) },
+                confirmButton = {
+                    sg.plan?.let { plan -> TextButton(onClick = { suggestion = null; scope.launch { ChargeMonitor.adopt(context, plan) } }) { Text("Übernehmen") } }
+                },
+                dismissButton = { TextButton(onClick = { suggestion = null }) { Text(if (sg.plan == null) "OK" else "Nein") } },
+            )
+        }
+        val charging by ChargingSession.view.collectAsState()
+        charging?.let { ChargingCard(it, Modifier.align(Alignment.Center)) }
 
         val g = guidance
         if (g != null) {
@@ -291,6 +311,9 @@ private fun GuidanceBar(g: NavigationController.Guidance, modifier: Modifier) {
             Column(Modifier.weight(1f)) {
                 Text("Ankunft ${clock(g.remainingSeconds)}", fontWeight = FontWeight.Bold)
                 Text("${minutes(g.remainingSeconds)} · ${km(g.remainingDistance)}", style = MaterialTheme.typography.bodySmall)
+                val forecast by ChargeMonitor.forecast.collectAsState()
+                forecast?.let { Text(it.text, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold,
+                    color = if (it.low) Color(0xFFD92E36) else MeeterzColors.mintLight) }
             }
             IconButton(onClick = { showMessage = true }) { Icon(Icons.AutoMirrored.Filled.Chat, "Bescheid geben") }
             IconButton(onClick = { muted = !muted; NavigationController.muted = muted }) {
@@ -298,6 +321,25 @@ private fun GuidanceBar(g: NavigationController.Guidance, modifier: Modifier) {
             }
             Spacer(Modifier.padding(4.dp))
             Button(onClick = { NavigationController.stop() }) { Text("Beenden") }
+        }
+    }
+}
+
+/** Laden verfolgen (iOS: Ladekarte/CarPlay-Ring): Fortschritt, Leistung, Restzeit, Ziel wählbar */
+@Composable
+private fun ChargingCard(v: ChargingSession.View, modifier: Modifier) {
+    Surface(modifier.padding(24.dp), shape = RoundedCornerShape(20.dp), shadowElevation = 8.dp) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(if (v.done) "Genug geladen" else "Lädt", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text("${Math.round(v.percent)} % → ${Math.round(v.target)} %", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            LinearProgressIndicator(progress = { v.progress.toFloat() }, modifier = Modifier.fillMaxWidth())
+            Text(listOfNotNull(
+                v.powerKW.takeIf { it > 0 }?.let { "${it.toInt()} kW" },
+                v.remainingSeconds?.takeIf { !v.done }?.let { "noch ${maxOf(1, Math.round(it / 60))} Min." },
+            ).joinToString(" · "), style = MaterialTheme.typography.bodySmall)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (t in listOf(80.0, 90.0, 100.0)) AssistChip(onClick = { ChargingSession.setTarget(t) }, label = { Text("Bis ${t.toInt()} %") })
+            }
         }
     }
 }

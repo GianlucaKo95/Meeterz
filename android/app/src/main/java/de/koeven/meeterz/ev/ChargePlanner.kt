@@ -27,10 +27,12 @@ object ChargePlanner {
         /** Gelernte Korrektur je Tempobereich (Stadt < 60, Land 60–100, Autobahn > 100 km/h) */
         val factors: List<Double> = listOf(1.0, 1.0, 1.0),
         val conditions: RouteConditions? = null,
+        /** Live-Belegung (wo verfügbar): defekte Säulen meiden, voll belegte mit Wartezeit */
+        val availability: Map<ChargeSite, ChargeAvailability> = emptyMap(),
     )
 
     data class Stop(val site: ChargeSite, val distanceFromStart: Double, val arrivalPercent: Double,
-                    val departurePercent: Double, val chargeTime: Double)
+                    val departurePercent: Double, val chargeTime: Double, val availability: ChargeAvailability? = null)
 
     data class Plan(val stops: List<Stop>, val arrivalPercent: Double, val startPercent: Double,
                     val totalChargeTime: Double, val driveTime: Double, val belowTarget: Boolean = false) {
@@ -190,7 +192,7 @@ object ChargePlanner {
         val total = p.total
         if (total <= 0) return Outcome.Unreachable(0.0)
         fun pct(kwh: Double) = kwh / vehicle.battery * 100
-        val cands = candidates(p, sites)
+        val cands = candidates(p, sites).filter { settings.availability[it.site]?.allOutOfService != true }
 
         val directArrival = startPercent - pct(p.energy(0.0, total))
         if (directArrival >= settings.arrivalPercent) {
@@ -239,7 +241,8 @@ object ChargePlanner {
                 } else {
                     if (requiredDeparture <= arrival) continue
                     depart = requiredDeparture
-                    charge = chargeTime(vehicle, arrival, depart, siteKW) + settings.stopOverhead
+                    charge = chargeTime(vehicle, arrival, depart, siteKW) + settings.stopOverhead +
+                        if (settings.availability[cands[s.node - 1].site]?.full == true) 10 * 60.0 else 0.0   // alles belegt: warten
                 }
                 val drive = p.time(here, there) + detourTime(s.node) / 2 + detourTime(j) / 2
                 push(State(j, floor(depart - need).toInt()), cost + drive + charge, Link(s, depart, charge))
@@ -260,8 +263,10 @@ object ChargePlanner {
             val link = previous[s] ?: break
             if (link.from.node != 0) {
                 val c = cands[link.from.node - 1]
-                stops.add(0, Stop(c.site, c.along, link.from.soc.toDouble(), link.depart, link.charge - settings.stopOverhead))
-                totalCharge += link.charge - settings.stopOverhead
+                val availability = settings.availability[c.site]
+                val wait = if (availability?.full == true) 10 * 60.0 else 0.0
+                stops.add(0, Stop(c.site, c.along, link.from.soc.toDouble(), link.depart, link.charge - settings.stopOverhead - wait, availability))
+                totalCharge += link.charge - settings.stopOverhead - wait
             }
             s = link.from
         }

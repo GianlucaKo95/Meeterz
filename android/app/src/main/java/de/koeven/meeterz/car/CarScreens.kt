@@ -31,6 +31,8 @@ import de.koeven.meeterz.data.FriendRow
 import de.koeven.meeterz.data.MessagesStore
 import de.koeven.meeterz.ev.ChargePlanner
 import de.koeven.meeterz.ev.EvSettings
+import de.koeven.meeterz.ev.ChargeMonitor
+import de.koeven.meeterz.ev.ChargingSession
 import de.koeven.meeterz.nav.NavigationController
 import de.koeven.meeterz.nav.PlaceSearch
 import de.koeven.meeterz.ui.km
@@ -62,6 +64,7 @@ private fun Screen.navigateTo(name: String, lat: Double, lng: Double) {
                     val withStops = NavigationController.plan(carContext, from, dest, via = o.plan.stops.map { Point.fromLngLat(it.site.lng, it.site.lat) })
                     if (withStops.isNotEmpty()) routes = withStops
                 }
+                ChargingSession.plan = o.plan
                 CarToast.makeText(carContext, o.plan.summary, CarToast.LENGTH_LONG).show()
             }
             is ChargePlanner.Outcome.Unreachable ->
@@ -74,6 +77,7 @@ private fun Screen.navigateTo(name: String, lat: Double, lng: Double) {
 
 /** Freie Fahrt: Karte mit Freunden, oben „Suchen“ und „Freunde“ */
 class FreeDriveScreen(carContext: CarContext, private val carMap: MapboxCarMap) : Screen(carContext) {
+    init { lifecycleScope.launch { ChargingSession.view.collect { invalidate() } } }
     private val location = CarLocationRenderer()
     private val camera = CarNavigationCamera(CarCameraMode.FOLLOWING, null)
     private val friends = CarFriendMarkers()
@@ -96,6 +100,7 @@ class FreeDriveScreen(carContext: CarContext, private val carMap: MapboxCarMap) 
         .setBackgroundColor(CarColor.PRIMARY)
         .setActionStrip(
             ActionStrip.Builder()
+                .apply { batteryAction(carContext)?.let { addAction(it) } }
                 .addAction(Action.Builder().setTitle("Suchen").setOnClickListener { screenManager.push(CarSearchScreen(carContext)) }.build())
                 .addAction(Action.Builder().setTitle("Ziele").setOnClickListener { screenManager.push(CarPlacesScreen(carContext)) }.build())
                 .addAction(Action.Builder().setTitle("Freunde").setOnClickListener { screenManager.push(CarFriendsScreen(carContext)) }.build())
@@ -107,6 +112,10 @@ class FreeDriveScreen(carContext: CarContext, private val carMap: MapboxCarMap) 
 
 /** Führung: Abbiegeanzeige, Routenlinie, Kamera; „Beenden“ oben */
 class GuidanceScreen(carContext: CarContext, private val carMap: MapboxCarMap) : Screen(carContext) {
+    init {
+        lifecycleScope.launch { ChargingSession.view.collect { invalidate() } }
+        lifecycleScope.launch { ChargeMonitor.forecast.collect { invalidate() } }
+    }
     private val routeLine = CarRouteLineRenderer()
     private val location = CarLocationRenderer()
     private val camera = CarNavigationCamera(CarCameraMode.FOLLOWING, CarCameraMode.OVERVIEW)
@@ -132,6 +141,7 @@ class GuidanceScreen(carContext: CarContext, private val carMap: MapboxCarMap) :
         .setBackgroundColor(CarColor.PRIMARY)
         .setActionStrip(
             ActionStrip.Builder()
+                .apply { batteryAction(carContext)?.let { addAction(it) } }
                 .addAction(Action.Builder().setTitle("Bescheid").setOnClickListener { screenManager.push(messageScreen(carContext)) }.build())
                 .addAction(Action.Builder().setTitle("Beenden").setOnClickListener { NavigationController.stop() }.build())
                 .build(),
@@ -139,6 +149,18 @@ class GuidanceScreen(carContext: CarContext, private val carMap: MapboxCarMap) :
         .setMapActionStrip(mapActions.build())
         .apply { info.setNavigationInfo(this) }
         .build()
+}
+
+/**
+ * Akku oben in der Leiste (CarPlay: Akku-Kästchen bzw. Lade-Ring): beim Laden Fortschritt und Restzeit,
+ * sonst während der Führung die Prognose am nächsten Stopp bzw. Ziel. Antippen zeigt den Ladeplan.
+ */
+private fun batteryAction(carContext: CarContext): Action? {
+    val text = ChargingSession.view.value?.short ?: ChargeMonitor.forecast.value?.text ?: return null
+    return Action.Builder().setTitle(text).setOnClickListener {
+        val plan = ChargingSession.plan
+        CarToast.makeText(carContext, plan?.summary ?: text, CarToast.LENGTH_LONG).show()
+    }.build()
 }
 
 /**

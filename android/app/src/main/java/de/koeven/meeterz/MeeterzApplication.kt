@@ -15,5 +15,6 @@ class MeeterzApplication : Application() {
         NavigationController.init(this)
         AppState.init(this)
         de.koeven.meeterz.ev.EvSettings.init(this)
+        de.koeven.meeterz.ev.ConsumptionLearner.init(this)
     }
 }

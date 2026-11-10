@@ -15,9 +15,30 @@ data class VehicleStatus(
     val charging: Boolean? = null,
     @SerialName("power_kw") val powerKw: Double? = null,
     @SerialName("charge_target_percent") val chargeTarget: Double? = null,
+    @SerialName("ext_temp") val extTemp: Double? = null,
+    @SerialName("odometer_km") val odometerKm: Double? = null,
+    @SerialName("speed_kmh") val speedKmh: Double? = null,
+    val parked: Boolean? = null,
+    /** Restladezeit laut Auto (s) und wann gemeldet */
+    @SerialName("charge_remaining_s") val chargeRemainingS: Double? = null,
+    @SerialName("charge_remaining_at") val chargeRemainingAt: String? = null,
     @SerialName("reported_at") val reportedAt: String? = null,
     @SerialName("updated_at") val updatedAt: String,
 ) {
+    /** Wann im Auto gemessen (Unix-Sekunden) */
+    val measuredAt: Long get() = runCatching { Instant.parse(reportedAt ?: updatedAt).epochSecond }.getOrDefault(0)
+
+    /** Ladeziel laut Auto (40–100 %) */
+    val carChargeTarget: Double? get() = chargeTarget?.takeIf { it in 40.0..100.0 }
+
+    /** Restladezeit laut Auto (s ab jetzt), wenn höchstens 15 Minuten alt */
+    val liveChargeRemaining: Double? get() {
+        val s = chargeRemainingS?.takeIf { it > 0 } ?: return null
+        val at = chargeRemainingAt?.let { runCatching { Instant.parse(it).epochSecond }.getOrNull() } ?: return null
+        val elapsed = Instant.now().epochSecond - at
+        return if (elapsed < 15 * 60) maxOf(0.0, s - elapsed) else null
+    }
+
     /** Alter der Messung in Sekunden (nie negativ) */
     val ageSeconds: Long get() {
         val at = runCatching { Instant.parse(reportedAt ?: updatedAt) }.getOrNull() ?: return Long.MAX_VALUE
@@ -32,6 +53,15 @@ class VehicleStore {
     suspend fun refresh(userId: String) {
         runCatching {
             Backend.client.from("vehicle_status").select { filter { eq("user_id", userId) } }.decodeList<VehicleStatus>()
-        }.onSuccess { _status.value = it.firstOrNull() }
+        }.onSuccess { rows ->
+            val new = rows.firstOrNull() ?: return@onSuccess
+            val old = _status.value
+            _status.value = new
+            // Neue Meldung: Verbrauch lernen und Laden verfolgen (wie iOS bei jeder Live-Meldung)
+            if (old == null || new.measuredAt != old.measuredAt) {
+                if (old != null) de.koeven.meeterz.ev.ConsumptionLearner.record(old, new)
+                de.koeven.meeterz.ev.ChargingSession.update(new)
+            }
+        }
     }
 }

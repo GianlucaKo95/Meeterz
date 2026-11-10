@@ -47,6 +47,8 @@ object AppState {
 
     fun init(context: Context) { appContext = context.applicationContext; favorites = FavoritesStore(context) }
 
+    fun appContextOrNull(): Context? = if (::appContext.isInitialized) appContext else null
+
     /** Nach der Anmeldung: Senden starten, alle 30 s Freunde und Auto laden (wie refreshSocial auf iOS) */
     fun startSession(userId: String) {
         if (session?.isActive == true) return

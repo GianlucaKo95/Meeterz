@@ -62,6 +62,7 @@ object NavigationController : MapboxNavigationObserver {
     private var navigation: MapboxNavigation? = null
 
     fun init(context: Context) {
+        appContext = context.applicationContext
         if (speaker == null) speaker = Speaker(context.applicationContext)
         MapboxNavigationApp.registerObserver(this)
     }
@@ -101,6 +102,8 @@ object NavigationController : MapboxNavigationObserver {
         }
     }
 
+    private var appContext: Context? = null
+
     @SuppressLint("MissingPermission")
     fun start(routes: List<NavigationRoute>, destination: Destination) {
         val nav = navigation ?: return
@@ -109,6 +112,19 @@ object NavigationController : MapboxNavigationObserver {
         nav.setNavigationRoutes(routes)
         nav.startTripSession()
         _guidance.value = Guidance(destination)
+        appContext?.let { de.koeven.meeterz.ev.ChargeMonitor.start(it) }
+    }
+
+    /** Laufende Führung ab hier neu über diese Zwischenziele (z. B. neuer Ladeplan unterwegs) */
+    suspend fun reroute(context: Context, via: List<Point>): Boolean {
+        val g = _guidance.value ?: return false
+        val here = AppState.lastLocation?.let { Point.fromLngLat(it.longitude, it.latitude) } ?: return false
+        val routes = plan(context, here, g.destination, via)
+        if (routes.isEmpty() || _guidance.value == null) return false
+        announcer = Announcer()
+        deferred = null
+        navigation?.setNavigationRoutes(routes)
+        return true
     }
 
     fun stop() {
@@ -117,6 +133,7 @@ object NavigationController : MapboxNavigationObserver {
         navigation?.setNavigationRoutes(emptyList())
         speaker?.stop()
         deferred = null
+        de.koeven.meeterz.ev.ChargeMonitor.stop()
         _guidance.value = null
         _progress.value = null
     }

@@ -16,5 +16,6 @@ class MeeterzApplication : Application() {
         AppState.init(this)
         de.koeven.meeterz.ev.EvSettings.init(this)
         de.koeven.meeterz.ev.ConsumptionLearner.init(this)
+        de.koeven.meeterz.sound.SoundStore.init(this)
     }
 }

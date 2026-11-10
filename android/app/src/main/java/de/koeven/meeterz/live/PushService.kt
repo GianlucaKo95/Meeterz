@@ -40,7 +40,10 @@ class PushService : FirebaseMessagingService() {
             else -> message.notification?.let { show(this, it.title ?: "Meeterz", it.body ?: "") }
         }
         // Neue Anfrage, Nachricht o. Ä.: gleich aktualisieren
-        AppState.scope.launch { AppState.refreshFriends(); AppState.messages.refresh() }
+        AppState.scope.launch {
+            AppState.refreshFriends(); AppState.messages.refresh()
+            if (message.data["kind"]?.startsWith("meetup") == true) AppState.meetups.refresh()
+        }
     }
 
     companion object {

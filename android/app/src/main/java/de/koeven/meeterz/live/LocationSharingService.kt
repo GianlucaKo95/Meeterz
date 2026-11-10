@@ -41,6 +41,10 @@ class LocationSharingService : Service() {
             val manager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
             val l = LocationListener { loc ->
                 AppState.lastLocation = loc
+                AppState.scope.launch {
+                    de.koeven.meeterz.sound.SoundMoments.onLocation(loc)
+                    AppState.meetups.checkArrival(loc)
+                }
                 val profile = (AppState.auth.state.value as? AuthRepository.State.Ready)?.profile ?: return@LocationListener
                 AppState.scope.launch { AppState.hub.publish(loc, profile.id, profile.sharingEnabled) }
             }

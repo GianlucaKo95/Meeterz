@@ -62,12 +62,12 @@ class MessagesStore {
     }
 
     /** Sendet an alle Empfänger, liefert die Zahl der gesendeten */
-    suspend fun send(body: String, to: Collection<String>, meetupId: String? = null): Int {
+    suspend fun send(body: String, to: Collection<String>, meetupId: String? = null, automatic: Boolean = false): Int {
         var sent = 0
         for (id in to.toSet()) {
             runCatching {
                 Backend.client.postgrest.rpc("send_message", buildJsonObject {
-                    put("to_user_id", id); put("body", body); put("automatic", false)
+                    put("to_user_id", id); put("body", body); put("automatic", automatic)
                     if (meetupId != null) put("meetup_id", meetupId) else put("meetup_id", JsonNull)
                 }).decodeAs<String>()
             }.onSuccess { messageId ->
@@ -80,6 +80,11 @@ class MessagesStore {
     }
 
     companion object {
+        /** Bei Verspätung von 5 Minuten oder mehr automatisch Bescheid geben (wie iOS, Standard an) */
+        var autoDelay: Boolean
+            get() = AppState.appContextOrNull()?.getSharedPreferences("messages", 0)?.getBoolean("autoDelay", true) ?: true
+            set(v) { AppState.appContextOrNull()?.getSharedPreferences("messages", 0)?.edit()?.putBoolean("autoDelay", v)?.apply() }
+
         /** Vorgefertigte Antworten – mit Ankunftszeit, wenn gerade navigiert wird (Texte wie iOS) */
         fun quickReplies(etaMillis: Long?): List<String> = buildList {
             etaMillis?.let { add("Bin um ${DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(it))} da") }

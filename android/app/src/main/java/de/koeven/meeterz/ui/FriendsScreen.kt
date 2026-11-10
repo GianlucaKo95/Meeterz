@@ -12,6 +12,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -52,6 +54,10 @@ fun FriendsScreen(onClose: () -> Unit) {
     val error by AppState.friendError.collectAsState()
     val favorites by AppState.favorites.items.collectAsState()
     var handle by remember { mutableStateOf("") }
+    var showSounds by remember { mutableStateOf(false) }
+    var autoDelay by remember { mutableStateOf(de.koeven.meeterz.data.MessagesStore.autoDelay) }
+    var mutedVersion by remember { mutableStateOf(0) }
+    if (showSounds) { SoundPackScreen(onClose = { showSounds = false }); return }
 
     Surface(Modifier.fillMaxSize()) {
         Column(Modifier.statusBarsPadding()) {
@@ -73,6 +79,14 @@ fun FriendsScreen(onClose: () -> Unit) {
                             }
                             Switch(checked = p.sharingEnabled, onCheckedChange = { on -> scope.launch { AppState.setSharing(on) } })
                         }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("Bei Verspätung automatisch Bescheid geben", fontWeight = FontWeight.SemiBold)
+                                Text("Ab 5 Minuten später an alle, die du am Ziel triffst", style = MaterialTheme.typography.bodySmall)
+                            }
+                            Switch(checked = autoDelay, onCheckedChange = { autoDelay = it; de.koeven.meeterz.data.MessagesStore.autoDelay = it })
+                        }
+                        OutlinedButton(onClick = { showSounds = true }, modifier = Modifier.fillMaxWidth()) { Text("Sound-Pack: eigene Schnipsel aufnehmen") }
                         HorizontalDivider()
                     }
                 }
@@ -109,6 +123,12 @@ fun FriendsScreen(onClose: () -> Unit) {
                         Column(Modifier.weight(1f)) {
                             Text(row.displayName)
                             Text("@${row.handle}", style = MaterialTheme.typography.bodySmall)
+                        }
+                        // Sound-Pack je Freund stumm schalten (iOS: in der Freund-Ansicht)
+                        val muted = mutedVersion >= 0 && de.koeven.meeterz.sound.SoundStore.isMuted(row.friendId)
+                        IconButton(onClick = { de.koeven.meeterz.sound.SoundStore.setMuted(row.friendId, !muted); mutedVersion++ }) {
+                            Icon(if (muted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
+                                if (muted) "Schnipsel stumm" else "Schnipsel an")
                         }
                         TextButton(onClick = { scope.launch { AppState.removeFriend(row) } }) { Text("Entfernen") }
                     }

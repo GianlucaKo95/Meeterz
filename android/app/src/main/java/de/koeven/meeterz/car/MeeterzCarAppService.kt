@@ -102,8 +102,17 @@ class MeeterzCarSession : Session() {
         lifecycleScope.launch {
             AppState.messages.received.collect { m ->
                 CarToast.makeText(carContext, "${m.firstName}: ${m.body}", CarToast.LENGTH_LONG).show()
+                // Automatische Verspätung: kam sie gerade schon als Moment „verspätet sich“, nicht noch einmal vorlesen
+                if (m.automatic) {
+                    if (de.koeven.meeterz.sound.SoundMoments.lateRecentlyNotified(m.otherId)) return@collect
+                    de.koeven.meeterz.sound.SoundMoments.noteLateNotified(m.otherId)
+                }
                 NavigationController.announce("${m.firstName} schreibt: ${m.body}")
             }
+        }
+        // Sound-Pack-Momente: kurzer Hinweis (CarPlay: friendNotice)
+        lifecycleScope.launch {
+            de.koeven.meeterz.sound.SoundMoments.notices.collect { n -> CarToast.makeText(carContext, n.text, CarToast.LENGTH_LONG).show() }
         }
         // Neuer Ladeplan unterwegs: Hinweis mit „Übernehmen“ (CarPlay: Navigationshinweis)
         lifecycleScope.launch {

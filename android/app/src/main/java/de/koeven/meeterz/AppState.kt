@@ -31,8 +31,24 @@ object AppState {
     val vehicle = VehicleStore()
     val routes = de.koeven.meeterz.data.FriendRoutesStore()
     val messages = de.koeven.meeterz.data.MessagesStore()
+    val meetups = de.koeven.meeterz.data.MeetupsStore()
+
+    /** Eigene Positionen der letzten 15 Minuten – für Begegnungen zählt meine Position zum Zeitstempel des Freundes */
+    private val history = ArrayDeque<android.location.Location>()
+
+    @Synchronized fun recordLocation(loc: android.location.Location) {
+        history.addLast(loc)
+        while (history.isNotEmpty() && loc.time - history.first().time > 15 * 60_000) history.removeFirst()
+    }
+
+    /** Meine Position zu einem Zeitpunkt (Unix-Sekunden), höchstens 20 s daneben */
+    @Synchronized fun locationAt(ts: Double): android.location.Location? =
+        history.minByOrNull { kotlin.math.abs(it.time / 1000.0 - ts) }?.takeIf { kotlin.math.abs(it.time / 1000.0 - ts) <= 20 }
     lateinit var favorites: FavoritesStore
         private set
+
+    /** Eigene Nutzer-ID (klein geschrieben wie in der Datenbank) */
+    val myId: String? get() = (auth.state.value as? AuthRepository.State.Ready)?.profile?.id
 
     /** Letzter eigener Standort (für Suche und Routenplanung) */
     @Volatile var lastLocation: android.location.Location? = null
@@ -56,10 +72,14 @@ object AppState {
         session = scope.launch {
             hub.startPublishing(userId)
             PushService.registerCurrent(appContext)
+            launch { meetups.acceptedByFriend.collect { de.koeven.meeterz.sound.SoundMoments.accepted(it.otherId, it.id) } }
             while (isActive) {
                 refreshFriends()
                 // ponytail: Nachrichten alle 30 s und bei jedem Push statt Live-Kanal wie auf iOS
                 messages.refresh()
+                meetups.refresh()
+                de.koeven.meeterz.sound.SoundStore.sync()
+                de.koeven.meeterz.sound.SoundMoments.checkJourneys()
                 // ponytail: Auto alle 30 s abfragen statt Live-Kanal wie auf iOS – reicht für die Anzeige
                 vehicle.refresh(userId)
                 delay(30_000)
@@ -67,7 +87,11 @@ object AppState {
         }
     }
 
-    fun endSession() { session?.cancel(); session = null; messages.reset() }
+    fun endSession() {
+        session?.cancel(); session = null
+        messages.reset(); meetups.reset()
+        de.koeven.meeterz.sound.SoundStore.reset(); de.koeven.meeterz.sound.SoundMoments.reset()
+    }
 
     suspend fun refreshFriends() {
         runCatching { Backend.client.postgrest.rpc("my_friends").decodeList<FriendRow>() }

@@ -113,6 +113,7 @@ object NavigationController : MapboxNavigationObserver {
         nav.startTripSession()
         _guidance.value = Guidance(destination)
         appContext?.let { de.koeven.meeterz.ev.ChargeMonitor.start(it) }
+        AppState.meetups.announceDeparture(destination.lat, destination.lng)
     }
 
     /** Laufende Führung ab hier neu über diese Zwischenziele (z. B. neuer Ladeplan unterwegs) */
@@ -134,6 +135,7 @@ object NavigationController : MapboxNavigationObserver {
         speaker?.stop()
         deferred = null
         de.koeven.meeterz.ev.ChargeMonitor.stop()
+        AppState.meetups.navigationEnded()
         _guidance.value = null
         _progress.value = null
     }
@@ -156,6 +158,8 @@ object NavigationController : MapboxNavigationObserver {
         val now = System.currentTimeMillis()
         if (now - lastShare < 60_000) return
         lastShare = now
+        // Verspätung zum Treffpunkt automatisch melden (wie iOS: im Takt des Routen-Teilens)
+        AppState.scope.launch { AppState.meetups.checkDelay(destination.lat, destination.lng, now / 1000 + progress.durationRemaining.toLong()) }
         val profile = (AppState.auth.state.value as? AuthRepository.State.Ready)?.profile ?: return
         if (profile.hideRoutes == true || (profile.incognitoUntil?.let { runCatching { Instant.parse(it) > Instant.now() }.getOrNull() } == true)) return
         val samples = RouteSampler.samples(RouteSampler.pieces(progress.navigationRoute.directionsRoute))

@@ -558,6 +558,7 @@ final class NavigationCoordinator: NSObject {
         isNavigating = true
         RouteSuggestions.shared.clearCurrent()   // Fahrt läuft: Vorschlag (und seine Vorschau im Dashboard) ist erledigt
         ChargeMonitor.shared.start()
+        announceDeparture()
         AppModel.shared.location.setNavigating(true)
         subscriptions.removeAll()
 
@@ -637,6 +638,23 @@ final class NavigationCoordinator: NSObject {
     /// Zuletzt mitgeteilte Ankunft je Treffen (am Anfang die erste berechnete)
     @ObservationIgnored private var announcedArrival: [UUID: Date] = [:]
 
+    /// Treffen, deren Partner schon „ist losgefahren“ bekommen haben (je Treffen einmal)
+    @ObservationIgnored private var departedSent: Set<UUID> = []
+
+    /// Losfahren zu einem vereinbarten Treffpunkt: allen, die ich dort treffe, Bescheid geben (Push – auch wenn
+    /// ihre App gerade zu ist). In der App des Partners spielt zusätzlich der Schnipsel „ist losgefahren“.
+    func announceDeparture() {
+        guard let destination else { return }
+        for meetup in AppModel.shared.meetups.accepted
+        where meetup.coordinate.distance(to: destination.coordinate) < 300 && !departedSent.contains(meetup.id) {
+            departedSent.insert(meetup.id)
+            for partner in AppModel.shared.meetups.partners(of: meetup) {
+                AppModel.shared.push.notify(.meetupDeparted, to: partner, meetupId: meetup.id)
+            }
+            Diag.log("Losgefahren gemeldet: \(meetup.placeName)")
+        }
+    }
+
     /// Fährt man zu einem vereinbarten Treffpunkt und verschiebt sich die Ankunft um 5 Minuten oder mehr,
     /// bekommt der Freund automatisch eine Nachricht. Danach gilt die neue Zeit als Maßstab.
     private func checkDelay(eta: Date) {
@@ -652,7 +670,7 @@ final class NavigationCoordinator: NSObject {
             announcedArrival[meetup.id] = eta
             let minutes = Int((late / 60).rounded())
             let text = String(localized: "Ich komme ca. \(minutes) Min. später – neue Ankunft \(ActivityFormat.time(eta))")
-            Task { await AppModel.shared.messages.send(text, to: [meetup.otherId], meetupId: meetup.id, automatic: true) }
+            Task { await AppModel.shared.messages.send(text, to: AppModel.shared.meetups.partners(of: meetup), meetupId: meetup.id, automatic: true) }
             Diag.log("Verspätung gemeldet an \(meetup.otherName): +\(minutes) Min.")
         }
     }

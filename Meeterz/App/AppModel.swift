@@ -115,6 +115,7 @@ final class AppModel {
         await hub.sync(with: friends.rows)
         await routes.refresh()
         await meetups.refresh()
+        await checkMeetupJourneys()
         requestFreshPositions()
     }
 
@@ -228,11 +229,68 @@ final class AppModel {
     /// Letzter Abstand je Treffen und Freund (nähert er sich?)
     @ObservationIgnored private var meetupDistance: [String: Double] = [:]
 
+    /// Treffpartner unterwegs: hatte er beim letzten Blick eine Route zum Treffpunkt? (Schlüssel Treffen-Freund)
+    @ObservationIgnored private var journeyRoute: [String: Bool] = [:]
+    /// Erste gesehene Ankunft (ohne verabredete Uhrzeit der Maßstab für „verspätet sich“)
+    @ObservationIgnored private var lateBaseline: [String: Date] = [:]
+    /// Zuletzt als verspätet gemeldete Ankunft
+    @ObservationIgnored private var lateAnnounced: [String: Date] = [:]
+    /// Wann zuletzt eine Verspätung je Freund gemeldet wurde – als Moment oder als automatische Nachricht
+    /// (nicht beides kurz hintereinander)
+    @ObservationIgnored private var lateNotified: [UUID: Date] = [:]
+
+    /// Kam für diesen Freund gerade (≤ 3 Min.) schon eine Verspätung? Dann liest CarPlay die automatische Nachricht nicht vor.
+    func lateRecentlyNotified(_ id: UUID) -> Bool { Date().timeIntervalSince(lateNotified[id] ?? .distantPast) < 180 }
+    func noteLateNotified(_ id: UUID) { lateNotified[id] = Date() }
+
+    /// „Ist losgefahren“ und „verspätet sich“ – aus den geteilten Routen der Treffpartner. Läuft bei jeder eigenen
+    /// Positionsmeldung und bei jeder Aktualisierung (alle 30 s), damit es auch beim Wartenden im Stand ankommt.
+    func checkMeetupJourneys() async {
+        let now = Date()
+        for m in meetups.accepted {
+            if let at = m.meetAt, abs(at.timeIntervalSince(now)) > 3 * 3600 { continue }
+            for id in meetups.partners(of: m) {
+                guard let friend = friend(id) else { continue }
+                let key = "\(m.id)-\(id)"
+                let route = routes.route(of: id, to: m.coordinate)
+                let had = journeyRoute[key]
+                journeyRoute[key] = route != nil
+                guard let route, route.eta > now else { continue }
+                if lateBaseline[key] == nil { lateBaseline[key] = route.eta }
+
+                // Verspätet: Ankunft 5 Min. nach der verabredeten Zeit (ohne Uhrzeit: nach der ersten gesehenen
+                // Ankunft); danach erst wieder, wenn es noch einmal 10 Min. später wird
+                let reference = lateAnnounced[key] ?? m.meetAt ?? lateBaseline[key]!
+                let isLate = route.eta.timeIntervalSince(reference) >= (lateAnnounced[key] == nil ? 5 * 60 : 10 * 60)
+
+                // Losgefahren: Route zum Treffpunkt ist neu (nicht schon beim ersten Blick da) und er war nicht schon dort
+                let departedKey = "departed-\(key)"
+                let alreadyThere = hub.positions[id].map { $0.coordinate.distance(to: m.coordinate) < 300 } ?? false
+                if had == false, !announced.contains(departedKey), !alreadyThere {
+                    announced.insert(departedKey)
+                    if !isLate {
+                        CarPlayController.shared.friendNotice(.departed, friend: friend, arrival: route.eta)
+                        await sounds.trigger(.departed, friend: friend, key: m.id.uuidString)
+                        continue
+                    }
+                }
+                if isLate {
+                    lateAnnounced[key] = route.eta
+                    guard !lateRecentlyNotified(id) else { continue }   // automatische Nachricht kam gerade
+                    noteLateNotified(id)
+                    CarPlayController.shared.friendNotice(.late, friend: friend, arrival: route.eta)
+                    await sounds.trigger(.late, friend: friend, key: "\(m.id)-\(Int(route.eta.timeIntervalSince1970))")
+                }
+            }
+        }
+    }
+
     /// Prüft bei jeder eigenen Positionsmeldung, ob ein Schnipsel fällig ist.
     /// Der Hinweis in CarPlay erscheint auch bei ausgeschaltetem Soundpaket (der Schnipsel prüft das selbst).
     private func checkSoundMoments(me loc: CLLocation) async {
         let myMoving = loc.speed > 3          // > ~11 km/h
         let now = Date()
+        await checkMeetupJourneys()
 
         for f in friendsOnMap where f.position.age < 45 {
             let id = f.friend.friendId

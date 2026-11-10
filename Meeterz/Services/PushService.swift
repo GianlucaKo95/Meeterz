@@ -13,6 +13,7 @@ final class PushService {
         case meetupProposed = "meetup_proposed"
         case meetupAccepted = "meetup_accepted"
         case meetupDeclined = "meetup_declined"
+        case meetupDeparted = "meetup_departed"
         case message
     }
 

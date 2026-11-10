@@ -113,10 +113,17 @@ extension CarPlayController {
     }
 
     /// Hinweis zu den Momenten des Soundpakets – erscheint zusätzlich zum Schnipsel bzw. der Ansage
-    func friendNotice(_ moment: SoundMoment, friend: FriendRow) {
+    func friendNotice(_ moment: SoundMoment, friend: FriendRow, arrival: Date? = nil) {
         let name = firstName(friend)
         let title: [String]
+        let at = arrival.map { ActivityFormat.time($0) } ?? ""
         switch moment {
+        case .departed: title = arrival == nil
+            ? [String(localized: "\(name) ist zum Treffpunkt losgefahren"), String(localized: "\(name) ist unterwegs")]
+            : [String(localized: "\(name) ist losgefahren – Ankunft \(at)"), String(localized: "\(name) ist unterwegs")]
+        case .late: title = arrival == nil
+            ? [String(localized: "\(name) verspätet sich"), String(localized: "\(name) später")]
+            : [String(localized: "\(name) verspätet sich – Ankunft \(at)"), String(localized: "\(name) später")]
         case .pass: title = [String(localized: "\(name) fährt gerade an dir vorbei"), String(localized: "\(name) fährt vorbei")]
         case .catchUp: title = [String(localized: "\(name) fährt jetzt mit dir"), String(localized: "Mit \(name) unterwegs")]
         case .soon: title = [String(localized: "\(name) ist in ca. 5 Min. am Treffpunkt"), String(localized: "\(name) in 5 Min. da")]

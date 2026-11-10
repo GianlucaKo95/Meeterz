@@ -78,6 +78,11 @@ final class MessagesStore {
     private func deliver(_ m: Message) {
         AppModel.shared.show("\(m.firstName): \(m.body)", isError: false)
         CarPlayController.shared.messageReceived(m)
+        // Automatische Verspätung: kam sie gerade schon als Moment „verspätet sich“, nicht noch einmal vorlesen
+        if m.automatic {
+            if AppModel.shared.lateRecentlyNotified(m.otherId) { return }
+            AppModel.shared.noteLateNotified(m.otherId)
+        }
         // Im Auto vorlesen (Musik wird kurz leiser, Navigationsansagen laufen weiter)
         if CarPlayController.shared.isConnected {
             AppModel.shared.sounds.announce(String(localized: "\(m.firstName) schreibt: \(m.body)"))

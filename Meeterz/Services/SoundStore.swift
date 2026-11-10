@@ -5,13 +5,15 @@ import Supabase
 
 /// Die Momente, in denen ein Freund-Schnipsel abgespielt wird.
 enum SoundMoment: String, CaseIterable, Codable, Identifiable {
-    case pass, catchUp = "catchup", soon, arrived, accepted
+    case pass, catchUp = "catchup", departed, soon, late, arrived, accepted
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .pass: String(localized: "Fährt an dir vorbei")
         case .catchUp: String(localized: "Holt unterwegs zu dir auf")
+        case .departed: String(localized: "Ist zum Treffpunkt losgefahren")
+        case .late: String(localized: "Verspätet sich")
         case .soon: String(localized: "Noch 5 Minuten bis zum Treffpunkt")
         case .arrived: String(localized: "Am Treffpunkt angekommen")
         case .accepted: String(localized: "Nimmt dein Treffen an")
@@ -22,6 +24,8 @@ enum SoundMoment: String, CaseIterable, Codable, Identifiable {
         switch self {
         case .pass: String(localized: "„Hup mal, ich bin's!“")
         case .catchUp: String(localized: "„Na, fahren wir zusammen weiter?“")
+        case .departed: String(localized: "„Bin unterwegs, stell schon mal Kaffee an!“")
+        case .late: String(localized: "„Sorry, wird ein bisschen später!“")
         case .soon: String(localized: "„Bin gleich da, bestell schon mal!“")
         case .arrived: String(localized: "„Wo bleibst du denn?“")
         case .accepted: String(localized: "„Deal, wir sehen uns!“")
@@ -33,6 +37,8 @@ enum SoundMoment: String, CaseIterable, Codable, Identifiable {
         switch self {
         case .pass: String(localized: "\(name) ist gerade an dir vorbeigefahren.")
         case .catchUp: String(localized: "\(name) und du seid jetzt zusammen unterwegs.")
+        case .departed: String(localized: "\(name) ist zum Treffpunkt losgefahren.")
+        case .late: String(localized: "\(name) verspätet sich.")
         case .soon: String(localized: "\(name) ist in etwa fünf Minuten am Treffpunkt.")
         case .arrived: String(localized: "\(name) ist am Treffpunkt angekommen.")
         case .accepted: String(localized: "\(name) hat dein Treffen angenommen.")

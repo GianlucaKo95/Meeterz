@@ -11,7 +11,8 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { apnsBundleId, apnsConfigured, apnsTokenGone, sendApns } from "../_shared/apns.ts";
 import { fcmConfigured, sendFcm } from "../_shared/fcm.ts";
 
-type Kind = "friend_request" | "friend_accepted" | "meetup_proposed" | "meetup_accepted" | "meetup_declined" | "message";
+type Kind = "friend_request" | "friend_accepted" | "meetup_proposed" | "meetup_accepted" | "meetup_declined" | "meetup_departed"
+  | "message";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -130,6 +131,17 @@ async function isAllowed(
         .eq("id", meetupId).eq("from_user", me).eq("to_user", target).limit(1);
       return !!data?.length;
     }
+    case "meetup_departed": {
+      // Nur an Treffpartner: angenommenes Treffen zwischen beiden – oder beide haben im selben Gruppen-Treffen zugesagt
+      if (!meetupId) return false;
+      const { data: m } = await admin.from("meetups").select("from_user, to_user, group_id, status").eq("id", meetupId).single();
+      if (!m || m.status !== "accepted" || ![m.from_user, m.to_user].includes(me)) return false;
+      if ([m.from_user, m.to_user].includes(target)) return true;
+      if (!m.group_id) return false;
+      const { data } = await admin.from("meetups").select("id").eq("group_id", m.group_id).eq("status", "accepted")
+        .or(`from_user.eq.${target},to_user.eq.${target}`).limit(1);
+      return !!data?.length;
+    }
     case "meetup_accepted":
     case "meetup_declined": {
       if (!meetupId) return false;
@@ -168,5 +180,9 @@ function message(kind: Kind, name: string, place?: string, text?: string) {
         : { title: "Treffen steht", body: `${name} kommt.`, ...loc("meetup_accepted_noplace", [name]) };
     case "meetup_declined":
       return { title: "Treffen abgesagt", body: `${name} schafft es diesmal nicht.`, ...loc("meetup_declined", [name]) };
+    case "meetup_departed":
+      return place
+        ? { title: `${name} ist losgefahren`, body: `Auf dem Weg zu ${place}.`, ...loc("meetup_departed", [place], [name]) }
+        : { title: `${name} ist losgefahren`, body: "Auf dem Weg zum Treffpunkt.", ...loc("meetup_departed_noplace", [], [name]) };
   }
 }

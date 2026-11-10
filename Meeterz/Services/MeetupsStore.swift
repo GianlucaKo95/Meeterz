@@ -20,6 +20,9 @@ final class MeetupsStore {
     /// Gruppen-Treffen: weitere Teilnehmer, die zugesagt haben (je Treffen-ID, ohne mich und ohne otherId)
     private(set) var groupPartners: [UUID: [UUID]] = [:]
 
+    /// Alle, die ich bei diesem Treffen treffe (direkt plus weitere Zusagen der Gruppe)
+    func partners(of meetup: Meetup) -> [UUID] { [meetup.otherId] + (groupPartners[meetup.id] ?? []) }
+
     /// Trifft mich dieser Freund bei diesem angenommenen Treffen? (direkt oder als Mitglied derselben Gruppe)
     func isPartner(_ friendId: UUID, in meetup: Meetup) -> Bool {
         meetup.otherId == friendId || groupPartners[meetup.id]?.contains(friendId) == true

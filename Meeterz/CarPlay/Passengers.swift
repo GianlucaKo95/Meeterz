@@ -19,18 +19,20 @@ final class Passengers {
     var riding: Set<UUID> { ridingNow.union(hiddenForMe).subtracting(meetingPartners) }
 
     /// Treffen, bei denen der Freund schon angekommen ist (danach gilt wieder „ausgeblendet“)
-    @ObservationIgnored private var arrivedAt: Set<UUID> = []
+    @ObservationIgnored private var arrivedAt: Set<String> = []
 
     /// Freunde mit angenommenem Treffen, die noch nicht am Treffpunkt sind
     var meetingPartners: Set<UUID> {
         let app = AppModel.shared
         var ids = Set<UUID>()
-        for m in app.meetups.accepted where !arrivedAt.contains(m.id) {
-            if let p = app.hub.positions[m.otherId], p.coordinate.distance(to: m.coordinate) < 100 {
-                arrivedAt.insert(m.id)
-                continue
+        for m in app.meetups.accepted {
+            for partner in app.meetups.partners(of: m) where !arrivedAt.contains("\(m.id)-\(partner)") {
+                if let p = app.hub.positions[partner], p.coordinate.distance(to: m.coordinate) < 100 {
+                    arrivedAt.insert("\(m.id)-\(partner)")
+                    continue
+                }
+                ids.insert(partner)
             }
-            ids.insert(m.otherId)
         }
         return ids
     }

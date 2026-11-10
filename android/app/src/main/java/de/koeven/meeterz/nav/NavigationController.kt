@@ -59,32 +59,6 @@ object NavigationController : MapboxNavigationObserver {
     private var announcer = Announcer()
     /** Auf 2 km verschobene Autobahnansage (Abschnitt, Ansage) */
     private var deferred: Pair<Int, Voice>? = null
-    /** Im Stand kurz nach einem Abschnittswechsel zurückgehaltene Ansage (wie StandstillHold auf iOS) */
-    private var held: Pair<Int, Voice>? = null
-    private var lastStepIndex: Int? = null
-
-    /**
-     * Stillstand kurz nach einem Abschnittswechsel – typisch an der Ampel vor der Abbiegung: Im Stand springt die
-     * GPS-Position über den Abbiegepunkt (Mitte der Kreuzung), Mapbox wechselt schon zum nächsten Abschnitt samt
-     * Ansage. Dann zurückhalten, bis das Auto fährt oder 40 m auf dem neuen Abschnitt ist.
-     */
-    private fun shouldHold(progress: RouteProgress): Boolean {
-        val leg = progress.currentLegProgress ?: return false
-        val step = leg.currentStepProgress ?: return false
-        if (step.stepIndex <= 0 || step.distanceTraveled >= 40f) return false
-        val loc = AppState.lastLocation ?: return false
-        if (System.currentTimeMillis() - loc.time > 5_000 || !loc.hasSpeed()) return false
-        return loc.speed < 1.5f
-    }
-
-    private fun describe(progress: RouteProgress): String {
-        val loc = AppState.lastLocation ?: return "ohne Position"
-        val step = progress.currentLegProgress?.currentStepProgress
-        val point = step?.step?.maneuver()?.location()
-        val toManeuver = point?.let { de.koeven.meeterz.ev.ChargePlanner.distance(loc.latitude, loc.longitude, it.latitude(), it.longitude()).toInt() }
-        return "${(loc.speed * 3.6).toInt()} km/h, GPS ±${loc.accuracy.toInt()} m, ${toManeuver ?: "?"} m vom Abbiegepunkt, " +
-            "${step?.distanceTraveled?.toInt() ?: 0} m auf dem neuen Abschnitt"
-    }
     private var navigation: MapboxNavigation? = null
 
     fun init(context: Context) {
@@ -135,8 +109,6 @@ object NavigationController : MapboxNavigationObserver {
         val nav = navigation ?: return
         announcer = Announcer()
         deferred = null
-        held = null
-        lastStepIndex = null
         nav.setNavigationRoutes(routes)
         nav.startTripSession()
         _guidance.value = Guidance(destination)
@@ -216,23 +188,6 @@ object NavigationController : MapboxNavigationObserver {
             remainingSeconds = progress.durationRemaining,
         )
         if (progress.currentState == RouteProgressState.COMPLETE) stop()
-        // Abschnittswechsel im Stand protokollieren (Nachweis für „Ansage, bevor ich abgebogen bin“)
-        val stepIndex = progress.currentLegProgress?.currentStepProgress?.stepIndex
-        if (stepIndex != null && lastStepIndex != null && stepIndex > lastStepIndex!! && stepIndex > 0 &&
-            AppState.lastLocation?.let { it.hasSpeed() && it.speed < 1.5f } == true) {
-            Log.i("Meeterz", "Abschnittswechsel im Stand: ${describe(progress)}")
-        }
-        lastStepIndex = stepIndex
-        // Gehaltene Ansage, sobald das Auto wieder fährt
-        held?.let { (index, voice) ->
-            val leg = MapboxRoute.legState(progress) ?: return@let
-            if (leg.stepIndex != index) { held = null; return@let }
-            if (!shouldHold(progress)) {
-                held = null
-                Log.i("Meeterz", "Gehaltene Ansage jetzt (fährt wieder): ${voice.text}")
-                speak(voice, leg, isDeferred = false)
-            }
-        }
         // Verschobene Autobahnansage bei 2 km sprechen
         deferred?.let { (stepIndex, voice) ->
             val leg = MapboxRoute.legState(progress) ?: return@let
@@ -248,12 +203,6 @@ object NavigationController : MapboxNavigationObserver {
         val leg = _progress.value?.let(MapboxRoute::legState)
         val voice = Voice(v.distanceAlongGeometry() ?: 0.0, v.announcement() ?: return@VoiceInstructionsObserver)
         if (leg == null) { speaker?.say(voice.text); return@VoiceInstructionsObserver }
-        val progress = _progress.value
-        if (progress != null && shouldHold(progress)) {
-            Log.i("Meeterz", "Ansage gehalten (${describe(progress)}): ${voice.text}")
-            held = leg.stepIndex to voice
-            return@VoiceInstructionsObserver
-        }
         speak(voice, leg, isDeferred = false)
     }
 

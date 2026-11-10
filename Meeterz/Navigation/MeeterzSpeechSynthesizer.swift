@@ -118,27 +118,6 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
     /// Auf 2 km verschobene Autobahn-Ansage und das Abo auf den Fortschritt, das sie zur richtigen Stelle auslöst
     private var speakingDeferred = false
     private var deferredSubscription: AnyCancellable?
-    /// Im Stand kurz nach einem Abschnittswechsel zurückgehaltene Ansage (StandstillHold)
-    private var speakingHeld = false
-    private var holdSubscription: AnyCancellable?
-
-    private func holdUntilMoving(_ instruction: SpokenInstruction, stepIndex: Int) {
-        holdSubscription = navigationProvider.mapboxNavigation.navigation().routeProgress
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] state in
-                MainActor.assumeIsolated {
-                    guard let self, let leg = state?.routeProgress.currentLegProgress else { return }
-                    guard leg.stepIndex == stepIndex else { self.holdSubscription = nil; return }   // neue Route/Schritt
-                    guard !StandstillHold.shouldHold(leg) else { return }
-                    self.holdSubscription = nil
-                    Diag.log("Gehaltene Ansage jetzt (fährt wieder): \(instruction.text)")
-                    self.speakingHeld = true
-                    self.speak(instruction, during: leg, locale: self.locale)
-                    self.speakingHeld = false
-                }
-            }
-    }
-
     /// Abbiegung, deren erste Ansage schon „Am Ende der Straße …“ / „An der Ampel …“ war
     private var landmarkAnnounced: String?
 
@@ -195,13 +174,6 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
         if MotorwayContinuation.staysOnMotorway(legProgress) {
             Diag.log("Ansage ausgelassen (bleibt auf der Autobahn): \(instruction.text)")
             subject.send(VoiceInstructionEvents.DidSpeak(instruction: instruction))
-            return
-        }
-        // Im Stand gleich nach einem Abschnittswechsel (Ampel vor der Abbiegung): erst ansagen, wenn das Auto fährt
-        if !speakingHeld, StandstillHold.shouldHold(legProgress) {
-            Diag.log("Ansage gehalten (\(StandstillHold.describe(legProgress))): \(instruction.text)")
-            subject.send(VoiceInstructionEvents.DidSpeak(instruction: instruction))
-            holdUntilMoving(instruction, stepIndex: legProgress.stepIndex)
             return
         }
         // Autobahn: erste Ansage einer Ausfahrt erst bei 2 km (Mapbox sagt sie schon bei ~3 km)

@@ -387,31 +387,3 @@ enum StepAnnouncements {
         return out
     }
 }
-
-/// Stillstand kurz nach einem Abschnittswechsel – typisch an der Ampel vor der Abbiegung: Man steht 10–20 m vor dem
-/// Abbiegepunkt (Mitte der Kreuzung), im Stand springt die GPS-Position, und schiebt sie den Pfeil über den Punkt,
-/// wechselt Mapbox schon zum nächsten Abschnitt – samt dessen Ansage, obwohl man noch nicht abgebogen ist (10.11.).
-/// Dann die Ansage zurückhalten, bis das Auto fährt oder sichtbar auf dem neuen Abschnitt ist.
-enum StandstillHold {
-    /// Bis hierhin (m) auf dem neuen Abschnitt gilt „gerade gewechselt“
-    static let window: CLLocationDistance = 40
-    /// Darunter (m/s, ≈ 5 km/h) gilt das Auto als stehend
-    static let standing: CLLocationSpeed = 1.5
-
-    @MainActor static func shouldHold(_ leg: RouteLegProgress) -> Bool {
-        guard leg.stepIndex > 0,                                            // Losfahren: sofort ansagen
-              leg.currentStepProgress.distanceTraveled < window,
-              let loc = AppModel.shared.location.lastLocation,
-              Date().timeIntervalSince(loc.timestamp) < 5, loc.speed >= 0
-        else { return false }
-        return loc.speed < standing
-    }
-
-    /// Für das Protokoll: Tempo, GPS-Genauigkeit und Abstand der echten Position zum gerade „passierten“ Abbiegepunkt
-    @MainActor static func describe(_ leg: RouteLegProgress) -> String {
-        guard let loc = AppModel.shared.location.lastLocation else { return "ohne Position" }
-        let toManeuver = loc.coordinate.distance(to: leg.currentStep.maneuverLocation)
-        return "\(Int(max(loc.speed, 0) * 3.6)) km/h, GPS ±\(Int(loc.horizontalAccuracy)) m, " +
-            "\(Int(toManeuver)) m vom Abbiegepunkt, \(Int(leg.currentStepProgress.distanceTraveled)) m auf dem neuen Abschnitt"
-    }
-}

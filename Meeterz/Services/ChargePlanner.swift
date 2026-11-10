@@ -74,7 +74,11 @@ struct ChargeAvailability: Hashable {
     var free = 0
     var occupied = 0
     var outOfService = 0
+    /// Ad-hoc-Preis inkl. MwSt. (€/kWh, Mobilithek), wenn der Betreiber ihn meldet
+    var priceKwh: Double?
     var total: Int { free + occupied + outOfService }
+    /// „0,59 €/kWh“
+    var priceText: String? { priceKwh.map { $0.formatted(.currency(code: "EUR").precision(.fractionLength(2))) + "/kWh" } }
     var full: Bool { total > 0 && free == 0 && occupied > 0 }
     var allOutOfService: Bool { total > 0 && outOfService == total }
     /// „2 von 4 frei“

@@ -82,7 +82,7 @@ struct ChargePlanCard: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(stop.site.title).font(.subheadline).foregroundStyle(Theme.text).lineLimit(1)
                         if let a = stop.availability {
-                            Label(a.text, systemImage: a.full ? "hourglass" : "circle.fill")
+                            Label([a.text, a.priceText].compactMap { $0 }.joined(separator: " · "), systemImage: a.full ? "hourglass" : "circle.fill")
                                 .font(.caption2.weight(.semibold))
                                 .foregroundStyle(a.free > 0 ? Theme.go : Theme.danger)
                         }

@@ -98,6 +98,10 @@ private fun Stops(plan: ChargePlanner.Plan) {
             Text("${(s.distanceFromStart / 1000).toInt()} km", Modifier.width(56.dp), style = MaterialTheme.typography.bodySmall)
             Column {
                 Text(s.site.title, fontWeight = FontWeight.SemiBold)
+                s.availability?.let { a ->
+                    Text(listOfNotNull(a.text, a.priceText).joinToString(" · "), style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold, color = if (a.free > 0) MeeterzColors.mintLight else androidx.compose.ui.graphics.Color(0xFFD92E36))
+                }
                 Text("${ChargeSiteText.power(s.site)} · ${Math.round(s.arrivalPercent)} → ${Math.round(s.departurePercent)} % · ${Math.round(s.chargeTime / 60)} Min.",
                     style = MaterialTheme.typography.bodySmall)
             }

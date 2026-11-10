@@ -77,7 +77,11 @@ data class ChargeSite(
 }
 
 /** Live-Belegung eines Standorts */
-data class ChargeAvailability(val free: Int = 0, val occupied: Int = 0, val outOfService: Int = 0) {
+data class ChargeAvailability(val free: Int = 0, val occupied: Int = 0, val outOfService: Int = 0,
+                              /** Ad-hoc-Preis inkl. MwSt. (€/kWh, Mobilithek) */
+                              val priceKwh: Double? = null) {
+    /** „0,59 €/kWh“ */
+    val priceText get() = priceKwh?.let { String.format(java.util.Locale.GERMANY, "%.2f €/kWh", it) }
     val total get() = free + occupied + outOfService
     val full get() = total > 0 && free == 0 && occupied > 0
     val allOutOfService get() = total > 0 && outOfService == total

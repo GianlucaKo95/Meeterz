@@ -2,9 +2,10 @@ import Foundation
 import CoreLocation
 import Compression
 import MapboxDirections
+import Supabase
 
-/// Live-Belegung der Ladesäulen. Bisher offen verfügbar: Schweiz (Bundesamt für Energie, alle ~1 Min. aktualisiert).
-/// Weitere Länder (z. B. Deutschland über die Mobilithek) kommen hier dazu, sobald ein Zugang besteht.
+/// Live-Belegung der Ladesäulen: Schweiz (Bundesamt für Energie, alle ~1 Min. aktualisiert) direkt,
+/// Deutschland über die Mobilithek (AFIR-Daten der Betreiber, von unserem Server gesammelt – RPC charge_availability).
 @MainActor
 final class ChargeStatusService {
     static let shared = ChargeStatusService()
@@ -17,11 +18,11 @@ final class ChargeStatusService {
     /// Belegung für alle Standorte mit Ladepunkt-IDs entlang der Route (lädt die Daten bei Bedarf, max. alle 3 Min.)
     func availability(along route: Route) async -> [ChargeSite: ChargeAvailability] {
         guard let coords = route.shape?.coordinates, !coords.isEmpty else { return [:] }
-        // Nur laden, wenn die Route die Schweiz berührt
+        var result = await germany(along: coords)
+        // Schweiz nur laden, wenn die Route sie berührt
         let inSwitzerland = coords.contains { $0.latitude > 45.8 && $0.latitude < 47.9 && $0.longitude > 5.9 && $0.longitude < 10.5 }
-        guard inSwitzerland else { return [:] }
+        guard inSwitzerland else { return result }
         await refreshSwiss()
-        var result: [ChargeSite: ChargeAvailability] = [:]
         for site in ChargeSites.all where !site.evseIds.isEmpty {
             var a = ChargeAvailability()
             for id in site.evseIds {
@@ -34,6 +35,48 @@ final class ChargeStatusService {
             }
             if a.total > 0 { result[site] = a }
         }
+        return result
+    }
+
+    /// Mobilithek-Standorte im Korridor der Route, je dem nächsten eigenen Standort (bis 150 m) zugeordnet
+    private func germany(along coords: [CLLocationCoordinate2D]) async -> [ChargeSite: ChargeAvailability] {
+        struct Row: Decodable {
+            let lat: Double, lng: Double
+            let free: Int, occupied: Int, out_of_service: Int
+            let price_kwh: Double?
+        }
+        struct Params: Encodable { let lats: [Double]; let lngs: [Double] }
+        // Punkte alle ~5 km (höchstens 400)
+        var samples: [CLLocationCoordinate2D] = []
+        for c in coords where samples.last.map({ $0.distance(to: c) >= 5_000 }) ?? true { samples.append(c) }
+        if let last = coords.last { samples.append(last) }
+        let step = max(1, samples.count / 400)
+        let picked = stride(from: 0, to: samples.count, by: step).map { samples[$0] }
+        let rows: [Row]
+        do {
+            rows = try await Backend.client.rpc("charge_availability", params: Params(
+                lats: picked.map(\.latitude), lngs: picked.map(\.longitude))).execute().value
+        } catch {
+            Diag.log("Ladesäulen-Belegung DE: \(error.localizedDescription)")
+            return [:]
+        }
+        guard !rows.isEmpty else { return [:] }
+        // Eigene Standorte im selben Bereich, dann je Meldung den nächsten
+        let lats = rows.map(\.lat), lngs = rows.map(\.lng)
+        let minLat = lats.min()! - 0.01, maxLat = lats.max()! + 0.01, minLng = lngs.min()! - 0.015, maxLng = lngs.max()! + 0.015
+        let nearby = ChargeSites.all.filter { $0.coordinate.latitude > minLat && $0.coordinate.latitude < maxLat
+            && $0.coordinate.longitude > minLng && $0.coordinate.longitude < maxLng }
+        var result: [ChargeSite: ChargeAvailability] = [:]
+        for row in rows {
+            let here = CLLocationCoordinate2D(latitude: row.lat, longitude: row.lng)
+            guard let site = nearby.min(by: { $0.coordinate.distance(to: here) < $1.coordinate.distance(to: here) }),
+                  site.coordinate.distance(to: here) < 150 else { continue }
+            var a = result[site] ?? ChargeAvailability()
+            a.free += row.free; a.occupied += row.occupied; a.outOfService += row.out_of_service
+            if let p = row.price_kwh { a.priceKwh = min(a.priceKwh ?? p, p) }
+            result[site] = a
+        }
+        Diag.log("Ladesäulen-Belegung DE: \(rows.count) Standorte gemeldet, \(result.count) zugeordnet")
         return result
     }
 

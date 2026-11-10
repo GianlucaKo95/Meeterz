@@ -43,10 +43,11 @@ final class SuggestionCardView: UIView {
         setNeedsLayout()
     }
 
-    /// Breite vorgeben, Höhe ergibt sich aus den Zeilen
-    func fit(width: CGFloat) -> CGSize {
-        let lines = destination.isHidden ? 2 : 3
-        return CGSize(width: width, height: CGFloat(lines) * 19 + 18)
+    /// Breite nach der längsten Zeile (höchstens `maxWidth`, dann wird die Adresse gekürzt), Höhe nach Zeilenzahl
+    func fit(maxWidth: CGFloat) -> CGSize {
+        let labels = destination.isHidden ? [title, detail] : [title, destination, detail]
+        let content = labels.map { ceil($0.intrinsicContentSize.width) }.max() ?? 0
+        return CGSize(width: min(maxWidth, max(180, content + 50)), height: CGFloat(labels.count) * 19 + 18)
     }
 
     override func layoutSubviews() {
@@ -66,8 +67,7 @@ final class SuggestionCardView: UIView {
         if view.superview !== host { view.removeFromSuperview(); host.addSubview(view) }
         view.show(suggestion)
         let safe = host.bounds.inset(by: host.safeAreaInsets)
-        let width = min(300, max(180, safe.width - 20))
-        let size = view.fit(width: width)
+        let size = view.fit(maxWidth: min(380, max(180, safe.width - 20)))
         view.frame = CGRect(x: rightAligned ? safe.maxX - size.width - 10 : safe.minX + 10, y: safe.minY + 10,
                             width: size.width, height: size.height)
         card = view

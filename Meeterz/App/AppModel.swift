@@ -220,45 +220,66 @@ final class AppModel {
     // MARK: Sound-Pack-Momente
 
     @ObservationIgnored private var announced = Set<String>()
-
-    /// Begegnung („fährt vorbei“, „holt auf“) höchstens alle 15 Minuten je Freund
-    /// (Schlüssel wechselt mit dem Viertelstunden-Takt)
-    private func encounterKey(_ id: UUID) -> String {
-        "encounter-\(id)-\(Int(Date().timeIntervalSince1970 / (15 * 60)))"
-    }
+    /// Letzte Begegnung je Freund (höchstens alle 15 Minuten eine)
+    @ObservationIgnored private var lastEncounter: [UUID: Date] = [:]
+    /// Treffen, bei denen der Freund schon einmal deutlich entfernt war (> 300 m) – erst dann sind „gleich da“
+    /// und „angekommen“ echte Ereignisse. Wer schon dort ist (Treffen bei ihm zu Hause), „kommt“ nicht „an“.
+    @ObservationIgnored private var meetupAway = Set<String>()
+    /// Letzter Abstand je Treffen und Freund (nähert er sich?)
+    @ObservationIgnored private var meetupDistance: [String: Double] = [:]
 
     /// Prüft bei jeder eigenen Positionsmeldung, ob ein Schnipsel fällig ist.
     /// Der Hinweis in CarPlay erscheint auch bei ausgeschaltetem Soundpaket (der Schnipsel prüft das selbst).
     private func checkSoundMoments(me loc: CLLocation) async {
         let myMoving = loc.speed > 3          // > ~11 km/h
+        let now = Date()
 
         for f in friendsOnMap where f.position.age < 45 {
+            let id = f.friend.friendId
             let friendSpeed = f.position.speed ?? 0
-            Passengers.shared.observe(f.friend.friendId, f.position)
+            Passengers.shared.observe(id, f.position)
 
             // 1. Begegnung: Freund fährt an mir vorbei (Gegenrichtung) oder einer holt zum anderen auf
-            //    (gleiche Richtung, vorher weit weg) – höchstens alle 15 Min. je Freund.
-            if myMoving, friendSpeed > 3, let encounter = Passengers.shared.encounter(f.friend.friendId),
-               !announced.contains(encounterKey(f.friend.friendId)) {
-                announced.insert(encounterKey(f.friend.friendId))
+            //    (gleiche Richtung, vorher weit weg) – höchstens alle 15 Min. je Freund. (Vorher Viertelstunden-Takt:
+            //    an der Taktgrenze konnte dieselbe Begegnung zweimal kurz hintereinander kommen.)
+            if myMoving, friendSpeed > 3, now.timeIntervalSince(lastEncounter[id] ?? .distantPast) > 15 * 60,
+               let encounter = Passengers.shared.encounter(id) {
+                lastEncounter[id] = now
                 let moment: SoundMoment = encounter == .pass ? .pass : .catchUp
                 CarPlayController.shared.friendNotice(moment, friend: f.friend)
                 await sounds.trigger(moment, friend: f.friend, cooldown: 15 * 60)
             }
 
-            // 2./3. Treffpunkt: Freund etwa 5 Min. entfernt bzw. angekommen (je Treffen einmal)
-            for m in meetups.accepted where m.otherId == f.friend.friendId {
+            // 2./3. Treffpunkt: Freund etwa 5 Min. entfernt bzw. angekommen (je Treffen einmal) – nur für Treffen,
+            // die jetzt anstehen (ohne Uhrzeit oder höchstens 3 Stunden davor/danach), nicht für morgen
+            for m in meetups.accepted where meetups.isPartner(id, in: m) {
+                if let at = m.meetAt, abs(at.timeIntervalSince(now)) > 3 * 3600 { continue }
+                let key = "\(m.id)-\(id)"
                 let d = f.position.coordinate.distance(to: m.coordinate)
-                let arrivedKey = "arrived-\(m.id)"
-                let soonKey = "soon-\(m.id)"
+                let previous = meetupDistance[key]
+                meetupDistance[key] = d
+                if d > 300 { meetupAway.insert(key) }
+                guard meetupAway.contains(key) else { continue }   // war nie weg: nichts anzukündigen
+                let arrivedKey = "arrived-\(m.id)-\(id)"
+                let soonKey = "soon-\(m.id)-\(id)"
                 if d < 100, !announced.contains(arrivedKey) {
                     announced.insert(arrivedKey)
                     announced.insert(soonKey)
                     CarPlayController.shared.friendNotice(.arrived, friend: f.friend)
                     await sounds.trigger(.arrived, friend: f.friend, key: m.id.uuidString)
                 } else if d > 150, !announced.contains(soonKey) {
-                    let eta = d / max(friendSpeed, 8)       // mind. ~29 km/h als Annahme
-                    if eta < 300 {
+                    // Fahrzeit: aus seiner geteilten Route zum Treffpunkt, sonst nur wenn er fährt und näher kommt
+                    // (Luftlinie × 1,3 bei mind. ~29 km/h). Vorher reichte „weniger als 2,4 km weg“ – auch wer
+                    // zu Hause in der Nähe saß, war dann angeblich „in fünf Minuten da“.
+                    let eta: TimeInterval?
+                    if let route = routes.route(of: id, to: m.coordinate) {
+                        eta = route.eta.timeIntervalSince(now)
+                    } else if friendSpeed > 2, let previous, d < previous - 20 {
+                        eta = d * 1.3 / max(friendSpeed, 8)
+                    } else {
+                        eta = nil
+                    }
+                    if let eta, eta > 0, eta < 330 {
                         announced.insert(soonKey)
                         CarPlayController.shared.friendNotice(.soon, friend: f.friend)
                         await sounds.trigger(.soon, friend: f.friend, key: m.id.uuidString)

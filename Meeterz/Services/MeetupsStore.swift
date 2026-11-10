@@ -17,6 +17,13 @@ final class MeetupsStore {
     var incomingPending: [Meetup] { meetups.filter { $0.incoming && $0.isPending } }
     var outgoingPending: [Meetup] { meetups.filter { !$0.incoming && $0.isPending } }
     var accepted: [Meetup] { meetups.filter(\.isAccepted) }
+    /// Gruppen-Treffen: weitere Teilnehmer, die zugesagt haben (je Treffen-ID, ohne mich und ohne otherId)
+    private(set) var groupPartners: [UUID: [UUID]] = [:]
+
+    /// Trifft mich dieser Freund bei diesem angenommenen Treffen? (direkt oder als Mitglied derselben Gruppe)
+    func isPartner(_ friendId: UUID, in meetup: Meetup) -> Bool {
+        meetup.otherId == friendId || groupPartners[meetup.id]?.contains(friendId) == true
+    }
 
     /// Gelegenheiten ohne offenen Vorschlag und nicht weggeklickt
     var visibleCandidates: [MeetupCandidate] {
@@ -74,6 +81,7 @@ final class MeetupsStore {
             }
             let changed = meetups != rows
             meetups = rows
+            await refreshGroupPartners()
             if changed { WidgetSnapshotWriter.shared.update(force: true) }
             Task { await DepartureReminder.shared.refresh() }
         }
@@ -131,6 +139,18 @@ final class MeetupsStore {
         enum CodingKeys: String, CodingKey {
             case userId = "user_id", displayName = "display_name", status, organizer
         }
+    }
+
+    private func refreshGroupPartners() async {
+        let me = AppModel.shared.profile?.id
+        var result: [UUID: [UUID]] = [:]
+        var byGroup: [UUID: [GroupMember]] = [:]
+        for m in accepted {
+            guard let gid = m.groupId else { continue }
+            if byGroup[gid] == nil { byGroup[gid] = await groupMembers(gid) }
+            result[m.id] = byGroup[gid]!.filter { $0.status == "accepted" && $0.userId != me && $0.userId != m.otherId }.map(\.userId)
+        }
+        groupPartners = result
     }
 
     func groupMembers(_ groupId: UUID) async -> [GroupMember] {

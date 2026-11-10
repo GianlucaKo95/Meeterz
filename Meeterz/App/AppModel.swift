@@ -213,6 +213,7 @@ final class AppModel {
         guard let profile else { return }
         await hub.publish(loc, userId: profile.id, sharingEnabled: profile.isSharingNow)
         await checkSoundMoments(me: loc)
+        await meetups.checkArrival(at: loc)
         WidgetSnapshotWriter.shared.update()
     }
 

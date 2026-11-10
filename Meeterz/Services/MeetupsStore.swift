@@ -148,6 +148,21 @@ final class MeetupsStore {
         }
     }
 
+    /// Treffen, für die ich meine Ankunft schon gemeldet habe
+    @ObservationIgnored private var arrivedSent: Set<UUID> = []
+
+    /// Am Treffpunkt angekommen (< 100 m): beim Server melden. Sind alle mit Zusage da, löst der Server das
+    /// Treffen auf und es verschwindet aus der App (10.11.).
+    func checkArrival(at location: CLLocation) async {
+        for m in accepted where !arrivedSent.contains(m.id)
+            && location.coordinate.distance(to: m.coordinate) < 100 {
+            arrivedSent.insert(m.id)
+            let done: Bool = (try? await client.rpc("arrive_at_meetup", params: ["p_meetup": m.id]).execute().value) ?? false
+            Diag.log("Am Treffpunkt \(m.placeName) angekommen\(done ? " – alle da, Treffen aufgelöst" : "")")
+            if done { await refreshMeetups() }
+        }
+    }
+
     func cancel(_ meetup: Meetup) async {
         _ = try? await client.rpc("cancel_meetup", params: ["meetup_id": meetup.id]).execute()
         await refreshMeetups()

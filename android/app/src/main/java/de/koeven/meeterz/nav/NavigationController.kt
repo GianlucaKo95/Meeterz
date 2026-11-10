@@ -80,14 +80,14 @@ object NavigationController : MapboxNavigationObserver {
         navigation = null
     }
 
-    /** Routen zum Ziel planen (schnellste zuerst, dazu Alternativen) */
-    suspend fun plan(context: Context, from: Point, to: Destination): List<NavigationRoute> {
+    /** Routen zum Ziel planen (schnellste zuerst, dazu Alternativen); `via` = Zwischenziele, z. B. Ladestopps */
+    suspend fun plan(context: Context, from: Point, to: Destination, via: List<Point> = emptyList()): List<NavigationRoute> {
         val nav = navigation ?: return emptyList()
         val options = RouteOptions.builder()
             .applyDefaultNavigationOptions()
             .applyLanguageAndVoiceUnitOptions(context)
-            .coordinatesList(listOf(from, Point.fromLngLat(to.lng, to.lat)))
-            .alternatives(true)
+            .coordinatesList(listOf(from) + via + Point.fromLngLat(to.lng, to.lat))
+            .alternatives(via.isEmpty())
             .build()
         return suspendCoroutine { cont ->
             nav.requestRoutes(options, object : NavigationRouterCallback {

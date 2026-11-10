@@ -25,6 +25,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 import android.widget.Toast
 import de.koeven.meeterz.data.MessagesStore
+import de.koeven.meeterz.ev.ChargePlanner
+import androidx.compose.material.icons.filled.ElectricCar
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.People
@@ -148,6 +150,9 @@ fun MapScreen() {
     var preview by remember { mutableStateOf<Pair<NavigationController.Destination, List<NavigationRoute>>?>(null) }
     var planning by remember { mutableStateOf(false) }
     var showFriends by remember { mutableStateOf(false) }
+    var showEv by remember { mutableStateOf(false) }
+    /** Übernommener Ladeplan: Vorschau-Route führt schon über die Säulen */
+    var adopted by remember { mutableStateOf<ChargePlanner.Plan?>(null) }
     val favorites by AppState.favorites.items.collectAsState()
     val car by AppState.vehicle.status.collectAsState()
 
@@ -159,8 +164,16 @@ fun MapScreen() {
         scope.launch {
             val routes = NavigationController.plan(context, Point.fromLngLat(me.longitude, me.latitude), dest)
             planning = false
-            if (routes.isNotEmpty()) preview = dest to routes
+            if (routes.isNotEmpty()) { preview = dest to routes; adopted = null }
         }
+    }
+
+    /** Ladestopps als Zwischenziele in die Route nehmen */
+    suspend fun adopt(dest: NavigationController.Destination, plan: ChargePlanner.Plan) {
+        val me = AppState.lastLocation ?: return
+        val routes = NavigationController.plan(context, Point.fromLngLat(me.longitude, me.latitude), dest,
+            via = plan.stops.map { Point.fromLngLat(it.site.lng, it.site.lat) })
+        if (routes.isNotEmpty()) { preview = dest to routes; adopted = plan }
     }
     LaunchedEffect(query) {
         delay(300)   // erst suchen, wenn kurz nicht getippt wird
@@ -200,6 +213,7 @@ fun MapScreen() {
                                     Modifier.padding(horizontal = 10.dp, vertical = 6.dp), fontWeight = FontWeight.SemiBold)
                             }
                         }
+                        FilledTonalIconButton(onClick = { showEv = true }) { Icon(Icons.Default.ElectricCar, "E-Auto") }
                         FilledTonalIconButton(onClick = { showFriends = true }) { Icon(Icons.Default.People, "Freunde") }
                     }
                 }
@@ -220,11 +234,13 @@ fun MapScreen() {
             }
             if (planning) CircularProgressIndicator(Modifier.align(Alignment.Center))
             if (showFriends) FriendsScreen(onClose = { showFriends = false })
+            if (showEv) EvSettingsDialog(onClose = { showEv = false })
             preview?.let { (dest, routes) ->
                 PreviewCard(dest, routes, Modifier.align(Alignment.BottomCenter),
                     onSave = { kind, label -> AppState.favorites.save(kind, label, dest.address, dest.lat, dest.lng) },
                     onStart = { NavigationController.start(routes, dest); preview = null; query = "" },
-                    onCancel = { preview = null })
+                    onCancel = { preview = null; adopted = null },
+                    charge = { ChargePlanSection(routes.first(), adopted) { plan -> adopt(dest, plan) } })
             }
         }
     }
@@ -232,7 +248,8 @@ fun MapScreen() {
 
 @Composable
 private fun PreviewCard(dest: NavigationController.Destination, routes: List<NavigationRoute>, modifier: Modifier,
-                        onSave: (String, String) -> Unit, onStart: () -> Unit, onCancel: () -> Unit) {
+                        onSave: (String, String) -> Unit, onStart: () -> Unit, onCancel: () -> Unit,
+                        charge: @Composable () -> Unit = {}) {
     var saved by remember(dest) { mutableStateOf(false) }
     val r = routes.first().directionsRoute
     Surface(modifier.fillMaxWidth().navigationBarsPadding().padding(12.dp), shape = RoundedCornerShape(20.dp), shadowElevation = 6.dp) {
@@ -244,6 +261,7 @@ private fun PreviewCard(dest: NavigationController.Destination, routes: List<Nav
                 AssistChip(onClick = { onSave("work", "Arbeit"); saved = true }, label = { Text("Als Arbeit") })
                 AssistChip(onClick = { onSave("other", dest.name); saved = true }, label = { Text("Merken") })
             }
+            charge()
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedButton(onClick = onCancel) { Text("Abbrechen") }
                 Button(onClick = onStart, modifier = Modifier.weight(1f)) { Text("Los") }

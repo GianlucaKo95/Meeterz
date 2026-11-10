@@ -69,6 +69,14 @@ android {
     }
 }
 
+// Fahrzeugkatalog und Ladesäulen: dieselben Dateien wie in der iOS-App (eine Quelle für beide)
+val evData = tasks.register<Copy>("copyEvData") {
+    from("../../Meeterz/Resources") { include("*.json") }
+    into(layout.buildDirectory.dir("generated/evdata"))
+}
+android.sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("generated/evdata"))
+tasks.named("preBuild") { dependsOn(evData) }
+
 kotlin {
     compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) }
 }

@@ -14,5 +14,6 @@ class MeeterzApplication : Application() {
         if (!MapboxNavigationApp.isSetup()) MapboxNavigationApp.setup { NavigationOptions.Builder(this).build() }
         NavigationController.init(this)
         AppState.init(this)
+        de.koeven.meeterz.ev.EvSettings.init(this)
     }
 }

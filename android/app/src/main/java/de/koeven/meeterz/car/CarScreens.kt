@@ -29,6 +29,8 @@ import com.mapbox.navigation.ui.androidauto.preview.CarRouteLineRenderer
 import de.koeven.meeterz.AppState
 import de.koeven.meeterz.data.FriendRow
 import de.koeven.meeterz.data.MessagesStore
+import de.koeven.meeterz.ev.ChargePlanner
+import de.koeven.meeterz.ev.EvSettings
 import de.koeven.meeterz.nav.NavigationController
 import de.koeven.meeterz.nav.PlaceSearch
 import de.koeven.meeterz.ui.km
@@ -43,12 +45,29 @@ private suspend fun origin(): Point? {
     return CarLocationProvider.getRegisteredInstance().lastLocation()?.let { Point.fromLngLat(it.longitude, it.latitude) }
 }
 
-/** Route planen und gleich losfahren (Android Auto erlaubt während der Fahrt keine lange Auswahl) */
+/**
+ * Route planen und gleich losfahren (Android Auto erlaubt während der Fahrt keine lange Auswahl).
+ * E-Auto: reicht der Akku nicht, kommen die Ladestopps gleich als Zwischenziele in die Route.
+ */
 private fun Screen.navigateTo(name: String, lat: Double, lng: Double) {
-    lifecycleScope.launch {
+    val carContext = carContext
+    // Nicht im Bildschirm-Lebenszyklus: der Bildschirm wird gleich nach dem Antippen geschlossen
+    AppState.scope.launch {
         val from = origin() ?: return@launch
         val dest = NavigationController.Destination(name, lat, lng)
-        val routes = NavigationController.plan(carContext, from, dest)
+        var routes = NavigationController.plan(carContext, from, dest)
+        when (val o = routes.firstOrNull()?.let { EvSettings.plan(it) }) {
+            is ChargePlanner.Outcome.Planned -> {
+                if (!o.plan.direct) {
+                    val withStops = NavigationController.plan(carContext, from, dest, via = o.plan.stops.map { Point.fromLngLat(it.site.lng, it.site.lat) })
+                    if (withStops.isNotEmpty()) routes = withStops
+                }
+                CarToast.makeText(carContext, o.plan.summary, CarToast.LENGTH_LONG).show()
+            }
+            is ChargePlanner.Outcome.Unreachable ->
+                CarToast.makeText(carContext, "Akku reicht nicht – kein Ladeplan (Reichweite ca. ${o.reachKm.toInt()} km)", CarToast.LENGTH_LONG).show()
+            null -> Unit
+        }
         if (routes.isNotEmpty()) NavigationController.start(routes, dest)
     }
 }

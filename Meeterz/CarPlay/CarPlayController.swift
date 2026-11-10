@@ -1514,7 +1514,9 @@ extension CarPlayController: CarPlayManagerDelegate {
         let safe = map.mapView.safeAreaInsets
         // Meldet CarPlay die Auswahlkarte schon über den sicheren Bereich, nichts doppelt abziehen
         let left = max(0, panel - safe.left) + 24
-        map.viewportPadding = UIEdgeInsets(top: 30, left: left, bottom: 30, right: 30)
+        // Infofenster des Vorschlags (rechts oben): Route darunter einrahmen, damit es sie nie verdeckt
+        let top = max(30, (suggestionCard?.frame.maxY ?? 0) + 12)
+        map.viewportPadding = UIEdgeInsets(top: top, left: left, bottom: 30, right: 30)
         map.showcase(routes, routeAnnotationKinds: [.relativeDurationsOnAlternative], animated: true, duration: 0.5)
         Diag.log("Routenvorschau: \(Int(w))×\(Int(h)), sicherer Bereich links \(Int(safe.left)), Rand links \(Int(left))")
     }

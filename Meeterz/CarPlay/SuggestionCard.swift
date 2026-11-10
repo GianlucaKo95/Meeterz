@@ -68,6 +68,10 @@ final class SuggestionCardView: UIView {
         view.show(suggestion)
         let safe = host.bounds.inset(by: host.safeAreaInsets)
         let size = view.fit(maxWidth: min(380, max(180, safe.width - 20)))
+        // Zu kleine Anzeige (z. B. Kombiinstrument): lieber kein Fenster, als die Route zu verdrängen
+        guard size.height < safe.height * 0.35, size.width <= safe.width - 20 else {
+            view.removeFromSuperview(); card = nil; return
+        }
         view.frame = CGRect(x: rightAligned ? safe.maxX - size.width - 10 : safe.minX + 10, y: safe.minY + 10,
                             width: size.width, height: size.height)
         card = view

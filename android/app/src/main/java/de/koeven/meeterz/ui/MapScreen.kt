@@ -20,6 +20,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import android.widget.Toast
+import de.koeven.meeterz.data.MessagesStore
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.People
@@ -261,12 +266,15 @@ private fun GuidanceBanner(g: NavigationController.Guidance) {
 @Composable
 private fun GuidanceBar(g: NavigationController.Guidance, modifier: Modifier) {
     var muted by remember { mutableStateOf(NavigationController.muted) }
+    var showMessage by remember { mutableStateOf(false) }
+    if (showMessage) MessageDialog(g, onDismiss = { showMessage = false })
     Surface(modifier.fillMaxWidth().navigationBarsPadding().padding(12.dp), shape = RoundedCornerShape(20.dp), shadowElevation = 6.dp) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Ankunft ${clock(g.remainingSeconds)}", fontWeight = FontWeight.Bold)
                 Text("${minutes(g.remainingSeconds)} · ${km(g.remainingDistance)}", style = MaterialTheme.typography.bodySmall)
             }
+            IconButton(onClick = { showMessage = true }) { Icon(Icons.AutoMirrored.Filled.Chat, "Bescheid geben") }
             IconButton(onClick = { muted = !muted; NavigationController.muted = muted }) {
                 Icon(if (muted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp, "Ton")
             }
@@ -274,6 +282,44 @@ private fun GuidanceBar(g: NavigationController.Guidance, modifier: Modifier) {
             Button(onClick = { NavigationController.stop() }) { Text("Beenden") }
         }
     }
+}
+
+/**
+ * Unterwegs kurz Bescheid geben (iOS: Treffpunkt-Karte / CarPlay „Kurz Bescheid geben“): an Freunde, die am Ziel
+ * sind oder auch hinfahren – sonst zuerst den Freund wählen.
+ */
+@Composable
+private fun MessageDialog(g: NavigationController.Guidance, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val partners = remember { MessagesStore.recipientsAtDestination() }
+    var to by remember { mutableStateOf(partners) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } },
+        title = { Text(if (to.isEmpty()) "Bescheid geben" else "An " + to.joinToString(", ") { it.firstName }) },
+        text = {
+            LazyColumn(Modifier.heightIn(max = 420.dp)) {
+                if (to.isEmpty()) {
+                    items(MessagesStore.friendsByDistance()) { f ->
+                        Text(f.displayName, Modifier.fillMaxWidth().clickable { to = listOf(f) }.padding(vertical = 12.dp))
+                    }
+                } else {
+                    val eta = System.currentTimeMillis() + (g.remainingSeconds * 1000).toLong()
+                    items(MessagesStore.quickReplies(eta)) { text ->
+                        Text(text, Modifier.fillMaxWidth().clickable {
+                            onDismiss()
+                            scope.launch {
+                                val sent = AppState.messages.send(text, to.map { it.friendId })
+                                Toast.makeText(context, if (sent > 0) "Gesendet: „$text“" else "Nachricht nicht gesendet", Toast.LENGTH_SHORT).show()
+                            }
+                        }.padding(vertical = 12.dp))
+                    }
+                }
+            }
+        },
+    )
 }
 
 private fun minutes(seconds: Double): String {

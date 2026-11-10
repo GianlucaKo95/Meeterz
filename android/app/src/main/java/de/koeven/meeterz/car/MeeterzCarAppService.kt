@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.car.app.CarAppService
+import androidx.car.app.CarToast
 import androidx.car.app.Screen
 import androidx.car.app.ScreenManager
 import androidx.car.app.Session
@@ -16,6 +17,7 @@ import com.mapbox.maps.MapInitOptions
 import com.mapbox.maps.extension.androidauto.MapboxCarMap
 import com.mapbox.navigation.core.lifecycle.MapboxNavigationApp
 import com.mapbox.navigation.ui.androidauto.map.MapboxCarMapLoader
+import de.koeven.meeterz.AppState
 import de.koeven.meeterz.nav.NavigationController
 import kotlinx.coroutines.launch
 
@@ -67,6 +69,13 @@ class MeeterzCarSession : Session() {
                 val sm = carContext.getCarService(ScreenManager::class.java)
                 sm.popToRoot()
                 if (guiding) sm.push(GuidanceScreen(carContext, carMap))
+            }
+        }
+        // Nachricht eines Freundes: kurz anzeigen und vorlesen (wie CarPlay)
+        lifecycleScope.launch {
+            AppState.messages.received.collect { m ->
+                CarToast.makeText(carContext, "${m.firstName}: ${m.body}", CarToast.LENGTH_LONG).show()
+                NavigationController.announce("${m.firstName} schreibt: ${m.body}")
             }
         }
         return FreeDriveScreen(carContext, carMap)

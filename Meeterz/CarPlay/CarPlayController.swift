@@ -982,14 +982,17 @@ final class CarPlayController: NSObject {
             done()
         }
         var sections: [CPListSection] = []
-        // Kurz Bescheid geben: an alle, die ich hier treffe oder die auch hierher fahren
+        // Kurz Bescheid geben: an alle, die ich hier treffe, die schon dort sind oder auch hierher fahren –
+        // sonst erst den Freund wählen
         let partners = meetupPartners(at: place)
-        if !partners.ids.isEmpty {
+        if !friends.isEmpty {
             let names = partners.ids.compactMap { model.friend($0)?.displayName.split(separator: " ").first.map(String.init) }
-            let tell = CPListItem(text: String(localized: "Kurz Bescheid geben"), detailText: String(localized: "an ") + names.joined(separator: ", "),
+            let tell = CPListItem(text: String(localized: "Kurz Bescheid geben"),
+                                  detailText: names.isEmpty ? String(localized: "Freund wählen") : String(localized: "an ") + names.joined(separator: ", "),
                                   image: UIImage(systemName: "text.bubble.fill"))
             tell.handler = { [weak self] _, done in
-                self?.showQuickReplies(to: partners.ids, meetupId: partners.meetupId, replace: true)
+                if partners.ids.isEmpty { self?.showMessageRecipients() }
+                else { self?.showQuickReplies(to: partners.ids, meetupId: partners.meetupId, replace: true) }
                 done()
             }
             sections.append(CPListSection(items: [tell]))

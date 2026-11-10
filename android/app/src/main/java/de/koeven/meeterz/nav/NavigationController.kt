@@ -121,6 +121,9 @@ object NavigationController : MapboxNavigationObserver {
         _progress.value = null
     }
 
+    /** Hinweis vorlesen (Musik wird leiser), ohne laufende Ansagen abzubrechen */
+    fun announce(text: String) { speaker?.announce(text) }
+
     var muted: Boolean
         get() = speaker?.muted ?: false
         set(value) { speaker?.muted = value; if (value) speaker?.stop() }

@@ -39,8 +39,8 @@ class PushService : FirebaseMessagingService() {
             "locate" -> sendLocationOnce(this)
             else -> message.notification?.let { show(this, it.title ?: "Meeterz", it.body ?: "") }
         }
-        // Neue Anfrage o. Ä.: Freundesliste gleich aktualisieren
-        AppState.scope.launch { AppState.refreshFriends() }
+        // Neue Anfrage, Nachricht o. Ä.: gleich aktualisieren
+        AppState.scope.launch { AppState.refreshFriends(); AppState.messages.refresh() }
     }
 
     companion object {

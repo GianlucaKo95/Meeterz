@@ -57,10 +57,16 @@ class Speaker(context: Context) {
         speakNow(text)
     }
 
-    private fun speakNow(text: String) {
+    /** Hinweis (z. B. Nachricht eines Freundes): hinten anstellen, keine Abbiegeansage abbrechen */
+    fun announce(text: String) {
+        if (muted || !ready) return
+        speakNow(text, TextToSpeech.QUEUE_ADD)
+    }
+
+    private fun speakNow(text: String, mode: Int = TextToSpeech.QUEUE_FLUSH) {
         audio.requestAudioFocus(focus)
         val params = Bundle().apply { putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_MUSIC) }
-        tts.speak(text, TextToSpeech.QUEUE_FLUSH, params, UUID.randomUUID().toString())
+        tts.speak(text, mode, params, UUID.randomUUID().toString())
     }
 
     fun stop() {

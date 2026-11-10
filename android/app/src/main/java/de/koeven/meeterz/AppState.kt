@@ -30,6 +30,7 @@ object AppState {
     val hub = LiveLocationHub(scope)
     val vehicle = VehicleStore()
     val routes = de.koeven.meeterz.data.FriendRoutesStore()
+    val messages = de.koeven.meeterz.data.MessagesStore()
     lateinit var favorites: FavoritesStore
         private set
 
@@ -55,6 +56,8 @@ object AppState {
             PushService.registerCurrent(appContext)
             while (isActive) {
                 refreshFriends()
+                // ponytail: Nachrichten alle 30 s und bei jedem Push statt Live-Kanal wie auf iOS
+                messages.refresh()
                 // ponytail: Auto alle 30 s abfragen statt Live-Kanal wie auf iOS – reicht für die Anzeige
                 vehicle.refresh(userId)
                 delay(30_000)
@@ -62,7 +65,7 @@ object AppState {
         }
     }
 
-    fun endSession() { session?.cancel(); session = null }
+    fun endSession() { session?.cancel(); session = null; messages.reset() }
 
     suspend fun refreshFriends() {
         runCatching { Backend.client.postgrest.rpc("my_friends").decodeList<FriendRow>() }

@@ -312,7 +312,8 @@ extension CarPlayController {
 // MARK: - Kurznachrichten in CarPlay
 
 extension CarPlayController {
-    /// Wen betrifft dieses Ziel? Angenommene Treffen hier und Freunde, die auch hierher fahren.
+    /// Wen betrifft dieses Ziel? Angenommene Treffen hier, Freunde, die auch hierher fahren,
+    /// und Freunde, die schon dort sind (z. B. zu Hause – „Bin gleich da“).
     func meetupPartners(at place: Place) -> (ids: [UUID], meetupId: UUID?) {
         let app = AppModel.shared
         let meetups = app.meetups.accepted.filter { $0.coordinate.distance(to: place.coordinate) < 300 }
@@ -320,8 +321,31 @@ extension CarPlayController {
         for friend in app.friends.accepted where friendArrival(friend.friendId, at: place) != nil {
             ids.append(friend.friendId)
         }
+        for item in app.friendsOnMapIncludingPassengers where item.position.coordinate.distance(to: place.coordinate) < 150 {
+            ids.append(item.friend.friendId)
+        }
         var seen = Set<UUID>()
         return (ids.filter { seen.insert($0).inserted }, meetups.first?.id)
+    }
+
+    /// Empfänger wählen (wenn am Ziel niemand erkennbar ist): alle Freunde, nächste zuerst
+    func showMessageRecipients() {
+        let app = AppModel.shared
+        let me = app.location.lastLocation?.coordinate
+        let distance: (UUID) -> Double = { id in
+            guard let me, let p = app.hub.positions[id] else { return .infinity }
+            return p.coordinate.distance(to: me)
+        }
+        let friends = app.friends.accepted.sorted { distance($0.friendId) < distance($1.friendId) }
+        let items: [CPListItem] = friends.prefix(CPListTemplate.maximumItemCount).map { f in
+            let item = CPListItem(text: f.displayName, detailText: nil)
+            item.handler = { [weak self] _, done in
+                self?.showQuickReplies(to: [f.friendId], meetupId: nil)
+                done()
+            }
+            return item
+        }
+        CarPlayUI.shared.push(CPListTemplate(title: String(localized: "Bescheid geben"), sections: [CPListSection(items: items)]), animated: true)
     }
 
     /// Liste vorgefertigter Antworten; ein Tippen sendet an alle Empfänger

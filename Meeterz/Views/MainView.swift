@@ -818,8 +818,29 @@ struct MeetingPointCard: View {
             let me: [Arrival] = app.navigation.isNavigating
                 ? [Arrival(id: "me", name: String(localized: "Du"), color: Theme.accent, eta: app.navigation.eta, here: false)] : []
             VStack(alignment: .leading, spacing: 8) {
-                Label(target.name, systemImage: "flag.checkered")
-                    .font(Theme.title(14)).lineLimit(1)
+                HStack {
+                    Label(target.name, systemImage: "flag.checkered")
+                        .font(Theme.title(14)).lineLimit(1)
+                    Spacer()
+                    // Unterwegs kurz Bescheid geben – an alle, die dort sind oder auch hinfahren
+                    if app.navigation.isNavigating {
+                        let ids = friends.compactMap { UUID(uuidString: $0.id) }
+                        Menu {
+                            ForEach(MessagesStore.quickReplies(eta: app.navigation.eta), id: \.self) { text in
+                                Button(text) {
+                                    Task {
+                                        let n = await app.messages.send(text, to: ids)
+                                        app.show(n > 0 ? String(localized: "Gesendet: „\(text)“") : String(localized: "Nachricht nicht gesendet"), isError: n == 0)
+                                    }
+                                }
+                            }
+                        } label: {
+                            Label("Bescheid geben", systemImage: "text.bubble.fill")
+                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        }
+                        .accessibilityIdentifier("meeting-point-message")
+                    }
+                }
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach((me + friends).sorted { ($0.here ? 0 : 1, $0.eta ?? .distantFuture) < ($1.here ? 0 : 1, $1.eta ?? .distantFuture) }) { a in

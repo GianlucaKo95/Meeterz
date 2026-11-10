@@ -2,6 +2,7 @@ package de.koeven.meeterz.car
 
 import android.location.Location
 import androidx.car.app.CarContext
+import androidx.car.app.CarToast
 import androidx.car.app.Screen
 import androidx.car.app.model.Action
 import androidx.car.app.model.ActionStrip
@@ -26,6 +27,8 @@ import com.mapbox.navigation.ui.androidauto.navigation.CarNavigationCamera
 import com.mapbox.navigation.ui.androidauto.navigation.CarNavigationInfoProvider
 import com.mapbox.navigation.ui.androidauto.preview.CarRouteLineRenderer
 import de.koeven.meeterz.AppState
+import de.koeven.meeterz.data.FriendRow
+import de.koeven.meeterz.data.MessagesStore
 import de.koeven.meeterz.nav.NavigationController
 import de.koeven.meeterz.nav.PlaceSearch
 import de.koeven.meeterz.ui.km
@@ -110,12 +113,51 @@ class GuidanceScreen(carContext: CarContext, private val carMap: MapboxCarMap) :
         .setBackgroundColor(CarColor.PRIMARY)
         .setActionStrip(
             ActionStrip.Builder()
+                .addAction(Action.Builder().setTitle("Bescheid").setOnClickListener { screenManager.push(messageScreen(carContext)) }.build())
                 .addAction(Action.Builder().setTitle("Beenden").setOnClickListener { NavigationController.stop() }.build())
                 .build(),
         )
         .setMapActionStrip(mapActions.build())
         .apply { info.setNavigationInfo(this) }
         .build()
+}
+
+/**
+ * Kurz Bescheid geben (CarPlay: „Kurz Bescheid geben“): sind am Ziel Freunde oder fahren welche hin,
+ * gleich die Schnellantworten an sie – sonst erst den Freund wählen.
+ */
+fun messageScreen(carContext: CarContext): Screen {
+    val partners = MessagesStore.recipientsAtDestination()
+    return if (partners.isNotEmpty()) CarQuickRepliesScreen(carContext, partners) else CarMessageRecipientsScreen(carContext)
+}
+
+class CarMessageRecipientsScreen(carContext: CarContext) : Screen(carContext) {
+    override fun onGetTemplate(): Template {
+        val list = ItemList.Builder().setNoItemsMessage("Noch keine Freunde.")
+        MessagesStore.friendsByDistance().take(6).forEach { f ->
+            list.addItem(Row.Builder().setTitle(f.displayName)
+                .setOnClickListener { screenManager.push(CarQuickRepliesScreen(carContext, listOf(f))) }.build())
+        }
+        return ListTemplate.Builder().setTitle("Bescheid geben").setHeaderAction(Action.BACK).setSingleList(list.build()).build()
+    }
+}
+
+class CarQuickRepliesScreen(carContext: CarContext, private val to: List<FriendRow>) : Screen(carContext) {
+    override fun onGetTemplate(): Template {
+        val eta = NavigationController.guidance.value?.let { System.currentTimeMillis() + (it.remainingSeconds * 1000).toLong() }
+        val list = ItemList.Builder()
+        MessagesStore.quickReplies(eta).take(6).forEach { text ->
+            list.addItem(Row.Builder().setTitle(text).setOnClickListener {
+                lifecycleScope.launch {
+                    val sent = AppState.messages.send(text, to.map { it.friendId })
+                    CarToast.makeText(carContext, if (sent > 0) "Gesendet: „$text“" else "Nachricht nicht gesendet", CarToast.LENGTH_LONG).show()
+                    screenManager.popToRoot()
+                }
+            }.build())
+        }
+        return ListTemplate.Builder().setTitle("An " + to.joinToString(", ") { it.firstName })
+            .setHeaderAction(Action.BACK).setSingleList(list.build()).build()
+    }
 }
 
 /** Freunde mit Standort; Antippen fährt zu ihnen (CarPlay: FriendsMenu) */

@@ -2,6 +2,10 @@ package de.koeven.meeterz.car
 
 import android.location.Location
 import androidx.car.app.CarContext
+import de.koeven.meeterz.ui.NavigationMapBinder
+import com.mapbox.navigation.ui.maps.camera.data.MapboxNavigationViewportDataSource
+import com.mapbox.navigation.core.trip.session.RouteProgressObserver
+import com.mapbox.navigation.core.lifecycle.MapboxNavigationApp
 import androidx.car.app.CarToast
 import androidx.car.app.Screen
 import androidx.car.app.model.Action
@@ -124,13 +128,27 @@ class GuidanceScreen(carContext: CarContext, private val carMap: MapboxCarMap) :
     private val info = CarNavigationInfoProvider().invalidateOnChange(this)
     private val mapActions = MapboxMapActionStrip(this, camera)
 
+    /**
+     * Vor Abbiegungen flacher statt 2D (wie Handy und iOS, NavigationMapBinder.maneuverPitch). Mapbox' Auto-Kamera
+     * gibt ihre Kameradaten nicht heraus (`internal`) – darum per Reflection; fehlt das Feld in einer
+     * künftigen Version, bleibt einfach Mapbox' Verhalten.
+     */
+    private val pitchObserver = RouteProgressObserver { progress ->
+        val viewport = carViewport(camera) ?: return@RouteProgressObserver
+        viewport.followingPitchPropertyOverride(
+            NavigationMapBinder.maneuverPitch(progress, viewport.options.followingFrameOptions.defaultPitch))
+        viewport.evaluate()
+    }
+
     init {
         lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onResume(owner: LifecycleOwner) {
                 listOf(routeLine, location, camera, markers, friends, info).forEach(carMap::registerObserver)
                 carMap.setGestureHandler(camera.gestureHandler)
+                MapboxNavigationApp.current()?.registerRouteProgressObserver(pitchObserver)
             }
             override fun onPause(owner: LifecycleOwner) {
+                MapboxNavigationApp.current()?.unregisterRouteProgressObserver(pitchObserver)
                 listOf(routeLine, location, camera, markers, friends, info).forEach(carMap::unregisterObserver)
                 carMap.setGestureHandler(null)
             }
@@ -279,3 +297,9 @@ class CarPlacesScreen(carContext: CarContext) : Screen(carContext) {
         return ListTemplate.Builder().setTitle("Ziele").setHeaderAction(Action.BACK).setSingleList(list.build()).build()
     }
 }
+
+/** Kameradaten von Mapbox' Auto-Kamera (intern) – null, solange sie noch nicht an der Karte hängt */
+private fun carViewport(camera: CarNavigationCamera): MapboxNavigationViewportDataSource? = runCatching {
+    CarNavigationCamera::class.java.getDeclaredField("viewportDataSource").apply { isAccessible = true }
+        .get(camera) as? MapboxNavigationViewportDataSource
+}.getOrNull()

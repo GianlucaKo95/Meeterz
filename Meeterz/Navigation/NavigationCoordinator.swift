@@ -251,6 +251,7 @@ final class NavigationCoordinator: NSObject {
                     self?.installOverviewButton(on: controller)
                     self?.startAutoRecenter(controller)
                     NavigationZoom.closer(controller.navigationMapView)
+                    self?.phoneMap = controller.navigationMapView
                     if let mapView = controller.navigationMapView?.mapView {
                         Satellite3DBuildings.install(
                             on: mapView,
@@ -595,6 +596,15 @@ final class NavigationCoordinator: NSObject {
             }
             .store(in: &subscriptions)
 
+        // Vor Abbiegungen flacher statt 2D (iPhone; CarPlay über ManeuverGuidance)
+        core.navigation().routeProgress
+            .compactMap { $0?.routeProgress }
+            .throttle(for: .seconds(1), scheduler: RunLoop.main, latest: true)
+            .sink { [weak self] progress in
+                MainActor.assumeIsolated { NavigationZoom.applyManeuverPitch(self?.phoneMap, progress: progress) }
+            }
+            .store(in: &subscriptions)
+
         // Unfälle, Sperrungen, schwere Staus voraus (einmal je Ereignis)
         IncidentWatcher.shared.reset()
         core.navigation().routeProgress
@@ -637,6 +647,9 @@ final class NavigationCoordinator: NSObject {
 
     /// Zuletzt mitgeteilte Ankunft je Treffen (am Anfang die erste berechnete)
     @ObservationIgnored private var announcedArrival: [UUID: Date] = [:]
+
+    /// Karte der iPhone-Navigation (für die Neigung vor Abbiegungen)
+    @ObservationIgnored private weak var phoneMap: NavigationMapView?
 
     /// Treffen, deren Partner schon „ist losgefahren“ bekommen haben (je Treffen einmal)
     @ObservationIgnored private var departedSent: Set<UUID> = []
@@ -771,8 +784,57 @@ enum NavigationZoom {
         guard let source = map?.navigationCamera.viewportDataSource as? MobileViewportDataSource else { return }
         var options = source.options
         options.followingCameraOptions.intersectionDensity.averageDistanceMultiplier = lookaheadMultiplier
+        options.followingCameraOptions.pitchNearManeuver.triggerDistanceToManeuver = pitchTrigger
         let range = options.followingCameraOptions.zoomRange
         options.followingCameraOptions.zoomRange = (range.lowerBound + 1)...(range.upperBound + 1)
         source.options = options
+    }
+
+    // MARK: Neigung vor Abbiegungen
+
+    /// Statt vor Abbiegungen auf 2D zu kippen (Mapbox: auf den letzten 180 m bis 0°) nur flacher werden:
+    /// über die letzten 200 m sanft von der normalen Neigung auf 25°. Die Kreuzung bleibt lesbar, die Abbiegung im
+    /// Bild, und das Umkippen fällt weg (10.11.). Ausfahrten, Gabelungen, Auffahrten und das Ziel bleiben voll 3D
+    /// (dort kippt auch Mapbox nicht).
+    static let minimumPitch = 25.0
+    static let pitchTrigger = 200.0
+
+    /// Neigung für jetzt – nil: Mapbox überlassen (weit vor der Abbiegung, Ausnahme-Manöver oder Karte in 2D)
+    static func maneuverPitch(defaultPitch: Double, progress: RouteProgress) -> Double? {
+        guard defaultPitch > minimumPitch else { return nil }
+        let leg = progress.currentLegProgress
+        guard let upcoming = leg.upcomingStep,
+              ![.continue, .merge, .takeOnRamp, .takeOffRamp, .reachFork].contains(upcoming.maneuverType),
+              leg.stepIndex != leg.leg.steps.count - 2   // nächster Schritt ist das Ziel
+        else { return nil }
+        let d = leg.currentStepProgress.distanceRemaining
+        guard d <= pitchTrigger else { return nil }
+        return minimumPitch + (defaultPitch - minimumPitch) * max(0, d) / pitchTrigger
+    }
+
+    /// Auf eine iPhone-Karte anwenden (nil = Neigung wieder Mapbox überlassen)
+    @MainActor static func applyManeuverPitch(_ map: NavigationMapView?, progress: RouteProgress) {
+        guard let source = map?.navigationCamera.viewportDataSource as? MobileViewportDataSource else { return }
+        var options = source.options
+        let pitch = maneuverPitch(defaultPitch: options.followingCameraOptions.defaultPitch, progress: progress)
+        guard pitch != nil || !options.followingCameraOptions.pitchUpdatesAllowed else { return }
+        var current = source.currentNavigationCameraOptions
+        options.followingCameraOptions.pitchUpdatesAllowed = pitch == nil
+        if let pitch { current.followingCamera.pitch = pitch }
+        source.options = options
+        source.currentNavigationCameraOptions = current
+    }
+
+    /// Auf eine CarPlay-Karte anwenden (große Karte, Dashboard, Kombiinstrument)
+    @MainActor static func applyManeuverPitch(carPlay map: NavigationMapView?, progress: RouteProgress) {
+        guard let source = map?.navigationCamera.viewportDataSource as? CarPlayViewportDataSource else { return }
+        var options = source.options
+        let pitch = maneuverPitch(defaultPitch: options.followingCameraOptions.defaultPitch, progress: progress)
+        guard pitch != nil || !options.followingCameraOptions.pitchUpdatesAllowed else { return }
+        var current = source.currentNavigationCameraOptions
+        options.followingCameraOptions.pitchUpdatesAllowed = pitch == nil
+        if let pitch { current.followingCamera.pitch = pitch }
+        source.options = options
+        source.currentNavigationCameraOptions = current
     }
 }

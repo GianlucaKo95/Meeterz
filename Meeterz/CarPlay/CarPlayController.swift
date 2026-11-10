@@ -160,6 +160,7 @@ final class CarPlayController: NSObject {
             options.followingCameraOptions.zoomUpdatesAllowed = navZoom == nil
             options.followingCameraOptions.zoomRange = Self.navigationZoomRange
             options.followingCameraOptions.intersectionDensity.averageDistanceMultiplier = NavigationZoom.lookaheadMultiplier
+            options.followingCameraOptions.pitchNearManeuver.triggerDistanceToManeuver = NavigationZoom.pitchTrigger
             if let navZoom { current.followingCamera.zoom = navZoom }
         } else {
             options.followingCameraOptions.pitchUpdatesAllowed = false
@@ -1359,6 +1360,12 @@ extension CarPlayController: CarPlayManagerDelegate {
                 navRecenter = startAutoRecenter(navMap)
                 ManeuverGuidance.shared.applyZoom = { [weak self] zoom in self?.setManeuverZoom(zoom) }
                 ManeuverGuidance.shared.userZoomed = { [weak self] in self?.navZoom != nil }
+                // Vor Abbiegungen flacher statt 2D – große Karte, Dashboard und Kombiinstrument gleich
+                ManeuverGuidance.shared.onProgress = { [weak self] progress in
+                    NavigationZoom.applyManeuverPitch(carPlay: self?.navMap, progress: progress)
+                    CarPlayDashboard.shared.applyManeuverPitch(progress)
+                    CarPlayDashboard.cluster.applyManeuverPitch(progress)
+                }
                 ManeuverGuidance.shared.start(navigationViewController)
                 flyover?.showPreview(nil)
                 flyover?.attach(to: navMap)

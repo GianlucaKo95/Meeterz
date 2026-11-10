@@ -589,6 +589,11 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
         }
     }
 
+    /// Vor Abbiegungen flacher statt 2D (wie die große Karte)
+    func applyManeuverPitch(_ progress: RouteProgress) {
+        NavigationZoom.applyManeuverPitch(carPlay: mapbox, progress: progress)
+    }
+
     /// Neigung und Zoom wie die große Karte (3D-Einstellung, Zoom außerhalb der Fahrt bzw. Navigationszoom)
     private func configureMapboxCamera() {
         guard let nav = mapbox else { return }

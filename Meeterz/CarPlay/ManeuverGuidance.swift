@@ -31,6 +31,8 @@ final class ManeuverGuidance {
     var applyZoom: ((Double?) -> Void)?
     /// Hat der Fahrer selbst gezoomt? Dann nichts tun.
     var userZoomed: () -> Bool = { false }
+    /// Fortschritt (je Sekunde) – CarPlayController stellt damit die Neigung vor Abbiegungen ein
+    var onProgress: ((RouteProgress) -> Void)?
 
     func start(_ controller: CarPlayNavigationViewController) {
         stop()
@@ -46,7 +48,12 @@ final class ManeuverGuidance {
         core.navigation().routeProgress
             .compactMap { $0?.routeProgress }
             .throttle(for: .seconds(1), scheduler: DispatchQueue.main, latest: true)
-            .sink { [weak self] progress in MainActor.assumeIsolated { self?.updateZoom(progress) } }
+            .sink { [weak self] progress in
+                MainActor.assumeIsolated {
+                    self?.updateZoom(progress)
+                    self?.onProgress?(progress)
+                }
+            }
             .store(in: &subscriptions)
     }
 
@@ -97,8 +104,8 @@ final class ManeuverGuidance {
         // Rechtzeitig: ca. 12 s vor dem Manöver, mindestens 250 m, bei Ausfahrten mindestens 600 m
         let lead = max(speed * 12, exit ? 600 : 250)
         if turn, stepProgress.distanceRemaining < lead {
-            // Bewusst nicht „eine Stufe näher“ wie die übrige Kamera: Vor der Abbiegung kippt Mapbox auf 2D – bei
-            // 18 lag die Abbiegung dann außerhalb des Bildes, bis man sie erreichte (10.11.)
+            // Bewusst nicht „eine Stufe näher“ wie die übrige Kamera: bei 18 lag die Abbiegung vor dem Manöver
+            // außerhalb des Bildes, bis man sie erreichte (10.11.). Neigung: nur flacher, nicht 2D (NavigationZoom).
             let target = exit ? 16.5 : 17.0
             if zoomedFor != index {
                 zoomedFor = index

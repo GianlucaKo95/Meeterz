@@ -205,4 +205,13 @@ extension CLLocationCoordinate2D {
         CLLocation(latitude: latitude, longitude: longitude)
             .distance(from: CLLocation(latitude: other.latitude, longitude: other.longitude))
     }
+
+    /// Richtung zum anderen Punkt in Grad (0 = Nord, 90 = Ost)
+    func bearing(to other: CLLocationCoordinate2D) -> Double {
+        let φ1 = latitude * .pi / 180, φ2 = other.latitude * .pi / 180
+        let Δλ = (other.longitude - longitude) * .pi / 180
+        let y = sin(Δλ) * cos(φ2)
+        let x = cos(φ1) * sin(φ2) - sin(φ1) * cos(φ2) * cos(Δλ)
+        return (atan2(y, x) * 180 / .pi + 360).truncatingRemainder(dividingBy: 360)
+    }
 }

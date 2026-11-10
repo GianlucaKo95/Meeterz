@@ -34287,6 +34287,52 @@
           }
         }
       }
+    },
+    "Höhen und Wetter: Open-Meteo.com (CC BY 4.0)": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Höhen und Wetter: Open-Meteo.com (CC BY 4.0)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elevation and weather: Open-Meteo.com (CC BY 4.0)"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Altitudini e meteo: Open-Meteo.com (CC BY 4.0)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Altitudes et météo : Open-Meteo.com (CC BY 4.0)"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Altitud y tiempo: Open-Meteo.com (CC BY 4.0)"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Altitude e tempo: Open-Meteo.com (CC BY 4.0)"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yükseklik ve hava: Open-Meteo.com (CC BY 4.0)"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

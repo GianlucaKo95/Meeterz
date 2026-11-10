@@ -1200,7 +1200,10 @@ extension CarPlayController: CarPlayManagerDelegate {
         let settings = EVSettings.plannerSettings
         let start = EVSettings.chargePercent
         let routes = trip.routeChoices.map { mainRoute(in: $0.userInfo) }
-        let keys = routes.map { r in r.map { "\(Int($0.distance))-\(Int($0.expectedTravelTime))-\(Int(start))" } }
+        // Höhe/Wetter nur, wenn schon geladen (hier wird nicht gewartet) – sonst im Hintergrund für das nächste Mal
+        let conditions = routes.map { r in r.flatMap { RouteConditionsService.shared.cached(for: $0) } }
+        for (r, c) in zip(routes, conditions) where c == nil { if let r { RouteConditionsService.shared.prefetch(r) } }
+        let keys = zip(routes, conditions).map { r, c in r.map { "\(Int($0.distance))-\(Int($0.expectedTravelTime))-\(Int(start))-\(c != nil)" } }
         let missing = zip(routes, keys).compactMap { r, k -> (Route, String)? in
             guard let r, let k, forecastCache[k] == nil else { return nil }
             return (r, k)
@@ -1212,6 +1215,8 @@ extension CarPlayController: CarPlayManagerDelegate {
                 var texts: [String: String] = [:]
                 for (route, key) in missing {
                     let text: String
+                    var settings = settings
+                    settings.conditions = RouteConditionsService.shared.cached(for: route)
                     switch ChargePlanner.plan(route: route, vehicle: vehicle, startPercent: start, settings: settings, sites: ChargeSites.all) {
                     case .success(let plan) where plan.direct: text = String(localized: "Ankunft mit \(Int(plan.arrivalPercent.rounded())) %")
                     case .success(let plan): text = (plan.stops.count == 1 ? String(localized: "1 Ladestopp") : String(localized: "\(plan.stops.count) Ladestopps")) + " · " + String(localized: "Ankunft \(Int(plan.arrivalPercent.rounded())) %")

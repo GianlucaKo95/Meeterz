@@ -60,11 +60,15 @@ final class ChargeMonitor {
         else { CarPlayBatteryChip.shared.hide(); return }
         let route = routes.mainRoute.route
         // Eindeutig je Route (Mapbox-Routen-ID), nicht nur Länge und Abschnitte – zwei Routen können gleich lang sein
-        let key = "\(routes.mainRoute.routeId)"
+        // Höhe und Wetter, sobald geladen (dann einmal neu rechnen)
+        let conditions = RouteConditionsService.shared.cached(for: route)
+        if conditions == nil { RouteConditionsService.shared.prefetch(route) }
+        let key = "\(routes.mainRoute.routeId)-\(conditions != nil)"
         let traveled = progress.distanceTraveled
         if key != profileKey {
             let settings = EVSettings.plannerSettings
-            profile = ChargePlanner.profile(of: route, vehicle: vehicle, temperature: settings.temperature, factors: settings.factors)
+            profile = ChargePlanner.profile(of: route, vehicle: vehicle, temperature: settings.temperature, factors: settings.factors,
+                                            conditions: conditions)
             // Neue Route (auch nach Neuberechnung): ab dem zuletzt geschätzten Stand weiterrechnen
             if !profileKey.isEmpty, let lastEstimate { anchorSoc = lastEstimate }
             anchorTraveled = traveled
@@ -108,9 +112,10 @@ final class ChargeMonitor {
         let traveled = progress.distanceTraveled
         var settings = EVSettings.plannerSettings
         settings.availability = await ChargeStatusService.shared.availability(along: route)
+        settings.conditions = await RouteConditionsService.shared.conditions(for: route)
         let result = await Task.detached(priority: .utility) {
             let rest = ChargePlanner.profile(of: route, vehicle: vehicle, temperature: settings.temperature,
-                                             factors: settings.factors).suffix(from: traveled)
+                                             factors: settings.factors, conditions: settings.conditions).suffix(from: traveled)
             return ChargePlanner.plan(profile: rest, vehicle: vehicle, startPercent: soc, settings: settings,
                                       sites: ChargeSites.all)
         }.value

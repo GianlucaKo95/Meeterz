@@ -52,7 +52,7 @@ struct ChargePlanCard: View {
                     }
                 }
             }
-            Text(ChargeSites.attribution).font(.caption2).foregroundStyle(Theme.muted)
+            Text(ChargeSites.attribution + " · " + String(localized: "Höhen und Wetter: Open-Meteo.com (CC BY 4.0)")).font(.caption2).foregroundStyle(Theme.muted)
         }
         .padding(14)
         .background(RoundedRectangle(cornerRadius: 16).fill(Theme.panelRaised))

@@ -74,6 +74,76 @@ final class ChargePlannerTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(plan.arrivalPercent, 19)
     }
 
+    // MARK: Höhe und Wetter
+
+    /// 100 km nach Süden bei 120 km/h, optional mit Höhen und konstantem Wetter
+    func points(km: Int) -> [ChargePlanner.RoutePoint] {
+        (0...km).map { i in
+            ChargePlanner.RoutePoint(coordinate: .init(latitude: 52 - Double(i) / 111.32, longitude: 8),
+                                     dist: Double(i) * 1000, time: Double(i) * 30, kmh: 120)
+        }
+    }
+
+    func conditions(heights: [(Double, Double)] = [], windFrom: Double? = nil, wind: Double = 10, temp: Double = 20, rain: Double = 0) -> RouteConditions {
+        var c = RouteConditions()
+        c.heights = heights.map { RouteConditions.Height(dist: $0.0, meters: $0.1) }
+        if let windFrom {
+            let now = Date().timeIntervalSince1970 - 60
+            c.weather = [RouteConditions.Weather(dist: 0, times: [now, now + 3600, now + 7200], temperature: [temp, temp, temp],
+                                                 wind: [wind, wind, wind], windFrom: [windFrom, windFrom, windFrom], rain: [rain, rain, rain])]
+        }
+        return c
+    }
+
+    func energy(_ c: RouteConditions?) -> Double {
+        ChargePlanner.profile(points: points(km: 100), vehicle: vehicle, temperature: 20, conditions: c).energy.last!
+    }
+
+    func testWithoutConditionsMatchesFlatModel() {
+        let flat = ChargePlanner.consumption(kmh: 120, base: vehicle.consumption, temperature: 20) * 100
+        XCTAssertEqual(energy(nil), flat, accuracy: 0.01)
+    }
+
+    func testClimbCostsAndDescentPartlyReturns() {
+        let flat = energy(nil)
+        // 500 m hinauf: m·g·h ≈ 1720 kg · 9,81 · 500 m ≈ 2,3 kWh, bei 90 % ≈ 2,6 kWh mehr
+        let up = energy(conditions(heights: [(0, 0), (100_000, 500)]))
+        XCTAssertEqual(up - flat, ChargePlanner.mass(of: vehicle) * 9.81 * 500 / 3_600_000 / 0.9, accuracy: 0.05)
+        // Sanftes Gefälle (0,5 %): verbraucht weniger, aber nie weniger als null
+        let down = energy(conditions(heights: [(0, 500), (100_000, 0)]))
+        XCTAssertLessThan(down, flat)
+        // Hin und zurück über einen Berg kostet mehr als eben (Verluste)
+        let hill = energy(conditions(heights: [(0, 0), (50_000, 500), (100_000, 0)]))
+        XCTAssertGreaterThan(hill, flat)
+    }
+
+    func testSteepDescentRecuperatesOnlyPart() {
+        // 1 km mit 10 % Gefälle: Lageenergie übersteigt den Fahrverbrauch, vom Überschuss kommen 65 % zurück
+        let e = ChargePlanner.segmentEnergy(meters: 1000, flatPerMeter: 0.0002, climb: -100, mass: 1700)
+        let lift = 1700 * 9.81 * 100 / 3_600_000.0
+        XCTAssertEqual(e, (0.2 - lift) * 0.65, accuracy: 0.0001)
+    }
+
+    func testHeadwindCostsTailwindSaves() {
+        let flat = energy(nil)
+        // Fahrt nach Süden (180°): Wind aus Süden ist Gegenwind, aus Norden Rückenwind, aus Osten Seitenwind
+        XCTAssertGreaterThan(energy(conditions(windFrom: 180)), flat * 1.05)
+        XCTAssertLessThan(energy(conditions(windFrom: 0)), flat * 0.95)
+        XCTAssertEqual(energy(conditions(windFrom: 90)), flat, accuracy: 0.05)
+    }
+
+    func testForecastColdAndRainRaiseConsumption() {
+        let flat = energy(nil)
+        XCTAssertGreaterThan(energy(conditions(windFrom: 90, wind: 0, temp: 0)), flat * 1.1)
+        XCTAssertGreaterThan(energy(conditions(windFrom: 90, wind: 0, rain: 3)), flat * 1.05)
+    }
+
+    func testBearing() {
+        let a = CLLocationCoordinate2D(latitude: 52, longitude: 8)
+        XCTAssertEqual(a.bearing(to: .init(latitude: 51, longitude: 8)), 180, accuracy: 0.5)
+        XCTAssertEqual(a.bearing(to: .init(latitude: 52, longitude: 9)), 90, accuracy: 1)
+    }
+
     func testLearnedFactorRaisesConsumption() {
         var s = ChargePlanner.Settings()
         s.factors = [1, 1, 1.2]

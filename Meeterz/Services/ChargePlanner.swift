@@ -84,7 +84,7 @@ struct ChargeAvailability: Hashable {
 /// Ladeplanung wie bei ABRP: Ankunft mit Ziel-Akkustand, Stopps so gewählt, dass Fahr- plus Ladezeit minimal ist.
 ///
 /// Energiemodell: Durchschnittsverbrauch des Fahrzeugs, nach Tempo je Routenabschnitt skaliert (Luftwiderstand
-/// wächst quadratisch) und bei Kälte erhöht. Ladezeit aus der Ladekurve des Fahrzeugs, begrenzt durch die Säule.
+/// wächst quadratisch, Gegenwind zählt mit), bei Kälte und Regen erhöht, plus Steigung/Gefälle (RouteConditions). Ladezeit aus der Ladekurve des Fahrzeugs, begrenzt durch die Säule.
 /// Suche: kürzeste Gesamtzeit über (Säule, Ankunfts-Akkustand); an jeder Säule wird nur so viel geladen,
 /// wie bis zum nächsten Stopp bzw. Ziel nötig ist – das ist bei abfallender Ladekurve zeitoptimal.
 enum ChargePlanner {
@@ -99,6 +99,8 @@ enum ChargePlanner {
         var factors: [Double] = [1, 1, 1]
         /// Live-Belegung (wo verfügbar): defekte Säulen meiden, voll belegte mit Wartezeit
         var availability: [ChargeSite: ChargeAvailability] = [:]
+        /// Höhenprofil und Wetter entlang der Route (Open-Meteo); nil = ebene Strecke, Temperatur vom Auto
+        var conditions: RouteConditions?
 
         func factor(kmh: Double) -> Double {
             factors[ConsumptionLearner.band(kmh: kmh)]
@@ -181,35 +183,88 @@ enum ChargePlanner {
         }
     }
 
-    /// Verbrauch (kWh/km) bei einem Tempo: Durchschnitt gilt für ca. 75 km/h; 28 % davon Luftwiderstand
-    static func consumption(kmh: Double, base: Double, temperature: Double?) -> Double {
+    /// Verbrauch (kWh/km) auf ebener Strecke bei einem Tempo: Durchschnitt gilt für ca. 75 km/h; 28 % davon
+    /// Luftwiderstand. Der wächst quadratisch mit der Geschwindigkeit gegenüber der Luft – Gegenwind (km/h,
+    /// negativ = Rückenwind) zählt also mit. Kälte (Heizung, kalter Akku) und nasse Straße erhöhen den Verbrauch.
+    static func consumption(kmh: Double, base: Double, temperature: Double?, headwind: Double = 0, rain: Double = 0) -> Double {
         let v = min(max(kmh, 15), 200)
-        var c = base / 100 * (0.72 + 0.28 * pow(v / 75, 2))
+        let air = max(0, v + headwind)
+        var c = base / 100 * (0.72 + 0.28 * pow(air / 75, 2))
         if let t = temperature, t < 15 { c *= 1 + min(0.3, (15 - t) * 0.012) }   // Heizung, kalter Akku
+        if rain >= 0.3 { c *= rain >= 2 ? 1.08 : 1.04 }                            // Wasser auf der Straße
         return c
     }
 
-    static func profile(of route: Route, vehicle: EVVehicle, temperature: Double?, factors: [Double] = [1, 1, 1]) -> Profile {
-        var p = Profile()
-        var d = 0.0, e = 0.0, t = 0.0
+    /// Fahrzeugmasse (kg) inkl. Fahrer, aus der Batteriegröße geschätzt (Open EV Data hat kein Gewicht):
+    /// MG5 57 kWh ≈ 1,7 t, Model 3 LR ≈ 1,85 t
+    static func mass(of vehicle: EVVehicle) -> Double { 1_100 + 9 * vehicle.battery + 80 }
+
+    /// Energie (kWh) für ein Stück Strecke: ebener Verbrauch plus Höhenunterschied. Bergauf kostet die Hubarbeit
+    /// zusätzlich (90 % Antriebswirkungsgrad), bergab zehrt das Gefälle erst den Fahrverbrauch auf (Rollen), nur der
+    /// Überschuss wird rekuperiert – davon kommen etwa 65 % im Akku an.
+    static func segmentEnergy(meters: Double, flatPerMeter: Double, climb: Double, mass: Double) -> Double {
+        let flat = meters * flatPerMeter
+        let lift = mass * 9.81 * climb / 3_600_000
+        let net = flat + (climb > 0 ? lift / 0.9 : lift)
+        return net < 0 ? net * 0.65 : net
+    }
+
+    /// Punkt entlang der Route: Strecke ab Start (m), Fahrzeit ab Start (s), Tempo und Richtung des Abschnitts
+    struct RoutePoint: Sendable {
+        let coordinate: CLLocationCoordinate2D
+        let dist: Double
+        let time: Double
+        let kmh: Double
+    }
+
+    /// Formpunkte der Route; Länge je Schritt auf Mapbox' Schrittlänge normiert
+    static func points(of route: Route) -> [RoutePoint] {
+        var out: [RoutePoint] = []
+        var d = 0.0, t = 0.0
         for leg in route.legs {
             for step in leg.steps {
                 guard let shape = step.shape?.coordinates, shape.count > 1, step.distance > 0 else { continue }
                 let kmh = step.expectedTravelTime > 0 ? step.distance / step.expectedTravelTime * 3.6 : 50
-                let perMeter = consumption(kmh: kmh, base: vehicle.consumption, temperature: temperature) / 1000
-                    * factors[ConsumptionLearner.band(kmh: kmh)]
                 let secondsPerMeter = step.expectedTravelTime / step.distance
-                // Formlänge auf die Schrittlänge normieren
                 var shapeLen = 0.0
                 for (a, b) in zip(shape, shape.dropFirst()) { shapeLen += a.distance(to: b) }
                 let scale = shapeLen > 0 ? step.distance / shapeLen : 1
-                if p.coords.isEmpty { p.coords.append(shape[0]); p.dist.append(0); p.energy.append(0); p.time.append(0) }
+                if out.isEmpty { out.append(RoutePoint(coordinate: shape[0], dist: 0, time: 0, kmh: kmh)) }
                 for (a, b) in zip(shape, shape.dropFirst()) {
                     let m = a.distance(to: b) * scale
-                    d += m; e += m * perMeter; t += m * secondsPerMeter
-                    p.coords.append(b); p.dist.append(d); p.energy.append(e); p.time.append(t)
+                    d += m; t += m * secondsPerMeter
+                    out.append(RoutePoint(coordinate: b, dist: d, time: t, kmh: kmh))
                 }
             }
+        }
+        return out
+    }
+
+    static func profile(of route: Route, vehicle: EVVehicle, temperature: Double?, factors: [Double] = [1, 1, 1],
+                        conditions: RouteConditions? = nil) -> Profile {
+        profile(points: points(of: route), vehicle: vehicle, temperature: temperature, factors: factors, conditions: conditions)
+    }
+
+    static func profile(points: [RoutePoint], vehicle: EVVehicle, temperature: Double?, factors: [Double] = [1, 1, 1],
+                        conditions: RouteConditions? = nil) -> Profile {
+        var p = Profile()
+        guard let first = points.first else { return p }
+        let mass = mass(of: vehicle)
+        p.coords.append(first.coordinate); p.dist.append(0); p.energy.append(0); p.time.append(0)
+        var e = 0.0
+        for (a, b) in zip(points, points.dropFirst()) {
+            let m = b.dist - a.dist
+            guard m > 0 else { continue }
+            let mid = (a.dist + b.dist) / 2
+            let w = conditions?.weather(at: mid, after: (a.time + b.time) / 2)
+            // Gegenwind-Anteil: Wind aus Fahrtrichtung zählt voll, von der Seite nicht. In Fahrzeughöhe ~70 % des 10-m-Werts.
+            let headwind = w.map { $0.wind * 0.7 * 3.6 * cos(($0.windFrom - a.coordinate.bearing(to: b.coordinate)) * .pi / 180) } ?? 0
+            let flat = consumption(kmh: b.kmh, base: vehicle.consumption, temperature: w?.temperature ?? temperature,
+                                   headwind: headwind, rain: w?.rain ?? 0) / 1000
+                * factors[ConsumptionLearner.band(kmh: b.kmh)]
+            let climb = conditions.flatMap { c in c.height(at: b.dist).flatMap { hb in c.height(at: a.dist).map { hb - $0 } } } ?? 0
+            e += segmentEnergy(meters: m, flatPerMeter: flat, climb: climb, mass: mass)
+            p.coords.append(b.coordinate); p.dist.append(b.dist); p.energy.append(e); p.time.append(b.time)
         }
         return p
     }
@@ -314,7 +369,8 @@ enum ChargePlanner {
 
     static func plan(route: Route, vehicle: EVVehicle, startPercent: Double, settings: Settings,
                      sites: [ChargeSite]) -> Result<Plan, Failure> {
-        plan(profile: profile(of: route, vehicle: vehicle, temperature: settings.temperature, factors: settings.factors),
+        plan(profile: profile(of: route, vehicle: vehicle, temperature: settings.temperature, factors: settings.factors,
+                              conditions: settings.conditions),
              vehicle: vehicle, startPercent: startPercent, settings: settings, sites: sites)
     }
 
@@ -453,6 +509,7 @@ extension EVSettings {
         let start = chargePercent
         var settings = plannerSettings
         settings.availability = await ChargeStatusService.shared.availability(along: route)
+        settings.conditions = await RouteConditionsService.shared.conditions(for: route)
         return await Task.detached(priority: .userInitiated) {
             ChargePlanner.plan(route: route, vehicle: vehicle, startPercent: start, settings: settings,
                                sites: ChargeSites.all)

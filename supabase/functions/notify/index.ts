@@ -8,7 +8,7 @@
 // Ohne Secrets antwortet die Funktion mit { skipped: true } – die App funktioniert normal weiter.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
-import * as jose from "npm:jose@5";
+import { apnsBundleId, apnsConfigured, apnsTokenGone, sendApns } from "../_shared/apns.ts";
 import { fcmConfigured, sendFcm } from "../_shared/fcm.ts";
 
 type Kind = "friend_request" | "friend_accepted" | "meetup_proposed" | "meetup_accepted" | "meetup_declined" | "message";
@@ -52,11 +52,7 @@ Deno.serve(async (req) => {
   const allowed = await isAllowed(admin, kind, user.id, target, meetup_id, message_id);
   if (!allowed) return json({ error: "forbidden" }, 403);
 
-  const keyId = Deno.env.get("APNS_KEY_ID");
-  const teamId = Deno.env.get("APNS_TEAM_ID");
-  const privateKey = Deno.env.get("APNS_PRIVATE_KEY");
-  const bundleId = Deno.env.get("APNS_BUNDLE_ID") ?? "de.koeven.meeterz";
-  const apns = !!(keyId && teamId && privateKey);
+  const apns = apnsConfigured();
   if (!apns && !fcmConfigured()) return json({ skipped: true, reason: "push not configured" });
 
   const { data: sender } = await admin.from("profiles").select("display_name").eq("id", user.id).single();
@@ -89,30 +85,15 @@ Deno.serve(async (req) => {
   const tokens = all.filter((t) => t.platform !== "android");
   if (!tokens.length || !apns) return json({ sent });
 
-  const jwt = await new jose.SignJWT({})
-    .setProtectedHeader({ alg: "ES256", kid: keyId! })
-    .setIssuer(teamId!)
-    .setIssuedAt()
-    .sign(await jose.importPKCS8(privateKey!, "ES256"));
-
   for (const t of tokens) {
-    const host = t.environment === "production" ? "api.push.apple.com" : "api.sandbox.push.apple.com";
-    const res = await fetch(`https://${host}/3/device/${t.token}`, {
-      method: "POST",
-      headers: {
-        authorization: `bearer ${jwt}`,
-        "apns-topic": bundleId,
-        "apns-push-type": "alert",
-        "apns-priority": "10",
-      },
-      body: JSON.stringify({ aps: { alert, sound: "default" }, kind }),
-    });
-    console.log(`notify: APNs ${host} → ${res.status} nach ${Date.now() - started} ms (${kind})`);
-    if (res.ok) sent++;
-    // Gerät abgemeldet oder Token ungültig → aufräumen
-    if (res.status === 410 || res.status === 400) {
-      await admin.from("device_tokens").delete().eq("token", t.token);
-    }
+    const r = await sendApns(t.token, t.environment, {
+      "apns-topic": apnsBundleId(),
+      "apns-push-type": "alert",
+      "apns-priority": "10",
+    }, { aps: { alert, sound: "default" }, kind });
+    console.log(`notify: APNs ${r.host} → ${r.status} ${r.reason} nach ${Date.now() - started} ms (${kind})`);
+    if (r.status === 200) sent++;
+    if (apnsTokenGone(r)) await admin.from("device_tokens").delete().eq("token", t.token);
   }
   console.log(`notify: ${sent} von ${all.length} gesendet, gesamt ${Date.now() - started} ms`);
   return json({ sent });

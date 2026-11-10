@@ -7,7 +7,7 @@
 // Secrets: dieselben wie bei „notify“ (APNS_* fürs iPhone, FCM_SERVICE_ACCOUNT für Android).
 
 import { createClient } from "npm:@supabase/supabase-js@2";
-import * as jose from "npm:jose@5";
+import { apnsBundleId, apnsConfigured, apnsTokenGone, sendApns } from "../_shared/apns.ts";
 import { fcmConfigured, sendFcm } from "../_shared/fcm.ts";
 
 const cors = {
@@ -43,11 +43,7 @@ Deno.serve(async (req) => {
     .filter((t) => t && t !== user.id).slice(0, 20);
   if (!requested.length) return json({ requested: 0 });
 
-  const keyId = Deno.env.get("APNS_KEY_ID");
-  const teamId = Deno.env.get("APNS_TEAM_ID");
-  const privateKey = Deno.env.get("APNS_PRIVATE_KEY");
-  const bundleId = Deno.env.get("APNS_BUNDLE_ID") ?? "de.koeven.meeterz";
-  const apns = !!(keyId && teamId && privateKey);
+  const apns = apnsConfigured();
   if (!apns && !fcmConfigured()) return json({ skipped: true, reason: "push not configured" });
 
   const admin = createClient(url, serviceKey);
@@ -111,30 +107,16 @@ Deno.serve(async (req) => {
   const tokens = all.filter((t) => t.platform !== "android");
   if (!tokens.length || !apns) return json({ requested: targets.length, sent });
 
-  const jwt = await new jose.SignJWT({})
-    .setProtectedHeader({ alg: "ES256", kid: keyId! })
-    .setIssuer(teamId!)
-    .setIssuedAt()
-    .sign(await jose.importPKCS8(privateKey!, "ES256"));
-
   for (const t of tokens) {
-    const host = t.environment === "production" ? "api.push.apple.com" : "api.sandbox.push.apple.com";
-    const res = await fetch(`https://${host}/3/device/${t.token}`, {
-      method: "POST",
-      headers: {
-        authorization: `bearer ${jwt}`,
-        "apns-topic": bundleId,
-        "apns-push-type": "background",
-        "apns-priority": "5",
-        "apns-expiration": String(Math.floor(now / 1000) + 60), // nach einer Minute verfallen lassen
-      },
-      body: JSON.stringify({ aps: { "content-available": 1 }, kind: "locate" }),
-    });
-    console.log(`request_location: APNs ${host} → ${res.status} nach ${Date.now() - started} ms`);
-    if (res.ok) sent++;
-    if (res.status === 410 || res.status === 400) {
-      await admin.from("device_tokens").delete().eq("token", t.token);
-    }
+    const r = await sendApns(t.token, t.environment, {
+      "apns-topic": apnsBundleId(),
+      "apns-push-type": "background",
+      "apns-priority": "5",
+      "apns-expiration": String(Math.floor(now / 1000) + 60), // nach einer Minute verfallen lassen
+    }, { aps: { "content-available": 1 }, kind: "locate" });
+    console.log(`request_location: APNs ${r.host} → ${r.status} ${r.reason} nach ${Date.now() - started} ms`);
+    if (r.status === 200) sent++;
+    if (apnsTokenGone(r)) await admin.from("device_tokens").delete().eq("token", t.token);
   }
   console.log(`request_location: ${sent} Geräte geweckt für ${targets.length} Freunde`);
   return json({ requested: targets.length, sent });

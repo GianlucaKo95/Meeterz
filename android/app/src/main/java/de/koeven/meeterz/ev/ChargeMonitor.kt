@@ -114,7 +114,7 @@ object ChargeMonitor {
         if (NavigationController.progress.value?.navigationRoute?.id != route.id) return
 
         // Zwischenziele der laufenden Route, die noch vor mir liegen (bereits übernommene Ladestopps)
-        val coords = route.routeOptions.coordinatesList()
+        val coords = route.directionsRoute.routeOptions()?.coordinatesList().orEmpty()
         val legIndex = progress.currentLegProgress?.legIndex ?: 0
         val upcoming = if (coords.size > 2) coords.subList(minOf(legIndex + 1, coords.size - 1), coords.size - 1) else emptyList()
 

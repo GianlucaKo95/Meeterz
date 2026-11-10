@@ -40,9 +40,10 @@ alter table public.charge_point_static enable row level security;
 alter table public.charge_point_status enable row level security;
 -- keine Policies: Schreiben nur mit Dienstschlüssel, Lesen über charge_availability()
 
--- Standorte im Rechteck mit aktueller Belegung. Meldungen älter als 2 Stunden gelten als unbekannt.
+-- Standorte im Korridor um Punkte entlang der Route (alle ~5 km, höchstens 400) mit aktueller Belegung.
+-- Meldungen älter als 2 Stunden gelten als unbekannt.
 create or replace function public.charge_availability(
-  min_lat double precision, min_lng double precision, max_lat double precision, max_lng double precision
+  lats double precision[], lngs double precision[], radius_m double precision default 3000
 )
 returns table (
   site_id text, lat double precision, lng double precision, operator text, max_kw double precision,
@@ -50,10 +51,13 @@ returns table (
 )
 language sql stable security definer set search_path = ''
 as $$
-  with sites as (
-    select * from public.charge_site_static s
-    where s.lat between min_lat and max_lat and s.lng between min_lng and max_lng
-    limit 20000
+  with route as (
+    select t.lat, t.lng from unnest(lats[1:400], lngs[1:400]) as t(lat, lng)
+  ),
+  sites as (
+    select distinct s.* from public.charge_site_static s
+    join route r on s.lat between r.lat - radius_m / 111000 and r.lat + radius_m / 111000
+                and s.lng between r.lng - radius_m / (111000 * cos(radians(r.lat))) and r.lng + radius_m / (111000 * cos(radians(r.lat)))
   ),
   points as (
     select s.site_id, ps.status, ps.price_kwh, ps.received_at
@@ -79,5 +83,5 @@ as $$
   group by s.site_id, s.lat, s.lng, s.operator, s.max_kw;
 $$;
 
-revoke execute on function public.charge_availability(double precision, double precision, double precision, double precision) from public, anon;
-grant execute on function public.charge_availability(double precision, double precision, double precision, double precision) to authenticated;
+revoke execute on function public.charge_availability(double precision[], double precision[], double precision) from public, anon;
+grant execute on function public.charge_availability(double precision[], double precision[], double precision) to authenticated;

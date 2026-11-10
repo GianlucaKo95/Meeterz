@@ -601,7 +601,10 @@ final class NavigationCoordinator: NSObject {
             .compactMap { $0?.routeProgress }
             .throttle(for: .seconds(1), scheduler: RunLoop.main, latest: true)
             .sink { [weak self] progress in
-                MainActor.assumeIsolated { NavigationZoom.applyManeuverPitch(self?.phoneMap, progress: progress) }
+                MainActor.assumeIsolated {
+                    NavigationZoom.applyManeuverPitch(self?.phoneMap, progress: progress)
+                    self?.logStepChange(progress)
+                }
             }
             .store(in: &subscriptions)
 
@@ -647,6 +650,17 @@ final class NavigationCoordinator: NSObject {
 
     /// Zuletzt mitgeteilte Ankunft je Treffen (am Anfang die erste berechnete)
     @ObservationIgnored private var announcedArrival: [UUID: Date] = [:]
+
+    /// Abschnittswechsel im Stand protokollieren (Nachweis für „Ansage, bevor ich abgebogen bin“)
+    @ObservationIgnored private var lastStepIndex: Int?
+    private func logStepChange(_ progress: RouteProgress) {
+        let leg = progress.currentLegProgress
+        defer { lastStepIndex = leg.stepIndex }
+        guard let last = lastStepIndex, leg.stepIndex > last, leg.stepIndex > 0 else { return }
+        if let loc = AppModel.shared.location.lastLocation, loc.speed >= 0, loc.speed < StandstillHold.standing {
+            Diag.log("Abschnittswechsel im Stand: \(StandstillHold.describe(leg))")
+        }
+    }
 
     /// Karte der iPhone-Navigation (für die Neigung vor Abbiegungen)
     @ObservationIgnored private weak var phoneMap: NavigationMapView?

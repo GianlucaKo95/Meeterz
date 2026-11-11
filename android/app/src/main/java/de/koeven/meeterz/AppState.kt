@@ -180,7 +180,7 @@ object AppState {
     suspend fun shareLocation(mode: SharingMode) {
         sharingMode = mode
         if (profile?.isIncognito == true) stopIncognito()
-        val eta = NavigationController.guidance.value?.let { System.currentTimeMillis() / 1000 + it.remainingSeconds.toLong() }
+        val eta = de.koeven.meeterz.nav.NavigationController.guidance.value?.let { System.currentTimeMillis() / 1000 + it.remainingSeconds.toLong() }
         setSharing(true, mode.until(eta))
     }
 

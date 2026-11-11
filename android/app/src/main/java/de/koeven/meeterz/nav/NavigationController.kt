@@ -81,14 +81,33 @@ object NavigationController : MapboxNavigationObserver {
         navigation = null
     }
 
-    /** Routen zum Ziel planen (schnellste zuerst, dazu Alternativen); `via` = Zwischenziele, z. B. Ladestopps */
+    /**
+     * Routen zum Ziel planen: schnellste zuerst, dazu bis zu zwei weitere (Kürzeste, Ohne Autobahn – RouteVariety).
+     * `via` = Zwischenziele, z. B. Ladestopps (dann nur eine Route). Routenoptionen (Maut/Autobahn/Fähre meiden) gelten immer.
+     */
     suspend fun plan(context: Context, from: Point, to: Destination, via: List<Point> = emptyList()): List<NavigationRoute> {
+        val coords = listOf(from) + via + Point.fromLngLat(to.lng, to.lat)
+        var routes = request(context, coords, alternatives = via.isEmpty(), RoutePreferences.exclude)
+        if (routes.isEmpty() && RoutePreferences.exclude != null) {
+            // Ohne Maut/Autobahn/Fähre nicht erreichbar (z. B. Insel nur per Fähre): dann ohne Einschränkung
+            routes = request(context, coords, alternatives = via.isEmpty(), null)
+            if (routes.isNotEmpty()) { Diag.log("Route ${RoutePreferences.summary} nicht möglich – ohne Einschränkung"); return routes }
+        }
+        val fastest = routes.firstOrNull() ?: return routes
+        if (via.isNotEmpty() || !RouteVariety.shouldWiden(fastest.directionsRoute)) return routes
+        val extra = request(context, listOf(from, Point.fromLngLat(to.lng, to.lat)), alternatives = false,
+            listOfNotNull(RoutePreferences.exclude, "motorway").joinToString(",")).firstOrNull()
+        return RouteVariety.pick(routes, extra)
+    }
+
+    private suspend fun request(context: Context, coordinates: List<Point>, alternatives: Boolean, exclude: String?): List<NavigationRoute> {
         val nav = navigation ?: return emptyList()
         val options = RouteOptions.builder()
             .applyDefaultNavigationOptions()
             .applyLanguageAndVoiceUnitOptions(context)
-            .coordinatesList(listOf(from) + via + Point.fromLngLat(to.lng, to.lat))
-            .alternatives(via.isEmpty())
+            .coordinatesList(coordinates)
+            .alternatives(alternatives)
+            .apply { if (exclude != null) exclude(exclude) }
             .build()
         return suspendCoroutine { cont ->
             nav.requestRoutes(options, object : NavigationRouterCallback {
@@ -105,11 +124,13 @@ object NavigationController : MapboxNavigationObserver {
     private var appContext: Context? = null
 
     @SuppressLint("MissingPermission")
-    fun start(routes: List<NavigationRoute>, destination: Destination) {
+    fun start(routes: List<NavigationRoute>, destination: Destination, selected: Int = 0) {
         val nav = navigation ?: return
         announcer = Announcer()
         deferred = null
-        nav.setNavigationRoutes(routes)
+        // Gewählte Route als Hauptroute; Alternativen nur aus derselben Antwort (die Route ohne Autobahn ist eine eigene)
+        val main = routes.getOrNull(selected) ?: routes.first()
+        nav.setNavigationRoutes(listOf(main) + routes.filter { it !== main && it.responseUUID == main.responseUUID })
         nav.startTripSession()
         _guidance.value = Guidance(destination)
         appContext?.let { de.koeven.meeterz.ev.ChargeMonitor.start(it) }
@@ -151,6 +172,8 @@ object NavigationController : MapboxNavigationObserver {
         deferred = null
         de.koeven.meeterz.ev.ChargeMonitor.stop()
         AppState.meetups.navigationEnded()
+        IncidentWatcher.reset()
+        RightOfWaySigns.clear()
         _guidance.value = null
         _progress.value = null
     }
@@ -202,6 +225,8 @@ object NavigationController : MapboxNavigationObserver {
             remainingDistance = progress.distanceRemaining.toDouble(),
             remainingSeconds = progress.durationRemaining,
         )
+        IncidentWatcher.check(progress)
+        RightOfWaySigns.update(progress)
         if (progress.currentState == RouteProgressState.COMPLETE) stop()
         // Verschobene Autobahnansage bei 2 km sprechen
         deferred?.let { (stepIndex, voice) ->

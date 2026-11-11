@@ -125,6 +125,7 @@ class GuidanceScreen(carContext: CarContext, private val carMap: MapboxCarMap) :
     private val camera = CarNavigationCamera(CarCameraMode.FOLLOWING, CarCameraMode.OVERVIEW)
     private val markers = CarActiveGuidanceMarkers()
     private val friends = CarFriendMarkers()
+    private val sign = CarSignMarker()
     private val info = CarNavigationInfoProvider().invalidateOnChange(this)
     private val mapActions = MapboxMapActionStrip(this, camera)
 
@@ -137,19 +138,23 @@ class GuidanceScreen(carContext: CarContext, private val carMap: MapboxCarMap) :
         val viewport = carViewport(camera) ?: return@RouteProgressObserver
         viewport.followingPitchPropertyOverride(
             NavigationMapBinder.maneuverPitch(progress, viewport.options.followingFrameOptions.defaultPitch))
+        carMap.carMapSurface?.mapSurface?.mapboxMap?.cameraState?.zoom?.let { zoom ->
+            viewport.followingZoomPropertyOverride(
+                NavigationMapBinder.maneuverZoom(progress, (AppState.lastLocation?.speed ?: 0f).toDouble(), zoom))
+        }
         viewport.evaluate()
     }
 
     init {
         lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onResume(owner: LifecycleOwner) {
-                listOf(routeLine, location, camera, markers, friends, info).forEach(carMap::registerObserver)
+                listOf(routeLine, location, camera, markers, friends, sign, info).forEach(carMap::registerObserver)
                 carMap.setGestureHandler(camera.gestureHandler)
                 MapboxNavigationApp.current()?.registerRouteProgressObserver(pitchObserver)
             }
             override fun onPause(owner: LifecycleOwner) {
                 MapboxNavigationApp.current()?.unregisterRouteProgressObserver(pitchObserver)
-                listOf(routeLine, location, camera, markers, friends, info).forEach(carMap::unregisterObserver)
+                listOf(routeLine, location, camera, markers, friends, sign, info).forEach(carMap::unregisterObserver)
                 carMap.setGestureHandler(null)
             }
         })
@@ -161,6 +166,7 @@ class GuidanceScreen(carContext: CarContext, private val carMap: MapboxCarMap) :
             ActionStrip.Builder()
                 .apply { batteryAction(carContext)?.let { addAction(it) } }
                 .addAction(Action.Builder().setTitle("Bescheid").setOnClickListener { screenManager.push(messageScreen(carContext)) }.build())
+                .addAction(Action.Builder().setTitle("Stopp").setOnClickListener { screenManager.push(CarStopScreen(carContext)) }.build())
                 .addAction(Action.Builder().setTitle("Beenden").setOnClickListener { NavigationController.stop() }.build())
                 .build(),
         )
@@ -290,6 +296,43 @@ class CarSearchScreen(carContext: CarContext) : Screen(carContext) {
             results = PlaceSearch.search(text, me?.latitude, me?.longitude)
             invalidate()
         }
+    }
+}
+
+/** Zwischenstopp unterwegs (CarPlay: Suche mit Kategorien während der Fahrt): Kategorie wählen, Ort antippen */
+class CarStopScreen(carContext: CarContext, private val category: PlaceSearch.Category? = null) : Screen(carContext) {
+    private var places: List<PlaceSearch.Place>? = null
+
+    init {
+        if (category != null) lifecycleScope.launch {
+            val me = AppState.lastLocation
+            places = if (me == null) emptyList() else PlaceSearch.places(category, me.latitude, me.longitude, 6)
+            invalidate()
+        }
+    }
+
+    override fun onGetTemplate(): Template {
+        val list = ItemList.Builder()
+        if (category == null) {
+            for (c in listOf(PlaceSearch.Category.GAS, PlaceSearch.Category.REST_AREA, PlaceSearch.Category.COFFEE, PlaceSearch.Category.RESTAURANT)) {
+                list.addItem(Row.Builder().setTitle(c.title).setBrowsable(true)
+                    .setOnClickListener { screenManager.push(CarStopScreen(carContext, c)) }.build())
+            }
+            list.addItem(Row.Builder().setTitle("Suchen").setBrowsable(true).setOnClickListener { screenManager.push(CarSearchScreen(carContext)) }.build())
+        } else {
+            val me = AppState.lastLocation
+            list.setNoItemsMessage("Nichts in der Nähe gefunden.")
+            places?.forEach { p ->
+                list.addItem(Row.Builder().setTitle(p.name)
+                    .apply { me?.let { addText(km(ChargePlanner.distance(it.latitude, it.longitude, p.lat, p.lng))) } }
+                    .setOnClickListener {
+                        AppState.scope.launch { NavigationController.addStop(carContext, p.name, p.lat, p.lng) }
+                        screenManager.popToRoot()
+                    }.build())
+            }
+        }
+        return ListTemplate.Builder().setTitle(category?.title ?: "Zwischenstopp").setHeaderAction(Action.BACK)
+            .apply { if (category != null && places == null) setLoading(true) else setSingleList(list.build()) }.build()
     }
 }
 

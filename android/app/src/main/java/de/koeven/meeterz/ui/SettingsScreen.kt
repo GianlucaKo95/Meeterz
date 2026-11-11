@@ -121,6 +121,15 @@ fun SettingsScreen(onClose: () -> Unit) {
                     }
                 }
                 item {
+                    Text("Route (Auto)", fontWeight = FontWeight.SemiBold)
+                    Text("Gilt für jede Route, auch für Neuberechnungen unterwegs", style = MaterialTheme.typography.bodySmall)
+                    for (o in de.koeven.meeterz.nav.RoutePreferences.Option.entries) {
+                        var on by remember { mutableStateOf(de.koeven.meeterz.nav.RoutePreferences.isOn(o)) }
+                        SwitchRow(o.title, o.shortTitle, on) { on = it; de.koeven.meeterz.nav.RoutePreferences.set(o, it) }
+                    }
+                    HorizontalDivider()
+                }
+                item {
                     OutlinedButton(onClick = { showEv = true }, modifier = Modifier.fillMaxWidth()) { Text("E-Auto und Ladeplanung") }
                     OutlinedButton(onClick = { showSounds = true }, modifier = Modifier.fillMaxWidth()) { Text("Sound-Pack: eigene Schnipsel aufnehmen") }
                 }

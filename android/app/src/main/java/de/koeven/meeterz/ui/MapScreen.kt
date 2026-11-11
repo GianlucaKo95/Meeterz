@@ -1,5 +1,9 @@
 package de.koeven.meeterz.ui
 
+import androidx.compose.material.icons.filled.AddLocationAlt
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.material3.FilterChip
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
@@ -158,6 +162,7 @@ fun MapScreen() {
     var results by remember { mutableStateOf<List<PlaceSearch.Place>>(emptyList()) }
     var preview by remember { mutableStateOf<Pair<NavigationController.Destination, List<NavigationRoute>>?>(null) }
     var planning by remember { mutableStateOf(false) }
+    var selectedRoute by remember { mutableStateOf(0) }
     var showFriends by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
     var showMeetups by remember { mutableStateOf(false) }
@@ -176,7 +181,7 @@ fun MapScreen() {
         scope.launch {
             val routes = NavigationController.plan(context, Point.fromLngLat(me.longitude, me.latitude), dest)
             planning = false
-            if (routes.isNotEmpty()) { preview = dest to routes; adopted = null }
+            if (routes.isNotEmpty()) { preview = dest to routes; adopted = null; selectedRoute = 0 }
         }
     }
 
@@ -185,8 +190,9 @@ fun MapScreen() {
         val me = AppState.lastLocation ?: return
         val routes = NavigationController.plan(context, Point.fromLngLat(me.longitude, me.latitude), dest,
             via = plan.stops.map { Point.fromLngLat(it.site.lng, it.site.lat) })
-        if (routes.isNotEmpty()) { preview = dest to routes; adopted = plan; ChargingSession.plan = plan }
+        if (routes.isNotEmpty()) { preview = dest to routes; adopted = plan; selectedRoute = 0; ChargingSession.plan = plan }
     }
+    LaunchedEffect(preview, selectedRoute, guidance == null) { if (guidance == null) binder.showPreview(preview?.second, selectedRoute) }
     LaunchedEffect(query) {
         delay(300)   // erst suchen, wenn kurz nicht getippt wird
         val me = AppState.lastLocation
@@ -209,6 +215,12 @@ fun MapScreen() {
                 },
                 dismissButton = { TextButton(onClick = { suggestion = null }) { Text(if (sg.plan == null) "OK" else "Nein") } },
             )
+        }
+        // Verkehrsmeldungen voraus (vorgelesen wird in IncidentWatcher)
+        LaunchedEffect(Unit) {
+            de.koeven.meeterz.nav.IncidentWatcher.alerts.collect { a ->
+                Toast.makeText(context, listOfNotNull(a.title, a.subtitle).joinToString(" – "), Toast.LENGTH_LONG).show()
+            }
         }
         val charging by ChargingSession.view.collectAsState()
         charging?.let { ChargingCard(it, Modifier.align(Alignment.Center)) }
@@ -278,27 +290,36 @@ fun MapScreen() {
             if (showFriends) FriendsScreen(onClose = { showFriends = false })
             if (showSettings) SettingsScreen(onClose = { showSettings = false })
             preview?.let { (dest, routes) ->
-                PreviewCard(dest, routes, Modifier.align(Alignment.BottomCenter),
+                PreviewCard(dest, routes, selectedRoute, { selectedRoute = it }, Modifier.align(Alignment.BottomCenter),
                     onSave = { kind, label -> AppState.favorites.save(kind, label, dest.address, dest.lat, dest.lng) },
-                    onStart = { NavigationController.start(routes, dest); preview = null; query = "" },
+                    onStart = { NavigationController.start(routes, dest, selectedRoute); preview = null; query = "" },
                     onCancel = { preview = null; adopted = null },
                     onInvite = { inviteTo = dest },
-                    charge = { ChargePlanSection(routes.first(), adopted) { plan -> adopt(dest, plan) } })
+                    charge = { ChargePlanSection(routes.getOrElse(selectedRoute) { routes.first() }, adopted) { plan -> adopt(dest, plan) } })
             }
         }
     }
 }
 
 @Composable
-private fun PreviewCard(dest: NavigationController.Destination, routes: List<NavigationRoute>, modifier: Modifier,
+private fun PreviewCard(dest: NavigationController.Destination, routes: List<NavigationRoute>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier,
                         onSave: (String, String) -> Unit, onStart: () -> Unit, onCancel: () -> Unit, onInvite: () -> Unit,
                         charge: @Composable () -> Unit = {}) {
     var saved by remember(dest) { mutableStateOf(false) }
-    val r = routes.first().directionsRoute
+    val r = routes.getOrElse(selected) { routes.first() }.directionsRoute
     Surface(modifier.fillMaxWidth().navigationBarsPadding().padding(12.dp), shape = RoundedCornerShape(20.dp), shadowElevation = 6.dp) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(dest.name, style = MaterialTheme.typography.titleMedium)
             Text("${minutes(r.duration())} · ${km(r.distance())} · Ankunft ${clock(r.duration())}")
+            // Bis zu drei Routen zur Wahl (Schnellste, Kürzeste, Ohne Autobahn) – wie die Routenwahl auf iOS
+            if (routes.size > 1) Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                routes.forEachIndexed { i, route ->
+                    FilterChip(selected = i == selected, onClick = { onSelect(i) }, label = {
+                        Text("${de.koeven.meeterz.nav.RouteVariety.label(i, routes)} · ${minutes(route.directionsRoute.duration())}")
+                    })
+                }
+            }
+            de.koeven.meeterz.nav.RoutePreferences.summary?.let { Text("Route $it", style = MaterialTheme.typography.bodySmall) }
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AssistChip(onClick = onInvite, label = { Text("Freunde einladen") })
                 if (!saved) {
@@ -318,11 +339,19 @@ private fun PreviewCard(dest: NavigationController.Destination, routes: List<Nav
 
 @Composable
 private fun GuidanceBanner(g: NavigationController.Guidance) {
-    Surface(Modifier.fillMaxWidth().statusBarsPadding().padding(12.dp), shape = RoundedCornerShape(20.dp),
-        color = MeeterzColors.petrol, contentColor = Color.White, shadowElevation = 6.dp) {
-        Column(Modifier.padding(16.dp)) {
-            Text(km(g.distanceToTurn), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MeeterzColors.mint)
-            Text(g.instruction.ifEmpty { g.destination.name }, style = MaterialTheme.typography.titleMedium)
+    val sign by de.koeven.meeterz.nav.RightOfWaySigns.sign.collectAsState()
+    Column(Modifier.statusBarsPadding().padding(12.dp)) {
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
+            color = MeeterzColors.petrol, contentColor = Color.White, shadowElevation = 6.dp) {
+            Column(Modifier.padding(16.dp)) {
+                Text(km(g.distanceToTurn), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MeeterzColors.mint)
+                Text(g.instruction.ifEmpty { g.destination.name }, style = MaterialTheme.typography.titleMedium)
+            }
+        }
+        // Vorfahrt achten / Stopp kurz vor dem Schild (wie RightOfWaySigns auf iOS), am Rand unter der Anzeige
+        sign?.let { s ->
+            androidx.compose.foundation.Image(de.koeven.meeterz.ui.RoadSigns.bitmap(s.stop).asImageBitmap(),
+                if (s.stop) "Stopp" else "Vorfahrt achten", Modifier.padding(top = 8.dp).size(56.dp))
         }
     }
 }
@@ -331,7 +360,9 @@ private fun GuidanceBanner(g: NavigationController.Guidance) {
 private fun GuidanceBar(g: NavigationController.Guidance, modifier: Modifier) {
     var muted by remember { mutableStateOf(NavigationController.muted) }
     var showMessage by remember { mutableStateOf(false) }
+    var showStop by remember { mutableStateOf(false) }
     if (showMessage) MessageDialog(g, onDismiss = { showMessage = false })
+    if (showStop) AddStopDialog(onDismiss = { showStop = false })
     Surface(modifier.fillMaxWidth().navigationBarsPadding().padding(12.dp), shape = RoundedCornerShape(20.dp), shadowElevation = 6.dp) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -341,6 +372,7 @@ private fun GuidanceBar(g: NavigationController.Guidance, modifier: Modifier) {
                 forecast?.let { Text(it.text, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold,
                     color = if (it.low) Color(0xFFD92E36) else MeeterzColors.mintLight) }
             }
+            IconButton(onClick = { showStop = true }) { Icon(Icons.Default.AddLocationAlt, "Zwischenstopp") }
             IconButton(onClick = { showMessage = true }) { Icon(Icons.AutoMirrored.Filled.Chat, "Bescheid geben") }
             IconButton(onClick = { muted = !muted; NavigationController.muted = muted }) {
                 Icon(if (muted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp, "Ton")
@@ -481,4 +513,51 @@ private fun initialsBubble(initials: String): Bitmap {
     }
     canvas.drawText(initials, size / 2f, size / 2f - (text.descent() + text.ascent()) / 2, text)
     return bitmap
+}
+
+/** Zwischenstopp während der Führung (iOS: „Stopp hinzufügen“): Kategorie oder Suche, Antippen fügt den Stopp ein */
+@Composable
+private fun AddStopDialog(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var category by remember { mutableStateOf<PlaceSearch.Category?>(PlaceSearch.Category.GAS) }
+    var query by remember { mutableStateOf("") }
+    var places by remember { mutableStateOf<List<PlaceSearch.Place>>(emptyList()) }
+    LaunchedEffect(category, query) {
+        val me = AppState.lastLocation ?: return@LaunchedEffect
+        places = if (query.isNotBlank()) { delay(300); PlaceSearch.search(query, me.latitude, me.longitude) }
+        else category?.let { PlaceSearch.places(it, me.latitude, me.longitude, 8) }.orEmpty()
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } },
+        title = { Text("Zwischenstopp") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextField(query, { query = it }, placeholder = { Text("Suchen") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    for (c in listOf(PlaceSearch.Category.GAS, PlaceSearch.Category.REST_AREA, PlaceSearch.Category.COFFEE, PlaceSearch.Category.RESTAURANT)) {
+                        FilterChip(selected = query.isBlank() && category == c, onClick = { category = c; query = "" }, label = { Text(c.title) })
+                    }
+                }
+                val me = AppState.lastLocation
+                LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                    items(places) { p ->
+                        Column(Modifier.fillMaxWidth().clickable {
+                            onDismiss()
+                            scope.launch {
+                                val ok = NavigationController.addStop(context, p.name, p.lat, p.lng)
+                                Toast.makeText(context, if (ok) "Stopp: ${p.name}" else "Stopp konnte nicht eingefügt werden", Toast.LENGTH_SHORT).show()
+                            }
+                        }.padding(vertical = 10.dp)) {
+                            Text(p.name, fontWeight = FontWeight.SemiBold)
+                            Text(listOfNotNull(me?.let { km(de.koeven.meeterz.ev.ChargePlanner.distance(it.latitude, it.longitude, p.lat, p.lng)) }, p.address)
+                                .joinToString(" · "), style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                        }
+                    }
+                }
+            }
+        },
+    )
 }

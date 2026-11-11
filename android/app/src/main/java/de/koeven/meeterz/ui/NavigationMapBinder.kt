@@ -3,6 +3,7 @@ package de.koeven.meeterz.ui
 import com.mapbox.maps.EdgeInsets
 import com.mapbox.maps.MapView
 import com.mapbox.maps.plugin.animation.camera
+import com.mapbox.maps.plugin.viewport.viewport
 import com.mapbox.maps.plugin.locationcomponent.LocationProvider
 import com.mapbox.maps.plugin.locationcomponent.location
 import com.mapbox.navigation.base.route.NavigationRoute
@@ -43,6 +44,26 @@ class NavigationMapBinder(private val mapView: MapView) : MapboxNavigationObserv
             if (d > PITCH_TRIGGER) return null
             return MINIMUM_PITCH + (defaultPitch - MINIMUM_PITCH) * maxOf(0.0, d) / PITCH_TRIGGER
         }
+
+        private val zoomTurns = setOf("turn", "end of road", "roundabout", "rotary", "off ramp", "fork")
+        private val zoomExits = setOf("off ramp", "fork")
+
+        /**
+         * Vor Abbiegungen/Ausfahrten heranzoomen (wie ManeuverGuidance.swift): ca. 12 s vorher, mindestens 250 m,
+         * bei Ausfahrten 600 m, auf 17 bzw. 16,5 – nur wenn die Karte nicht schon näher ist. null = Mapbox überlassen.
+         */
+        fun maneuverZoom(progress: RouteProgress, speed: Double, currentZoom: Double): Double? {
+            val leg = progress.currentLegProgress ?: return null
+            val type = leg.upcomingStep?.maneuver()?.type() ?: return null
+            if (type !in zoomTurns) return null
+            val exit = type in zoomExits
+            val lead = maxOf(speed * 12, if (exit) 600.0 else 250.0)
+            val d = leg.currentStepProgress?.distanceRemaining?.toDouble() ?: return null
+            if (d >= lead) return null
+            val target = if (exit) 16.5 else 17.0
+            return target.takeIf { currentZoom <= target + 0.01 }
+        }
+    }
     }
 
     private val locationProvider = NavigationLocationProvider()
@@ -79,6 +100,24 @@ class NavigationMapBinder(private val mapView: MapView) : MapboxNavigationObserv
         }
     }
 
+    /** Routenvorschau (vor dem Start): alle Routen zeichnen, gewählte hervorgehoben, Übersicht – null räumt auf */
+    fun showPreview(routes: List<NavigationRoute>?, selected: Int = 0) {
+        if (active) return
+        val style = mapView.mapboxMap.style ?: return
+        if (routes.isNullOrEmpty()) {
+            routeLineApi.clearRouteLine { routeLineView.renderClearRouteLineValue(style, it) }
+            viewport.clearRouteData()
+            mapView.viewport.transitionTo(mapView.viewport.makeFollowPuckViewportState())
+            return
+        }
+        val main = routes.getOrNull(selected) ?: routes.first()
+        routeLineApi.setNavigationRoutes(listOf(main) + routes.filter { it !== main }) { routeLineView.renderRouteDrawData(style, it) }
+        viewport.onRouteChanged(main)
+        viewport.evaluate()
+        mapView.viewport.idle()   // „Puck folgen“ loslassen, sonst zieht es die Kamera zurück
+        camera.requestNavigationCameraToOverview()
+    }
+
     private val routesObserver = RoutesObserver { result ->
         val routes: List<NavigationRoute> = result.navigationRoutes
         if (routes.isEmpty()) return@RoutesObserver
@@ -94,6 +133,8 @@ class NavigationMapBinder(private val mapView: MapView) : MapboxNavigationObserv
         // Vor Abbiegungen flacher statt 2D (wie iOS NavigationZoom.maneuverPitch): über die letzten 200 m sanft
         // von der normalen Neigung auf 25°; Ausfahrten, Gabelungen, Auffahrten und das Ziel bleiben voll 3D
         viewport.followingPitchPropertyOverride(maneuverPitch(progress, viewport.options.followingFrameOptions.defaultPitch))
+        viewport.followingZoomPropertyOverride(maneuverZoom(progress, (de.koeven.meeterz.AppState.lastLocation?.speed ?: 0f).toDouble(),
+            mapView.mapboxMap.cameraState.zoom))
         viewport.evaluate()
         routeLineApi.updateWithRouteProgress(progress) { value ->
             mapView.mapboxMap.style?.let { routeLineView.renderRouteLineUpdate(it, value) }

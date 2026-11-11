@@ -1,5 +1,8 @@
 package de.koeven.meeterz.ui
 
+import androidx.compose.material.icons.filled.Event
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -155,6 +158,9 @@ fun MapScreen() {
     var planning by remember { mutableStateOf(false) }
     var showFriends by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
+    var showMeetups by remember { mutableStateOf(false) }
+    var planCandidate by remember { mutableStateOf<de.koeven.meeterz.data.MeetupCandidate?>(null) }
+    var inviteTo by remember { mutableStateOf<NavigationController.Destination?>(null) }
     /** Übernommener Ladeplan: Vorschau-Route führt schon über die Säulen */
     var adopted by remember { mutableStateOf<ChargePlanner.Plan?>(null) }
     val favorites by AppState.favorites.items.collectAsState()
@@ -206,9 +212,14 @@ fun MapScreen() {
         charging?.let { ChargingCard(it, Modifier.align(Alignment.Center)) }
 
         val g = guidance
+        planCandidate?.let { CandidatePlanDialog(it, onClose = { planCandidate = null }) }
+        inviteTo?.let { d -> InviteFriendsDialog(d.name, d.address, d.lat, d.lng, onClose = { inviteTo = null }) }
         if (g != null) {
             GuidanceBanner(g)
-            GuidanceBar(g, Modifier.align(Alignment.BottomCenter))
+            Column(Modifier.align(Alignment.BottomCenter)) {
+                SocialCard { planCandidate = it }
+                GuidanceBar(g, Modifier)
+            }
         } else {
             Column(Modifier.statusBarsPadding().padding(12.dp)) {
                 Surface(shape = RoundedCornerShape(16.dp), shadowElevation = 4.dp) {
@@ -235,6 +246,7 @@ fun MapScreen() {
                             }
                         }
                         FilledTonalIconButton(onClick = { showSettings = true }) { Icon(Icons.Default.Settings, "Einstellungen") }
+                        FilledTonalIconButton(onClick = { showMeetups = true }) { Icon(Icons.Default.Event, "Treffen") }
                         FilledTonalIconButton(onClick = { showFriends = true }) { Icon(Icons.Default.People, "Freunde") }
                     }
                     StatusPill()
@@ -255,6 +267,8 @@ fun MapScreen() {
                 }
             }
             if (planning) CircularProgressIndicator(Modifier.align(Alignment.Center))
+            if (preview == null && query.isEmpty()) SocialCard(Modifier.align(Alignment.BottomCenter).navigationBarsPadding()) { planCandidate = it }
+            if (showMeetups) MeetupsOverviewScreen(onClose = { showMeetups = false })
             if (showFriends) FriendsScreen(onClose = { showFriends = false })
             if (showSettings) SettingsScreen(onClose = { showSettings = false })
             preview?.let { (dest, routes) ->
@@ -262,6 +276,7 @@ fun MapScreen() {
                     onSave = { kind, label -> AppState.favorites.save(kind, label, dest.address, dest.lat, dest.lng) },
                     onStart = { NavigationController.start(routes, dest); preview = null; query = "" },
                     onCancel = { preview = null; adopted = null },
+                    onInvite = { inviteTo = dest },
                     charge = { ChargePlanSection(routes.first(), adopted) { plan -> adopt(dest, plan) } })
             }
         }
@@ -270,7 +285,7 @@ fun MapScreen() {
 
 @Composable
 private fun PreviewCard(dest: NavigationController.Destination, routes: List<NavigationRoute>, modifier: Modifier,
-                        onSave: (String, String) -> Unit, onStart: () -> Unit, onCancel: () -> Unit,
+                        onSave: (String, String) -> Unit, onStart: () -> Unit, onCancel: () -> Unit, onInvite: () -> Unit,
                         charge: @Composable () -> Unit = {}) {
     var saved by remember(dest) { mutableStateOf(false) }
     val r = routes.first().directionsRoute
@@ -278,10 +293,13 @@ private fun PreviewCard(dest: NavigationController.Destination, routes: List<Nav
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(dest.name, style = MaterialTheme.typography.titleMedium)
             Text("${minutes(r.duration())} · ${km(r.distance())} · Ankunft ${clock(r.duration())}")
-            if (!saved) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AssistChip(onClick = { onSave("home", "Zuhause"); saved = true }, label = { Text("Als Zuhause") })
-                AssistChip(onClick = { onSave("work", "Arbeit"); saved = true }, label = { Text("Als Arbeit") })
-                AssistChip(onClick = { onSave("other", dest.name); saved = true }, label = { Text("Merken") })
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                AssistChip(onClick = onInvite, label = { Text("Freunde einladen") })
+                if (!saved) {
+                    AssistChip(onClick = { onSave("home", "Zuhause"); saved = true }, label = { Text("Als Zuhause") })
+                    AssistChip(onClick = { onSave("work", "Arbeit"); saved = true }, label = { Text("Als Arbeit") })
+                    AssistChip(onClick = { onSave("other", dest.name); saved = true }, label = { Text("Merken") })
+                }
             }
             charge()
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {

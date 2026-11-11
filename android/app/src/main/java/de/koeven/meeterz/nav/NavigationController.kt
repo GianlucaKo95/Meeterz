@@ -116,6 +116,21 @@ object NavigationController : MapboxNavigationObserver {
         AppState.meetups.announceDeparture(destination.lat, destination.lng)
     }
 
+    /**
+     * Ziel als Zwischenstopp (wie addStop auf iOS): während der Führung vor dem eigentlichen Ziel einfügen,
+     * sonst direkt dorthin losfahren.
+     */
+    suspend fun addStop(context: Context, name: String, lat: Double, lng: Double): Boolean {
+        val stop = Point.fromLngLat(lng, lat)
+        if (_guidance.value != null) return reroute(context, listOf(stop))
+        val here = AppState.lastLocation?.let { Point.fromLngLat(it.longitude, it.latitude) } ?: return false
+        val dest = Destination(name, lat, lng)
+        val routes = plan(context, here, dest)
+        if (routes.isEmpty()) return false
+        start(routes, dest)
+        return true
+    }
+
     /** Laufende Führung ab hier neu über diese Zwischenziele (z. B. neuer Ladeplan unterwegs) */
     suspend fun reroute(context: Context, via: List<Point>): Boolean {
         val g = _guidance.value ?: return false

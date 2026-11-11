@@ -35,6 +35,9 @@ data class Meetup(
     @SerialName("meet_at") val meetAt: String? = null,
 ) {
     val isPending get() = status == "pending"
+    val isGroup get() = groupId != null
+    /** „Mit Lisa“ bzw. bei Gruppen „Mit Lisa und 2 weiteren“ */
+    val withText get() = if (isGroup && (groupSize ?: 2) > 2) "$otherName und ${(groupSize ?: 3) - 2} weiteren" else otherName
     val isAccepted get() = status == "accepted"
     /** Verabredete Uhrzeit (Unix-Sekunden), null = „jetzt“ */
     val meetAtSeconds: Long? get() = meetAt?.let { runCatching { Instant.parse(it).epochSecond }.getOrNull() }
@@ -42,12 +45,45 @@ data class Meetup(
 }
 
 /**
- * Treffen (wie MeetupsStore auf iOS) – auf Android vorerst ohne eigene Oberfläche zum Vorschlagen/Annehmen.
+ * Treffen (wie MeetupsStore auf iOS): Vorschlagen, Annehmen, Gruppen (Oberfläche in ui/MeetupViews.kt).
  * Grundlage für die Sound-Pack-Momente, „ist losgefahren“, Verspätungsnachricht und Ankunft (Treffen auflösen).
  */
+/** Gelegenheit: Wege kreuzen sich (RPC `find_meetups`) */
+@Serializable
+data class MeetupCandidate(
+    @SerialName("friend_id") val friendId: String,
+    val lat: Double,
+    val lng: Double,
+    @SerialName("my_eta") val myEta: String,
+    @SerialName("friend_eta") val friendEta: String,
+    @SerialName("distance_m") val distanceM: Double,
+    @SerialName("friend_mode") val friendMode: String? = null,
+) {
+    val myEtaSeconds get() = runCatching { Instant.parse(myEta).epochSecond }.getOrDefault(0)
+    val friendEtaSeconds get() = runCatching { Instant.parse(friendEta).epochSecond }.getOrDefault(0)
+}
+
+@Serializable
+data class GroupMember(
+    @SerialName("user_id") val userId: String,
+    @SerialName("display_name") val displayName: String = "",
+    val status: String,
+    val organizer: Boolean = false,
+)
+
 class MeetupsStore {
-    @Serializable
-    private data class GroupMember(@SerialName("user_id") val userId: String, val status: String)
+    private val _candidates = MutableStateFlow<List<MeetupCandidate>>(emptyList())
+    private val dismissed = mutableMapOf<String, Long>()
+    /** Gelegenheiten ohne laufendes Treffen mit dem Freund und nicht weggeklickt (1 Std.) */
+    val candidates: StateFlow<List<MeetupCandidate>> = _candidates
+    fun visibleCandidates() = _candidates.value.filter { c ->
+        System.currentTimeMillis() - (dismissed[c.friendId] ?: 0) > 3_600_000 &&
+            _meetups.value.none { it.otherId == c.friendId && (it.isPending || it.isAccepted) }
+    }
+    fun dismiss(c: MeetupCandidate) { dismissed[c.friendId] = System.currentTimeMillis(); _candidates.value = _candidates.value.toList() }
+
+    val incomingPending get() = _meetups.value.filter { it.incoming && it.isPending }
+    val outgoingPending get() = _meetups.value.filter { !it.incoming && it.isPending }
 
     private val _meetups = MutableStateFlow<List<Meetup>>(emptyList())
     val meetups: StateFlow<List<Meetup>> = _meetups
@@ -68,6 +104,7 @@ class MeetupsStore {
     fun reset() { _meetups.value = emptyList(); groupPartners = emptyMap(); fetched = false; arrivalReported.clear() }
 
     suspend fun refresh() {
+        runCatching { Backend.client.postgrest.rpc("find_meetups").decodeList<MeetupCandidate>() }.onSuccess { _candidates.value = it }
         val rows = runCatching { Backend.client.postgrest.rpc("my_meetups").decodeList<Meetup>() }.getOrNull() ?: return
         val wasPending = _meetups.value.filter { !it.incoming && it.isPending }.map { it.id }.toSet()
         if (fetched) rows.filter { !it.incoming && it.isAccepted && it.id in wasPending }.forEach { _acceptedByFriend.tryEmit(it) }
@@ -77,12 +114,51 @@ class MeetupsStore {
         val byGroup = mutableMapOf<String, List<GroupMember>>()
         groupPartners = rows.filter { it.isAccepted && it.groupId != null }.associate { m ->
             val members = byGroup.getOrPut(m.groupId!!) {
-                runCatching {
-                    Backend.client.postgrest.rpc("group_members", buildJsonObject { put("gid", m.groupId) }).decodeList<GroupMember>()
-                }.getOrDefault(emptyList())
+                groupMembers(m.groupId)
             }
             m.id to members.filter { it.status == "accepted" && it.userId != me && it.userId != m.otherId }.map { it.userId }
         }
+    }
+
+    suspend fun groupMembers(groupId: String): List<GroupMember> = runCatching {
+        Backend.client.postgrest.rpc("group_members", buildJsonObject { put("gid", groupId) }).decodeList<GroupMember>()
+    }.getOrDefault(emptyList())
+
+    // Aktionen (wie iOS)
+
+    /** Treffen vorschlagen; meetAt = verabredete Zeit (Unix-Sekunden) oder null = jetzt */
+    suspend fun propose(to: String, placeName: String, lat: Double, lng: Double, meetAt: Long? = null): Boolean = runCatching {
+        val id = Backend.client.postgrest.rpc("propose_meetup", buildJsonObject {
+            put("to_user_id", to); put("place_name", placeName); put("lat", lat); put("lng", lng)
+            if (meetAt != null) put("meet_at", Instant.ofEpochSecond(meetAt).toString())
+        }).decodeAs<String>()
+        PushService.notify("meetup_proposed", to, meetupId = id)
+        refresh()
+        true
+    }.onFailure { Diag.log("Vorschlag nicht gesendet: ${it.message}") }.getOrDefault(false)
+
+    /** Gruppen-Treffen: ein Ort, Einladung an mehrere (jeder antwortet für sich) */
+    suspend fun proposeGroup(to: List<String>, placeName: String, lat: Double, lng: Double): Boolean = runCatching {
+        Backend.client.postgrest.rpc("propose_group_meetup", buildJsonObject {
+            put("friend_ids", kotlinx.serialization.json.JsonArray(to.map { kotlinx.serialization.json.JsonPrimitive(it) }))
+            put("place_name", placeName); put("lat", lat); put("lng", lng)
+        })
+        refresh()
+        for (id in to) PushService.notify("meetup_proposed", id, meetupId = _meetups.value.firstOrNull { !it.incoming && it.otherId == id && it.isPending }?.id)
+        true
+    }.onFailure { Diag.log("Gruppen-Treffen nicht gesendet: ${it.message}") }.getOrDefault(false)
+
+    suspend fun respond(m: Meetup, accept: Boolean) {
+        runCatching {
+            Backend.client.postgrest.rpc("respond_meetup", buildJsonObject { put("meetup_id", m.id); put("accept", accept) })
+            PushService.notify(if (accept) "meetup_accepted" else "meetup_declined", m.otherId, meetupId = m.id)
+            refresh()
+        }.onFailure { Diag.log("Antwort nicht gesendet: ${it.message}") }
+    }
+
+    suspend fun cancel(m: Meetup) {
+        runCatching { Backend.client.postgrest.rpc("cancel_meetup", buildJsonObject { put("meetup_id", m.id) }) }
+        refresh()
     }
 
     /** Am Treffpunkt angekommen (< 100 m): melden – sind alle da, löst der Server das Treffen auf (wie iOS) */

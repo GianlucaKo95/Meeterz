@@ -286,6 +286,19 @@ class CarSearchScreen(carContext: CarContext) : Screen(carContext) {
 class CarPlacesScreen(carContext: CarContext) : Screen(carContext) {
     override fun onGetTemplate(): Template {
         val list = ItemList.Builder().setNoItemsMessage("Noch keine Orte gespeichert – in der App bei der Routenvorschau „Als Zuhause“ o. Ä. wählen.")
+        // Treffen zuerst (wie CarPlay: Treffen in der Zielliste); Einladungen öffnen Annehmen/Ablehnen
+        AppState.meetups.meetups.value.filter { it.isAccepted || (it.incoming && it.isPending) }.take(4).forEach { m ->
+            list.addItem(
+                Row.Builder().setTitle(m.placeName)
+                    .addText((if (m.isPending) "Einladung von ${m.otherName}" else "Treffen mit ${m.withText}") +
+                        (m.meetAtSeconds?.let { " · " + de.koeven.meeterz.ui.meetupTime(it) } ?: ""))
+                    .setOnClickListener {
+                        if (m.isPending) screenManager.push(CarMeetupInviteScreen(carContext, m))
+                        else { navigateTo(m.placeName, m.lat, m.lng); screenManager.pop() }
+                    }
+                    .build(),
+            )
+        }
         AppState.favorites.items.value.sortedBy { listOf("home", "work", "other").indexOf(it.kind) }.forEach { fav ->
             list.addItem(
                 Row.Builder().setTitle(fav.label)
@@ -296,6 +309,22 @@ class CarPlacesScreen(carContext: CarContext) : Screen(carContext) {
         }
         return ListTemplate.Builder().setTitle("Ziele").setHeaderAction(Action.BACK).setSingleList(list.build()).build()
     }
+}
+
+/** Einladung im Auto beantworten; Annehmen fährt gleich hin */
+class CarMeetupInviteScreen(carContext: CarContext, private val m: de.koeven.meeterz.data.Meetup) : Screen(carContext) {
+    override fun onGetTemplate(): Template =
+        androidx.car.app.model.MessageTemplate.Builder(m.placeName + (m.meetAtSeconds?.let { "\n" + de.koeven.meeterz.ui.meetupTime(it) } ?: ""))
+            .setTitle("${m.otherName} möchte sich treffen")
+            .setHeaderAction(Action.BACK)
+            .addAction(Action.Builder().setTitle("Ablehnen").setOnClickListener {
+                AppState.scope.launch { AppState.meetups.respond(m, false) }; screenManager.pop()
+            }.build())
+            .addAction(Action.Builder().setTitle("Annehmen & los").setOnClickListener {
+                AppState.scope.launch { AppState.meetups.respond(m, true) }
+                navigateTo(m.placeName, m.lat, m.lng); screenManager.popToRoot()
+            }.build())
+            .build()
 }
 
 /** Kameradaten von Mapbox' Auto-Kamera (intern) – null, solange sie noch nicht an der Karte hängt */

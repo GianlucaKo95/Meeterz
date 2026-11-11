@@ -90,6 +90,8 @@ struct LivePosition: Codable, Equatable {
     let heading: Double?
     let speed: Double?
     let ts: TimeInterval
+    /// Fährt ein E-Auto (Ladeplanung an) – für Konvoi-Pausen mit Ladesäule. Fehlt bei älteren App-Versionen.
+    var ev: Bool? = nil
 
     var coordinate: CLLocationCoordinate2D { .init(latitude: lat, longitude: lng) }
     var date: Date { Date(timeIntervalSince1970: ts) }

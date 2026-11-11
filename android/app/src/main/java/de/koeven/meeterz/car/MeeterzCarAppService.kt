@@ -205,6 +205,25 @@ class MeeterzCarSession : Session() {
                 de.koeven.meeterz.social.Convoy.check { text, _ -> CarToast.makeText(carContext, text, CarToast.LENGTH_LONG).show() }
             }
         }
+        // Konvoi-Pause: Vorschlag eines Mitfahrenden mit „Dabei“ / „Nein“, Rückmeldungen als kurzer Hinweis
+        lifecycleScope.launch {
+            de.koeven.meeterz.social.ConvoyPause.prompt.collect { p ->
+                if (p == null || carContext.carAppApiLevel < CarAppApiLevels.LEVEL_5) return@collect
+                val manager = carContext.getCarService(AppManager::class.java)
+                manager.showAlert(Alert.Builder(4, CarText.create(de.koeven.meeterz.social.ConvoyPause.title(p)), 45_000)
+                    .setSubtitle(CarText.create(de.koeven.meeterz.social.ConvoyPause.subtitle(p)))
+                    .addAction(Action.Builder().setTitle(tr("Dabei")).setOnClickListener {
+                        manager.dismissAlert(4); de.koeven.meeterz.social.ConvoyPause.answer(p, true)
+                    }.build())
+                    .addAction(Action.Builder().setTitle(tr("Nein")).setOnClickListener {
+                        manager.dismissAlert(4); de.koeven.meeterz.social.ConvoyPause.answer(p, false)
+                    }.build())
+                    .build())
+            }
+        }
+        lifecycleScope.launch {
+            de.koeven.meeterz.social.ConvoyPause.notices.collect { CarToast.makeText(carContext, it, CarToast.LENGTH_LONG).show() }
+        }
         // Routenvorschlag (Termin oder häufiges Ziel): Hinweis mit „Los“ / „Nein“ (CarPlay: Vorschlagskarte)
         lifecycleScope.launch {
             AppState.scope.launch { de.koeven.meeterz.suggest.RouteSuggestions.refresh(force = true) }

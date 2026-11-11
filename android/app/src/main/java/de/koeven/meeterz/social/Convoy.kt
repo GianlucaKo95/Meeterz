@@ -120,6 +120,20 @@ object Convoy {
         }
     }
 
+    /** Meine Strecke mit aufsummierten Metern und wo ich gerade bin (für den Pausenvorschlag) */
+    class Profile(val lats: DoubleArray, val lngs: DoubleArray, val cumulative: DoubleArray, val mine: Double)
+
+    fun routeProfile(): Profile? {
+        loadRoute()
+        val me = AppState.lastLocation ?: return null
+        val hit = nearest(me.latitude, me.longitude) ?: return null
+        return Profile(coords.map { it.lat }.toDoubleArray(), coords.map { it.lng }.toDoubleArray(), cumulative, cumulative[hit.first])
+    }
+
+    /** Meter entlang meiner Strecke für einen Punkt, nur wenn er höchstens `within` daneben liegt */
+    fun along(lat: Double, lng: Double, within: Double): Double? =
+        nearest(lat, lng)?.takeIf { it.second <= within }?.let { cumulative[it.first] }
+
     private fun loadRoute() {
         val geometry = MapboxNavigationApp.current()?.getNavigationRoutes()?.firstOrNull()?.directionsRoute?.geometry()
         if (geometry == null) { coords = emptyList(); cumulative = DoubleArray(0); routeKey = ""; return }

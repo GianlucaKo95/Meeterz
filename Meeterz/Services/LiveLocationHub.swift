@@ -15,6 +15,7 @@ final class LiveLocationHub {
     @ObservationIgnored private var friendChannels: [UUID: RealtimeChannelV2] = [:]
     @ObservationIgnored private var listeners: [UUID: Task<Void, Never>] = [:]
     @ObservationIgnored private var goneListeners: [UUID: Task<Void, Never>] = [:]
+    @ObservationIgnored private var pauseListeners: [UUID: Task<Void, Never>] = [:]
     /// Freunde, die ich zuletzt unsichtbar gesehen habe (Kanal-Beitritt war dann evtl. verwehrt)
     @ObservationIgnored private var seenHidden = Set<UUID>()
     @ObservationIgnored private var lastSent: LivePosition?
@@ -54,7 +55,8 @@ final class LiveLocationHub {
             lng: loc.coordinate.longitude,
             heading: loc.course >= 0 ? loc.course : nil,
             speed: loc.speed >= 0 ? loc.speed : nil,
-            ts: loc.timestamp.timeIntervalSince1970
+            ts: loc.timestamp.timeIntervalSince1970,
+            ev: EVSettings.enabled && EVSettings.vehicle != nil ? true : nil
         )
         guard force || shouldSend(pos) else { return }
 
@@ -83,6 +85,12 @@ final class LiveLocationHub {
         let distance = CLLocation(latitude: pos.lat, longitude: pos.lng)
             .distance(from: CLLocation(latitude: last.lat, longitude: last.lng))
         return moving ? (elapsed >= 5 || distance >= 50) : (elapsed >= 60 || distance >= 30)
+    }
+
+    /// Weitere Ereignisse an alle Freunde im eigenen Kanal (Konvoi-Pause). Kanalfelder nur gemeinsam mit Android ändern.
+    func broadcast<T: Encodable>(event: String, _ message: T) async {
+        do { try await ownChannel?.broadcast(event: event, message: message) }
+        catch { Diag.log("Senden „\(event)“ fehlgeschlagen: \(error.localizedDescription)") }
     }
 
     // MARK: Empfangen
@@ -118,6 +126,8 @@ final class LiveLocationHub {
         let ch = client.channel(Self.topic(friendId)) { $0.isPrivate = true }
         let stream = ch.broadcastStream(event: "pos")
         let goneStream = ch.broadcastStream(event: "gone")
+        let pauseStream = ch.broadcastStream(event: "pause")
+        let replyStream = ch.broadcastStream(event: "pause_reply")
         friendChannels[friendId] = ch
         do { try await ch.subscribeWithError() } catch { seenHidden.insert(friendId) }
 
@@ -132,6 +142,25 @@ final class LiveLocationHub {
                       gone.userId == friendId
                 else { continue }
                 self?.positions.removeValue(forKey: friendId)
+            }
+        }
+
+        pauseListeners[friendId] = Task {
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask {
+                    for await message in pauseStream {
+                        guard let payload = message["payload"], let data = try? JSONEncoder().encode(payload),
+                              let p = try? JSONDecoder().decode(ConvoyPause.Proposal.self, from: data), p.from == friendId else { continue }
+                        await ConvoyPause.shared.received(p)
+                    }
+                }
+                group.addTask {
+                    for await message in replyStream {
+                        guard let payload = message["payload"], let data = try? JSONEncoder().encode(payload),
+                              let r = try? JSONDecoder().decode(ConvoyPause.Reply.self, from: data), r.userId == friendId else { continue }
+                        await ConvoyPause.shared.received(r)
+                    }
+                }
             }
         }
 
@@ -161,6 +190,7 @@ final class LiveLocationHub {
     private func closeChannel(_ friendId: UUID) async {
         listeners.removeValue(forKey: friendId)?.cancel()
         goneListeners.removeValue(forKey: friendId)?.cancel()
+        pauseListeners.removeValue(forKey: friendId)?.cancel()
         if let ch = friendChannels.removeValue(forKey: friendId) {
             await client.removeChannel(ch)
         }

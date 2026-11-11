@@ -57,6 +57,8 @@ data class LivePosition(
     val heading: Double? = null,
     val speed: Double? = null,
     val ts: Double,
+    /** Fährt ein E-Auto (Ladeplanung an) – für Konvoi-Pausen mit Ladesäule (wie iOS) */
+    val ev: Boolean? = null,
 ) {
     val ageSeconds get() = System.currentTimeMillis() / 1000.0 - ts
 }

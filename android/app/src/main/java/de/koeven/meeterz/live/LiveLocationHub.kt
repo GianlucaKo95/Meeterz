@@ -47,6 +47,11 @@ class LiveLocationHub(private val scope: CoroutineScope) {
         own = ch
     }
 
+    /** Weitere Ereignisse an alle Freunde im eigenen Kanal (Konvoi-Pause) – Feldnamen nur gemeinsam mit iOS ändern */
+    suspend fun broadcast(event: String, message: kotlinx.serialization.json.JsonObject) {
+        runCatching { own?.broadcast(event, message) }.onFailure { de.koeven.meeterz.Diag.log("Senden „$event“ fehlgeschlagen: ${it.message}") }
+    }
+
     /** „Bin weg“ an alle Freunde (Inkognito, vor einem Freund verbergen) – danach sofort wieder senden können */
     suspend fun announceGone(userId: String) {
         runCatching { own?.broadcast("gone", Gone(userId)) }
@@ -64,6 +69,7 @@ class LiveLocationHub(private val scope: CoroutineScope) {
             heading = if (location.hasBearing()) location.bearing.toDouble() else null,
             speed = if (location.hasSpeed()) location.speed.toDouble() else null,
             ts = location.time / 1000.0,
+            ev = if (de.koeven.meeterz.ev.EvSettings.enabled && de.koeven.meeterz.ev.EvSettings.vehicle != null) true else null,
         )
         if (!force && !shouldSend(pos)) return
         runCatching { ch.broadcast("pos", pos) }.onSuccess { lastSent = pos }
@@ -100,9 +106,13 @@ class LiveLocationHub(private val scope: CoroutineScope) {
         friendChannels[friendId] = ch
         val positions = ch.broadcastFlow<LivePosition>("pos")
         val gone = ch.broadcastFlow<Gone>("gone")
+        val pause = ch.broadcastFlow<de.koeven.meeterz.social.ConvoyPause.Proposal>("pause")
+        val reply = ch.broadcastFlow<de.koeven.meeterz.social.ConvoyPause.Reply>("pause_reply")
         listeners[friendId] = listOf(
             scope.launch { positions.collect { p -> if (p.userId.equals(friendId, true)) _positions.update { it + (friendId to p) } } },
             scope.launch { gone.collect { g -> if (g.userId.equals(friendId, true)) _positions.update { it - friendId } } },
+            scope.launch { pause.collect { p -> if (p.from.equals(friendId, true)) de.koeven.meeterz.social.ConvoyPause.received(p) } },
+            scope.launch { reply.collect { r -> if (r.userId.equals(friendId, true)) de.koeven.meeterz.social.ConvoyPause.received(r) } },
         )
         runCatching { ch.subscribe() }
     }

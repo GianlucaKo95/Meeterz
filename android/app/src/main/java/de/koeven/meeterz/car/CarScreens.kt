@@ -204,7 +204,12 @@ class CarMessageRecipientsScreen(carContext: CarContext) : Screen(carContext) {
     override fun onGetTemplate(): Template {
         val list = ItemList.Builder().setNoItemsMessage(tr("Noch keine Freunde."))
         // Konvoi zuerst: wer zum selben Ziel fährt, mit Abstand entlang meiner Route
-        val convoy = de.koeven.meeterz.social.Convoy.members().take(5)
+        val convoy = de.koeven.meeterz.social.Convoy.members().take(4)
+        if (convoy.isNotEmpty()) list.addItem(Row.Builder().setTitle(tr("Pause vorschlagen")).addText(tr("Rastplatz, den alle noch erreichen"))
+            .setOnClickListener {
+                AppState.scope.launch { de.koeven.meeterz.social.ConvoyPause.propose() }
+                screenManager.pop()
+            }.build())
         val atDestination = MessagesStore.recipientsAtDestination()
         if (atDestination.size > 1) list.addItem(Row.Builder().setTitle(tr("Alle am Ziel")).addText(atDestination.joinToString(", ") { it.firstName })
             .setOnClickListener { screenManager.push(CarQuickRepliesScreen(carContext, atDestination)) }.build())
@@ -212,7 +217,7 @@ class CarMessageRecipientsScreen(carContext: CarContext) : Screen(carContext) {
             list.addItem(Row.Builder().setTitle(m.friend.displayName).addText(m.summary)
                 .setOnClickListener { screenManager.push(CarQuickRepliesScreen(carContext, listOf(m.friend))) }.build())
         }
-        MessagesStore.friendsByDistance().filter { f -> convoy.none { it.friend.friendId == f.friendId } }.take(maxOf(0, 5 - convoy.size)).forEach { f ->
+        MessagesStore.friendsByDistance().filter { f -> convoy.none { it.friend.friendId == f.friendId } }.take(maxOf(0, 4 - convoy.size)).forEach { f ->
             list.addItem(Row.Builder().setTitle(f.displayName)
                 .setOnClickListener { screenManager.push(CarQuickRepliesScreen(carContext, listOf(f))) }.build())
         }

@@ -224,6 +224,20 @@ fun MapScreen() {
                 dismissButton = { TextButton(onClick = { suggestion = null }) { Text(if (sg.plan == null) "OK" else tr("Nein")) } },
             )
         }
+        // Konvoi-Pause: Vorschlag beantworten, Rückmeldungen als Hinweis
+        val pause by de.koeven.meeterz.social.ConvoyPause.prompt.collectAsState()
+        pause?.let { p ->
+            AlertDialog(
+                onDismissRequest = {},
+                title = { Text(de.koeven.meeterz.social.ConvoyPause.title(p)) },
+                text = { Text(de.koeven.meeterz.social.ConvoyPause.subtitle(p)) },
+                confirmButton = { TextButton(onClick = { de.koeven.meeterz.social.ConvoyPause.answer(p, true) }) { Text(tr("Dabei")) } },
+                dismissButton = { TextButton(onClick = { de.koeven.meeterz.social.ConvoyPause.answer(p, false) }) { Text(tr("Nein")) } },
+            )
+        }
+        LaunchedEffect(Unit) {
+            de.koeven.meeterz.social.ConvoyPause.notices.collect { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }
+        }
         // Verkehrsmeldungen voraus (vorgelesen wird in IncidentWatcher)
         LaunchedEffect(Unit) {
             de.koeven.meeterz.nav.IncidentWatcher.alerts.collect { a ->

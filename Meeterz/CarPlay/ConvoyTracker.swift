@@ -100,6 +100,20 @@ final class ConvoyTracker {
 
     // MARK: Route
 
+    /// Meine Strecke mit aufsummierten Metern und wo ich gerade bin (für den Pausenvorschlag)
+    func routeProfile() -> (coords: [CLLocationCoordinate2D], cumulative: [Double], mine: Double)? {
+        loadRoute()
+        guard !coords.isEmpty, let me = AppModel.shared.location.lastLocation?.coordinate,
+              let hit = nearest(to: me) else { return nil }
+        return (coords, cumulative, cumulative[hit.index])
+    }
+
+    /// Meter entlang meiner Strecke für einen Punkt, nur wenn er höchstens `within` daneben liegt
+    func along(_ point: CLLocationCoordinate2D, within: Double) -> Double? {
+        guard let hit = nearest(to: point), hit.distance <= within else { return nil }
+        return cumulative[hit.index]
+    }
+
     private func loadRoute() {
         guard let shape = navigationProvider.mapboxNavigation.tripSession().currentNavigationRoutes?
                 .mainRoute.route.shape?.coordinates, shape.count > 1 else { coords = []; cumulative = []; return }
@@ -132,7 +146,7 @@ extension CarPlayController {
     func convoySection() -> CPListSection? {
         let members = ConvoyTracker.shared.members()
         guard !members.isEmpty else { return nil }
-        let items: [CPListItem] = members.prefix(6).map { m in
+        let items: [CPListItem] = members.prefix(5).map { m in
             let f = m.friend
             let image = AvatarRenderer.image(initials: f.initials, color: FriendPalette.uiColor(for: f.friendId),
                                              faded: false, photo: AppModel.shared.avatars.image(for: f.friendId))
@@ -143,6 +157,14 @@ extension CarPlayController {
             }
             return item
         }
-        return CPListSection(items: items, header: String(localized: "Konvoi"), sectionIndexTitle: nil)
+        let pause = CPListItem(text: String(localized: "Pause vorschlagen"),
+                               detailText: String(localized: "Rastplatz, den alle noch erreichen"),
+                               image: UIImage(systemName: "cup.and.saucer.fill"))
+        pause.handler = { _, done in
+            Task { @MainActor in await ConvoyPause.shared.propose() }
+            CarPlayUI.shared.pop(animated: true)
+            done()
+        }
+        return CPListSection(items: [pause] + items, header: String(localized: "Konvoi"), sectionIndexTitle: nil)
     }
 }

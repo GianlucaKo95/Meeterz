@@ -482,6 +482,14 @@ fun MeetingPointCard(modifier: Modifier = Modifier) {
                 if (g != null) androidx.compose.foundation.layout.Box {
                     TextButton(onClick = { menu = true }) { Text(tr("Bescheid geben")) }
                     androidx.compose.material3.DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        // Konvoi: Meeterz sucht selbst einen Halt, den alle noch erreichen
+                        if (de.koeven.meeterz.social.Convoy.members().isNotEmpty()) {
+                            androidx.compose.material3.DropdownMenuItem(text = { Text(tr("Pause vorschlagen")) }, onClick = {
+                                menu = false
+                                scope.launch { de.koeven.meeterz.social.ConvoyPause.propose() }
+                            })
+                            HorizontalDivider()
+                        }
                         val eta = System.currentTimeMillis() + (g.remainingSeconds * 1000).toLong()
                         for (text in de.koeven.meeterz.data.MessagesStore.quickReplies(eta)) {
                             androidx.compose.material3.DropdownMenuItem(text = { Text(text) }, onClick = {

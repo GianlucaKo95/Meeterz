@@ -69,6 +69,7 @@ struct MainView: View {
                     ChargingCard()
                 }
                 MeetingPointCard()
+                ConvoyPausePrompt()
             }
             .padding(.horizontal, 16)
             .chromeVisibility(hidden: chromeHidden)
@@ -782,6 +783,22 @@ private struct SheetContentHeight: PreferenceKey {
 
 /// Fahren Freunde zum selben Ziel (Treffen oder mein Navigationsziel), zeigt diese Karte alle Ankunftszeiten
 /// nebeneinander – die Routen sind auf der Karte schon in den Farben der Freunde eingezeichnet.
+/// Pausenvorschlag aus dem Konvoi auf dem iPhone (ohne CarPlay; dort kommt er als Hinweis auf der Karte)
+struct ConvoyPausePrompt: View {
+    var body: some View {
+        let pause = ConvoyPause.shared
+        Color.clear.frame(width: 0, height: 0)
+            .alert(pause.prompt.map { String(localized: "\($0.fromName.split(separator: " ").first.map(String.init) ?? $0.fromName) schlägt eine Pause vor") } ?? "",
+                   isPresented: Binding(get: { pause.prompt != nil }, set: { if !$0 { pause.prompt = nil } }),
+                   presenting: pause.prompt) { p in
+                Button("Dabei") { Task { await pause.answer(p, accept: true) } }
+                Button("Nein", role: .cancel) { Task { await pause.answer(p, accept: false) } }
+            } message: { p in
+                Text(pause.subtitle(p))
+            }
+    }
+}
+
 struct MeetingPointCard: View {
     @Environment(AppModel.self) private var app
 
@@ -832,6 +849,15 @@ struct MeetingPointCard: View {
                                         let n = await app.messages.send(text, to: ids)
                                         app.show(n > 0 ? String(localized: "Gesendet: „\(text)“") : String(localized: "Nachricht nicht gesendet"), isError: n == 0)
                                     }
+                                }
+                            }
+                            // Konvoi: Meeterz sucht selbst einen Halt, den alle noch erreichen
+                            if !ConvoyTracker.shared.members().isEmpty {
+                                Divider()
+                                Button {
+                                    Task { await ConvoyPause.shared.propose() }
+                                } label: {
+                                    Label("Pause vorschlagen", systemImage: "cup.and.saucer.fill")
                                 }
                             }
                         } label: {

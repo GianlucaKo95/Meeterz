@@ -200,7 +200,8 @@ object ChargePlanner {
         if (total <= 0) return Outcome.Unreachable(0.0)
         fun pct(kwh: Double) = kwh / vehicle.battery * 100
         val cands = (candidates(p, sites).filter { settings.availability[it.site]?.allOutOfService != true } +
-            settings.fixed.filter { it.along > 0 && it.along < total }).sortedBy { it.along }
+            // Halte ohne Säule sind keine Knoten: die Route führt ohnehin hindurch, und laden geht dort nicht
+            settings.fixed.filter { it.canCharge && it.along > 0 && it.along < total }).sortedBy { it.along }
 
         val directArrival = startPercent - pct(p.energy(0.0, total))
         if (directArrival >= settings.arrivalPercent) {
@@ -249,8 +250,8 @@ object ChargePlanner {
                 }
                 var depart = arrival
                 var charge = 0.0
-                if (s.node == 0 || (fixedHere && !cands[s.node - 1].canCharge)) {
-                    if (arrival < requiredDeparture) continue                  // am Start / Halt ohne Säule kein Laden
+                if (s.node == 0) {
+                    if (arrival < requiredDeparture) continue                  // am Start wird nicht geladen
                 } else if (fixedHere) {
                     // Pause an der Ladesäule: nur so viel laden wie nötig (gar nicht, wenn es reicht)
                     depart = maxOf(arrival, requiredDeparture)

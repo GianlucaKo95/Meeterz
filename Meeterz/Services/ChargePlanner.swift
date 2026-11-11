@@ -392,7 +392,8 @@ enum ChargePlanner {
         guard let total = p.dist.last, total > 0 else { return .failure(.unreachable(reachKm: 0)) }
         let pct = { (kwh: Double) in kwh / vehicle.battery * 100 }
         let cands = (candidates(along: p, sites: sites).filter { settings.availability[$0.site]?.allOutOfService != true }
-                     + settings.fixed.filter { $0.along > 0 && $0.along < total }).sorted { $0.along < $1.along }
+                     // Halte ohne Säule sind keine Knoten: die Route führt ohnehin hindurch, und laden geht dort nicht
+                     + settings.fixed.filter { $0.canCharge && $0.along > 0 && $0.along < total }).sorted { $0.along < $1.along }
 
         // Direkt erreichbar?
         let directArrival = startPercent - pct(p.energy(from: 0, to: total))
@@ -450,8 +451,8 @@ enum ChargePlanner {
                 }
                 var depart = arrival
                 var charge = 0.0
-                if s.node == 0 || (fixedHere && !cands[s.node - 1].canCharge) {
-                    guard arrival >= requiredDeparture else { continue }        // am Start / Halt ohne Säule wird nicht geladen
+                if s.node == 0 {
+                    guard arrival >= requiredDeparture else { continue }        // am Start wird nicht geladen
                 } else if fixedHere {
                     // Pause an der Ladesäule: nur so viel laden wie nötig (gar nicht, wenn es reicht)
                     depart = max(arrival, requiredDeparture)

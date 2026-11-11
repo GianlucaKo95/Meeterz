@@ -87,8 +87,8 @@ final class ConvoyPause {
         handled.insert(proposal.id)
         await app.hub.broadcast(event: "pause", proposal)
         Diag.log("Konvoi-Pause vorgeschlagen: \(pick.name) an \(members.count) Mitfahrende")
-        await app.navigation.addStop(place(proposal))
         notice(String(localized: "Pause vorgeschlagen: \(pick.name)"))
+        await stopHere(proposal)
     }
 
     /// Schnelllader (≥ 50 kW, bevorzugt ≥ 100 kW) höchstens 800 m neben der Strecke – der erste, den alle erreichen
@@ -175,7 +175,25 @@ final class ConvoyPause {
         guard let me = app.profile?.id else { return }
         await app.hub.broadcast(event: "pause_reply", Reply(id: p.id, userId: me, accept: accept))
         Diag.log("Konvoi-Pause \(accept ? "angenommen" : "abgelehnt"): \(p.name)")
-        if accept { await app.navigation.addStop(place(p)) }
+        if accept { await stopHere(p) }
+    }
+
+    /// Halt einfügen (vorhandene Ladestopps bleiben) und mit E-Auto gleich die Ladeplanung darauf abstimmen:
+    /// an der Pause so viel laden wie nötig, danach neu rechnen – oder ein Ladestopp davor, wenn der Akku nicht reicht
+    private func stopHere(_ p: Proposal) async {
+        let stop = place(p)
+        guard await app.navigation.addStop(stop), EVSettings.enabled, EVSettings.vehicle != nil else { return }
+        try? await Task.sleep(for: .seconds(3))   // neue Route steht, Fortschritt ist da
+        await ChargeMonitor.shared.check(pause: stop)
+    }
+
+    /// Grobe Schätzung vor dem Zusagen: reicht der Akku bis zum Halt? (Luftlinie × 1,25, Verbrauch laut Fahrzeug)
+    private func batteryWarning(_ p: Proposal) -> String? {
+        guard EVSettings.enabled, let vehicle = EVSettings.vehicle, let here = app.location.lastLocation?.coordinate else { return nil }
+        let soc = app.vehicle.liveSoc ?? ChargeMonitor.shared.lastEstimate ?? EVSettings.chargePercent
+        let need = here.distance(to: p.coordinate) * 1.25 / 1000 * vehicle.consumption / 100 / vehicle.battery * 100
+        guard soc - need < EVSettings.minAtChargerPercent else { return nil }
+        return String(localized: "Akku reicht nicht bis dorthin – Ladestopp davor wird eingeplant")
     }
 
     /// „Raststätte Garbsen · 18 km · Schnelllader 150 kW“
@@ -183,6 +201,7 @@ final class ConvoyPause {
         var parts = [p.name]
         if let here = app.location.lastLocation?.coordinate { parts.append(ActivityFormat.distance(here.distance(to: p.coordinate))) }
         if p.charger { parts.append(p.kw.map { String(localized: "Schnelllader \(Int($0)) kW") } ?? String(localized: "mit Ladesäule")) }
+        if let warning = batteryWarning(p) { parts.append(warning) }
         return parts.joined(separator: " · ")
     }
 

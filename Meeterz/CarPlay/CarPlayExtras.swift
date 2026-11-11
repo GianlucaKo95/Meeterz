@@ -509,8 +509,8 @@ extension CarPlayController {
     /// Ladestopps als Zwischenziele in die laufende Navigation einbauen
     static func adoptChargePlan(_ plan: ChargePlanner.Plan) async {
         let nav = AppModel.shared.navigation
-        guard let destination = nav.destination,
-              let routes = await nav.calculate(to: destination, via: plan.stops.map(\.place), mode: .car) else { return }
+        // Eigene Stopps (Treffpunkt, Konvoi-Pause) bleiben, nur die Ladestopps werden ersetzt
+        guard let routes = await nav.applyChargeStops(plan.stops.filter { !$0.fixed }.map(\.place)) else { return }
         CarPlayController.shared.pauseAlerts()   // neue Route mit Ladestopps: Navigationsansicht wird neu aufgebaut
         navigationProvider.mapboxNavigation.tripSession().startActiveGuidance(with: routes, startLegIndex: 0)
         ChargingSession.shared.plan = plan

@@ -105,6 +105,9 @@ enum ChargePlanner {
         var availability: [ChargeSite: ChargeAvailability] = [:]
         /// Höhenprofil und Wetter entlang der Route (Open-Meteo); nil = ebene Strecke, Temperatur vom Auto
         var conditions: RouteConditions?
+        /// Feste Halte auf der Strecke (Konvoi-Pause, Treffpunkt): werden angefahren; mit Ladesäule wird dort nach
+        /// Bedarf geladen, ohne Ladesäule nicht. Die Ladeplanung plant drumherum.
+        var fixed: [Candidate] = []
 
         func factor(kmh: Double) -> Double {
             factors[ConsumptionLearner.band(kmh: kmh)]
@@ -118,6 +121,8 @@ enum ChargePlanner {
         let departurePercent: Double
         let chargeTime: TimeInterval
         var availability: ChargeAvailability? = nil
+        /// Fester Halt (Konvoi-Pause mit Ladesäule) – bleibt, wenn ein neuer Plan übernommen wird
+        var fixed = false
         var id: ChargeSite { site }
         var place: Place {
             Place(id: "charge-\(site.coordinate.latitude),\(site.coordinate.longitude)", name: site.title,
@@ -281,6 +286,10 @@ enum ChargePlanner {
         let along: Double
         /// Abstand zur Route (Umweg hin und zurück)
         let offset: Double
+        /// Fester Halt: darf nicht übersprungen werden
+        var fixed = false
+        /// Am festen Halt laden möglich (Ladesäule)?
+        var canCharge = true
     }
 
     static func candidates(along p: Profile, sites: [ChargeSite], corridor: Double = 2_500) -> [Candidate] {
@@ -382,7 +391,8 @@ enum ChargePlanner {
                      sites: [ChargeSite]) -> Result<Plan, Failure> {
         guard let total = p.dist.last, total > 0 else { return .failure(.unreachable(reachKm: 0)) }
         let pct = { (kwh: Double) in kwh / vehicle.battery * 100 }
-        let cands = candidates(along: p, sites: sites).filter { settings.availability[$0.site]?.allOutOfService != true }
+        let cands = (candidates(along: p, sites: sites).filter { settings.availability[$0.site]?.allOutOfService != true }
+                     + settings.fixed.filter { $0.along > 0 && $0.along < total }).sorted { $0.along < $1.along }
 
         // Direkt erreichbar?
         let directArrival = startPercent - pct(p.energy(from: 0, to: total))
@@ -394,6 +404,10 @@ enum ChargePlanner {
         // Knoten: 0 = Start, 1...n = Säulen, n+1 = Ziel. Zustand: (Knoten, Ankunfts-% in ganzen Prozent)
         let n = cands.count
         let destination = n + 1
+        func isFixed(_ i: Int) -> Bool { i > 0 && i < destination && cands[i - 1].fixed }
+        // Nächster fester Halt nach Knoten i (er darf nicht übersprungen werden)
+        var nextFixed = Array(repeating: destination, count: destination + 1)
+        for i in stride(from: destination - 1, through: 0, by: -1) { nextFixed[i] = isFixed(i + 1) ? i + 1 : nextFixed[i + 1] }
         func along(_ i: Int) -> Double { i == 0 ? 0 : (i == destination ? total : cands[i - 1].along) }
         func detourEnergy(_ i: Int) -> Double { i == 0 || i == destination ? 0 : pct(cands[i - 1].offset * 2 / 1000 * vehicle.consumption / 100) }
         func detourTime(_ i: Int) -> Double { i == 0 || i == destination ? 0 : cands[i - 1].offset * 2 / 1000 / 40 * 3600 }
@@ -420,10 +434,11 @@ enum ChargePlanner {
             let arrival = s.node == 0 ? startPercent : Double(s.soc)
             let here = along(s.node)
             let siteKW = s.node == 0 ? 0 : cands[s.node - 1].site.plannedKW
+            let fixedHere = isFixed(s.node)
 
-            for j in (s.node + 1)...destination {
+            for j in (s.node + 1)...min(destination, nextFixed[s.node]) {
                 let there = along(j)
-                guard there > here + (j == destination ? 0 : 5_000) else { continue }
+                guard there > here + (j == destination || isFixed(j) ? 0 : 5_000) else { continue }
                 let need = pct(p.energy(from: here, to: there)) + detourEnergy(s.node) / 2 + detourEnergy(j) / 2
                 let minArrival = j == destination ? settings.arrivalPercent : settings.minAtChargerPercent
                 let requiredDeparture = need + minArrival
@@ -435,8 +450,15 @@ enum ChargePlanner {
                 }
                 var depart = arrival
                 var charge = 0.0
-                if s.node == 0 {
-                    guard arrival >= requiredDeparture else { continue }        // am Start wird nicht geladen
+                if s.node == 0 || (fixedHere && !cands[s.node - 1].canCharge) {
+                    guard arrival >= requiredDeparture else { continue }        // am Start / Halt ohne Säule wird nicht geladen
+                } else if fixedHere {
+                    // Pause an der Ladesäule: nur so viel laden wie nötig (gar nicht, wenn es reicht)
+                    depart = max(arrival, requiredDeparture)
+                    if depart > arrival {
+                        charge = chargeTime(vehicle, from: arrival, to: depart, siteKW: siteKW)
+                            + (settings.availability[cands[s.node - 1].site]?.full == true ? 10 * 60 : 0)
+                    }
                 } else {
                     guard requiredDeparture > arrival else { continue }         // anhalten ohne zu laden lohnt nicht
                     depart = requiredDeparture
@@ -466,14 +488,15 @@ enum ChargePlanner {
         var s = goal
         var totalCharge = 0.0
         while let (prev, depart, charge) = previous[s] {
-            if prev.node != 0 {
+            if prev.node != 0, !(cands[prev.node - 1].fixed && charge == 0) {
                 let c = cands[prev.node - 1]
                 let availability = settings.availability[c.site]
                 let wait: TimeInterval = availability?.full == true ? 10 * 60 : 0
+                let overhead = c.fixed ? 0 : settings.stopOverhead   // die Pause macht man ohnehin
                 stops.insert(Stop(site: c.site, distanceFromStart: c.along, arrivalPercent: Double(prev.soc),
-                                  departurePercent: depart, chargeTime: charge - settings.stopOverhead - wait,
-                                  availability: availability), at: 0)
-                totalCharge += charge - settings.stopOverhead - wait
+                                  departurePercent: depart, chargeTime: charge - overhead - wait,
+                                  availability: availability, fixed: c.fixed), at: 0)
+                totalCharge += charge - overhead - wait
             }
             s = prev
         }

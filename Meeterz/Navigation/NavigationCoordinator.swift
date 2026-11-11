@@ -66,6 +66,8 @@ final class NavigationCoordinator: NSObject {
     var travelMode: TravelMode = .car
     /// Art der laufenden Navigation (für das Teilen der Route)
     @ObservationIgnored private var activeMode: TravelMode = .car
+    /// Selbst gewählte Zwischenstopps (Treffpunkt, Konvoi-Pause): bleiben, wenn ein neuer Ladeplan übernommen wird
+    @ObservationIgnored private(set) var fixedStops: [Place] = []
 
     /// Mit CarPlay verbunden ist klar: man sitzt im Auto
     var effectiveMode: TravelMode { CarPlayController.shared.isConnected ? .car : travelMode }
@@ -412,15 +414,57 @@ final class NavigationCoordinator: NSObject {
         presentPhone(routes: routes, fromCarPlay: true)
     }
 
-    /// Zwischenstopp (z. B. Treffpunkt) in die laufende Navigation einfügen
-    func addStop(_ stop: Place) async {
+    /// Zwischenstopp (z. B. Treffpunkt, Konvoi-Pause) in die laufende Navigation einfügen – an der passenden Stelle,
+    /// vorhandene Zwischenstopps (auch Ladestopps) bleiben
+    @discardableResult
+    func addStop(_ stop: Place) async -> Bool {
         guard isNavigating, let destination else {
             await planRoute(to: stop)
-            return
+            return false
         }
-        guard let routes = await calculate(to: destination, via: [stop], mode: activeMode) else { return }
+        let via = ordered(remainingStops().filter { $0.coordinate.distance(to: stop.coordinate) > 150 } + [stop])
+        guard let routes = await calculate(to: destination, via: via, mode: activeMode) else { return false }
+        fixedStops.append(stop)
         core.tripSession().startActiveGuidance(with: routes, startLegIndex: 0)
+        Diag.log("Zwischenstopp \(stop.name) eingefügt (\(via.count) Stopps)")
         AppModel.shared.show(String(localized: "\(stop.name) als Zwischenstopp hinzugefügt."), isError: false)
+        return true
+    }
+
+    /// Ladeplan übernehmen: Ladestopps neu, selbst gewählte Stopps bleiben (in Reihenfolge entlang der Route)
+    func applyChargeStops(_ charge: [Place]) async -> NavigationRoutes? {
+        guard let destination else { return nil }
+        let keep = remainingStops().filter { s in fixedStops.contains { $0.coordinate.distance(to: s.coordinate) < 150 } }
+        let add = charge.filter { c in !keep.contains { $0.coordinate.distance(to: c.coordinate) < 300 } }
+        return await calculate(to: destination, via: ordered(keep + add), mode: .car)
+    }
+
+    /// Noch vor mir liegende Zwischenziele der laufenden Route (Namen der eigenen Stopps bleiben erhalten)
+    func remainingStops() -> [Place] {
+        guard let route = core.tripSession().currentNavigationRoutes?.mainRoute.route else { return [] }
+        let legIndex = core.navigation().currentRouteProgress?.routeProgress.legIndex ?? 0
+        return route.legs.enumerated().dropLast().filter { $0.offset >= legIndex }.compactMap { _, leg in
+            guard let w = leg.destination else { return nil }
+            if let own = fixedStops.first(where: { $0.coordinate.distance(to: w.coordinate) < 150 }) { return own }
+            return Place(id: "stop-\(w.coordinate.latitude),\(w.coordinate.longitude)", name: w.name ?? "",
+                         address: nil, coordinate: w.coordinate, symbol: "bolt.car.fill")
+        }
+    }
+
+    /// Ist dieser Halt ein selbst gewählter Stopp (nicht vom Ladeplan)?
+    func isFixedStop(_ c: CLLocationCoordinate2D) -> Bool { fixedStops.contains { $0.coordinate.distance(to: c) < 150 } }
+
+    /// Stopps nach ihrer Lage entlang der aktuellen Route sortieren
+    private func ordered(_ stops: [Place]) -> [Place] {
+        guard let shape = core.tripSession().currentNavigationRoutes?.mainRoute.route.shape?.coordinates, shape.count > 1 else { return stops }
+        var cumulative = [0.0]
+        for (a, b) in zip(shape, shape.dropFirst()) { cumulative.append(cumulative.last! + a.distance(to: b)) }
+        func along(_ c: CLLocationCoordinate2D) -> Double {
+            var best = (i: 0, d: Double.greatestFiniteMagnitude)
+            for (i, p) in shape.enumerated() { let d = p.distance(to: c); if d < best.d { best = (i, d) } }
+            return cumulative[best.i]
+        }
+        return stops.map { ($0, along($0.coordinate)) }.sorted { $0.1 < $1.1 }.map(\.0)
     }
 
     /// Kartenart während der iPhone-Navigation sofort übernehmen (vorher galt sie erst bei der nächsten Route)
@@ -543,6 +587,7 @@ final class NavigationCoordinator: NSObject {
             Diag.log("Mapbox-Zustand 6 s nach dem Beenden: \(navigationProvider.tripSession().currentSession.state)")
         }
         isNavigating = false
+        fixedStops = []
         ChargeMonitor.shared.stop()
         NavigationLiveActivityController.shared.end()
         AppModel.shared.location.setNavigating(false)

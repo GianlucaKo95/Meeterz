@@ -19,7 +19,8 @@ final class ChargeMonitor {
     /// Akkustand beim Fahrtstart aus gerechnet und der bis dahin verbrauchte Strom „vergessen“ (Ziel-% zu hoch).
     private var anchorSoc: Double = 0
     private var anchorTraveled: Double = 0
-    private var lastEstimate: Double?
+    /// Zuletzt geschätzter Akkustand unterwegs (%)
+    private(set) var lastEstimate: Double?
     /// Akkustand bei Ankunft am Ziel bzw. am nächsten Stopp (für die Live-Aktivität)
     private(set) var arrivalPercent: Double?
     private var lastLogged = ""
@@ -99,11 +100,14 @@ final class ChargeMonitor {
         CarPlayBatteryChip.shared.show(label: last ? String(localized: "Ziel") : String(localized: "Stopp"), percent: arrival, low: arrival < limit, live: live != nil)
     }
 
-    func check() async {
+    /// `pause`: gleich nach dem Einfügen einer Konvoi-Pause – auch ohne Live-Wert (dann mit der Schätzung), ohne
+    /// Sperrzeit, und mit Rückmeldung, wie viel in der Pause geladen wird
+    func check(pause: Place? = nil) async {
         updateForecast()
+        let fresh = (AppModel.shared.vehicle.status?.age ?? .infinity) < 4 * 60   // nur mit frischem Live-Wert
+        let live = fresh ? AppModel.shared.vehicle.liveSoc : nil
         guard EVSettings.enabled, let vehicle = EVSettings.vehicle,
-              let soc = AppModel.shared.vehicle.liveSoc, let status = AppModel.shared.vehicle.status,
-              status.age < 4 * 60,                                              // nur mit frischem Live-Wert
+              let soc = live ?? (pause != nil ? lastEstimate ?? EVSettings.chargePercent : nil),
               let routes = navigationProvider.mapboxNavigation.tripSession().currentNavigationRoutes,
               let progress = navigationProvider.mapboxNavigation.navigation().currentRouteProgress?.routeProgress
         else { return }
@@ -111,6 +115,16 @@ final class ChargeMonitor {
         let routeId = routes.mainRoute.routeId
         let traveled = progress.distanceTraveled
         var settings = EVSettings.plannerSettings
+        // Selbst gewählte Halte (Konvoi-Pause, Treffpunkt) fest einplanen – an einer Ladesäule wird dort nach Bedarf geladen
+        var legEnd = 0.0
+        for (i, leg) in route.legs.enumerated().dropLast() {
+            legEnd += leg.distance
+            guard i >= progress.legIndex, let w = leg.destination, AppModel.shared.navigation.isFixedStop(w.coordinate) else { continue }
+            let site = ChargeSites.all.filter { $0.coordinate.distance(to: w.coordinate) < 150 }.max { $0.plannedKW < $1.plannedKW }
+            settings.fixed.append(.init(site: site ?? ChargeSite(coordinate: w.coordinate, maxKW: 0, points: 0, name: w.name ?? "",
+                                                                 operatorName: "", city: ""),
+                                        along: legEnd - traveled, offset: 0, fixed: true, canCharge: site != nil))
+        }
         settings.availability = await ChargeStatusService.shared.availability(along: route)
         settings.conditions = await RouteConditionsService.shared.conditions(for: route)
         let result = await Task.detached(priority: .utility) {
@@ -130,6 +144,7 @@ final class ChargeMonitor {
         let upcoming = route.legs.enumerated().dropLast()
             .filter { $0.offset >= legIndex }
             .compactMap { $0.element.destination?.coordinate }
+            .filter { !AppModel.shared.navigation.isFixedStop($0) }   // eigene Halte gehören nicht zum Ladeplan
 
         let message: (title: String, subtitle: String, plan: ChargePlanner.Plan?)?
         switch result {
@@ -138,17 +153,40 @@ final class ChargeMonitor {
         case .failure(.noVehicle):
             message = nil
         case .success(let plan):
-            let planned = plan.stops.map(\.site.coordinate)
+            let planned = plan.stops.filter { !$0.fixed }.map(\.site.coordinate)
             let matches = planned.count == upcoming.count
                 && zip(planned, upcoming).allSatisfy { $0.distance(to: $1) < 600 }
             if matches || (plan.direct && upcoming.isEmpty) {
                 message = nil
-            } else if plan.direct {
-                message = (String(localized: "Ladestopp nicht mehr nötig"), String(localized: "Ankunft mit \(Int(plan.arrivalPercent.rounded())) % auch ohne Laden"), plan)
+            } else if planned.isEmpty, upcoming.isEmpty {
+                message = nil   // nur noch an der Pause laden – passt zur Route
+            } else if planned.isEmpty {
+                message = (String(localized: "Ladestopp nicht mehr nötig"),
+                           plan.stops.contains(where: \.fixed) ? String(localized: "Laden in der Pause reicht · Ankunft mit \(Int(plan.arrivalPercent.rounded())) %")
+                                                               : String(localized: "Ankunft mit \(Int(plan.arrivalPercent.rounded())) % auch ohne Laden"), plan)
             } else {
-                let first = plan.stops[0]
+                let first = plan.stops.first { !$0.fixed } ?? plan.stops[0]
                 message = (String(localized: "Neuer Ladeplan: \(plan.summary)"),
                            String(localized: "Nächster Stopp: \(first.site.title) in \(Int(first.distanceFromStart / 1000)) km"), plan)
+            }
+        }
+        // Nach einer Konvoi-Pause: sagen, was dort geladen wird (oder dass ein weiterer Stopp nötig ist)
+        if let pause, case .success(let plan) = result {
+            Diag.log("Ladeplan mit Pause \(pause.name): \(plan.summary)")
+            lastSignature = ""
+            lastAlert = .distantPast
+            if message == nil {
+                let atPause = plan.stops.first { $0.fixed && $0.site.coordinate.distance(to: pause.coordinate) < 300 }
+                let rest = plan.stops.filter { !$0.fixed }.count
+                let after = rest == 0 ? String(localized: "danach direkt ans Ziel, Ankunft mit \(Int(plan.arrivalPercent.rounded())) %")
+                                      : String(localized: "danach noch \(rest) Ladestopps")
+                if let atPause {
+                    notice(String(localized: "In der Pause laden auf \(Int(atPause.departurePercent.rounded())) %"),
+                           String(localized: "ca. \(max(1, Int((atPause.chargeTime / 60).rounded()))) Min. · \(after)"))
+                } else {
+                    notice(String(localized: "In der Pause muss nicht geladen werden"), after)
+                }
+                return
             }
         }
         guard let message else { return }
@@ -159,6 +197,11 @@ final class ChargeMonitor {
         lastAlert = Date()
         Diag.log("Ladeplan unterwegs (\(Int(soc)) %): \(message.title)")
         present(message.title, message.subtitle, plan: message.plan)
+    }
+
+    private func notice(_ title: String, _ subtitle: String) {
+        if CarPlayController.shared.isConnected { CarPlayController.shared.showNotice(title: [title], subtitle: [subtitle], seconds: 10) }
+        else { AppModel.shared.show("\(title) – \(subtitle)", isError: false) }
     }
 
     private func present(_ title: String, _ subtitle: String, plan: ChargePlanner.Plan?) {

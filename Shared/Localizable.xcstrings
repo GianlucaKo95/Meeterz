@@ -35763,6 +35763,328 @@
           }
         }
       }
+    },
+    "ca. %lld Min. · %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ca. %lld Min. · %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "approx. %lld min · %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "env. %lld min · %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "aprox. %lld min · %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ca. %lld min · %@"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "aprox. %lld min · %@"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "yakl. %lld dk · %@"
+          }
+        }
+      }
+    },
+    "danach noch %lld Ladestopps": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "danach noch %lld Ladestopps"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "then %lld more charging stops"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "puis encore %lld arrêts de recharge"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "después %lld paradas de carga más"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "poi altre %lld soste di ricarica"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "depois mais %lld paragens de carregamento"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sonra %lld şarj molası daha"
+          }
+        }
+      }
+    },
+    "In der Pause muss nicht geladen werden": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In der Pause muss nicht geladen werden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No need to charge during the break"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas besoin de recharger pendant la pause"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hace falta cargar en la pausa"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non serve ricaricare durante la pausa"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não é preciso carregar na pausa"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Molada şarj etmek gerekmiyor"
+          }
+        }
+      }
+    },
+    "Akku reicht nicht bis dorthin – Ladestopp davor wird eingeplant": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Akku reicht nicht bis dorthin – Ladestopp davor wird eingeplant"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Battery won't reach it – a charging stop before it will be planned"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La batterie ne suffit pas – un arrêt de recharge sera prévu avant"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La batería no llega – se planificará una parada de carga antes"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La batteria non basta – verrà pianificata una sosta di ricarica prima"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A bateria não chega – será planeada uma paragem de carregamento antes"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Batarya oraya yetmiyor – öncesine şarj molası planlanacak"
+          }
+        }
+      }
+    },
+    "In der Pause laden auf %lld %%": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In der Pause laden auf %lld %%"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Charge to %lld %% during the break"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recharger à %lld %% pendant la pause"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cargar al %lld %% en la pausa"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ricarica al %lld %% durante la pausa"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carregar até %lld %% na pausa"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Molada %%%lld'e kadar şarj et"
+          }
+        }
+      }
+    },
+    "danach direkt ans Ziel, Ankunft mit %lld %%": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "danach direkt ans Ziel, Ankunft mit %lld %%"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "then straight to the destination, arriving with %lld %%"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "puis directement à destination, arrivée avec %lld %%"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "luego directo al destino, llegada con %lld %%"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "poi dritto a destinazione, arrivo con %lld %%"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "depois direto ao destino, chegada com %lld %%"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sonra doğrudan hedefe, %%%lld ile varış"
+          }
+        }
+      }
+    },
+    "Laden in der Pause reicht · Ankunft mit %lld %%": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laden in der Pause reicht · Ankunft mit %lld %%"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Charging during the break is enough · arriving with %lld %%"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recharger pendant la pause suffit · arrivée avec %lld %%"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cargar en la pausa basta · llegada con %lld %%"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Basta ricaricare durante la pausa · arrivo con %lld %%"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carregar na pausa chega · chegada com %lld %%"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Molada şarj yeterli · %%%lld ile varış"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -64,7 +64,6 @@ class NavigationMapBinder(private val mapView: MapView) : MapboxNavigationObserv
             return target.takeIf { currentZoom <= target + 0.01 }
         }
     }
-    }
 
     private val locationProvider = NavigationLocationProvider()
     private var defaultProvider: LocationProvider? = null

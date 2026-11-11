@@ -547,11 +547,11 @@ private fun StatusPill() {
 }
 
 /** Runder Mint-Kreis mit Initialen (Freundes-Pin ohne Profilbild) */
-internal fun initialsBubble(initials: String, color: Color = MeeterzColors.mint): Bitmap {
+internal fun initialsBubble(initials: String, fillColor: Color = MeeterzColors.mint): Bitmap {
     val size = 96
     val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
-    val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color.toArgb() }
+    val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = fillColor.toArgb() }
     val ring = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.WHITE; style = Paint.Style.STROKE; strokeWidth = 6f }
     canvas.drawCircle(size / 2f, size / 2f, size / 2f - 4, fill)
     canvas.drawCircle(size / 2f, size / 2f, size / 2f - 4, ring)

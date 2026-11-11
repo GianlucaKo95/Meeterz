@@ -559,8 +559,8 @@ fun ArrivalTimeline(items: List<TimelineItem>) {
             Column(Modifier.offset(x = labelX, y = if (rows[i] == 0) 0.dp else axis + 8.dp).width(labelWidth),
                 horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(item.name, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                Text(if (item.here) tr("da") else item.eta?.let { clock(it) } ?: "–", style = MaterialTheme.typography.labelMedium,
-                    fontFeatureSettings = "tnum",
+                Text(if (item.here) tr("da") else item.eta?.let { clock(it) } ?: "–",
+                    style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"),
                     color = if (item.here) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }

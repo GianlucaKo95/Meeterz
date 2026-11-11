@@ -52,6 +52,24 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handle(intent: android.content.Intent?) {
+        intent?.getStringExtra("action")?.let { action ->
+            intent.removeExtra("action")
+            AppState.scope.launch {
+                when (action) {
+                    "share" -> AppState.shareLocation(AppState.sharingMode)
+                    "pause" -> AppState.setSharing(false)
+                    "incognito" -> AppState.startIncognito(3600)
+                }
+            }
+            return
+        }
+        intent?.getStringExtra("friend_id")?.let { id ->
+            intent.removeExtra("friend_id")
+            val f = AppState.friends.value.firstOrNull { it.friendId == id }
+            val p = AppState.hub.positions.value[id]
+            if (f != null && p != null) AppState.openPlace.value = NavigationController.Destination(f.displayName, p.lat, p.lng)
+            return
+        }
         val name = intent?.getStringExtra("plan_name") ?: return
         AppState.openPlace.value = NavigationController.Destination(name, intent.getDoubleExtra("plan_lat", 0.0), intent.getDoubleExtra("plan_lng", 0.0))
         intent.removeExtra("plan_name")

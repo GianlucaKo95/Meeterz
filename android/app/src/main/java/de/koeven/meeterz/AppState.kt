@@ -89,6 +89,7 @@ object AppState {
                 de.koeven.meeterz.suggest.RouteSuggestions.refresh()
                 de.koeven.meeterz.suggest.DepartureReminder.refresh(appContext)
                 de.koeven.meeterz.widget.WidgetSnapshotWriter.update(appContext)
+                de.koeven.meeterz.ui.Shortcuts.update(appContext)
                 delay(30_000)
             }
         }

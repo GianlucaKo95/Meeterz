@@ -12,6 +12,7 @@ import androidx.car.app.model.Alert
 import androidx.car.app.model.CarText
 import androidx.car.app.versioning.CarAppApiLevels
 import de.koeven.meeterz.ev.ChargeMonitor
+import androidx.car.app.CarContext
 import androidx.car.app.Screen
 import androidx.car.app.ScreenManager
 import androidx.car.app.Session
@@ -127,7 +128,43 @@ class MeeterzCarSession : Session() {
         })
     }
 
+    override fun onNewIntent(intent: Intent) { handleNavigate(intent) }
+
+    /**
+     * Sprachbefehl über Assistant (iOS: „Mit Meeterz zu Lisa / nach Zuhause“): geo:-Adresse mit Koordinaten oder
+     * Suchtext. Freunde (Live-Position), Favoriten und zuletzt angefahrene Ziele gehen vor, sonst Ortssuche.
+     */
+    private fun handleNavigate(intent: Intent) {
+        if (intent.action != CarContext.ACTION_NAVIGATE) return
+        val uri = intent.data ?: return
+        val query = uri.getQueryParameter("q")?.trim().orEmpty()
+        val coords = uri.schemeSpecificPart.substringBefore("?").split(",").mapNotNull { it.trim().toDoubleOrNull() }
+        Diag.log("Sprachbefehl Navigation: ${query.ifEmpty { coords.joinToString() }}")
+        lifecycleScope.launch {
+            val target = resolveVoiceTarget(query, coords)
+            if (target == null) { CarToast.makeText(carContext, tr("Nichts gefunden: %@", query), CarToast.LENGTH_LONG).show(); return@launch }
+            carNavigateTo(carContext, target.first, target.second, target.third)
+        }
+    }
+
+    private suspend fun resolveVoiceTarget(query: String, coords: List<Double>): Triple<String, Double, Double>? {
+        if (query.isEmpty()) return if (coords.size == 2 && (coords[0] != 0.0 || coords[1] != 0.0)) Triple(tr("Ziel"), coords[0], coords[1]) else null
+        val q = query.lowercase()
+        val live = AppState.hub.positions.value
+        AppState.friends.value.filter { it.isAccepted }.firstOrNull { f ->
+            f.displayName.lowercase() == q || f.firstName.lowercase() == q || f.handle.lowercase() == q
+        }?.let { f -> live[f.friendId]?.let { return Triple(f.displayName, it.lat, it.lng) } }
+        val home = setOf("zuhause", "nach hause", "home", "maison", "casa", "ev")
+        AppState.favorites.items.value.firstOrNull { it.label.lowercase() == q || (q in home && it.kind == "home") || (q in setOf("arbeit", "work") && it.kind == "work") }
+            ?.let { return Triple(it.label, it.lat, it.lng) }
+        de.koeven.meeterz.suggest.Recents.items.value.firstOrNull { it.name.lowercase() == q }?.let { return Triple(it.name, it.lat, it.lng) }
+        if (coords.size == 2 && (coords[0] != 0.0 || coords[1] != 0.0)) return Triple(query, coords[0], coords[1])
+        val me = AppState.lastLocation
+        return de.koeven.meeterz.nav.PlaceSearch.search(query, me?.latitude, me?.longitude).firstOrNull()?.let { Triple(it.name, it.lat, it.lng) }
+    }
+
     override fun onCreateScreen(intent: Intent): Screen {
+        handleNavigate(intent)
         // Führung beginnt oder endet (auch vom Handy aus): Bildschirm wechseln – erst nach dem Start-Bildschirm
         lifecycleScope.launch {
             var guidingShown = false

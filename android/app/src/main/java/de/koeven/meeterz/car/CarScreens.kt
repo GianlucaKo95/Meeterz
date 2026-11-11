@@ -187,13 +187,24 @@ private fun batteryAction(carContext: CarContext): Action? {
  */
 fun messageScreen(carContext: CarContext): Screen {
     val partners = MessagesStore.recipientsAtDestination()
-    return if (partners.isNotEmpty()) CarQuickRepliesScreen(carContext, partners) else CarMessageRecipientsScreen(carContext)
+    // Mit Konvoi: erst die Liste (wer wo ist), sonst gleich die Schnellantworten an alle am Ziel
+    return if (partners.isNotEmpty() && de.koeven.meeterz.social.Convoy.members().isEmpty()) CarQuickRepliesScreen(carContext, partners)
+    else CarMessageRecipientsScreen(carContext)
 }
 
 class CarMessageRecipientsScreen(carContext: CarContext) : Screen(carContext) {
     override fun onGetTemplate(): Template {
         val list = ItemList.Builder().setNoItemsMessage("Noch keine Freunde.")
-        MessagesStore.friendsByDistance().take(6).forEach { f ->
+        // Konvoi zuerst: wer zum selben Ziel fährt, mit Abstand entlang meiner Route
+        val convoy = de.koeven.meeterz.social.Convoy.members().take(5)
+        val atDestination = MessagesStore.recipientsAtDestination()
+        if (atDestination.size > 1) list.addItem(Row.Builder().setTitle("Alle am Ziel").addText(atDestination.joinToString(", ") { it.firstName })
+            .setOnClickListener { screenManager.push(CarQuickRepliesScreen(carContext, atDestination)) }.build())
+        convoy.forEach { m ->
+            list.addItem(Row.Builder().setTitle(m.friend.displayName).addText(m.summary)
+                .setOnClickListener { screenManager.push(CarQuickRepliesScreen(carContext, listOf(m.friend))) }.build())
+        }
+        MessagesStore.friendsByDistance().filter { f -> convoy.none { it.friend.friendId == f.friendId } }.take(maxOf(0, 5 - convoy.size)).forEach { f ->
             list.addItem(Row.Builder().setTitle(f.displayName)
                 .setOnClickListener { screenManager.push(CarQuickRepliesScreen(carContext, listOf(f))) }.build())
         }

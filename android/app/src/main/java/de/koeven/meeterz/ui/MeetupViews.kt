@@ -440,3 +440,70 @@ private fun state(status: String) = when (status) {
     "declined" -> "kommt nicht"
     else -> status
 }
+
+/**
+ * „Wer ist wann da“ (wie MeetingPointCard auf iOS): Fahren Freunde zum selben Ziel (laufende Führung, sonst das
+ * nächste zugesagte Treffen) oder sind schon dort, alle Ankunftszeiten nebeneinander – unterwegs mit „Bescheid geben“.
+ */
+@Composable
+fun MeetingPointCard(modifier: Modifier = Modifier) {
+    val guidance by NavigationController.guidance.collectAsState()
+    val meetups by AppState.meetups.meetups.collectAsState()
+    val live by AppState.hub.positions.collectAsState()
+    val routes by AppState.routes.routes.collectAsState()
+    val friends by AppState.friends.collectAsState()
+    val version by de.koeven.meeterz.social.Passengers.version.collectAsState()
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var menu by remember { mutableStateOf(false) }
+
+    val g = guidance
+    val target = g?.destination?.let { Triple(it.name, it.lat, it.lng) }
+        ?: meetups.firstOrNull { it.isAccepted }?.let { Triple(it.placeName, it.lat, it.lng) } ?: return
+    val (name, lat, lng) = target
+    data class Arrival(val id: String, val name: String, val eta: Long?, val here: Boolean)
+    val riding = if (version >= 0) de.koeven.meeterz.social.Passengers.riding else emptySet()
+    val others = friends.filter { it.isAccepted && it.friendId !in riding }.mapNotNull { f ->
+        val p = live[f.friendId]
+        val here = p != null && ChargePlanner.distance(p.lat, p.lng, lat, lng) < 150
+        val eta = routes[f.friendId]?.takeIf { ChargePlanner.distance(it.destLat, it.destLng, lat, lng) < 300 }?.eta?.epochSecond
+        if (!here && eta == null) null else Arrival(f.friendId, f.firstName, eta, here)
+    }
+    if (others.isEmpty()) return
+    val me = g?.let { listOf(Arrival("me", "Du", System.currentTimeMillis() / 1000 + it.remainingSeconds.toLong(), false)) }.orEmpty()
+    val all = (me + others).sortedWith(compareBy({ if (it.here) 0 else 1 }, { it.eta ?: Long.MAX_VALUE }))
+
+    Surface(modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(18.dp), shadowElevation = 6.dp) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("🏁 $name", Modifier.weight(1f), fontWeight = FontWeight.Bold, maxLines = 1)
+                if (g != null) androidx.compose.foundation.layout.Box {
+                    TextButton(onClick = { menu = true }) { Text("Bescheid geben") }
+                    androidx.compose.material3.DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        val eta = System.currentTimeMillis() + (g.remainingSeconds * 1000).toLong()
+                        for (text in de.koeven.meeterz.data.MessagesStore.quickReplies(eta)) {
+                            androidx.compose.material3.DropdownMenuItem(text = { Text(text) }, onClick = {
+                                menu = false
+                                scope.launch {
+                                    val n = AppState.messages.send(text, others.map { it.id })
+                                    Toast.makeText(context, if (n > 0) "Gesendet: „$text“" else "Nachricht nicht gesendet", Toast.LENGTH_SHORT).show()
+                                }
+                            })
+                        }
+                    }
+                }
+            }
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (a in all) Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.surfaceVariant) {
+                    Row(Modifier.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Surface(Modifier.size(10.dp), shape = RoundedCornerShape(50), color = if (a.id == "me") MeeterzColors.mint else MeeterzColors.amber) {}
+                        Text(a.name, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
+                        Text(if (a.here) "da" else a.eta?.let { clock(it) } ?: "–", fontWeight = FontWeight.Black,
+                            style = MaterialTheme.typography.bodySmall, color = if (a.here) MeeterzColors.mintLight else MaterialTheme.colorScheme.onSurface)
+                    }
+                }
+            }
+        }
+    }
+}

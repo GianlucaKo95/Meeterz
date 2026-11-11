@@ -1,5 +1,7 @@
 package de.koeven.meeterz.ui
 
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.LocationOff
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -58,6 +60,7 @@ fun FriendsScreen(onClose: () -> Unit) {
     var handle by remember { mutableStateOf("") }
     var mutedVersion by remember { mutableStateOf(0) }
     val hiddenFrom by AppState.hiddenFrom.collectAsState()
+    val hiddenForMe by de.koeven.meeterz.social.Passengers.hiddenForMe.collectAsState()
 
     Surface(Modifier.fillMaxSize()) {
         Column(Modifier.statusBarsPadding()) {
@@ -98,8 +101,15 @@ fun FriendsScreen(onClose: () -> Unit) {
                         Avatar(row.friendId, row.displayName)
                         Column(Modifier.weight(1f)) {
                             Text(row.displayName)
-                            Text(if (row.friendId in hiddenFrom) "@${row.handle} · sieht dich nicht" else "@${row.handle}",
+                            Text(listOfNotNull("@${row.handle}", "sieht dich nicht".takeIf { row.friendId in hiddenFrom },
+                                "auf deiner Karte aus".takeIf { row.friendId in hiddenForMe }).joinToString(" · "),
                                 style = MaterialTheme.typography.bodySmall)
+                        }
+                        // Nur auf meiner Karte ausblenden – Teilen läuft in beide Richtungen weiter (iOS: Freund-Ansicht)
+                        val offMap = row.friendId in hiddenForMe
+                        IconButton(onClick = { de.koeven.meeterz.social.Passengers.setHiddenForMe(row.friendId, !offMap) }) {
+                            Icon(if (offMap) Icons.Default.LocationOff else Icons.Default.LocationOn,
+                                if (offMap) "Auf meiner Karte ausgeblendet" else "Auf meiner Karte sichtbar")
                         }
                         // Standort und Routen vor diesem Freund verbergen (iOS: Freund-Ansicht)
                         val hidden = row.friendId in hiddenFrom

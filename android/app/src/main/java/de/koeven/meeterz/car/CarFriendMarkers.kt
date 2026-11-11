@@ -29,8 +29,9 @@ class CarFriendMarkers : MapboxCarMapObserver {
     override fun onAttached(mapboxCarMapSurface: MapboxCarMapSurface) {
         val map = mapboxCarMapSurface.mapSurface.mapboxMap
         job = CoroutineScope(SupervisorJob() + Dispatchers.Main).launch {
-            combine(AppState.friends, AppState.hub.positions) { friends, live ->
-                friends.filter { it.isAccepted }.mapNotNull { f ->
+            combine(AppState.friends, AppState.hub.positions, de.koeven.meeterz.social.Passengers.version) { friends, live, _ ->
+                val riding = de.koeven.meeterz.social.Passengers.riding
+                friends.filter { it.isAccepted && it.friendId !in riding }.mapNotNull { f ->
                     val p = live[f.friendId]
                     val lat = p?.lat ?: f.lat ?: return@mapNotNull null
                     val lng = p?.lng ?: f.lng ?: return@mapNotNull null

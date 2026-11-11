@@ -24,6 +24,7 @@ import com.mapbox.maps.extension.androidauto.MapboxCarMap
 import com.mapbox.navigation.core.lifecycle.MapboxNavigationApp
 import com.mapbox.navigation.ui.androidauto.map.MapboxCarMapLoader
 import de.koeven.meeterz.AppState
+import de.koeven.meeterz.Diag
 import de.koeven.meeterz.nav.NavigationController
 import kotlinx.coroutines.launch
 
@@ -62,6 +63,25 @@ class MeeterzCarSession : Session() {
         NavigationController.announce(sg.title)
     }
 
+    private var navigationEndedAt = 0L
+
+    /** „Fährt Annika bei dir mit?“ – Ja blendet sie für die Fahrt aus. Nicht während/kurz nach der Führung (wie CarPlay). */
+    private fun askPassenger(f: de.koeven.meeterz.data.FriendRow): Boolean {
+        if (NavigationController.guidance.value != null || System.currentTimeMillis() - navigationEndedAt < 60_000) return false
+        if (carContext.carAppApiLevel < CarAppApiLevels.LEVEL_5) return false
+        Diag.log("Mitfahrer-Frage: ${f.displayName}")
+        val manager = carContext.getCarService(AppManager::class.java)
+        val alert = Alert.Builder(2, CarText.create("Fährt ${f.firstName} bei dir mit?"), 20_000)
+            .setSubtitle(CarText.create("Dann blende ich ${f.firstName} für diese Fahrt aus"))
+            .addAction(Action.Builder().setTitle("Ja, ausblenden").setOnClickListener {
+                manager.dismissAlert(2); de.koeven.meeterz.social.Passengers.setRiding(f.friendId, true)
+            }.build())
+            .addAction(Action.Builder().setTitle("Nein").setOnClickListener { manager.dismissAlert(2) }.build())
+            .build()
+        manager.showAlert(alert)
+        return true
+    }
+
     val carMap = MapboxCarMap()
     private val mapLoader = MapboxCarMapLoader()
 
@@ -79,6 +99,7 @@ class MeeterzCarSession : Session() {
             }
 
             override fun onDestroy(owner: LifecycleOwner) {
+                de.koeven.meeterz.social.Passengers.reset()   // Mitfahrer gelten bis zum Trennen (wie CarPlay)
                 carMap.unregisterObserver(mapLoader)
                 MapboxNavigationApp.detach(owner)
             }
@@ -93,6 +114,7 @@ class MeeterzCarSession : Session() {
                 val guiding = g != null
                 if (guiding == guidingShown) return@collect
                 guidingShown = guiding
+                if (!guiding) { navigationEndedAt = System.currentTimeMillis(); de.koeven.meeterz.social.Convoy.reset() }
                 val sm = carContext.getCarService(ScreenManager::class.java)
                 sm.popToRoot()
                 if (guiding) sm.push(GuidanceScreen(carContext, carMap))
@@ -113,6 +135,17 @@ class MeeterzCarSession : Session() {
         // Sound-Pack-Momente: kurzer Hinweis (CarPlay: friendNotice)
         lifecycleScope.launch {
             de.koeven.meeterz.sound.SoundMoments.notices.collect { n -> CarToast.makeText(carContext, n.text, CarToast.LENGTH_LONG).show() }
+        }
+        // Alle 30 s (wie der CarPlay-Takt): Mitfahrer, „fährt auch hierher“, Konvoi
+        lifecycleScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(30_000)
+                de.koeven.meeterz.social.Passengers.check { askPassenger(it) }
+                de.koeven.meeterz.social.Convoy.announceHeadingHere { title, subtitle, _ ->
+                    CarToast.makeText(carContext, "$title – $subtitle", CarToast.LENGTH_LONG).show()
+                }
+                de.koeven.meeterz.social.Convoy.check { text, _ -> CarToast.makeText(carContext, text, CarToast.LENGTH_LONG).show() }
+            }
         }
         // Neuer Ladeplan unterwegs: Hinweis mit „Übernehmen“ (CarPlay: Navigationshinweis)
         lifecycleScope.launch {

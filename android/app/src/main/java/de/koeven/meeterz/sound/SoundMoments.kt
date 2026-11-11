@@ -70,9 +70,9 @@ object SoundMoments {
     }
 
     /** Fährt dicht mit mir (Mitfahrer): die letzten zeitgleichen Messpunkte (≥ 2) alle unter 150 m, während ich fahre */
-    private fun isCompanion(id: String): Boolean {
+    fun isCompanion(id: String, minSamples: Int = 2, minSpan: Double = 0.0): Boolean {
         val close = samples[id]?.asReversed()?.takeWhile { it.distance < 150 && it.moving && it.sameDirection != false } ?: return false
-        return close.size >= 2
+        return close.size >= minSamples && close.first().ts - close.last().ts >= minSpan
     }
 
     private enum class Encounter { PASS, CATCH_UP }

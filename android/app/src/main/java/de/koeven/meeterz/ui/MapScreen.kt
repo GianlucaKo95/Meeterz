@@ -134,9 +134,11 @@ fun MapScreen() {
     }
     val annotations: PointAnnotationManager = remember { mapView.annotations.createPointAnnotationManager() }
     val avatars by de.koeven.meeterz.data.AvatarStore.images.collectAsState()
-    LaunchedEffect(friends, live, friendRoutes, avatars) {
+    val passengerVersion by de.koeven.meeterz.social.Passengers.version.collectAsState()
+    LaunchedEffect(friends, live, friendRoutes, avatars, passengerVersion) {
         annotations.deleteAll()
-        for (f in friends.filter { it.isAccepted }) {
+        val riding = de.koeven.meeterz.social.Passengers.riding
+        for (f in friends.filter { it.isAccepted && it.friendId !in riding }) {
             val pos = live[f.friendId]
             val lat = pos?.lat ?: f.lat ?: continue
             val lng = pos?.lng ?: f.lng ?: continue
@@ -218,6 +220,7 @@ fun MapScreen() {
             GuidanceBanner(g)
             Column(Modifier.align(Alignment.BottomCenter)) {
                 SocialCard { planCandidate = it }
+                MeetingPointCard()
                 GuidanceBar(g, Modifier)
             }
         } else {
@@ -267,7 +270,10 @@ fun MapScreen() {
                 }
             }
             if (planning) CircularProgressIndicator(Modifier.align(Alignment.Center))
-            if (preview == null && query.isEmpty()) SocialCard(Modifier.align(Alignment.BottomCenter).navigationBarsPadding()) { planCandidate = it }
+            if (preview == null && query.isEmpty()) Column(Modifier.align(Alignment.BottomCenter).navigationBarsPadding()) {
+                SocialCard { planCandidate = it }
+                MeetingPointCard()
+            }
             if (showMeetups) MeetupsOverviewScreen(onClose = { showMeetups = false })
             if (showFriends) FriendsScreen(onClose = { showFriends = false })
             if (showSettings) SettingsScreen(onClose = { showSettings = false })

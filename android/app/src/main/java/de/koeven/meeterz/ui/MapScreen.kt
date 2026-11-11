@@ -535,7 +535,7 @@ private fun StatusPill() {
 }
 
 /** Runder Mint-Kreis mit Initialen (Freundes-Pin ohne Profilbild) */
-private fun initialsBubble(initials: String): Bitmap {
+internal fun initialsBubble(initials: String): Bitmap {
     val size = 96
     val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)

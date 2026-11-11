@@ -1,7 +1,7 @@
 package de.koeven.meeterz.data
 
+import de.koeven.meeterz.Diag
 import android.location.Location
-import android.util.Log
 import de.koeven.meeterz.AppState
 import de.koeven.meeterz.ev.ChargePlanner
 import de.koeven.meeterz.live.PushService
@@ -108,7 +108,7 @@ class MeetupsStore {
             if (m.distanceTo(destLat, destLng) >= 300 || m.id in departedSent) continue
             departedSent += m.id
             partners(m).forEach { PushService.notify("meetup_departed", it, meetupId = m.id) }
-            Log.i("Meeterz", "Losgefahren gemeldet: ${m.placeName}")
+            Diag.log("Losgefahren gemeldet: ${m.placeName}")
         }
     }
 
@@ -124,7 +124,7 @@ class MeetupsStore {
             val minutes = Math.round(late / 60.0)
             val at = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(etaSeconds * 1000))
             AppState.messages.send("Ich komme ca. $minutes Min. später – neue Ankunft $at", partners(m), m.id, automatic = true)
-            Log.i("Meeterz", "Verspätung gemeldet: +$minutes Min.")
+            Diag.log("Verspätung gemeldet: +$minutes Min.")
         }
     }
 

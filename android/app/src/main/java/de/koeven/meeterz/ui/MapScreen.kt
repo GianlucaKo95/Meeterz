@@ -29,7 +29,7 @@ import de.koeven.meeterz.ev.ChargePlanner
 import de.koeven.meeterz.ev.ChargeMonitor
 import de.koeven.meeterz.ev.ChargingSession
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material.icons.filled.ElectricCar
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.People
@@ -130,7 +130,8 @@ fun MapScreen() {
         }
     }
     val annotations: PointAnnotationManager = remember { mapView.annotations.createPointAnnotationManager() }
-    LaunchedEffect(friends, live, friendRoutes) {
+    val avatars by de.koeven.meeterz.data.AvatarStore.images.collectAsState()
+    LaunchedEffect(friends, live, friendRoutes, avatars) {
         annotations.deleteAll()
         for (f in friends.filter { it.isAccepted }) {
             val pos = live[f.friendId]
@@ -139,7 +140,7 @@ fun MapScreen() {
             annotations.create(
                 PointAnnotationOptions()
                     .withPoint(Point.fromLngLat(lng, lat))
-                    .withIconImage(initialsBubble(f.initials))
+                    .withIconImage(avatars[f.friendId]?.let { de.koeven.meeterz.data.AvatarStore.pin(it) } ?: initialsBubble(f.initials))
                     .withTextField(friendRoutes[f.friendId]?.let { "${f.firstName} · ${clockAt(it.eta)}" } ?: f.firstName)
                     .withTextOffset(listOf(0.0, 2.2))
                     .withTextSize(12.0)
@@ -153,7 +154,7 @@ fun MapScreen() {
     var preview by remember { mutableStateOf<Pair<NavigationController.Destination, List<NavigationRoute>>?>(null) }
     var planning by remember { mutableStateOf(false) }
     var showFriends by remember { mutableStateOf(false) }
-    var showEv by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
     /** Übernommener Ladeplan: Vorschau-Route führt schon über die Säulen */
     var adopted by remember { mutableStateOf<ChargePlanner.Plan?>(null) }
     val favorites by AppState.favorites.items.collectAsState()
@@ -233,9 +234,10 @@ fun MapScreen() {
                                     Modifier.padding(horizontal = 10.dp, vertical = 6.dp), fontWeight = FontWeight.SemiBold)
                             }
                         }
-                        FilledTonalIconButton(onClick = { showEv = true }) { Icon(Icons.Default.ElectricCar, "E-Auto") }
+                        FilledTonalIconButton(onClick = { showSettings = true }) { Icon(Icons.Default.Settings, "Einstellungen") }
                         FilledTonalIconButton(onClick = { showFriends = true }) { Icon(Icons.Default.People, "Freunde") }
                     }
+                    StatusPill()
                 }
                 if (results.isNotEmpty() && preview == null) {
                     Surface(shape = RoundedCornerShape(16.dp), shadowElevation = 4.dp, modifier = Modifier.padding(top = 8.dp)) {
@@ -254,7 +256,7 @@ fun MapScreen() {
             }
             if (planning) CircularProgressIndicator(Modifier.align(Alignment.Center))
             if (showFriends) FriendsScreen(onClose = { showFriends = false })
-            if (showEv) EvSettingsDialog(onClose = { showEv = false })
+            if (showSettings) SettingsScreen(onClose = { showSettings = false })
             preview?.let { (dest, routes) ->
                 PreviewCard(dest, routes, Modifier.align(Alignment.BottomCenter),
                     onSave = { kind, label -> AppState.favorites.save(kind, label, dest.address, dest.lat, dest.lng) },
@@ -401,7 +403,44 @@ private fun clockAt(at: java.time.Instant): String = DateFormat.getTimeInstance(
 private fun clock(secondsFromNow: Double): String =
     DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(System.currentTimeMillis() + (secondsFromNow * 1000).toLong()))
 
-/** Runder Mint-Kreis mit Initialen (wie die Freundes-Pins auf iOS, ohne Profilbild) */
+/** Status-Pille (wie iOS): teile ich gerade, bis wann, inkognito? Antippen öffnet Dauer, Pausieren, Inkognito. */
+@Composable
+private fun StatusPill() {
+    val auth by AppState.auth.state.collectAsState()
+    val p = (auth as? de.koeven.meeterz.auth.AuthRepository.State.Ready)?.profile ?: return
+    val scope = rememberCoroutineScope()
+    var open by remember { mutableStateOf(false) }
+    // alle 20 s neu auswerten, damit das Ende von Inkognito/Teilen von selbst sichtbar wird
+    var tick by remember { mutableStateOf(0) }
+    LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(20_000); tick++ } }
+    val active = p.isIncognito || p.isSharingNow
+    Box(Modifier.padding(top = 8.dp)) {
+        Surface(shape = RoundedCornerShape(50), shadowElevation = 2.dp, modifier = Modifier.clickable { open = true }) {
+            Text((if (p.isIncognito) "◌ " else if (p.isSharingNow) "● " else "○ ") + sharingLabel(p).also { tick },
+                Modifier.padding(horizontal = 12.dp, vertical = 6.dp), fontWeight = FontWeight.SemiBold,
+                color = if (active) MeeterzColors.mint else Color.Gray, style = MaterialTheme.typography.bodySmall)
+        }
+        androidx.compose.material3.DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            if (p.isIncognito) {
+                androidx.compose.material3.DropdownMenuItem(text = { Text("Inkognito beenden") }, onClick = { open = false; scope.launch { AppState.stopIncognito() } })
+            } else {
+                for ((label, seconds) in listOf("Inkognito 15 Min." to 15 * 60L, "Inkognito 1 Std." to 3600L, "Inkognito 3 Std." to 3 * 3600L, "Inkognito bis ich es ausschalte" to null)) {
+                    androidx.compose.material3.DropdownMenuItem(text = { Text(label) }, onClick = { open = false; scope.launch { AppState.startIncognito(seconds) } })
+                }
+            }
+            HorizontalDivider()
+            for (mode in AppState.SharingMode.entries) {
+                androidx.compose.material3.DropdownMenuItem(
+                    text = { Text("Teilen: ${mode.title}" + if (p.isSharingNow && AppState.sharingMode == mode) " ✓" else "") },
+                    onClick = { open = false; scope.launch { AppState.shareLocation(mode) } })
+            }
+            if (p.isSharingNow) androidx.compose.material3.DropdownMenuItem(text = { Text("Teilen pausieren") },
+                onClick = { open = false; scope.launch { AppState.setSharing(false) } })
+        }
+    }
+}
+
+/** Runder Mint-Kreis mit Initialen (Freundes-Pin ohne Profilbild) */
 private fun initialsBubble(initials: String): Bitmap {
     val size = 96
     val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)

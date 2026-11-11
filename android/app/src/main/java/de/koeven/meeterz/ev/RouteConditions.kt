@@ -1,6 +1,6 @@
 package de.koeven.meeterz.ev
 
-import android.util.Log
+import de.koeven.meeterz.Diag
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -62,7 +62,7 @@ class RouteConditions(
                 if (hh == null && ww == null) null else RouteConditions(hh ?: emptyList(), ww ?: emptyList())
             } ?: return null
             synchronized(cache) { if (cache.size > 20) cache.clear(); cache[key] = result to System.currentTimeMillis() }
-            Log.i("Meeterz", "Routenbedingungen: ${result.heights.size} Höhenpunkte, ${result.weather.size} Wetterpunkte für ${(total / 1000).toInt()} km")
+            Diag.log("Routenbedingungen: ${result.heights.size} Höhenpunkte, ${result.weather.size} Wetterpunkte für ${(total / 1000).toInt()} km")
             return result
         }
 
@@ -95,7 +95,7 @@ class RouteConditions(
             for (chunk in ps.chunked(100)) {
                 val values = get("https://api.open-meteo.com/v1/elevation?" + query(chunk))
                     ?.jsonObject?.get("elevation")?.jsonArray?.map { it.jsonPrimitive.doubleOrNull ?: 0.0 }
-                if (values == null || values.size != chunk.size) { Log.w("Meeterz", "Höhenprofil nicht geladen"); return null }
+                if (values == null || values.size != chunk.size) { Diag.log("Höhenprofil nicht geladen"); return null }
                 out += chunk.zip(values).map { (p, h) -> p.dist to h }
             }
             return out
@@ -109,7 +109,7 @@ class RouteConditions(
             val locations: List<JsonObject> = when (body) {
                 is JsonArray -> body.map { it.jsonObject }
                 is JsonObject -> listOf(body)
-                else -> { Log.w("Meeterz", "Wetter entlang der Route nicht geladen"); return null }
+                else -> { Diag.log("Wetter entlang der Route nicht geladen"); return null }
             }
             if (locations.size != ps.size) return null
             return ps.zip(locations).map { (p, l) ->

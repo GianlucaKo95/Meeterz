@@ -77,6 +77,8 @@ object AppState {
                 refreshFriends()
                 // ponytail: Nachrichten alle 30 s und bei jedem Push statt Live-Kanal wie auf iOS
                 messages.refresh()
+                refreshHidden()
+                de.koeven.meeterz.data.AvatarStore.sync(friends.value, profile)
                 meetups.refresh()
                 de.koeven.meeterz.sound.SoundStore.sync()
                 de.koeven.meeterz.sound.SoundMoments.checkJourneys()
@@ -142,13 +144,90 @@ object AppState {
     }
 
     /** Teilen an/aus (unbegrenzt) */
-    suspend fun setSharing(enabled: Boolean) {
-        val id = (auth.state.value as? AuthRepository.State.Ready)?.profile?.id ?: return
+    val profile: de.koeven.meeterz.data.Profile? get() = (auth.state.value as? AuthRepository.State.Ready)?.profile
+
+    /** Teilen an/aus, optional bis zu einem Zeitpunkt (null = unbegrenzt) */
+    suspend fun setSharing(enabled: Boolean, until: java.time.Instant? = null) {
+        val id = profile?.id ?: return
         runCatching {
-            Backend.client.from("profiles").update(buildJsonObject { put("sharing_enabled", enabled); put("sharing_until", JsonNull) }) {
-                filter { eq("id", id) }
-            }
+            Backend.client.from("profiles").update(buildJsonObject {
+                put("sharing_enabled", enabled)
+                if (until != null) put("sharing_until", until.toString()) else put("sharing_until", JsonNull)
+            }) { filter { eq("id", id) } }
             auth.reload()
         }
+    }
+
+    /** Wie lange teilen (wie SharingMode auf iOS) */
+    enum class SharingMode(val title: String, val explanation: String) {
+        FIFTEEN("15 Min.", "Das Teilen endet automatisch nach 15 Minuten."),
+        HOUR("1 Std.", "Das Teilen endet automatisch nach einer Stunde."),
+        UNTIL_ARRIVAL("Bis Ankunft", "Das Teilen endet 15 Minuten nach der Ankunft deiner nächsten Fahrt."),
+        ALWAYS("Immer", "Freunde sehen dich, bis du das Teilen pausierst.");
+
+        fun until(etaSeconds: Long?): java.time.Instant? = when (this) {
+            FIFTEEN -> java.time.Instant.now().plusSeconds(15 * 60)
+            HOUR -> java.time.Instant.now().plusSeconds(3600)
+            UNTIL_ARRIVAL -> etaSeconds?.let { java.time.Instant.ofEpochSecond(it + 15 * 60) }
+            ALWAYS -> null
+        }
+    }
+
+    var sharingMode: SharingMode
+        get() = SharingMode.entries.getOrNull(appContext.getSharedPreferences("app", 0).getInt("sharingMode", 3)) ?: SharingMode.ALWAYS
+        set(v) { appContext.getSharedPreferences("app", 0).edit().putInt("sharingMode", v.ordinal).apply() }
+
+    suspend fun shareLocation(mode: SharingMode) {
+        sharingMode = mode
+        if (profile?.isIncognito == true) stopIncognito()
+        val eta = NavigationController.guidance.value?.let { System.currentTimeMillis() / 1000 + it.remainingSeconds.toLong() }
+        setSharing(true, mode.until(eta))
+    }
+
+    /** Inkognito: Freunde sehen weder Standort noch Route (und erfahren es nicht); null = bis ich es ausschalte */
+    suspend fun startIncognito(seconds: Long?) {
+        val p = profile ?: return
+        hub.announceGone(p.id)
+        val until = java.time.Instant.now().plusSeconds(seconds ?: (50L * 365 * 86400))
+        runCatching {
+            Backend.client.from("profiles").update(buildJsonObject { put("incognito_until", until.toString()) }) { filter { eq("id", p.id) } }
+            auth.reload()
+        }
+        if (profile?.isIncognito == true) runCatching { Backend.client.postgrest.rpc("clear_active_route") }
+    }
+
+    suspend fun stopIncognito() {
+        val p = profile ?: return
+        runCatching {
+            Backend.client.from("profiles").update(buildJsonObject { put("incognito_until", JsonNull) }) { filter { eq("id", p.id) } }
+            auth.reload()
+        }
+    }
+
+    /** Eigene Routen dauerhaft verbergen */
+    suspend fun setHideRoutes(hide: Boolean) {
+        val p = profile ?: return
+        runCatching {
+            Backend.client.from("profiles").update(buildJsonObject { put("hide_routes", hide) }) { filter { eq("id", p.id) } }
+            auth.reload()
+            if (hide) Backend.client.postgrest.rpc("clear_active_route")
+        }
+    }
+
+    /** Freunde, vor denen ich Standort und Routen verberge */
+    private val _hiddenFrom = MutableStateFlow<Set<String>>(emptySet())
+    val hiddenFrom: StateFlow<Set<String>> = _hiddenFrom
+
+    suspend fun refreshHidden() {
+        runCatching { Backend.client.postgrest.rpc("my_hidden_friends").decodeList<String>() }.onSuccess { _hiddenFrom.value = it.toSet() }
+    }
+
+    suspend fun setHidden(friendId: String, hidden: Boolean) {
+        runCatching {
+            Backend.client.postgrest.rpc("set_hidden_from", buildJsonObject { put("friend_id", friendId); put("hidden", hidden) })
+            _hiddenFrom.value = if (hidden) _hiddenFrom.value + friendId else _hiddenFrom.value - friendId
+            // Sofort von seiner Karte nehmen (er bekommt danach keine Positionen mehr)
+            if (hidden) profile?.id?.let { hub.announceGone(it) }
+        }.onFailure { Diag.log("Verbergen fehlgeschlagen: ${it.message}") }
     }
 }

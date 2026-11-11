@@ -1,5 +1,6 @@
 package de.koeven.meeterz.nav
 
+import de.koeven.meeterz.Diag
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
@@ -7,7 +8,6 @@ import android.media.AudioManager
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
-import android.util.Log
 import java.util.Locale
 import java.util.UUID
 
@@ -52,7 +52,7 @@ class Speaker(context: Context) {
     /** Abbiegeansage: ersetzt eine laufende */
     fun say(text: String) {
         if (muted) return
-        Log.i("Meeterz", "Ansage: $text")
+        Diag.log("Ansage: $text")
         if (!ready) { pending.clear(); pending += text; return }
         speakNow(text)
     }

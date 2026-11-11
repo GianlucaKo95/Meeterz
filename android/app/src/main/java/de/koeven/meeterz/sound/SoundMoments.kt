@@ -1,7 +1,7 @@
 package de.koeven.meeterz.sound
 
+import de.koeven.meeterz.Diag
 import android.location.Location
-import android.util.Log
 import de.koeven.meeterz.AppState
 import de.koeven.meeterz.data.FriendRow
 import de.koeven.meeterz.data.LivePosition
@@ -48,7 +48,7 @@ object SoundMoments {
     private fun clock(seconds: Long) = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(seconds * 1000))
 
     private suspend fun fire(moment: SoundMoment, f: FriendRow, text: String, cooldown: Long = 0, key: String = "") {
-        Log.i("Meeterz", "Moment ${moment.raw}: $text")
+        Diag.log("Moment ${moment.raw}: $text")
         _notices.tryEmit(Notice(moment, f, text))
         SoundStore.trigger(moment, f.friendId, f.firstName, cooldown, key)
     }

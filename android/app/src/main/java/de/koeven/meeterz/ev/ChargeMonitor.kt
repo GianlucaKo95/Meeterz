@@ -1,7 +1,7 @@
 package de.koeven.meeterz.ev
 
+import de.koeven.meeterz.Diag
 import android.content.Context
-import android.util.Log
 import com.mapbox.navigation.base.trip.model.RouteProgress
 import de.koeven.meeterz.AppState
 import de.koeven.meeterz.nav.NavigationController
@@ -52,8 +52,8 @@ object ChargeMonitor {
             var tick = 0
             while (isActive) {
                 delay(10_000)
-                runCatching { updateForecast() }.onFailure { Log.w("Meeterz", "Akku-Prognose: ${it.message}") }
-                if (++tick % 12 == 0) runCatching { check(context) }.onFailure { Log.w("Meeterz", "Ladeplan unterwegs: ${it.message}") }
+                runCatching { updateForecast() }.onFailure { Diag.log("Akku-Prognose: ${it.message}") }
+                if (++tick % 12 == 0) runCatching { check(context) }.onFailure { Diag.log("Ladeplan unterwegs: ${it.message}") }
             }
         }
     }
@@ -139,7 +139,7 @@ object ChargeMonitor {
         if (signature == lastSignature || System.currentTimeMillis() - lastAlert < 10 * 60_000) return
         lastSignature = signature
         lastAlert = System.currentTimeMillis()
-        Log.i("Meeterz", "Ladeplan unterwegs (${soc.toInt()} %): ${message.title}")
+        Diag.log("Ladeplan unterwegs (${soc.toInt()} %): ${message.title}")
         _suggestions.tryEmit(message)
     }
 

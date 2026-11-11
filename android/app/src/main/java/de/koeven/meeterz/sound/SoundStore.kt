@@ -1,5 +1,6 @@
 package de.koeven.meeterz.sound
 
+import de.koeven.meeterz.Diag
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
@@ -7,7 +8,6 @@ import android.media.AudioManager
 import android.media.MediaPlayer
 import android.media.MediaRecorder
 import android.os.Build
-import android.util.Log
 import de.koeven.meeterz.AppState
 import de.koeven.meeterz.data.Backend
 import de.koeven.meeterz.nav.NavigationController
@@ -123,7 +123,7 @@ object SoundStore {
             rec.setOutputFile(file.absolutePath)
             rec.prepare()
             rec.start()
-        }.onFailure { Log.w("Meeterz", "Aufnahme fehlgeschlagen: ${it.message}"); rec.release(); return }
+        }.onFailure { Diag.log("Aufnahme fehlgeschlagen: ${it.message}"); rec.release(); return }
         recorder = rec
         _recording.value = moment
         stopJob = AppState.scope.launch { delay(MAX_SECONDS * 1000 + 300); stopRecording() }
@@ -154,7 +154,7 @@ object SoundStore {
             val version = Backend.client.postgrest.rpc("set_sound", buildJsonObject { put("p_moment", moment.raw) }).decodeAs<Int>()
             writeCache(data, me, moment, version)
             _versions.value = _versions.value.toMutableMap().apply { put(me, (get(me) ?: emptyMap()) + (moment to version)) }
-        }.onFailure { Log.w("Meeterz", "Schnipsel nicht gespeichert: ${it.message}") }
+        }.onFailure { Diag.log("Schnipsel nicht gespeichert: ${it.message}") }
         busy.value = false
     }
 
@@ -165,7 +165,7 @@ object SoundStore {
             Backend.client.storage.from(BUCKET).delete(listOf(path(me, moment)))
             Backend.client.postgrest.rpc("set_sound", buildJsonObject { put("p_moment", moment.raw); put("remove", true) })
             _versions.value = _versions.value.toMutableMap().apply { put(me, (get(me) ?: emptyMap()) - moment) }
-        }.onFailure { Log.w("Meeterz", "Schnipsel nicht entfernt: ${it.message}") }
+        }.onFailure { Diag.log("Schnipsel nicht entfernt: ${it.message}") }
         busy.value = false
     }
 

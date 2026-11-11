@@ -1,7 +1,7 @@
 package de.koeven.meeterz.ev
 
+import de.koeven.meeterz.Diag
 import android.content.Context
-import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -67,7 +67,7 @@ object ChargeStatusService {
                 put("lats", JsonArray(samples.map { JsonPrimitive(it.lat) }))
                 put("lngs", JsonArray(samples.map { JsonPrimitive(it.lng) }))
             }).decodeList<Row>()
-        }.onFailure { Log.w("Meeterz", "Ladesäulen-Belegung DE: ${it.message}") }.getOrNull().orEmpty()
+        }.onFailure { Diag.log("Ladesäulen-Belegung DE: ${it.message}") }.getOrNull().orEmpty()
         if (rows.isEmpty()) return emptyMap()
         val minLat = rows.minOf { it.lat } - 0.01; val maxLat = rows.maxOf { it.lat } + 0.01
         val minLng = rows.minOf { it.lng } - 0.015; val maxLng = rows.maxOf { it.lng } + 0.015
@@ -80,7 +80,7 @@ object ChargeStatusService {
             result[site] = ChargeAvailability(a.free + r.free, a.occupied + r.occupied, a.outOfService + r.outOfService,
                 listOfNotNull(a.priceKwh, r.priceKwh).minOrNull())
         }
-        Log.i("Meeterz", "Ladesäulen-Belegung DE: ${rows.size} Standorte gemeldet, ${result.size} zugeordnet")
+        Diag.log("Ladesäulen-Belegung DE: ${rows.size} Standorte gemeldet, ${result.size} zugeordnet")
         return result
     }
 
@@ -107,11 +107,11 @@ object ChargeStatusService {
                         }
                     }
                 } finally { c.disconnect() }
-            }.onFailure { Log.w("Meeterz", "Ladesäulen-Belegung CH: nicht erreichbar") }.getOrNull()
+            }.onFailure { Diag.log("Ladesäulen-Belegung CH: nicht erreichbar") }.getOrNull()
         }
         if (!map.isNullOrEmpty()) {
             swiss = map; swissLoaded = System.currentTimeMillis()
-            Log.i("Meeterz", "Ladesäulen-Belegung CH: ${map.size} Ladepunkte")
+            Diag.log("Ladesäulen-Belegung CH: ${map.size} Ladepunkte")
         }
     }
 }

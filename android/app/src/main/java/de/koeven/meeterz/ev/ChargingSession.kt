@@ -1,6 +1,6 @@
 package de.koeven.meeterz.ev
 
-import android.util.Log
+import de.koeven.meeterz.Diag
 import de.koeven.meeterz.AppState
 import de.koeven.meeterz.data.VehicleStatus
 import de.koeven.meeterz.nav.NavigationController
@@ -55,7 +55,7 @@ object ChargingSession {
             chosenByUser = false
             announcedDone = false
             target = target()
-            Log.i("Meeterz", "Laden erkannt: ${soc.toInt()} % → Ziel ${target.toInt()} %")
+            Diag.log("Laden erkannt: ${soc.toInt()} % → Ziel ${target.toInt()} %")
             ticker = AppState.scope.launch { while (isActive) { delay(5_000); refresh() } }
         } else if (!chosenByUser) {
             // Ladeziel des Autos kann später ankommen oder im Auto geändert werden
@@ -73,7 +73,7 @@ object ChargingSession {
         active = false
         ticker?.cancel(); ticker = null
         _view.value = null
-        Log.i("Meeterz", "Laden beendet bei ${reportedPercent.toInt()} %")
+        Diag.log("Laden beendet bei ${reportedPercent.toInt()} %")
     }
 
     /** Akkustand jetzt (hochgerechnet seit der letzten Meldung, höchstens 3 Minuten weit) */

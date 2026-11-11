@@ -14,6 +14,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -54,43 +56,16 @@ fun FriendsScreen(onClose: () -> Unit) {
     val error by AppState.friendError.collectAsState()
     val favorites by AppState.favorites.items.collectAsState()
     var handle by remember { mutableStateOf("") }
-    var showSounds by remember { mutableStateOf(false) }
-    var autoDelay by remember { mutableStateOf(de.koeven.meeterz.data.MessagesStore.autoDelay) }
     var mutedVersion by remember { mutableStateOf(0) }
-    if (showSounds) { SoundPackScreen(onClose = { showSounds = false }); return }
+    val hiddenFrom by AppState.hiddenFrom.collectAsState()
 
     Surface(Modifier.fillMaxSize()) {
         Column(Modifier.statusBarsPadding()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Zurück") }
-                Text("Freunde & Einstellungen", style = MaterialTheme.typography.titleLarge)
+                Text("Freunde", style = MaterialTheme.typography.titleLarge)
             }
             LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                profile?.let { p ->
-                    item {
-                        Text(p.displayName, style = MaterialTheme.typography.titleMedium)
-                        Text("@${p.handle}", style = MaterialTheme.typography.bodySmall)
-                    }
-                    item {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text("Standort teilen", fontWeight = FontWeight.SemiBold)
-                                Text("Freunde sehen, wo du bist", style = MaterialTheme.typography.bodySmall)
-                            }
-                            Switch(checked = p.sharingEnabled, onCheckedChange = { on -> scope.launch { AppState.setSharing(on) } })
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text("Bei Verspätung automatisch Bescheid geben", fontWeight = FontWeight.SemiBold)
-                                Text("Ab 5 Minuten später an alle, die du am Ziel triffst", style = MaterialTheme.typography.bodySmall)
-                            }
-                            Switch(checked = autoDelay, onCheckedChange = { autoDelay = it; de.koeven.meeterz.data.MessagesStore.autoDelay = it })
-                        }
-                        OutlinedButton(onClick = { showSounds = true }, modifier = Modifier.fillMaxWidth()) { Text("Sound-Pack: eigene Schnipsel aufnehmen") }
-                        HorizontalDivider()
-                    }
-                }
-
                 item {
                     Text("Freund hinzufügen", fontWeight = FontWeight.SemiBold)
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -119,10 +94,18 @@ fun FriendsScreen(onClose: () -> Unit) {
                 val accepted = friends.filter { it.isAccepted }
                 if (accepted.isEmpty()) item { Text("Noch keine Freunde – lade jemanden über den Benutzernamen ein.", style = MaterialTheme.typography.bodySmall) }
                 items(accepted, key = { it.friendId }) { row ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Avatar(row.friendId, row.displayName)
                         Column(Modifier.weight(1f)) {
                             Text(row.displayName)
-                            Text("@${row.handle}", style = MaterialTheme.typography.bodySmall)
+                            Text(if (row.friendId in hiddenFrom) "@${row.handle} · sieht dich nicht" else "@${row.handle}",
+                                style = MaterialTheme.typography.bodySmall)
+                        }
+                        // Standort und Routen vor diesem Freund verbergen (iOS: Freund-Ansicht)
+                        val hidden = row.friendId in hiddenFrom
+                        IconButton(onClick = { scope.launch { AppState.setHidden(row.friendId, !hidden) } }) {
+                            Icon(if (hidden) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                if (hidden) "Für ihn verborgen" else "Sieht dich")
                         }
                         // Sound-Pack je Freund stumm schalten (iOS: in der Freund-Ansicht)
                         val muted = mutedVersion >= 0 && de.koeven.meeterz.sound.SoundStore.isMuted(row.friendId)
@@ -134,29 +117,6 @@ fun FriendsScreen(onClose: () -> Unit) {
                     }
                 }
 
-                if (favorites.isNotEmpty()) {
-                    item { HorizontalDivider(); Text("Gespeicherte Orte", fontWeight = FontWeight.SemiBold) }
-                    items(favorites, key = { it.id }) { fav ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text(fav.label)
-                                fav.address?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-                            }
-                            TextButton(onClick = { AppState.favorites.remove(fav.id) }) { Text("Löschen") }
-                        }
-                    }
-                }
-
-                item {
-                    HorizontalDivider()
-                    OutlinedButton(onClick = {
-                        scope.launch {
-                            LocationSharingService.stop(context)
-                            AppState.endSession()
-                            AppState.auth.signOut()
-                        }
-                    }, modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)) { Text("Abmelden") }
-                }
             }
         }
     }

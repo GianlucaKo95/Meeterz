@@ -47,6 +47,13 @@ class LiveLocationHub(private val scope: CoroutineScope) {
         own = ch
     }
 
+    /** „Bin weg“ an alle Freunde (Inkognito, vor einem Freund verbergen) – danach sofort wieder senden können */
+    suspend fun announceGone(userId: String) {
+        runCatching { own?.broadcast("gone", Gone(userId)) }
+        lastSent = null
+        lastPersisted = 0
+    }
+
     suspend fun publish(location: Location, userId: String, sharing: Boolean, force: Boolean = false) {
         val ch = own ?: return
         if (!sharing) return

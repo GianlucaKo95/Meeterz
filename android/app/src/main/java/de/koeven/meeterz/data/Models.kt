@@ -15,7 +15,17 @@ data class Profile(
     @SerialName("incognito_until") val incognitoUntil: String? = null,
     @SerialName("hide_routes") val hideRoutes: Boolean? = null,
     @SerialName("avatar_version") val avatarVersion: Int? = null,
-)
+) {
+    private fun instant(s: String?) = s?.let { runCatching { java.time.Instant.parse(it) }.getOrNull() }
+    val incognitoUntilInstant get() = instant(incognitoUntil)
+    val sharingUntilInstant get() = instant(sharingUntil)
+    val isIncognito get() = incognitoUntilInstant?.isAfter(java.time.Instant.now()) == true
+    /** „Bis ich es ausschalte“ = in 50 Jahren (wie iOS) */
+    val isIncognitoIndefinitely get() = incognitoUntilInstant?.isAfter(java.time.Instant.now().plusSeconds(10L * 365 * 86400)) == true
+    val routesHidden get() = hideRoutes == true
+    /** Freunde sehen mich gerade (an, nicht abgelaufen, nicht inkognito) */
+    val isSharingNow get() = sharingEnabled && (sharingUntilInstant?.isAfter(java.time.Instant.now()) ?: true) && !isIncognito
+}
 
 /** Zeile aus RPC `my_friends()` */
 @Serializable

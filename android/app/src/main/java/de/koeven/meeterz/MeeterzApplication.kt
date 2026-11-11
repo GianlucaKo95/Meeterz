@@ -13,9 +13,11 @@ class MeeterzApplication : Application() {
         // Eine Navigation für App und Android Auto
         if (!MapboxNavigationApp.isSetup()) MapboxNavigationApp.setup { NavigationOptions.Builder(this).build() }
         NavigationController.init(this)
+        Diag.init(this)
         AppState.init(this)
         de.koeven.meeterz.ev.EvSettings.init(this)
         de.koeven.meeterz.ev.ConsumptionLearner.init(this)
         de.koeven.meeterz.sound.SoundStore.init(this)
+        de.koeven.meeterz.data.AvatarStore.init(this)
     }
 }

@@ -1,8 +1,8 @@
 package de.koeven.meeterz.nav
 
+import de.koeven.meeterz.Diag
 import android.annotation.SuppressLint
 import android.content.Context
-import android.util.Log
 import com.mapbox.api.directions.v5.models.RouteOptions
 import com.mapbox.geojson.Point
 import com.mapbox.navigation.base.extensions.applyDefaultNavigationOptions
@@ -94,7 +94,7 @@ object NavigationController : MapboxNavigationObserver {
             nav.requestRoutes(options, object : NavigationRouterCallback {
                 override fun onRoutesReady(routes: List<NavigationRoute>, routerOrigin: String) = cont.resume(routes)
                 override fun onFailure(reasons: List<RouterFailure>, routeOptions: RouteOptions) {
-                    Log.w("Meeterz", "Routenplanung fehlgeschlagen: ${reasons.joinToString { it.message }}")
+                    Diag.log("Routenplanung fehlgeschlagen: ${reasons.joinToString { it.message }}")
                     cont.resume(emptyList())
                 }
                 override fun onCanceled(routeOptions: RouteOptions, routerOrigin: String) = cont.resume(emptyList())
@@ -161,7 +161,7 @@ object NavigationController : MapboxNavigationObserver {
         // Verspätung zum Treffpunkt automatisch melden (wie iOS: im Takt des Routen-Teilens)
         AppState.scope.launch { AppState.meetups.checkDelay(destination.lat, destination.lng, now / 1000 + progress.durationRemaining.toLong()) }
         val profile = (AppState.auth.state.value as? AuthRepository.State.Ready)?.profile ?: return
-        if (profile.hideRoutes == true || (profile.incognitoUntil?.let { runCatching { Instant.parse(it) > Instant.now() }.getOrNull() } == true)) return
+        if (profile.routesHidden || profile.isIncognito) return
         val samples = RouteSampler.samples(RouteSampler.pieces(progress.navigationRoute.directionsRoute))
         val points = RouteSampler.sharePoints(samples, progress.distanceTraveled.toDouble(), progress.durationRemaining, now / 1000.0)
         if (points.size < 2) return
@@ -208,10 +208,10 @@ object NavigationController : MapboxNavigationObserver {
 
     private fun speak(voice: Voice, leg: LegState, isDeferred: Boolean) {
         when (val r = announcer.process(voice, leg, isDeferred)) {
-            is Announcer.Result.Skip -> Log.i("Meeterz", "Ansage ausgelassen (${r.reason}): ${voice.text}")
-            is Announcer.Result.Defer -> { deferred = leg.stepIndex to r.instruction; Log.i("Meeterz", "Ansage auf 2 km verschoben: ${voice.text}") }
+            is Announcer.Result.Skip -> Diag.log("Ansage ausgelassen (${r.reason}): ${voice.text}")
+            is Announcer.Result.Defer -> { deferred = leg.stepIndex to r.instruction; Diag.log("Ansage auf 2 km verschoben: ${voice.text}") }
             is Announcer.Result.Speak -> {
-                if (r.text != voice.text) Log.i("Meeterz", "Ansage angepasst: „${voice.text}“ → „${r.text}“")
+                if (r.text != voice.text) Diag.log("Ansage angepasst: „${voice.text}“ → „${r.text}“")
                 speaker?.say(r.text)
             }
         }

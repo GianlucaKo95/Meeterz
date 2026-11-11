@@ -46,7 +46,7 @@ class LocationSharingService : Service() {
                     AppState.meetups.checkArrival(loc)
                 }
                 val profile = (AppState.auth.state.value as? AuthRepository.State.Ready)?.profile ?: return@LocationListener
-                AppState.scope.launch { AppState.hub.publish(loc, profile.id, profile.sharingEnabled) }
+                AppState.scope.launch { AppState.hub.publish(loc, profile.id, profile.isSharingNow) }
             }
             // Wie iOS: genau genug fürs Teilen, aber nicht jede Sekunde (der Hub sendet in Fahrt alle ~5 s)
             for (provider in listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)) {

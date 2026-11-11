@@ -562,6 +562,11 @@ struct FriendsView: View {
                             in: 5...30, step: 5) {
                         LabeledContent("An der Ladesäule mindestens", value: "\(Int(evMinCharger)) %")
                     }
+                    NavigationLink {
+                        ChargeNetworksView()
+                    } label: {
+                        LabeledContent("Ladenetze", value: ChargeNetworks.summary)
+                    }
                 } else {
                     Stepper(value: Binding(get: { evRange }, set: { evRange = $0; EVSettings.rangeKm = $0 }),
                             in: 100...800, step: 10) {
@@ -764,5 +769,46 @@ struct VoicePickerView: View {
                 if selected { Image(systemName: "checkmark").foregroundStyle(Theme.accent) }
             }
         }
+    }
+}
+
+/// Bevorzugte und gemiedene Ladenetze (wie bei ABRP): gemiedene plant Meeterz nie ein, bevorzugte wenn möglich
+struct ChargeNetworksView: View {
+    @State private var search = ""
+    @State private var version = 0
+
+    var body: some View {
+        let networks = ChargeNetworks.all.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) }
+        List {
+            Section {
+                ForEach(networks) { n in
+                    let pref = ChargeNetworks.preference(n.id)
+                    HStack {
+                        VStack(alignment: .leading) {
+                            Text(n.name)
+                            Text("\(n.sites) Standorte").font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Picker("", selection: Binding(get: { pref?.rawValue ?? "" }, set: { v in
+                            ChargeNetworks.set(n.id, ChargeNetworks.Preference(rawValue: v)); version += 1
+                        })) {
+                            Text("Egal").tag("")
+                            Text("Bevorzugt").tag(ChargeNetworks.Preference.preferred.rawValue)
+                            Text("Meiden").tag(ChargeNetworks.Preference.avoided.rawValue)
+                        }
+                        .labelsHidden()
+                        .tint(pref == .preferred ? Theme.accent : pref == .avoided ? .red : .secondary)
+                    }
+                }
+            } footer: {
+                Text("Gemiedene Netze plant Meeterz nie als Ladestopp ein. Bevorzugte nimmt es, wenn sie auf der Strecke liegen – auch wenn ein anderer Stopp ein paar Minuten schneller wäre.")
+            }
+            .listRowBackground(Theme.panel)
+        }
+        .id(version)
+        .searchable(text: $search, prompt: Text("Netz suchen"))
+        .scrollContentBackground(.hidden)
+        .background(Theme.ink)
+        .navigationTitle("Ladenetze")
     }
 }

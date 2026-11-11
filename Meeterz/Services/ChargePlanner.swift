@@ -108,6 +108,11 @@ enum ChargePlanner {
         /// Feste Halte auf der Strecke (Konvoi-Pause, Treffpunkt): werden angefahren; mit Ladesäule wird dort nach
         /// Bedarf geladen, ohne Ladesäule nicht. Die Ladeplanung plant drumherum.
         var fixed: [Candidate] = []
+        /// Ladenetze (Schlüssel aus ChargeNetworks.key): gemiedene nie, bevorzugte wenn möglich
+        var preferredNetworks: Set<String> = []
+        var avoidedNetworks: Set<String> = []
+        /// Aufschlag je Stopp an einem nicht bevorzugten Netz (nur wenn es bevorzugte gibt)
+        var otherNetworkPenalty: TimeInterval = 10 * 60
 
         func factor(kmh: Double) -> Double {
             factors[ConsumptionLearner.band(kmh: kmh)]
@@ -292,7 +297,7 @@ enum ChargePlanner {
         var canCharge = true
     }
 
-    static func candidates(along p: Profile, sites: [ChargeSite], corridor: Double = 2_500) -> [Candidate] {
+    static func candidates(along p: Profile, sites: [ChargeSite], corridor: Double = 2_500, preferred: Set<String> = []) -> [Candidate] {
         guard p.coords.count > 1 else { return [] }
         // Raster über die Routenpunkte (~2 km), damit nicht jede Säule gegen jeden Punkt gerechnet wird
         let cell = 0.02
@@ -318,11 +323,12 @@ enum ChargePlanner {
             guard best.i >= 0, best.d <= corridor else { continue }
             result.append(Candidate(site: s, along: p.dist[best.i], offset: best.d))
         }
-        // Je 5 km die zwei besten (stärkste Leistung, wenig Umweg) – hält die Suche klein
-        let grouped = Dictionary(grouping: result) { Int($0.along / 5_000) }
-        return grouped.values.flatMap { group in
-            group.sorted { ($0.site.plannedKW - $0.offset / 50) > ($1.site.plannedKW - $1.offset / 50) }.prefix(2)
+        // Je 5 km die zwei besten (stärkste Leistung, wenig Umweg) – hält die Suche klein; bevorzugte Netze kommen immer mit
+        func score(_ c: Candidate) -> Double {
+            c.site.plannedKW - c.offset / 50 + (preferred.contains(ChargeNetworks.key(c.site.operatorName)) ? 1_000 : 0)
         }
+        let grouped = Dictionary(grouping: result) { Int($0.along / 5_000) }
+        return grouped.values.flatMap { group in group.sorted { score($0) > score($1) }.prefix(2) }
         .sorted { $0.along < $1.along }
     }
 
@@ -391,7 +397,10 @@ enum ChargePlanner {
                      sites: [ChargeSite]) -> Result<Plan, Failure> {
         guard let total = p.dist.last, total > 0 else { return .failure(.unreachable(reachKm: 0)) }
         let pct = { (kwh: Double) in kwh / vehicle.battery * 100 }
-        let cands = (candidates(along: p, sites: sites).filter { settings.availability[$0.site]?.allOutOfService != true }
+        let usable = settings.avoidedNetworks.isEmpty ? sites
+            : sites.filter { !settings.avoidedNetworks.contains(ChargeNetworks.key($0.operatorName)) }
+        let cands = (candidates(along: p, sites: usable, preferred: settings.preferredNetworks)
+                        .filter { settings.availability[$0.site]?.allOutOfService != true }
                      // Halte ohne Säule sind keine Knoten: die Route führt ohnehin hindurch, und laden geht dort nicht
                      + settings.fixed.filter { $0.canCharge && $0.along > 0 && $0.along < total }).sorted { $0.along < $1.along }
 
@@ -468,7 +477,11 @@ enum ChargePlanner {
                 }
                 let drive = p.time(from: here, to: there) + detourTime(s.node) / 2 + detourTime(j) / 2
                 let next = State(node: j, soc: Int((depart - need).rounded(.down)))
-                push(next, current.cost + drive + charge, from: s, depart: depart, charge: charge)
+                // Bevorzugte Netze: Stopps an anderen Netzen zählen etwas teurer (nicht für feste Halte)
+                let penalty = s.node != 0 && !fixedHere && !settings.preferredNetworks.isEmpty
+                    && !settings.preferredNetworks.contains(ChargeNetworks.key(cands[s.node - 1].site.operatorName))
+                    ? settings.otherNetworkPenalty : 0
+                push(next, current.cost + drive + charge + penalty, from: s, depart: depart, charge: charge)
             }
         }
 
@@ -521,6 +534,8 @@ extension EVSettings {
 
     @MainActor static var plannerSettings: ChargePlanner.Settings {
         var s = ChargePlanner.Settings()
+        s.preferredNetworks = ChargeNetworks.preferred
+        s.avoidedNetworks = ChargeNetworks.avoided
         s.arrivalPercent = arrivalPercent
         s.minAtChargerPercent = minAtChargerPercent
         if let vehicle { s.factors = ConsumptionLearner.factors(for: vehicle) }

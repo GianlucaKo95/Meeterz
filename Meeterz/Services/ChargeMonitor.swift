@@ -26,6 +26,8 @@ final class ChargeMonitor {
     private var lastLogged = ""
     private var profileKey = ""
     private var profile: ChargePlanner.Profile?
+    /// Zuletzt gesehener Abschnitt (für „Ladestopp passiert“ ohne Live-Daten)
+    private var legMark: (route: String, leg: Int) = ("", 0)
 
     func start() {
         stop()
@@ -33,6 +35,7 @@ final class ChargeMonitor {
         anchorSoc = EVSettings.chargePercent
         anchorTraveled = 0
         lastEstimate = nil
+        legMark = ("", 0)
         arrivalPercent = nil
         timer = Timer.scheduledTimer(withTimeInterval: 120, repeats: true) { _ in
             Task { @MainActor in await ChargeMonitor.shared.check() }
@@ -79,6 +82,17 @@ final class ChargeMonitor {
         let pct = { (kwh: Double) in kwh / vehicle.battery * 100 }
         let live = (AppModel.shared.vehicle.status?.age ?? .infinity) < 5 * 60 ? AppModel.shared.vehicle.liveSoc : nil
         if let live { anchorSoc = live; anchorTraveled = traveled }
+        // Ohne Live-Daten: Ladestopp passiert → ab dort mit dem geplanten Ladestand weiterrechnen
+        let routeId = "\(routes.mainRoute.routeId)"
+        if live == nil, legMark.route == routeId, progress.legIndex > legMark.leg,
+           progress.legIndex - 1 < route.legs.count,
+           let passed = route.legs[progress.legIndex - 1].destination?.coordinate,
+           let stop = ChargingSession.shared.plan?.stops.first(where: { $0.site.coordinate.distance(to: passed) < 300 }) {
+            anchorSoc = stop.departurePercent
+            anchorTraveled = traveled
+            Diag.log("Ladestopp \(stop.site.title) passiert – weiter mit geplanten \(Int(stop.departurePercent)) %")
+        }
+        legMark = (routeId, progress.legIndex)
         let now = anchorSoc - pct(profile.energy(from: anchorTraveled, to: max(traveled, anchorTraveled)))
         lastEstimate = now
         // Ende des aktuellen Abschnitts: Zwischenziel oder Ziel
@@ -104,10 +118,11 @@ final class ChargeMonitor {
     /// Sperrzeit, und mit Rückmeldung, wie viel in der Pause geladen wird
     func check(pause: Place? = nil) async {
         updateForecast()
-        let fresh = (AppModel.shared.vehicle.status?.age ?? .infinity) < 4 * 60   // nur mit frischem Live-Wert
+        let fresh = (AppModel.shared.vehicle.status?.age ?? .infinity) < 4 * 60
         let live = fresh ? AppModel.shared.vehicle.liveSoc : nil
+        // Ohne Live-Daten mit der Schätzung (Verbrauchsmodell, an Ladestopps auf den geplanten Stand gesetzt)
         guard EVSettings.enabled, let vehicle = EVSettings.vehicle,
-              let soc = live ?? (pause != nil ? lastEstimate ?? EVSettings.chargePercent : nil),
+              let soc = live ?? lastEstimate ?? (pause != nil ? EVSettings.chargePercent : nil),
               let routes = navigationProvider.mapboxNavigation.tripSession().currentNavigationRoutes,
               let progress = navigationProvider.mapboxNavigation.navigation().currentRouteProgress?.routeProgress
         else { return }
@@ -173,13 +188,14 @@ final class ChargeMonitor {
         // Nach einer Konvoi-Pause: sagen, was dort geladen wird (oder dass ein weiterer Stopp nötig ist)
         if let pause, case .success(let plan) = result {
             Diag.log("Ladeplan mit Pause \(pause.name): \(plan.summary)")
+            ChargingSession.shared.plan = plan   // geplanter Ladestand an der Pause (ohne Live-Daten weiterrechnen)
             lastSignature = ""
             lastAlert = .distantPast
             if message == nil {
                 let atPause = plan.stops.first { $0.fixed && $0.site.coordinate.distance(to: pause.coordinate) < 300 }
                 let rest = plan.stops.filter { !$0.fixed }.count
                 let after = rest == 0 ? String(localized: "danach direkt ans Ziel, Ankunft mit \(Int(plan.arrivalPercent.rounded())) %")
-                                      : String(localized: "danach noch \(rest) Ladestopps")
+                    : rest == 1 ? String(localized: "danach noch ein Ladestopp") : String(localized: "danach noch \(rest) Ladestopps")
                 if let atPause {
                     notice(String(localized: "In der Pause laden auf \(Int(atPause.departurePercent.rounded())) %"),
                            String(localized: "ca. \(max(1, Int((atPause.chargeTime / 60).rounded()))) Min. · \(after)"))

@@ -91,7 +91,7 @@ data class ChargeAvailability(val free: Int = 0, val occupied: Int = 0, val outO
 }
 
 object EvData {
-    const val ATTRIBUTION = "Ladesäulen: Bundesnetzagentur.de (CC BY 4.0), data.gouv.fr IRVE, Bundesamt für Energie, " +
+    val ATTRIBUTION = "Ladesäulen: Bundesnetzagentur.de (CC BY 4.0), data.gouv.fr IRVE, Bundesamt für Energie, " +
         tr("Open Charge Map (CC BY 4.0), © OpenStreetMap-Mitwirkende (ODbL) · Höhen und Wetter: Open-Meteo.com (CC BY 4.0)")
 
     private val json = Json { ignoreUnknownKeys = true }

@@ -135,7 +135,7 @@ class FriendsWidget : GlanceAppWidget() {
                 Spacer(GlanceModifier.height(6.dp))
                 if (s.friends.isEmpty()) Text(tr("Gerade teilt niemand seinen Standort."), style = TextStyle(color = muted, fontSize = 13.sp))
                 for (f in s.friends.take(4)) Row(GlanceModifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(f.name, style = TextStyle(color = white, fontSize = 14.sp, fontWeight = FontWeight.SemiBold))
+                    Text(f.name, style = TextStyle(color = white, fontSize = 14.sp, fontWeight = FontWeight.Medium))
                     Text("  " + listOfNotNull(f.distance?.let { km(it) }, f.heading, f.arrival?.let { "an ${clock(it)}" }).joinToString(" · "),
                         style = TextStyle(color = muted, fontSize = 12.sp), maxLines = 1)
                 }
@@ -154,9 +154,9 @@ class MeetupWidget : GlanceAppWidget() {
                 Spacer(GlanceModifier.height(6.dp))
                 if (m == null) Text(tr("Kein Treffen geplant."), style = TextStyle(color = muted, fontSize = 13.sp))
                 else {
-                    Text(m.place, style = TextStyle(color = white, fontSize = 17.sp, fontWeight = FontWeight.SemiBold), maxLines = 2)
+                    Text(m.place, style = TextStyle(color = white, fontSize = 17.sp, fontWeight = FontWeight.Medium), maxLines = 2)
                     Text(tr("mit %@", m.with), style = TextStyle(color = muted, fontSize = 13.sp))
-                    m.friendArrival?.let { Text("${m.with} an ${clock(it)}", style = TextStyle(color = mint, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)) }
+                    m.friendArrival?.let { Text("${m.with} an ${clock(it)}", style = TextStyle(color = mint, fontSize = 13.sp, fontWeight = FontWeight.Medium)) }
                     m.myArrival?.let { Text("Du an ${clock(it)}", style = TextStyle(color = white, fontSize = 13.sp)) }
                 }
             }
@@ -177,7 +177,7 @@ class SharingWidget : GlanceAppWidget() {
                     s.sharing -> tr("Teilst live") to (s.sharingUntil?.let { tr("bis %@", clock(it)) } ?: tr("dauerhaft"))
                     else -> tr("Pausiert") to tr("Freunde sehen dich nicht")
                 }
-                Text(title, style = TextStyle(color = if (s.sharing && !s.incognito) mint else white, fontSize = 18.sp, fontWeight = FontWeight.SemiBold))
+                Text(title, style = TextStyle(color = if (s.sharing && !s.incognito) mint else white, fontSize = 18.sp, fontWeight = FontWeight.Medium))
                 Text(sub, style = TextStyle(color = muted, fontSize = 13.sp))
             }
         }
@@ -195,8 +195,8 @@ class SuggestionWidget : GlanceAppWidget() {
                 Spacer(GlanceModifier.height(6.dp))
                 if (sg == null) Text(tr("Gerade kein Vorschlag."), style = TextStyle(color = muted, fontSize = 13.sp))
                 else {
-                    Text(sg.title, style = TextStyle(color = white, fontSize = 17.sp, fontWeight = FontWeight.SemiBold), maxLines = 2)
-                    Text(tr("%@ Min.", sg.minutes), style = TextStyle(color = mint, fontSize = 22.sp, fontWeight = FontWeight.SemiBold))
+                    Text(sg.title, style = TextStyle(color = white, fontSize = 17.sp, fontWeight = FontWeight.Medium), maxLines = 2)
+                    Text(tr("%@ Min.", sg.minutes), style = TextStyle(color = mint, fontSize = 22.sp, fontWeight = FontWeight.Medium))
                     Text(sg.detail, style = TextStyle(color = muted, fontSize = 12.sp), maxLines = 1)
                 }
             }

@@ -63,7 +63,7 @@ object NavigationController : MapboxNavigationObserver {
 
     fun init(context: Context) {
         appContext = context.applicationContext
-        if (speaker == null) speaker = Speaker(context.applicationContext)
+        if (speaker == null) { speaker = Speaker(context.applicationContext); NavigationNotification.start(context) }
         MapboxNavigationApp.registerObserver(this)
     }
 

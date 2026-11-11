@@ -46,6 +46,43 @@
             </intent-filter>
         </service>
 
+        <!-- Widgets (iOS: MeeterzWidgets) -->
+        <receiver
+            android:name=".widget.FriendsWidgetReceiver"
+            android:label="@string/widget_friends"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_friends" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.MeetupWidgetReceiver"
+            android:label="@string/widget_meetup"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_meetup" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.SharingWidgetReceiver"
+            android:label="@string/widget_sharing"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_sharing" />
+        </receiver>
+
         <!-- Android Auto -->
         <meta-data
             android:name="com.google.android.gms.car.application"

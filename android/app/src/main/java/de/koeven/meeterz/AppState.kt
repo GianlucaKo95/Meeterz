@@ -84,6 +84,7 @@ object AppState {
                 de.koeven.meeterz.sound.SoundMoments.checkJourneys()
                 // ponytail: Auto alle 30 s abfragen statt Live-Kanal wie auf iOS – reicht für die Anzeige
                 vehicle.refresh(userId)
+                de.koeven.meeterz.widget.WidgetSnapshotWriter.update(appContext)
                 delay(30_000)
             }
         }
@@ -93,6 +94,10 @@ object AppState {
         session?.cancel(); session = null
         messages.reset(); meetups.reset()
         de.koeven.meeterz.sound.SoundStore.reset(); de.koeven.meeterz.sound.SoundMoments.reset()
+        if (::appContext.isInitialized) {
+            de.koeven.meeterz.widget.WidgetSnapshotWriter.clear(appContext)
+            scope.launch { de.koeven.meeterz.widget.WidgetSnapshotWriter.update(appContext, force = true) }
+        }
     }
 
     suspend fun refreshFriends() {

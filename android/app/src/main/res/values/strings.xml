@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Meeterz</string>
+    <string name="widget_friends_desc">Wer in deiner Nähe ist und wer gerade unterwegs ist</string>
+    <string name="widget_meetup_desc">Wo ihr euch trefft und wann dein Freund ankommt</string>
+    <string name="widget_sharing_desc">Ob du gerade deinen Standort teilst – und wie lange noch</string>
+    <string name="widget_friends">Freunde</string>
+    <string name="widget_meetup">Nächstes Treffen</string>
+    <string name="widget_sharing">Teilen</string>
 </resources>

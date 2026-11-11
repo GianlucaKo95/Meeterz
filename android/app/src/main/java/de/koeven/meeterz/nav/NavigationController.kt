@@ -19,6 +19,7 @@ import com.mapbox.navigation.core.lifecycle.MapboxNavigationObserver
 import com.mapbox.navigation.core.trip.session.RouteProgressObserver
 import com.mapbox.navigation.core.trip.session.VoiceInstructionsObserver
 import de.koeven.meeterz.AppState
+import de.koeven.meeterz.ev.ChargePlanner
 import de.koeven.meeterz.auth.AuthRepository
 import de.koeven.meeterz.data.Backend
 import io.github.jan.supabase.postgrest.postgrest
@@ -143,9 +144,49 @@ object NavigationController : MapboxNavigationObserver {
      * Ziel als Zwischenstopp (wie addStop auf iOS): während der Führung vor dem eigentlichen Ziel einfügen,
      * sonst direkt dorthin losfahren.
      */
+    /** Selbst gewählte Zwischenstopps (Treffpunkt, Konvoi-Pause): bleiben, wenn ein neuer Ladeplan übernommen wird */
+    @Volatile var fixedStops: List<Point> = emptyList()
+        private set
+
+    fun isFixedStop(lat: Double, lng: Double) = fixedStops.any { ChargePlanner.distance(it.latitude(), it.longitude(), lat, lng) < 150 }
+
+    /** Noch vor mir liegende Zwischenziele der laufenden Route */
+    fun remainingStops(): List<Point> {
+        val p = progress.value ?: return emptyList()
+        val coords = p.navigationRoute.directionsRoute.routeOptions()?.coordinatesList().orEmpty()
+        val legIndex = p.currentLegProgress?.legIndex ?: 0
+        return if (coords.size > 2) coords.subList(minOf(legIndex + 1, coords.size - 1), coords.size - 1) else emptyList()
+    }
+
+    /** Stopps nach ihrer Lage entlang der laufenden Route sortieren */
+    private fun ordered(stops: List<Point>): List<Point> {
+        val geometry = progress.value?.navigationRoute?.directionsRoute?.geometry() ?: return stops
+        val shape = com.mapbox.geojson.LineString.fromPolyline(geometry, 6).coordinates()
+        if (shape.size < 2) return stops
+        val cumulative = DoubleArray(shape.size)
+        for (i in 1 until shape.size) cumulative[i] = cumulative[i - 1] +
+            ChargePlanner.distance(shape[i - 1].latitude(), shape[i - 1].longitude(), shape[i].latitude(), shape[i].longitude())
+        fun along(p: Point) = cumulative[shape.indices.minBy { ChargePlanner.distance(shape[it].latitude(), shape[it].longitude(), p.latitude(), p.longitude()) }]
+        return stops.sortedBy { along(it) }
+    }
+
+    /** Ladeplan übernehmen: Ladestopps neu, selbst gewählte Stopps bleiben (in Reihenfolge entlang der Route) */
+    suspend fun applyChargeStops(context: Context, charge: List<Point>): Boolean {
+        val keep = remainingStops().filter { isFixedStop(it.latitude(), it.longitude()) }
+        val add = charge.filter { c -> keep.none { ChargePlanner.distance(it.latitude(), it.longitude(), c.latitude(), c.longitude()) < 300 } }
+        return reroute(context, ordered(keep + add))
+    }
+
+    /** Zwischenstopp einfügen – an der passenden Stelle, vorhandene Zwischenstopps (auch Ladestopps) bleiben */
     suspend fun addStop(context: Context, name: String, lat: Double, lng: Double): Boolean {
         val stop = Point.fromLngLat(lng, lat)
-        if (_guidance.value != null) return reroute(context, listOf(stop))
+        if (_guidance.value != null) {
+            val via = ordered(remainingStops().filter { ChargePlanner.distance(it.latitude(), it.longitude(), lat, lng) > 150 } + stop)
+            if (!reroute(context, via)) return false
+            fixedStops = fixedStops + stop
+            Diag.log("Zwischenstopp $name eingefügt (${via.size} Stopps)")
+            return true
+        }
         val here = AppState.lastLocation?.let { Point.fromLngLat(it.longitude, it.latitude) } ?: return false
         val dest = Destination(name, lat, lng)
         val routes = plan(context, here, dest)
@@ -167,6 +208,7 @@ object NavigationController : MapboxNavigationObserver {
     }
 
     fun stop() {
+        fixedStops = emptyList()
         if (_guidance.value != null) AppState.scope.launch { runCatching { Backend.client.postgrest.rpc("clear_active_route") } }
         lastShare = 0L
         navigation?.setNavigationRoutes(emptyList())

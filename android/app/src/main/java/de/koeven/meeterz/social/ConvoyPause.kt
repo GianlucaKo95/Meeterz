@@ -78,8 +78,8 @@ object ConvoyPause {
             handled += p.id
             AppState.hub.broadcast("pause", json.encodeToJsonElement(p).jsonObject)
             Diag.log("Konvoi-Pause vorgeschlagen: ${pick.name} an ${members.size} Mitfahrende")
-            AppState.appContextOrNull()?.let { NavigationController.addStop(it, p.name, p.lat, p.lng) }
             notice(tr("Pause vorgeschlagen: %@", pick.name))
+            stopHere(p)
         } finally { proposing = false }
     }
 
@@ -145,8 +145,29 @@ object ConvoyPause {
         AppState.scope.launch {
             AppState.hub.broadcast("pause_reply", json.encodeToJsonElement(Reply(p.id, me.lowercase(), accept)).jsonObject)
             Diag.log("Konvoi-Pause ${if (accept) "angenommen" else "abgelehnt"}: ${p.name}")
-            if (accept) AppState.appContextOrNull()?.let { NavigationController.addStop(it, p.name, p.lat, p.lng) }
+            if (accept) stopHere(p)
         }
+    }
+
+    /**
+     * Halt einfügen (vorhandene Ladestopps bleiben) und mit E-Auto gleich die Ladeplanung darauf abstimmen:
+     * an der Pause so viel laden wie nötig, danach neu rechnen – oder ein Ladestopp davor, wenn der Akku nicht reicht
+     */
+    private suspend fun stopHere(p: Proposal) {
+        val context = AppState.appContextOrNull() ?: return
+        if (!NavigationController.addStop(context, p.name, p.lat, p.lng)) return
+        if (!EvSettings.enabled || EvSettings.vehicle == null) return
+        kotlinx.coroutines.delay(3_000)   // neue Route steht, Fortschritt ist da
+        de.koeven.meeterz.ev.ChargeMonitor.check(context, p.lat to p.lng)
+    }
+
+    /** Grobe Schätzung vor dem Zusagen: reicht der Akku bis zum Halt? (Luftlinie × 1,25, Verbrauch laut Fahrzeug) */
+    private fun batteryWarning(p: Proposal): String? {
+        val vehicle = EvSettings.vehicle ?: return null
+        if (!EvSettings.enabled) return null
+        val here = AppState.lastLocation ?: return null
+        val need = ChargePlanner.distance(here.latitude, here.longitude, p.lat, p.lng) * 1.25 / 1000 * vehicle.consumption / 100 / vehicle.battery * 100
+        return if (EvSettings.chargePercent - need < EvSettings.minAtChargerPercent) tr("Akku reicht nicht bis dorthin – Ladestopp davor wird eingeplant") else null
     }
 
     fun title(p: Proposal) = tr("%@ schlägt eine Pause vor", p.fromName.substringBefore(" "))
@@ -156,6 +177,7 @@ object ConvoyPause {
         p.name,
         AppState.lastLocation?.let { km(ChargePlanner.distance(it.latitude, it.longitude, p.lat, p.lng)) },
         if (p.charger) p.kw?.let { tr("Schnelllader %lld kW", it.toInt()) } ?: tr("mit Ladesäule") else null,
+        batteryWarning(p),
     ).joinToString(" · ")
 
     private fun notice(text: String) { _notices.tryEmit(text) }

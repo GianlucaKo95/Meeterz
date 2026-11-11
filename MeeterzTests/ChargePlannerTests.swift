@@ -49,6 +49,43 @@ final class ChargePlannerTests: XCTestCase {
         print("Plan 600 km:", plan.summary, plan.stops.map { "\(Int($0.distanceFromStart / 1000)) km \(Int($0.arrivalPercent))→\(Int($0.departurePercent)) %" })
     }
 
+    /// Konvoi-Pause an einer Ladesäule: wird angefahren und dort nach Bedarf geladen
+    func testFixedChargerStopIsUsed() throws {
+        var settings = ChargePlanner.Settings()
+        let pause = ChargeSite(coordinate: .init(latitude: 52 - 120 / 111.32, longitude: 8.002), maxKW: 150, points: 4,
+                               name: "Pause", operatorName: "Test", city: "")
+        settings.fixed = [.init(site: pause, along: 120_000, offset: 0, fixed: true, canCharge: true)]
+        let plan = try ChargePlanner.plan(profile: profile(km: 300), vehicle: vehicle, startPercent: 90,
+                                          settings: settings, sites: sites(every: 50, upTo: 300)).get()
+        let atPause = try XCTUnwrap(plan.stops.first { $0.fixed })
+        XCTAssertEqual(atPause.distanceFromStart, 120_000, accuracy: 1)
+        XCTAssertGreaterThan(atPause.chargeTime, 0)
+        XCTAssertGreaterThanOrEqual(plan.arrivalPercent, 19)
+    }
+
+    /// Reicht der Akku, wird an der Pause nicht geladen
+    func testFixedChargerWithoutNeedChargesNothing() throws {
+        var settings = ChargePlanner.Settings()
+        let pause = ChargeSite(coordinate: .init(latitude: 52 - 50 / 111.32, longitude: 8.002), maxKW: 150, points: 4,
+                               name: "Pause", operatorName: "Test", city: "")
+        settings.fixed = [.init(site: pause, along: 50_000, offset: 0, fixed: true, canCharge: true)]
+        let plan = try ChargePlanner.plan(profile: profile(km: 100), vehicle: vehicle, startPercent: 90,
+                                          settings: settings, sites: []).get()
+        XCTAssertTrue(plan.direct)
+    }
+
+    /// Pause ohne Ladesäule, die mit dem Startakku nicht erreichbar ist: davor wird geladen
+    func testFixedStopWithoutChargerGetsStopBefore() throws {
+        var settings = ChargePlanner.Settings()
+        let pause = ChargeSite(coordinate: .init(latitude: 52 - 100 / 111.32, longitude: 8.002), maxKW: 0, points: 0,
+                               name: "Rastplatz", operatorName: "", city: "")
+        settings.fixed = [.init(site: pause, along: 100_000, offset: 0, fixed: true, canCharge: false)]
+        let plan = try ChargePlanner.plan(profile: profile(km: 300), vehicle: vehicle, startPercent: 50,
+                                          settings: settings, sites: sites(every: 50, upTo: 300)).get()
+        XCTAssertLessThan(try XCTUnwrap(plan.stops.first).distanceFromStart, 100_000)
+        XCTAssertFalse(plan.stops.contains { $0.fixed }, "am Rastplatz ohne Säule wird nicht geladen")
+    }
+
     func testUnreachableWithoutChargers() {
         let result = ChargePlanner.plan(profile: profile(km: 600), vehicle: vehicle, startPercent: 80,
                                         settings: .init(), sites: [])

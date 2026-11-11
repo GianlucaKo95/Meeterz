@@ -40,6 +40,30 @@ class ChargePlannerTest {
         plan.stops.forEach { assertTrue(it.arrivalPercent >= 10 - 1) }
     }
 
+    private fun fixed(km: Int, charger: Boolean) = ChargePlanner.Candidate(
+        ChargeSite(52 - km / 111.32, 8.002, if (charger) 150.0 else 0.0, 4, "Pause", "Test", ""), km * 1000.0, 0.0, fixed = true, canCharge = charger)
+
+    @Test fun fixedChargerStopIsUsed() {
+        val s = ChargePlanner.Settings(fixed = listOf(fixed(120, true)))
+        val plan = (ChargePlanner.plan(ChargePlanner.profile(points(300), vehicle, s), vehicle, 90.0, s, sites(50, 300)) as ChargePlanner.Outcome.Planned).plan
+        val atPause = plan.stops.first { it.fixed }
+        assertEquals(120_000.0, atPause.distanceFromStart, 1.0)
+        assertTrue(atPause.chargeTime > 0)
+    }
+
+    @Test fun fixedChargerWithoutNeedChargesNothing() {
+        val s = ChargePlanner.Settings(fixed = listOf(fixed(50, true)))
+        val o = ChargePlanner.plan(ChargePlanner.profile(points(100), vehicle, s), vehicle, 90.0, s, emptyList())
+        assertTrue(o is ChargePlanner.Outcome.Planned && o.plan.direct)
+    }
+
+    @Test fun fixedStopWithoutChargerGetsStopBefore() {
+        val s = ChargePlanner.Settings(fixed = listOf(fixed(100, false)))
+        val plan = (ChargePlanner.plan(ChargePlanner.profile(points(300), vehicle, s), vehicle, 50.0, s, sites(50, 300)) as ChargePlanner.Outcome.Planned).plan
+        assertTrue(plan.stops.first().distanceFromStart < 100_000)
+        assertTrue(plan.stops.none { it.fixed })
+    }
+
     @Test fun unreachableWithoutChargers() {
         val s = ChargePlanner.Settings()
         assertTrue(ChargePlanner.plan(ChargePlanner.profile(points(600), vehicle, s), vehicle, 80.0, s, emptyList()) is ChargePlanner.Outcome.Unreachable)

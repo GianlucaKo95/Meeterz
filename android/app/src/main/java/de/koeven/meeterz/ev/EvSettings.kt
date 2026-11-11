@@ -95,11 +95,12 @@ object EvSettings {
     }
 
     /** Ladeplan für eine Route (null ohne E-Auto/Fahrzeug); ab `fromMeters` mit `startPercent` (Neuplanung unterwegs) */
-    suspend fun plan(route: NavigationRoute, startPercent: Double = chargePercent, fromMeters: Double = 0.0): ChargePlanner.Outcome? {
+    suspend fun plan(route: NavigationRoute, startPercent: Double = chargePercent, fromMeters: Double = 0.0,
+                     fixed: List<ChargePlanner.Candidate> = emptyList()): ChargePlanner.Outcome? {
         if (!enabled) return null
         val vehicle = vehicle ?: return null
         val points = points(route)
-        val settings = plannerSettings(route.id, points)
+        val settings = plannerSettings(route.id, points).copy(fixed = fixed)
         return withContext(Dispatchers.Default) {
             val profile = ChargePlanner.profile(points, vehicle, settings).suffix(fromMeters)
             ChargePlanner.plan(profile, vehicle, startPercent, settings, EvData.sites(appContext))

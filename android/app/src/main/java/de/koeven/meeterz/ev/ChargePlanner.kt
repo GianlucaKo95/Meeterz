@@ -30,10 +30,14 @@ object ChargePlanner {
         val conditions: RouteConditions? = null,
         /** Live-Belegung (wo verfügbar): defekte Säulen meiden, voll belegte mit Wartezeit */
         val availability: Map<ChargeSite, ChargeAvailability> = emptyMap(),
+        /** Feste Halte (Konvoi-Pause, Treffpunkt): werden angefahren; mit Ladesäule nach Bedarf laden, ohne nicht (wie iOS) */
+        val fixed: List<Candidate> = emptyList(),
     )
 
     data class Stop(val site: ChargeSite, val distanceFromStart: Double, val arrivalPercent: Double,
-                    val departurePercent: Double, val chargeTime: Double, val availability: ChargeAvailability? = null)
+                    val departurePercent: Double, val chargeTime: Double, val availability: ChargeAvailability? = null,
+                    /** Fester Halt (Konvoi-Pause mit Ladesäule) – bleibt beim Übernehmen eines neuen Plans */
+                    val fixed: Boolean = false)
 
     data class Plan(val stops: List<Stop>, val arrivalPercent: Double, val startPercent: Double,
                     val totalChargeTime: Double, val driveTime: Double, val belowTarget: Boolean = false) {
@@ -141,7 +145,9 @@ object ChargePlanner {
 
     // Säulen entlang der Route
 
-    data class Candidate(val site: ChargeSite, val along: Double, val offset: Double)
+    data class Candidate(val site: ChargeSite, val along: Double, val offset: Double,
+                         /** Fester Halt: darf nicht übersprungen werden */ val fixed: Boolean = false,
+                         /** Am festen Halt laden möglich? */ val canCharge: Boolean = true)
 
     fun candidates(p: Profile, sites: List<ChargeSite>, corridor: Double = 2_500.0): List<Candidate> {
         if (p.lat.size < 2) return emptyList()
@@ -193,7 +199,8 @@ object ChargePlanner {
         val total = p.total
         if (total <= 0) return Outcome.Unreachable(0.0)
         fun pct(kwh: Double) = kwh / vehicle.battery * 100
-        val cands = candidates(p, sites).filter { settings.availability[it.site]?.allOutOfService != true }
+        val cands = (candidates(p, sites).filter { settings.availability[it.site]?.allOutOfService != true } +
+            settings.fixed.filter { it.along > 0 && it.along < total }).sortedBy { it.along }
 
         val directArrival = startPercent - pct(p.energy(0.0, total))
         if (directArrival >= settings.arrivalPercent) {
@@ -205,6 +212,10 @@ object ChargePlanner {
         fun along(i: Int) = if (i == 0) 0.0 else if (i == destination) total else cands[i - 1].along
         fun detourEnergy(i: Int) = if (i == 0 || i == destination) 0.0 else pct(cands[i - 1].offset * 2 / 1000 * vehicle.consumption / 100)
         fun detourTime(i: Int) = if (i == 0 || i == destination) 0.0 else cands[i - 1].offset * 2 / 1000 / 40 * 3600
+        fun isFixed(i: Int) = i in 1 until destination && cands[i - 1].fixed
+        // Nächster fester Halt nach Knoten i (darf nicht übersprungen werden)
+        val nextFixed = IntArray(destination + 1) { destination }
+        for (i in destination - 1 downTo 0) nextFixed[i] = if (isFixed(i + 1)) i + 1 else nextFixed[i + 1]
 
         val best = HashMap<State, Double>()
         val previous = HashMap<State, Link>()
@@ -225,9 +236,10 @@ object ChargePlanner {
             val arrival = if (s.node == 0) startPercent else s.soc.toDouble()
             val here = along(s.node)
             val siteKW = if (s.node == 0) 0.0 else cands[s.node - 1].site.plannedKW
-            for (j in (s.node + 1)..destination) {
+            val fixedHere = isFixed(s.node)
+            for (j in (s.node + 1)..minOf(destination, nextFixed[s.node])) {
                 val there = along(j)
-                if (there <= here + (if (j == destination) 0.0 else 5_000.0)) continue
+                if (there <= here + (if (j == destination || isFixed(j)) 0.0 else 5_000.0)) continue
                 val need = pct(p.energy(here, there)) + detourEnergy(s.node) / 2 + detourEnergy(j) / 2
                 val minArrival = if (j == destination) settings.arrivalPercent else settings.minAtChargerPercent
                 val requiredDeparture = need + minArrival
@@ -237,8 +249,13 @@ object ChargePlanner {
                 }
                 var depart = arrival
                 var charge = 0.0
-                if (s.node == 0) {
-                    if (arrival < requiredDeparture) continue
+                if (s.node == 0 || (fixedHere && !cands[s.node - 1].canCharge)) {
+                    if (arrival < requiredDeparture) continue                  // am Start / Halt ohne Säule kein Laden
+                } else if (fixedHere) {
+                    // Pause an der Ladesäule: nur so viel laden wie nötig (gar nicht, wenn es reicht)
+                    depart = maxOf(arrival, requiredDeparture)
+                    if (depart > arrival) charge = chargeTime(vehicle, arrival, depart, siteKW) +
+                        if (settings.availability[cands[s.node - 1].site]?.full == true) 10 * 60.0 else 0.0
                 } else {
                     if (requiredDeparture <= arrival) continue
                     depart = requiredDeparture
@@ -262,12 +279,13 @@ object ChargePlanner {
         var totalCharge = 0.0
         while (true) {
             val link = previous[s] ?: break
-            if (link.from.node != 0) {
+            if (link.from.node != 0 && !(cands[link.from.node - 1].fixed && link.charge == 0.0)) {
                 val c = cands[link.from.node - 1]
                 val availability = settings.availability[c.site]
                 val wait = if (availability?.full == true) 10 * 60.0 else 0.0
-                stops.add(0, Stop(c.site, c.along, link.from.soc.toDouble(), link.depart, link.charge - settings.stopOverhead - wait, availability))
-                totalCharge += link.charge - settings.stopOverhead - wait
+                val overhead = if (c.fixed) 0.0 else settings.stopOverhead   // die Pause macht man ohnehin
+                stops.add(0, Stop(c.site, c.along, link.from.soc.toDouble(), link.depart, link.charge - overhead - wait, availability, c.fixed))
+                totalCharge += link.charge - overhead - wait
             }
             s = link.from
         }

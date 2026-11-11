@@ -1,5 +1,9 @@
 package de.koeven.meeterz.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Schedule
 import de.koeven.meeterz.tr
@@ -511,16 +515,53 @@ fun MeetingPointCard(modifier: Modifier = Modifier) {
                     }
                 }
             }
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                for (a in all) Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.surfaceVariant) {
-                    Row(Modifier.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Surface(Modifier.size(10.dp), shape = RoundedCornerShape(50), color = if (a.id == "me") MeeterzColors.mint else MeeterzColors.amber) {}
-                        Text(a.name, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
-                        Text(if (a.here) "da" else a.eta?.let { clock(it) } ?: "–", fontWeight = FontWeight.SemiBold,
-                            style = MaterialTheme.typography.bodySmall, color = if (a.here) MeeterzColors.mintLight else MaterialTheme.colorScheme.onSurface)
-                    }
-                }
+            ArrivalTimeline(all.map { TimelineItem(it.id, it.name, if (it.id == "me") MeeterzColors.mint else FriendPalette.routeColor(it.id), it.eta, it.here) })
+        }
+    }
+}
+
+data class TimelineItem(val id: String, val name: String, val color: androidx.compose.ui.graphics.Color, val eta: Long?, val here: Boolean)
+
+/**
+ * Zeitleiste „Wer ist wann da“ (wie ArrivalTimeline auf iOS): links jetzt, rechts die späteste Ankunft. Jeder ist ein
+ * Punkt in seiner Farbe an seiner Ankunftszeit; Namen abwechselnd über und unter der Linie, damit nichts überdeckt.
+ */
+@Composable
+fun ArrivalTimeline(items: List<TimelineItem>) {
+    val labelWidth = 72.dp
+    val axis = 38.dp
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().height(80.dp)) {
+        val w = maxWidth
+        val now = System.currentTimeMillis() / 1000
+        val span = maxOf((items.mapNotNull { it.eta }.maxOrNull() ?: now) - now, 5 * 60L).toFloat()
+        val inset = 6.dp
+        val placed = items.map { item ->
+            val f = if (item.here || item.eta == null) 0f else ((item.eta - now) / span).coerceIn(0f, 1f)
+            item to (inset + (w - inset * 2) * f)
+        }.sortedBy { it.second.value }
+        val last = floatArrayOf(Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY)
+        val rows = placed.map { (_, x) ->
+            val row = when {
+                x.value - last[0] >= labelWidth.value -> 0
+                x.value - last[1] >= labelWidth.value -> 1
+                else -> if (last[0] < last[1]) 0 else 1
+            }
+            last[row] = x.value
+            row
+        }
+        androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth().height(2.dp).offset(y = axis - 1.dp)
+            .background(MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(1.dp)))
+        placed.forEachIndexed { i, (item, x) ->
+            androidx.compose.foundation.layout.Box(Modifier.offset(x = x - 6.dp, y = axis - 6.dp).size(12.dp)
+                .background(MaterialTheme.colorScheme.surface, androidx.compose.foundation.shape.CircleShape).padding(2.dp)
+                .background(item.color, androidx.compose.foundation.shape.CircleShape))
+            val labelX = (x - labelWidth / 2).coerceIn(0.dp, w - labelWidth)
+            Column(Modifier.offset(x = labelX, y = if (rows[i] == 0) 0.dp else axis + 8.dp).width(labelWidth),
+                horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(item.name, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                Text(if (item.here) tr("da") else item.eta?.let { clock(it) } ?: "–", style = MaterialTheme.typography.labelMedium,
+                    fontFeatureSettings = "tnum",
+                    color = if (item.here) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

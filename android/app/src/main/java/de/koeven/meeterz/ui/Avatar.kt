@@ -35,7 +35,9 @@ import kotlinx.coroutines.launch
 fun Avatar(userId: String, name: String, size: Dp = 40.dp) {
     val images by AvatarStore.images.collectAsState()
     val image = images[userId]
-    Box(Modifier.size(size).clip(CircleShape).background(MeeterzColors.mint), contentAlignment = Alignment.Center) {
+    // Eigene Farbe je Freund (wie iOS); ich selbst in Mint
+    val fill = if (userId.equals(de.koeven.meeterz.AppState.myId, ignoreCase = true)) MeeterzColors.mint else FriendPalette.color(userId)
+    Box(Modifier.size(size).clip(CircleShape).background(fill), contentAlignment = Alignment.Center) {
         if (image != null) {
             Image(image.asImageBitmap(), name, Modifier.size(size), contentScale = ContentScale.Crop)
         } else {

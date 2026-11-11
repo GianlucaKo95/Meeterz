@@ -126,16 +126,12 @@ fun MapScreen() {
     val friendRoutes by AppState.routes.routes.collectAsState()
     val lines = remember { mapView.annotations.createPolylineAnnotationManager() }
     LaunchedEffect(friendRoutes) {
-        // Routen der Freunde in Bernstein (wie iOS: „ist unterwegs“)
+        // Routen der Freunde in ihrer Farbe mit dunkler Umrandung (wie iOS)
         lines.deleteAll()
-        for (r in friendRoutes.values) {
-            lines.create(
-                PolylineAnnotationOptions()
-                    .withPoints(r.coordinates.map { Point.fromLngLat(it.first, it.second) })
-                    .withLineColor(MeeterzColors.amber.toArgb())
-                    .withLineWidth(5.0)
-                    .withLineOpacity(0.8)
-            )
+        for ((id, r) in friendRoutes) {
+            val points = r.coordinates.map { Point.fromLngLat(it.first, it.second) }
+            lines.create(PolylineAnnotationOptions().withPoints(points).withLineColor(FriendPalette.routeCasing.toArgb()).withLineWidth(8.0))
+            lines.create(PolylineAnnotationOptions().withPoints(points).withLineColor(FriendPalette.routeColor(id).toArgb()).withLineWidth(5.0))
         }
     }
     val annotations: PointAnnotationManager = remember { mapView.annotations.createPointAnnotationManager() }
@@ -151,7 +147,7 @@ fun MapScreen() {
             annotations.create(
                 PointAnnotationOptions()
                     .withPoint(Point.fromLngLat(lng, lat))
-                    .withIconImage(avatars[f.friendId]?.let { de.koeven.meeterz.data.AvatarStore.pin(it) } ?: initialsBubble(f.initials))
+                    .withIconImage(avatars[f.friendId]?.let { de.koeven.meeterz.data.AvatarStore.pin(it) } ?: initialsBubble(f.initials, FriendPalette.color(f.friendId)))
                     .withTextField(friendRoutes[f.friendId]?.let { "${f.firstName} · ${clockAt(it.eta)}" } ?: f.firstName)
                     .withTextOffset(listOf(0.0, 2.2))
                     .withTextSize(12.0)
@@ -551,11 +547,11 @@ private fun StatusPill() {
 }
 
 /** Runder Mint-Kreis mit Initialen (Freundes-Pin ohne Profilbild) */
-internal fun initialsBubble(initials: String): Bitmap {
+internal fun initialsBubble(initials: String, color: Color = MeeterzColors.mint): Bitmap {
     val size = 96
     val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
-    val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = MeeterzColors.mint.toArgb() }
+    val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color.toArgb() }
     val ring = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.WHITE; style = Paint.Style.STROKE; strokeWidth = 6f }
     canvas.drawCircle(size / 2f, size / 2f, size / 2f - 4, fill)
     canvas.drawCircle(size / 2f, size / 2f, size / 2f - 4, ring)

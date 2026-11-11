@@ -799,6 +799,68 @@ struct ConvoyPausePrompt: View {
     }
 }
 
+/// Zeitleiste „Wer ist wann da“: links jetzt, rechts die späteste Ankunft. Jeder ist ein Punkt in seiner Farbe an
+/// seiner Ankunftszeit (wer schon da ist, ganz links in Bernstein beschriftet); Namen abwechselnd über und unter der Linie.
+struct ArrivalTimeline: View {
+    struct Item: Identifiable {
+        let id: String
+        let name: String
+        let color: Color
+        let eta: Date?
+        let here: Bool
+    }
+    let items: [Item]
+
+    private static let labelWidth: CGFloat = 72
+    private static let axis: CGFloat = 38
+
+    private struct Placed { let item: Item; let x: CGFloat; let row: Int }
+
+    /// Position auf der Linie; Beschriftungen wechseln die Zeile, wenn sie sich sonst überdecken würden
+    private func layout(width: CGFloat) -> [Placed] {
+        let now = Date()
+        let latest = items.compactMap(\.eta).max() ?? now
+        let span = max(latest.timeIntervalSince(now), 5 * 60)
+        let inset: CGFloat = 6
+        let xs = items.map { item -> (Item, CGFloat) in
+            guard !item.here, let eta = item.eta else { return (item, inset) }
+            let f = min(max(eta.timeIntervalSince(now) / span, 0), 1)
+            return (item, inset + (width - 2 * inset) * f)
+        }.sorted { $0.1 < $1.1 }
+        var last: [CGFloat] = [-.infinity, -.infinity]
+        return xs.map { item, x in
+            let row = x - last[0] >= Self.labelWidth ? 0 : x - last[1] >= Self.labelWidth ? 1 : (last[0] < last[1] ? 0 : 1)
+            last[row] = x
+            return Placed(item: item, x: x, row: row)
+        }
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            ZStack(alignment: .topLeading) {
+                Capsule().fill(Theme.stroke).frame(width: w, height: 2).position(x: w / 2, y: Self.axis)
+                ForEach(layout(width: w), id: \.item.id) { p in
+                    Circle().fill(p.item.color).frame(width: 12, height: 12)
+                        .overlay(Circle().stroke(Theme.panel, lineWidth: 2))
+                        .position(x: p.x, y: Self.axis)
+                    VStack(spacing: 0) {
+                        Text(p.item.name).font(.system(size: 12, weight: .semibold, design: .rounded)).lineLimit(1)
+                        Text(p.item.here ? String(localized: "da") : (p.item.eta.map { $0.formatted(date: .omitted, time: .shortened) } ?? "–"))
+                            .font(.system(size: 12, design: .rounded)).monospacedDigit()
+                            .foregroundStyle(p.item.here ? Theme.go : Theme.muted)
+                    }
+                    .frame(width: Self.labelWidth)
+                    .position(x: min(max(p.x, Self.labelWidth / 2), w - Self.labelWidth / 2),
+                              y: p.row == 0 ? Self.axis - 22 : Self.axis + 22)
+                }
+            }
+        }
+        .frame(height: 76)
+        .padding(.top, 4)
+    }
+}
+
 struct MeetingPointCard: View {
     @Environment(AppModel.self) private var app
 
@@ -867,21 +929,9 @@ struct MeetingPointCard: View {
                         .accessibilityIdentifier("meeting-point-message")
                     }
                 }
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach((me + friends).sorted { ($0.here ? 0 : 1, $0.eta ?? .distantFuture) < ($1.here ? 0 : 1, $1.eta ?? .distantFuture) }) { a in
-                            HStack(spacing: 8) {
-                                Circle().fill(a.color).frame(width: 10, height: 10)
-                                Text(a.name).font(.system(size: 13, weight: .semibold, design: .rounded))
-                                Text(a.here ? String(localized: "da") : (a.eta.map { $0.formatted(date: .omitted, time: .shortened) } ?? "–"))
-                                    .font(.system(size: 13, weight: .semibold, design: .rounded)).monospacedDigit()
-                                    .foregroundStyle(a.here ? Theme.go : Theme.text)
-                            }
-                            .padding(.horizontal, 12).padding(.vertical, 8)
-                            .background(Capsule().fill(Theme.panelRaised))
-                        }
-                    }
-                }
+                ArrivalTimeline(items: (me + friends).map {
+                    ArrivalTimeline.Item(id: $0.id, name: $0.name, color: $0.color, eta: $0.eta, here: $0.here)
+                })
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)

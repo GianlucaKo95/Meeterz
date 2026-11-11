@@ -36,10 +36,10 @@ class CarFriendMarkers : MapboxCarMapObserver {
                     val lat = p?.lat ?: f.lat ?: return@mapNotNull null
                     val lng = p?.lng ?: f.lng ?: return@mapNotNull null
                     val image = avatars[f.friendId]?.let { "friend-${f.friendId}-${it.generationId}" to it }
-                    val icon = image?.first ?: "friend-initials-${f.initials}"
+                    val icon = image?.first ?: "friend-initials-${f.initials}-${f.friendId.take(2)}"
                     Triple(Feature.fromGeometry(Point.fromLngLat(lng, lat)).apply {
                         addStringProperty("name", f.firstName); addStringProperty("icon", icon)
-                    }, icon, { image?.second?.let { de.koeven.meeterz.data.AvatarStore.pin(it) } ?: de.koeven.meeterz.ui.initialsBubble(f.initials) })
+                    }, icon, { image?.second?.let { de.koeven.meeterz.data.AvatarStore.pin(it) } ?: de.koeven.meeterz.ui.initialsBubble(f.initials, de.koeven.meeterz.ui.FriendPalette.color(f.friendId)) })
                 }
             }.collect { items ->
                 map.getStyle { style ->

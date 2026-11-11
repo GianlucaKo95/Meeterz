@@ -88,10 +88,12 @@ object NavigationController : MapboxNavigationObserver {
      */
     suspend fun plan(context: Context, from: Point, to: Destination, via: List<Point> = emptyList()): List<NavigationRoute> {
         val coords = listOf(from) + via + Point.fromLngLat(to.lng, to.lat)
-        var routes = request(context, coords, alternatives = via.isEmpty(), RoutePreferences.exclude)
+        // Namen der Zwischenstopps mitgeben (Ansage „Sie haben … erreicht“, bleiben beim Neuberechnen erhalten)
+        val names = listOf("") + via.map { stopName(it) } + to.name
+        var routes = request(context, coords, alternatives = via.isEmpty(), RoutePreferences.exclude, names)
         if (routes.isEmpty() && RoutePreferences.exclude != null) {
             // Ohne Maut/Autobahn/Fähre nicht erreichbar (z. B. Insel nur per Fähre): dann ohne Einschränkung
-            routes = request(context, coords, alternatives = via.isEmpty(), null)
+            routes = request(context, coords, alternatives = via.isEmpty(), null, names)
             if (routes.isNotEmpty()) { Diag.log("Route ${RoutePreferences.summary} nicht möglich – ohne Einschränkung"); return routes }
         }
         val fastest = routes.firstOrNull() ?: return routes
@@ -101,7 +103,16 @@ object NavigationController : MapboxNavigationObserver {
         return RouteVariety.pick(routes, extra)
     }
 
-    private suspend fun request(context: Context, coordinates: List<Point>, alternatives: Boolean, exclude: String?): List<NavigationRoute> {
+    /** Namen selbst gewählter Stopps (Treffpunkt, Pause) */
+    private val stopNames = mutableListOf<Pair<Point, String>>()
+
+    private fun stopName(p: Point): String =
+        stopNames.firstOrNull { ChargePlanner.distance(it.first.latitude(), it.first.longitude(), p.latitude(), p.longitude()) < 150 }?.second
+            ?: de.koeven.meeterz.ev.ChargingSession.plan?.stops?.firstOrNull { ChargePlanner.distance(it.site.lat, it.site.lng, p.latitude(), p.longitude()) < 300 }?.site?.title
+            ?: ""
+
+    private suspend fun request(context: Context, coordinates: List<Point>, alternatives: Boolean, exclude: String?,
+                                names: List<String>? = null): List<NavigationRoute> {
         val nav = navigation ?: return emptyList()
         val options = RouteOptions.builder()
             .applyDefaultNavigationOptions()
@@ -109,6 +120,7 @@ object NavigationController : MapboxNavigationObserver {
             .coordinatesList(coordinates)
             .alternatives(alternatives)
             .apply { if (exclude != null) exclude(exclude) }
+            .apply { if (names != null && names.size == coordinates.size) waypointNamesList(names) }
             .build()
         return suspendCoroutine { cont ->
             nav.requestRoutes(options, object : NavigationRouterCallback {
@@ -181,6 +193,7 @@ object NavigationController : MapboxNavigationObserver {
     suspend fun addStop(context: Context, name: String, lat: Double, lng: Double): Boolean {
         val stop = Point.fromLngLat(lng, lat)
         if (_guidance.value != null) {
+            stopNames += stop to name
             val via = ordered(remainingStops().filter { ChargePlanner.distance(it.latitude(), it.longitude(), lat, lng) > 150 } + stop)
             if (!reroute(context, via)) return false
             fixedStops = fixedStops + stop
@@ -209,6 +222,7 @@ object NavigationController : MapboxNavigationObserver {
 
     fun stop() {
         fixedStops = emptyList()
+        stopNames.clear()
         if (_guidance.value != null) AppState.scope.launch { runCatching { Backend.client.postgrest.rpc("clear_active_route") } }
         lastShare = 0L
         navigation?.setNavigationRoutes(emptyList())

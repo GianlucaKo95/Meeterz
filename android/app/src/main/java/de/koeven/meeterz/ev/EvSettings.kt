@@ -91,6 +91,7 @@ object EvSettings {
             factors = vehicle?.let { ConsumptionLearner.factors(it) } ?: listOf(1.0, 1.0, 1.0),
             conditions = if (key != null && points != null) RouteConditions.load(key, points) else null,
             availability = if (points != null) ChargeStatusService.availability(appContext, points) else emptyMap(),
+            preferredNetworks = ChargeNetworks.preferred, avoidedNetworks = ChargeNetworks.avoided,
         )
     }
 

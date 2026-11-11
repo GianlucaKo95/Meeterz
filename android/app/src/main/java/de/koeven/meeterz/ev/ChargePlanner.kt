@@ -32,6 +32,11 @@ object ChargePlanner {
         val availability: Map<ChargeSite, ChargeAvailability> = emptyMap(),
         /** Feste Halte (Konvoi-Pause, Treffpunkt): werden angefahren; mit Ladesäule nach Bedarf laden, ohne nicht (wie iOS) */
         val fixed: List<Candidate> = emptyList(),
+        /** Ladenetze (Schlüssel aus ChargeNetworks.key): gemiedene nie, bevorzugte wenn möglich */
+        val preferredNetworks: Set<String> = emptySet(),
+        val avoidedNetworks: Set<String> = emptySet(),
+        /** Aufschlag je Stopp an einem nicht bevorzugten Netz (nur wenn es bevorzugte gibt) */
+        val otherNetworkPenalty: Double = 10 * 60.0,
     )
 
     data class Stop(val site: ChargeSite, val distanceFromStart: Double, val arrivalPercent: Double,
@@ -149,7 +154,7 @@ object ChargePlanner {
                          /** Fester Halt: darf nicht übersprungen werden */ val fixed: Boolean = false,
                          /** Am festen Halt laden möglich? */ val canCharge: Boolean = true)
 
-    fun candidates(p: Profile, sites: List<ChargeSite>, corridor: Double = 2_500.0): List<Candidate> {
+    fun candidates(p: Profile, sites: List<ChargeSite>, corridor: Double = 2_500.0, preferred: Set<String> = emptySet()): List<Candidate> {
         if (p.lat.size < 2) return emptyList()
         val cell = 0.02
         fun key(la: Double, ln: Double) = floor(la / cell).toLong() to floor(ln / cell).toLong()
@@ -170,7 +175,8 @@ object ChargePlanner {
         }
         // Je 5 km die zwei besten (stärkste Leistung, wenig Umweg)
         return result.groupBy { (it.along / 5_000).toInt() }.values
-            .flatMap { g -> g.sortedByDescending { it.site.plannedKW - it.offset / 50 }.take(2) }
+            // bevorzugte Netze kommen immer mit
+            .flatMap { g -> g.sortedByDescending { it.site.plannedKW - it.offset / 50 + if (ChargeNetworks.key(it.site.operatorName) in preferred) 1_000 else 0 }.take(2) }
             .sortedBy { it.along }
     }
 
@@ -199,7 +205,9 @@ object ChargePlanner {
         val total = p.total
         if (total <= 0) return Outcome.Unreachable(0.0)
         fun pct(kwh: Double) = kwh / vehicle.battery * 100
-        val cands = (candidates(p, sites).filter { settings.availability[it.site]?.allOutOfService != true } +
+        val usable = if (settings.avoidedNetworks.isEmpty()) sites
+            else sites.filter { ChargeNetworks.key(it.operatorName) !in settings.avoidedNetworks }
+        val cands = (candidates(p, usable, preferred = settings.preferredNetworks).filter { settings.availability[it.site]?.allOutOfService != true } +
             // Halte ohne Säule sind keine Knoten: die Route führt ohnehin hindurch, und laden geht dort nicht
             settings.fixed.filter { it.canCharge && it.along > 0 && it.along < total }).sortedBy { it.along }
 
@@ -264,7 +272,10 @@ object ChargePlanner {
                         if (settings.availability[cands[s.node - 1].site]?.full == true) 10 * 60.0 else 0.0   // alles belegt: warten
                 }
                 val drive = p.time(here, there) + detourTime(s.node) / 2 + detourTime(j) / 2
-                push(State(j, floor(depart - need).toInt()), cost + drive + charge, Link(s, depart, charge))
+                // Bevorzugte Netze: Stopps an anderen Netzen zählen etwas teurer (nicht für feste Halte)
+                val penalty = if (s.node != 0 && !fixedHere && settings.preferredNetworks.isNotEmpty() &&
+                    ChargeNetworks.key(cands[s.node - 1].site.operatorName) !in settings.preferredNetworks) settings.otherNetworkPenalty else 0.0
+                push(State(j, floor(depart - need).toInt()), cost + drive + charge + penalty, Link(s, depart, charge))
             }
         }
 

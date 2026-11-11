@@ -64,6 +64,23 @@ class ChargePlannerTest {
         assertTrue(plan.stops.none { it.fixed })
     }
 
+    /** Zwei Netze: Alpha alle 50 km, Beta versetzt um 25 km */
+    private fun twoNetworks() = (50 until 600 step 50).flatMap { km -> listOf(
+        ChargeSite(52 - km / 111.32, 8.002, 150.0, 4, "A $km", "Alpha GmbH", ""),
+        ChargeSite(52 - (km - 25) / 111.32, 8.002, 100.0, 4, "B $km", "Beta AG", "")) }
+
+    @Test fun avoidedNetworkIsNeverUsed() {
+        val s = ChargePlanner.Settings(avoidedNetworks = setOf("alpha"))
+        val plan = (ChargePlanner.plan(ChargePlanner.profile(points(600), vehicle, s), vehicle, 90.0, s, twoNetworks()) as ChargePlanner.Outcome.Planned).plan
+        assertTrue(plan.stops.isNotEmpty() && plan.stops.all { it.site.operatorName == "Beta AG" })
+    }
+
+    @Test fun preferredNetworkWinsOverSlightlyFaster() {
+        val s = ChargePlanner.Settings(preferredNetworks = setOf("beta"))
+        val plan = (ChargePlanner.plan(ChargePlanner.profile(points(600), vehicle, s), vehicle, 90.0, s, twoNetworks()) as ChargePlanner.Outcome.Planned).plan
+        assertTrue(plan.stops.all { it.site.operatorName == "Beta AG" })
+    }
+
     @Test fun unreachableWithoutChargers() {
         val s = ChargePlanner.Settings()
         assertTrue(ChargePlanner.plan(ChargePlanner.profile(points(600), vehicle, s), vehicle, 80.0, s, emptyList()) is ChargePlanner.Outcome.Unreachable)

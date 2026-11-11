@@ -1,5 +1,6 @@
 package de.koeven.meeterz.ui
 
+import androidx.compose.material3.FilterChip
 import de.koeven.meeterz.tr
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -122,6 +123,8 @@ fun EvSettingsDialog(onClose: () -> Unit) {
     var arrival by remember { mutableStateOf(EvSettings.arrivalPercent.toFloat()) }
     var minCharger by remember { mutableStateOf(EvSettings.minAtChargerPercent.toFloat()) }
     var manual by remember { mutableStateOf(EvSettings.manualPercent.toFloat()) }
+    var showNetworks by remember { mutableStateOf(false) }
+    if (showNetworks) { ChargeNetworksDialog(onClose = { showNetworks = false }); return }
     var search by remember { mutableStateOf("") }
     var picking by remember { mutableStateOf(EvSettings.vehicle == null) }
     val all = remember { EvSettings.vehicles() }
@@ -166,11 +169,50 @@ fun EvSettingsDialog(onClose: () -> Unit) {
                     Slider(arrival, { arrival = Math.round(it).toFloat() }, valueRange = 5f..60f)
                     Text(tr("An der Ladesäule mindestens %@ %", minCharger.toInt()))
                     Slider(minCharger, { minCharger = Math.round(it).toFloat() }, valueRange = 3f..30f)
+                    TextButton(onClick = { showNetworks = true }) { Text(tr("Ladenetze") + ": " + de.koeven.meeterz.ev.ChargeNetworks.summary) }
                     if (EvSettings.liveSoc == null) {
                         Text(tr("Akkustand jetzt %@ % (ohne Live-Daten vom Auto)", manual.toInt()))
                         Slider(manual, { manual = Math.round(it).toFloat() }, valueRange = 5f..100f)
                     } else {
                         Text(tr("Akkustand %@ % live vom Auto", Math.round(EvSettings.liveSoc!!)), style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+        },
+    )
+}
+
+/** Bevorzugte und gemiedene Ladenetze (wie ChargeNetworksView auf iOS / ABRP) */
+@Composable
+fun ChargeNetworksDialog(onClose: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val all = remember { de.koeven.meeterz.ev.ChargeNetworks.all(context) }
+    var search by remember { mutableStateOf("") }
+    var version by remember { mutableStateOf(0) }
+    AlertDialog(
+        onDismissRequest = onClose,
+        confirmButton = { TextButton(onClick = onClose) { Text(tr("Fertig")) } },
+        title = { Text(tr("Ladenetze")) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(tr("Gemiedene Netze plant Meeterz nie als Ladestopp ein. Bevorzugte nimmt es, wenn sie auf der Strecke liegen – auch wenn ein anderer Stopp ein paar Minuten schneller wäre."),
+                    style = MaterialTheme.typography.bodySmall)
+                OutlinedTextField(search, { search = it }, placeholder = { Text(tr("Netz suchen")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                androidx.compose.foundation.lazy.LazyColumn(Modifier.heightIn(max = 420.dp)) {
+                    val shown = all.filter { search.isBlank() || it.name.contains(search, ignoreCase = true) }
+                    items(shown.size, key = { shown[it].id + version }) { i ->
+                        val n = shown[i]
+                        val pref = de.koeven.meeterz.ev.ChargeNetworks.preference(n.id)
+                        Column(Modifier.padding(vertical = 6.dp)) {
+                            Text(n.name, fontWeight = FontWeight.SemiBold)
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                for ((value, label) in listOf(null to tr("Egal"), "preferred" to tr("Bevorzugt"), "avoided" to tr("Meiden"))) {
+                                    FilterChip(selected = pref == value, onClick = {
+                                        de.koeven.meeterz.ev.ChargeNetworks.set(n.id, value); version++
+                                    }, label = { Text(label) })
+                                }
+                            }
+                        }
                     }
                 }
             }

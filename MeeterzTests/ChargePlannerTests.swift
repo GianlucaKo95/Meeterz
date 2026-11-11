@@ -86,6 +86,29 @@ final class ChargePlannerTests: XCTestCase {
         XCTAssertFalse(plan.stops.contains { $0.fixed }, "am Rastplatz ohne Säule wird nicht geladen")
     }
 
+    /// Zwei Netze: Alpha alle 50 km, Beta versetzt um 25 km
+    func twoNetworks() -> [ChargeSite] {
+        stride(from: 50.0, to: 600, by: 50).flatMap { km in [
+            ChargeSite(coordinate: .init(latitude: 52 - km / 111.32, longitude: 8.002), maxKW: 150, points: 4, name: "A \(Int(km))", operatorName: "Alpha GmbH", city: ""),
+            ChargeSite(coordinate: .init(latitude: 52 - (km - 25) / 111.32, longitude: 8.002), maxKW: 100, points: 4, name: "B \(Int(km))", operatorName: "Beta AG", city: ""),
+        ] }
+    }
+
+    func testAvoidedNetworkIsNeverUsed() throws {
+        var settings = ChargePlanner.Settings()
+        settings.avoidedNetworks = ["alpha"]
+        let plan = try ChargePlanner.plan(profile: profile(km: 600), vehicle: vehicle, startPercent: 90, settings: settings, sites: twoNetworks()).get()
+        XCTAssertFalse(plan.stops.isEmpty)
+        XCTAssertTrue(plan.stops.allSatisfy { $0.site.operatorName == "Beta AG" })
+    }
+
+    func testPreferredNetworkWinsOverSlightlyFaster() throws {
+        var settings = ChargePlanner.Settings()
+        settings.preferredNetworks = ["beta"]
+        let plan = try ChargePlanner.plan(profile: profile(km: 600), vehicle: vehicle, startPercent: 90, settings: settings, sites: twoNetworks()).get()
+        XCTAssertTrue(plan.stops.allSatisfy { $0.site.operatorName == "Beta AG" })
+    }
+
     func testUnreachableWithoutChargers() {
         let result = ChargePlanner.plan(profile: profile(km: 600), vehicle: vehicle, startPercent: 80,
                                         settings: .init(), sites: [])

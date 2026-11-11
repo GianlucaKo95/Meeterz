@@ -42,6 +42,8 @@ object ChargeMonitor {
     private var profile: ChargePlanner.Profile? = null
     private var lastAlert = 0L
     private var lastSignature = ""
+    /** Zuletzt gesehener Abschnitt (für „Ladestopp passiert“ ohne Live-Daten) */
+    private var legMark = "" to 0
 
     fun start(context: Context) {
         stop()
@@ -49,6 +51,7 @@ object ChargeMonitor {
         anchorSoc = EvSettings.chargePercent
         anchorTraveled = 0.0
         lastEstimate = null
+        legMark = "" to 0
         job = AppState.scope.launch {
             var tick = 0
             while (isActive) {
@@ -96,6 +99,17 @@ object ChargeMonitor {
         val status = AppState.vehicle.status.value
         val live = if ((status?.ageSeconds ?: Long.MAX_VALUE) < 5 * 60) EvSettings.liveSoc else null
         if (live != null) { anchorSoc = live; anchorTraveled = traveled }
+        // Ohne Live-Daten: Ladestopp passiert → ab dort mit dem geplanten Ladestand weiterrechnen (wie iOS)
+        val legIndex = progress.currentLegProgress?.legIndex ?: 0
+        if (live == null && legMark.first == route.id && legIndex > legMark.second) {
+            val passed = route.directionsRoute.routeOptions()?.coordinatesList()?.getOrNull(legIndex)
+            val stop = passed?.let { w -> ChargingSession.plan?.stops?.firstOrNull { ChargePlanner.distance(it.site.lat, it.site.lng, w.latitude(), w.longitude()) < 300 } }
+            if (stop != null) {
+                anchorSoc = stop.departurePercent; anchorTraveled = traveled
+                Diag.log("Ladestopp ${stop.site.title} passiert – weiter mit geplanten ${stop.departurePercent.toInt()} %")
+            }
+        }
+        legMark = route.id to legIndex
         val now = anchorSoc - pct(p.energy(anchorTraveled, maxOf(traveled, anchorTraveled)))
         lastEstimate = now
         val (end, last) = legEnd(progress)
@@ -110,8 +124,9 @@ object ChargeMonitor {
      */
     suspend fun check(context: Context, pause: Pair<Double, Double>? = null) {
         val status = AppState.vehicle.status.value
-        val live = if ((status?.ageSeconds ?: Long.MAX_VALUE) < 4 * 60) EvSettings.liveSoc else null   // nur mit frischem Live-Wert
-        val soc = live ?: (if (pause != null) lastEstimate ?: EvSettings.chargePercent else null) ?: return
+        val live = if ((status?.ageSeconds ?: Long.MAX_VALUE) < 4 * 60) EvSettings.liveSoc else null
+        // Ohne Live-Daten mit der Schätzung (Verbrauchsmodell, an Ladestopps auf den geplanten Stand gesetzt)
+        val soc = live ?: lastEstimate ?: (if (pause != null) EvSettings.chargePercent else null) ?: return
         val progress = NavigationController.progress.value ?: return
         val route = progress.navigationRoute
         val traveled = progress.distanceTraveled.toDouble()
@@ -162,12 +177,13 @@ object ChargeMonitor {
         if (pause != null && result is ChargePlanner.Outcome.Planned) {
             val plan = result.plan
             Diag.log("Ladeplan mit Pause: ${plan.summary}")
+            ChargingSession.plan = plan   // geplanter Ladestand an der Pause (ohne Live-Daten weiterrechnen)
             lastSignature = ""; lastAlert = 0L
             if (suggestion == null) {
                 val atPause = plan.stops.firstOrNull { it.fixed && ChargePlanner.distance(it.site.lat, it.site.lng, pause.first, pause.second) < 300 }
                 val rest = plan.stops.count { !it.fixed }
                 val after = if (rest == 0) tr("danach direkt ans Ziel, Ankunft mit %lld %%", Math.round(plan.arrivalPercent))
-                            else tr("danach noch %lld Ladestopps", rest)
+                            else if (rest == 1) tr("danach noch ein Ladestopp") else tr("danach noch %lld Ladestopps", rest)
                 _suggestions.tryEmit(if (atPause != null) Suggestion(tr("In der Pause laden auf %lld %%", Math.round(atPause.departurePercent)),
                     tr("ca. %lld Min. · %@", maxOf(1L, Math.round(atPause.chargeTime / 60)), after), null)
                     else Suggestion(tr("In der Pause muss nicht geladen werden"), after, null))

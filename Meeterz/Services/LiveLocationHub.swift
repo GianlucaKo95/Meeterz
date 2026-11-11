@@ -88,7 +88,7 @@ final class LiveLocationHub {
     }
 
     /// Weitere Ereignisse an alle Freunde im eigenen Kanal (Konvoi-Pause). Kanalfelder nur gemeinsam mit Android ändern.
-    func broadcast<T: Encodable>(event: String, _ message: T) async {
+    func broadcast<T: Codable>(event: String, _ message: T) async {
         do { try await ownChannel?.broadcast(event: event, message: message) }
         catch { Diag.log("Senden „\(event)“ fehlgeschlagen: \(error.localizedDescription)") }
     }

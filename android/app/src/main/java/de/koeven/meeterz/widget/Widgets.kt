@@ -188,7 +188,7 @@ class SuggestionWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val sg = WidgetSnapshotWriter.read(context).suggestion
         provideContent {
-            val open = sg?.let { actionStartActivity(MainActivity.planIntent(context, it.name, it.lat, it.lng)) } ?: actionStartActivity<MainActivity>()
+            val open = sg?.let { androidx.glance.appwidget.action.actionStartActivity(MainActivity.planIntent(context, it.name, it.lat, it.lng)) } ?: actionStartActivity<MainActivity>()
             Column(GlanceModifier.fillMaxSize().background(petrol).cornerRadius(20.dp).padding(14.dp).clickable(open)) {
                 Header(if (sg?.calendar == true) "Termin" else "Nächstes Ziel")
                 Spacer(GlanceModifier.height(6.dp))

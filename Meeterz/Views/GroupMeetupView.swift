@@ -151,7 +151,7 @@ struct GroupMeetupView: View {
             }
             // Anfahrt je Person
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     ForEach(people) { person in
                         if let d = option.durations[person.id] {
                             Label("\(person.name) \(Format.minutes(seconds: d))", systemImage: person.mode.icon)
@@ -175,7 +175,7 @@ struct GroupMeetupView: View {
             .buttonStyle(PrimaryButtonStyle())
             .disabled(sending != nil)
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, 8)
     }
 
     // MARK: Logik

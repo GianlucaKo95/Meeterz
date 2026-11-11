@@ -32,7 +32,7 @@ struct MeetupsOverviewView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 12) {
                     if entries.isEmpty {
                         EmptyStateView(symbol: "calendar.badge.clock", title: "Keine Treffen geplant",
                                        message: "Meeterz findet einen Treffpunkt, der für alle ungefähr gleich weit ist.") {
@@ -130,13 +130,13 @@ private struct MeetupCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(meetup.placeName).font(Theme.title(17)).foregroundStyle(Theme.text)
                     if let at = meetup.meetAt {
                         Label(Meetup.timeText(at), systemImage: "clock").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.text)
                     }
                     Text(entry.accepted ? String(localized: "Zugesagt") : (meetup.incoming ? String(localized: "Einladung an dich") : String(localized: "Wartet auf Zusage")))
-                        .font(.caption.weight(.bold))
+                        .font(.caption.weight(.semibold))
                         .foregroundStyle(entry.accepted ? Theme.accent : Theme.muted)
                 }
                 Spacer()
@@ -162,7 +162,7 @@ private struct MeetupCard: View {
                         Spacer()
                         if p.arrived {
                             Label("ist da", systemImage: "checkmark.circle.fill")
-                                .font(.caption.weight(.bold)).foregroundStyle(Theme.go)
+                                .font(.caption.weight(.semibold)).foregroundStyle(Theme.go)
                         } else {
                             Text(p.status).font(.caption).foregroundStyle(Theme.muted).lineLimit(1)
                         }
@@ -172,10 +172,10 @@ private struct MeetupCard: View {
 
             if !recentMessages.isEmpty {
                 Divider().overlay(Theme.stroke)
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 8) {
                     ForEach(recentMessages) { m in
-                        HStack(alignment: .firstTextBaseline, spacing: 6) {
-                            Text(m.incoming ? m.firstName : "Du").font(.caption.weight(.bold))
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Text(m.incoming ? m.firstName : "Du").font(.caption.weight(.semibold))
                                 .foregroundStyle(m.incoming ? Theme.text : Theme.accent)
                             Text(m.body).font(.caption).foregroundStyle(Theme.text)
                             Spacer(minLength: 4)
@@ -207,7 +207,7 @@ private struct MeetupCard: View {
                 }
             }
         }
-        .padding(14)
+        .padding(16)
         .background(RoundedRectangle(cornerRadius: 16).fill(Theme.panel))
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(Theme.stroke))
         .task(id: meetup.groupId) {

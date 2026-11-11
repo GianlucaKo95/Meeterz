@@ -58,7 +58,7 @@ private struct IncomingMeetupCard: View {
             Text(meetup.isGroup
                  ? String(localized: "\(meetup.otherName) lädt \(max(2, (meetup.groupSize ?? 3) - 1)) Freunde ein")
                  : String(localized: "\(meetup.otherName) möchte sich treffen"))
-                .font(.caption.weight(.bold)).foregroundStyle(Theme.accent).textCase(.uppercase)
+                .font(.caption.weight(.semibold)).foregroundStyle(Theme.accent)
             Text(meetup.placeName).font(Theme.display(22))
             if let at = meetup.meetAt {
                 Label(Meetup.timeText(at), systemImage: "clock").font(.headline).foregroundStyle(Theme.text)
@@ -90,7 +90,7 @@ private struct AcceptedMeetupCard: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Treffen mit \(meetup.incoming ? meetup.withText : meetup.otherName)")
-                        .font(.caption.weight(.bold)).foregroundStyle(Theme.accent).textCase(.uppercase)
+                        .font(.caption.weight(.semibold)).foregroundStyle(Theme.accent)
                     Text(meetup.placeName).font(Theme.title(18))
                     if let at = meetup.meetAt {
                         Text(Meetup.timeText(at)).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
@@ -162,7 +162,7 @@ struct MeetupPlannerView: View {
     var body: some View {
         let friend = app.friend(candidate.friendId)
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 12) {
                     if let friend {
                         Avatar(initials: friend.initials, color: FriendPalette.color(for: friend.friendId), size: 48, userId: friend.friendId)
@@ -187,7 +187,7 @@ struct MeetupPlannerView: View {
                         ForEach(categories) { c in
                             Button(c.title) { category = c }
                                 .font(.system(size: 14, weight: .semibold, design: .rounded))
-                                .padding(.horizontal, 14).frame(height: 36)
+                                .padding(.horizontal, 16).frame(height: 36)
                                 .background(Capsule().fill(category == c ? Theme.text : .clear))
                                 .overlay(Capsule().stroke(Theme.stroke))
                                 .foregroundStyle(category == c ? Theme.ink : Theme.text)
@@ -319,7 +319,7 @@ struct PlaceRow: View {
                 .accessibilityLabel("Details zu \(place.name)")
             }
         }
-        .padding(.vertical, 10).padding(.leading, 10).padding(.trailing, onInfo == nil ? 12 : 4)
+        .padding(.vertical, 12).padding(.leading, 12).padding(.trailing, onInfo == nil ? 12 : 4)
         .background(RoundedRectangle(cornerRadius: 16).fill(selected ? Theme.panelRaised : Theme.panel))
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(selected ? Theme.accent : Theme.stroke))
     }
@@ -343,9 +343,9 @@ struct InviteFriendsView: View {
     @State private var meetAt = Date().addingTimeInterval(3600).roundedToQuarterHour
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Einladen nach").font(.caption.weight(.bold)).foregroundStyle(Theme.accent).textCase(.uppercase)
+                Text("Einladen nach").font(.caption.weight(.semibold)).foregroundStyle(Theme.accent)
                 Text(place.name).font(Theme.display(24))
                 if let address = place.address { Text(address).foregroundStyle(Theme.muted) }
             }

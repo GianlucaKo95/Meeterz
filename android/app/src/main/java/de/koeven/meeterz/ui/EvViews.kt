@@ -1,5 +1,6 @@
 package de.koeven.meeterz.ui
 
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.FilterChip
 import de.koeven.meeterz.tr
 import androidx.compose.foundation.clickable
@@ -58,10 +59,10 @@ fun ChargePlanSection(route: NavigationRoute, adopted: ChargePlanner.Plan?, onAd
         outcome = EvSettings.plan(route)
         loading = false
     }
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         HorizontalDivider()
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(tr("Ladeplan"), fontWeight = FontWeight.Bold)
+            Text(tr("Ladeplan"), fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.weight(1f))
             val soc = Math.round(EvSettings.chargePercent)
             Text(if (EvSettings.liveSoc != null) tr("Start %@ % (live)", soc) else tr("Start %@ %", soc), style = MaterialTheme.typography.bodySmall)
@@ -69,7 +70,11 @@ fun ChargePlanSection(route: NavigationRoute, adopted: ChargePlanner.Plan?, onAd
         if (adopted != null) {
             Text(adopted.summary, fontWeight = FontWeight.SemiBold)
             Stops(adopted)
-            Text(tr("✓ Ladestopps sind in der Route"), color = MeeterzColors.mintLight, style = MaterialTheme.typography.bodySmall)
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Default.Check, null,
+                    Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                Text(tr("Ladestopps sind in der Route"), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
+            }
         } else when (val o = outcome) {
             null -> if (loading) Row(verticalAlignment = Alignment.CenterVertically) {
                 CircularProgressIndicator(Modifier.padding(end = 8.dp).size(16.dp), strokeWidth = 2.dp); Text(tr("Berechne …"))
@@ -194,7 +199,7 @@ fun ChargeNetworksDialog(onClose: () -> Unit) {
         confirmButton = { TextButton(onClick = onClose) { Text(tr("Fertig")) } },
         title = { Text(tr("Ladenetze")) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(tr("Gemiedene Netze plant Meeterz nie als Ladestopp ein. Bevorzugte nimmt es, wenn sie auf der Strecke liegen – auch wenn ein anderer Stopp ein paar Minuten schneller wäre."),
                     style = MaterialTheme.typography.bodySmall)
                 OutlinedTextField(search, { search = it }, placeholder = { Text(tr("Netz suchen")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -205,7 +210,7 @@ fun ChargeNetworksDialog(onClose: () -> Unit) {
                         val pref = de.koeven.meeterz.ev.ChargeNetworks.preference(n.id)
                         Column(Modifier.padding(vertical = 6.dp)) {
                             Text(n.name, fontWeight = FontWeight.SemiBold)
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 for ((value, label) in listOf(null to tr("Egal"), "preferred" to tr("Bevorzugt"), "avoided" to tr("Meiden"))) {
                                     FilterChip(selected = pref == value, onClick = {
                                         de.koeven.meeterz.ev.ChargeNetworks.set(n.id, value); version++

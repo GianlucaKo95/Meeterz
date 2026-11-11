@@ -1,5 +1,7 @@
 package de.koeven.meeterz.ui
 
+import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.Schedule
 import de.koeven.meeterz.tr
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -96,15 +98,20 @@ fun SocialCard(modifier: Modifier = Modifier, onPlan: (MeetupCandidate) -> Unit)
     val candidate = candidates.let { AppState.meetups.visibleCandidates() }.firstOrNull { c -> friends.any { it.friendId == c.friendId } }
     if (incoming == null && accepted == null && waiting == null && candidate == null) return
 
-    Surface(modifier.fillMaxWidth().padding(12.dp), shape = RoundedCornerShape(20.dp), shadowElevation = 8.dp) {
+    Surface(modifier.fillMaxWidth().padding(12.dp), shape = RoundedCornerShape(20.dp), shadowElevation = 2.dp, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             when {
                 incoming != null -> {
                     Text(if (incoming.isGroup) tr("%@ lädt %lld Freunde ein", incoming.otherName, maxOf(2, (incoming.groupSize ?: 3) - 1))
                         else tr("%@ möchte sich treffen", incoming.otherName),
-                        color = MeeterzColors.mintLight, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
-                    Text(incoming.placeName, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    incoming.meetAtSeconds?.let { Text("🕒 ${meetupTime(it)}", fontWeight = FontWeight.SemiBold) }
+                        color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelMedium)
+                    Text(incoming.placeName, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+                    incoming.meetAtSeconds?.let {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Default.Schedule, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(meetupTime(it), fontWeight = FontWeight.SemiBold)
+                        }
+                    }
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         OutlinedButton(onClick = { scope.launch { AppState.meetups.respond(incoming, false) } }, Modifier.weight(1f)) { Text(tr("Ablehnen")) }
                         Button(onClick = {
@@ -121,8 +128,8 @@ fun SocialCard(modifier: Modifier = Modifier, onPlan: (MeetupCandidate) -> Unit)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(tr("Treffen mit %@", if (accepted.incoming) accepted.withText else accepted.otherName),
-                                color = MeeterzColors.mintLight, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
-                            Text(accepted.placeName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelMedium)
+                            Text(accepted.placeName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                             accepted.meetAtSeconds?.let { Text(meetupTime(it), style = MaterialTheme.typography.bodySmall) }
                         }
                         TextButton(onClick = { scope.launch { AppState.meetups.cancel(accepted) } }) { Text(tr("Absagen")) }
@@ -179,13 +186,13 @@ fun CandidatePlanDialog(candidate: MeetupCandidate, onClose: () -> Unit) {
                 Text(tr("Du %@", clock(candidate.myEtaSeconds)) + " · " + (friend?.firstName ?: friendName) + " " +
                     clock(candidate.friendEtaSeconds) + " · " + tr("%@ Abstand", km(candidate.distanceM)),
                     style = MaterialTheme.typography.bodySmall)
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     for (c in categories) FilterChip(selected = c == category, onClick = { category = c }, label = { Text(c.title) })
                 }
                 LazyColumn(Modifier.fillMaxWidth().padding(top = 4.dp)) {
                     items(listOf(spot) + places) { p ->
                         Row(Modifier.fillMaxWidth().clickable { selected = p }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(if (p == selected) "◉" else "○", color = MeeterzColors.mintLight, modifier = Modifier.padding(end = 10.dp))
+                            Text(if (p == selected) "◉" else "○", color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(end = 10.dp))
                             Column {
                                 Text(p.name, fontWeight = FontWeight.SemiBold)
                                 p.address?.let { Text(it, style = MaterialTheme.typography.bodySmall, maxLines = 1) }
@@ -240,9 +247,9 @@ fun InviteFriendsDialog(placeName: String, address: String?, lat: Double, lng: D
     }
     AlertDialog(
         onDismissRequest = onClose,
-        title = { Column { Text(tr("Einladen nach")); Text(placeName, fontWeight = FontWeight.Bold) } },
+        title = { Column { Text(tr("Einladen nach")); Text(placeName, fontWeight = FontWeight.SemiBold) } },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 address?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
                 LazyColumn(Modifier.fillMaxWidth()) {
                     items(friends, key = { it.friendId }) { f ->
@@ -254,10 +261,10 @@ fun InviteFriendsDialog(placeName: String, address: String?, lat: Double, lng: D
                         }
                     }
                 }
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     choices.forEachIndexed { i, (label, _) -> FilterChip(selected = choice == i, onClick = { choice = i }, label = { Text(label) }) }
                 }
-                if (choice == 4) Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (choice == 4) Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     for (h in listOf(8, 10, 12, 14, 16, 18, 19, 20)) FilterChip(selected = tomorrowHour == h, onClick = { tomorrowHour = h }, label = { Text("$h:00") })
                 }
                 meetAt()?.let { Text(tr("Treffen %@ – Meeterz erinnert alle rechtzeitig ans Losfahren.", meetupTime(it)), style = MaterialTheme.typography.bodySmall) }
@@ -341,9 +348,9 @@ fun GroupMeetupScreen(onClose: () -> Unit) {
                     Text(tr("Sortiert nach der längsten Anfahrt: Niemand soll viel weiter fahren als die anderen."), style = MaterialTheme.typography.bodySmall)
                 }
                 items(options, key = { it.place.name + it.place.lat }) { o ->
-                    Column(Modifier.fillMaxWidth().border(1.dp, MeeterzColors.mint.copy(alpha = 0.4f), RoundedCornerShape(14.dp)).padding(12.dp),
+                    Column(Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp)).padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Row { Text(o.place.name, Modifier.weight(1f), fontWeight = FontWeight.Bold); Text(tr("max. %@ Min.", (o.longest / 60).toInt())) }
+                        Row { Text(o.place.name, Modifier.weight(1f), fontWeight = FontWeight.SemiBold); Text(tr("max. %@ Min.", (o.longest / 60).toInt())) }
                         o.place.address?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
                         Text(o.durations.entries.joinToString(" · ") { (id, s) ->
                             val name = if (id == "me") "Du" else friends.firstOrNull { it.friendId == id }?.firstName ?: "?"
@@ -396,9 +403,9 @@ fun MeetupsOverviewScreen(onClose: () -> Unit) {
                     val m = rows.first()
                     var members by remember(m.groupId) { mutableStateOf<List<GroupMember>>(emptyList()) }
                     LaunchedEffect(m.groupId, meetups) { m.groupId?.let { members = AppState.meetups.groupMembers(it) } }
-                    Column(Modifier.fillMaxWidth().border(1.dp, MeeterzColors.mint.copy(alpha = 0.35f), RoundedCornerShape(16.dp)).padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(m.placeName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Column(Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp)).padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(m.placeName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                         m.meetAtSeconds?.let { Text(meetupTime(it), fontWeight = FontWeight.SemiBold) }
                         val people: List<Triple<String, String, String>> = if (m.groupId != null && members.isNotEmpty())
                             members.map { Triple(it.userId, it.displayName, if (it.organizer) tr("lädt ein") else state(it.status)) }
@@ -475,10 +482,11 @@ fun MeetingPointCard(modifier: Modifier = Modifier) {
     val me = g?.let { listOf(Arrival("me", "Du", System.currentTimeMillis() / 1000 + it.remainingSeconds.toLong(), false)) }.orEmpty()
     val all = (me + others).sortedWith(compareBy({ if (it.here) 0 else 1 }, { it.eta ?: Long.MAX_VALUE }))
 
-    Surface(modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(18.dp), shadowElevation = 6.dp) {
+    Surface(modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(16.dp), shadowElevation = 2.dp, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("🏁 $name", Modifier.weight(1f), fontWeight = FontWeight.Bold, maxLines = 1)
+                Icon(Icons.Default.Flag, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(name, Modifier.weight(1f).padding(start = 8.dp), fontWeight = FontWeight.SemiBold, maxLines = 1)
                 if (g != null) androidx.compose.foundation.layout.Box {
                     TextButton(onClick = { menu = true }) { Text(tr("Bescheid geben")) }
                     androidx.compose.material3.DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
@@ -506,10 +514,10 @@ fun MeetingPointCard(modifier: Modifier = Modifier) {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 for (a in all) Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.surfaceVariant) {
                     Row(Modifier.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Surface(Modifier.size(10.dp), shape = RoundedCornerShape(50), color = if (a.id == "me") MeeterzColors.mint else MeeterzColors.amber) {}
                         Text(a.name, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
-                        Text(if (a.here) "da" else a.eta?.let { clock(it) } ?: "–", fontWeight = FontWeight.Black,
+                        Text(if (a.here) "da" else a.eta?.let { clock(it) } ?: "–", fontWeight = FontWeight.SemiBold,
                             style = MaterialTheme.typography.bodySmall, color = if (a.here) MeeterzColors.mintLight else MaterialTheme.colorScheme.onSurface)
                     }
                 }

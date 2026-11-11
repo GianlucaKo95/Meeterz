@@ -25,7 +25,7 @@ import kotlinx.coroutines.withContext
 object ChargeMonitor {
     /** „Ziel 21 %“ bzw. „Stopp 18 %“; live = vom Auto gemessen statt hochgerechnet */
     data class Forecast(val label: String, val percent: Double, val low: Boolean, val live: Boolean) {
-        val text get() = "${if (live) "🔋" else "≈"} $label ${maxOf(0, Math.round(percent).toInt())} %"
+        val text get() = "${if (live) "" else "≈ "}$label ${maxOf(0, Math.round(percent).toInt())} %"
     }
     data class Suggestion(val title: String, val subtitle: String, val plan: ChargePlanner.Plan?)
 

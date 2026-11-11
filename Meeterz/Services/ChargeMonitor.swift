@@ -267,7 +267,7 @@ final class CarPlayBatteryChip {
             label = l
         }
         let value = Int(percent.rounded())
-        l.text = "\(live ? "🔋" : "≈") \(text) \(max(value, 0)) %"
+        l.text = "\(live ? "" : "≈ ")\(text) \(max(value, 0)) %"
         l.textColor = low ? .white : UIColor(red: 0.024, green: 0.165, blue: 0.196, alpha: 1)
         l.backgroundColor = low ? UIColor(red: 0.85, green: 0.18, blue: 0.21, alpha: 0.95) : Theme.mintUI.withAlphaComponent(0.95)
         let size = CGSize(width: l.intrinsicContentSize.width + 22, height: 28)

@@ -295,8 +295,8 @@ struct MainView: View {
                             .font(.system(size: 32))
                             .foregroundStyle(Theme.ink, Theme.accent)
                         Text(meetup.placeName)
-                            .font(.caption2.bold())
-                            .padding(.horizontal, 6).padding(.vertical, 2)
+                            .font(.caption2.weight(.semibold))
+                            .padding(.horizontal, 8).padding(.vertical, 2)
                             .background(Capsule().fill(Theme.panel))
                     }
                 }
@@ -350,7 +350,7 @@ struct MainView: View {
                 }
                 .font(.system(size: 16, weight: .medium, design: .rounded))
                 .foregroundStyle(Theme.muted)
-                .padding(.horizontal, 18)
+                .padding(.horizontal, 16)
                 .frame(height: 52)
                 .background(Capsule().fill(Theme.panel))
                 .overlay(Capsule().stroke(Theme.stroke, lineWidth: 1))
@@ -416,12 +416,12 @@ struct FriendMarker: View {
         // TimelineView sorgt dafür, dass "vor X Min." mitläuft
         TimelineView(.periodic(from: .now, by: 30)) { _ in
             let stale = position.age > 5 * 60
-            VStack(spacing: 3) {
+            VStack(spacing: 4) {
                 Avatar(initials: friend.initials, color: FriendPalette.color(for: friend.friendId), size: 40, faded: stale, userId: friend.friendId)
                     .overlay(Circle().stroke(FriendPalette.color(for: friend.friendId), lineWidth: 2).padding(-2))
                 Text("\(friend.displayName) · \(Format.age(position.age))")
                     .font(.system(size: 11, weight: .semibold, design: .rounded))
-                    .padding(.horizontal, 8).padding(.vertical, 3)
+                    .padding(.horizontal, 8).padding(.vertical, 4)
                     .background(Capsule().fill(Theme.panel))
             }
             .opacity(stale ? 0.6 : 1)
@@ -449,14 +449,14 @@ struct BackgroundHint: View {
                 }
                 .accessibilityLabel("Standort Immer erlauben")
                 Button { dismissed = true } label: {
-                    Image(systemName: "xmark").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.muted)
+                    Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.muted)
                 }
                 .accessibilityLabel("Hinweis ausblenden")
             }
             .foregroundStyle(Theme.text)
             .padding(.horizontal, 12).padding(.vertical, 8)
-            .background(RoundedRectangle(cornerRadius: 14).fill(Theme.panel))
-            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.stroke, lineWidth: 1))
+            .background(RoundedRectangle(cornerRadius: 12).fill(Theme.panel))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.stroke, lineWidth: 1))
             .frame(maxWidth: 230, alignment: .leading)
         }
     }
@@ -506,7 +506,7 @@ struct SharingPill: View {
         } label: {
             HStack(spacing: 8) {
                 if incognito {
-                    Image(systemName: "eye.slash.fill").font(.system(size: 11, weight: .bold))
+                    Image(systemName: "eye.slash.fill").font(.system(size: 11, weight: .semibold))
                 } else {
                     Circle().fill(sharing ? Theme.accent : Theme.muted).frame(width: 8, height: 8)
                 }
@@ -542,11 +542,11 @@ struct BannerView: View {
                 .foregroundStyle(banner.isError ? Theme.danger : Theme.accent)
             Text(banner.text).font(.footnote.weight(.medium))
             Spacer()
-            Button(action: dismiss) { Image(systemName: "xmark").font(.footnote.bold()) }
+            Button(action: dismiss) { Image(systemName: "xmark").font(.footnote.weight(.semibold)) }
                 .accessibilityLabel("Hinweis schließen")
         }
         .padding(12)
-        .background(RoundedRectangle(cornerRadius: 14).fill(Theme.panelRaised))
+        .background(RoundedRectangle(cornerRadius: 12).fill(Theme.panelRaised))
         .transition(.move(edge: .top).combined(with: .opacity))
     }
 }
@@ -585,7 +585,7 @@ struct UnterwegsSheet: View {
                                 Image(systemName: "calendar.badge.clock").foregroundStyle(Theme.accent)
                                 Text(meetupCount == 1 ? "1 Treffen" : "\(meetupCount) Treffen").font(Theme.title(15))
                                 Spacer()
-                                Image(systemName: "chevron.right").font(.footnote.weight(.bold)).foregroundStyle(Theme.muted)
+                                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                             }
                             .foregroundStyle(Theme.text)
                             .padding(12)
@@ -701,7 +701,7 @@ private struct FriendRowView: View {
                 Spacer()
                 if let distance {
                     Text(ActivityFormat.distance(distance))
-                        .font(.footnote.weight(.bold))
+                        .font(.footnote.weight(.semibold))
                         .foregroundStyle(route != nil ? Theme.accent : Theme.muted)
                 }
             }
@@ -870,14 +870,14 @@ struct MeetingPointCard: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach((me + friends).sorted { ($0.here ? 0 : 1, $0.eta ?? .distantFuture) < ($1.here ? 0 : 1, $1.eta ?? .distantFuture) }) { a in
-                            HStack(spacing: 6) {
+                            HStack(spacing: 8) {
                                 Circle().fill(a.color).frame(width: 10, height: 10)
                                 Text(a.name).font(.system(size: 13, weight: .semibold, design: .rounded))
                                 Text(a.here ? String(localized: "da") : (a.eta.map { $0.formatted(date: .omitted, time: .shortened) } ?? "–"))
-                                    .font(.system(size: 13, weight: .heavy, design: .rounded)).monospacedDigit()
+                                    .font(.system(size: 13, weight: .semibold, design: .rounded)).monospacedDigit()
                                     .foregroundStyle(a.here ? Theme.go : Theme.text)
                             }
-                            .padding(.horizontal, 10).padding(.vertical, 6)
+                            .padding(.horizontal, 12).padding(.vertical, 8)
                             .background(Capsule().fill(Theme.panelRaised))
                         }
                     }
@@ -885,7 +885,7 @@ struct MeetingPointCard: View {
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 18).fill(Theme.panel.opacity(0.95)))
+            .background(RoundedRectangle(cornerRadius: 16).fill(Theme.panel.opacity(0.95)))
             .accessibilityElement(children: .combine)
             .accessibilityLabel("Wer ist wann da")
         }

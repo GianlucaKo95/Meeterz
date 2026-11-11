@@ -1,5 +1,6 @@
 package de.koeven.meeterz.ui
 
+import androidx.compose.material.icons.filled.Check
 import de.koeven.meeterz.tr
 import androidx.compose.material.icons.filled.AddLocationAlt
 import androidx.compose.foundation.layout.size
@@ -252,7 +253,7 @@ fun MapScreen() {
             parkedManager.deleteAll()
             parked?.let { p ->
                 parkedManager.create(PointAnnotationOptions().withPoint(Point.fromLngLat(p.lng, p.lat))
-                    .withIconImage(initialsBubble("🚗"))
+                    .withIconImage(initialsBubble("P"))
                     .withTextField(tr("Dein Auto · %@", clockAt(java.time.Instant.ofEpochMilli(p.at))))
                     .withTextOffset(listOf(0.0, 2.2)).withTextSize(12.0))
             }
@@ -289,7 +290,7 @@ fun MapScreen() {
             }
         } else {
             Column(Modifier.statusBarsPadding().padding(12.dp)) {
-                Surface(shape = RoundedCornerShape(16.dp), shadowElevation = 4.dp) {
+                Surface(shape = RoundedCornerShape(16.dp), shadowElevation = 2.dp, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                     TextField(
                         value = query, onValueChange = { query = it; preview = null },
                         placeholder = { Text(tr("Ziel oder Adresse suchen")) },
@@ -307,8 +308,8 @@ fun MapScreen() {
                         }
                         Spacer(Modifier.weight(1f))
                         car?.takeIf { it.soc != null && it.ageSeconds < 7 * 86400 }?.let { c ->
-                            Surface(shape = RoundedCornerShape(12.dp), shadowElevation = 2.dp) {
-                                Text("${c.soc!!.toInt()} %" + (c.rangeKm?.let { " · ${it.toInt()} km" } ?: "") + if (c.charging == true) " ⚡" else "",
+                            Surface(shape = RoundedCornerShape(12.dp), shadowElevation = 2.dp, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+                                Text("${c.soc!!.toInt()} %" + (c.rangeKm?.let { " · ${it.toInt()} km" } ?: "") + if (c.charging == true) " · " + tr("lädt") else "",
                                     Modifier.padding(horizontal = 10.dp, vertical = 6.dp), fontWeight = FontWeight.SemiBold)
                             }
                         }
@@ -319,7 +320,7 @@ fun MapScreen() {
                     StatusPill()
                 }
                 if (results.isNotEmpty() && preview == null) {
-                    Surface(shape = RoundedCornerShape(16.dp), shadowElevation = 4.dp, modifier = Modifier.padding(top = 8.dp)) {
+                    Surface(shape = RoundedCornerShape(16.dp), shadowElevation = 2.dp, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), modifier = Modifier.padding(top = 8.dp)) {
                         LazyColumn(Modifier.heightIn(max = 360.dp)) {
                             items(results) { place ->
                                 Column(Modifier.fillMaxWidth().clickable { planTo(place.name, place.address, place.lat, place.lng) }
@@ -359,7 +360,7 @@ private fun PreviewCard(dest: NavigationController.Destination, routes: List<Nav
                         charge: @Composable () -> Unit = {}) {
     var saved by remember(dest) { mutableStateOf(false) }
     val r = routes.getOrElse(selected) { routes.first() }.directionsRoute
-    Surface(modifier.fillMaxWidth().navigationBarsPadding().padding(12.dp), shape = RoundedCornerShape(20.dp), shadowElevation = 6.dp) {
+    Surface(modifier.fillMaxWidth().navigationBarsPadding().padding(12.dp), shape = RoundedCornerShape(20.dp), shadowElevation = 2.dp, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(dest.name, style = MaterialTheme.typography.titleMedium)
             Text(tr("%@ · %@ · Ankunft %@", minutes(r.duration()), km(r.distance()), clock(r.duration())))
@@ -394,9 +395,9 @@ private fun GuidanceBanner(g: NavigationController.Guidance) {
     val sign by de.koeven.meeterz.nav.RightOfWaySigns.sign.collectAsState()
     Column(Modifier.statusBarsPadding().padding(12.dp)) {
         Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
-            color = MeeterzColors.petrol, contentColor = Color.White, shadowElevation = 6.dp) {
+            color = MeeterzColors.petrol, contentColor = Color.White, shadowElevation = 2.dp, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
             Column(Modifier.padding(16.dp)) {
-                Text(km(g.distanceToTurn), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MeeterzColors.mint)
+                Text(km(g.distanceToTurn), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold, color = MeeterzColors.mint)
                 Text(g.instruction.ifEmpty { g.destination.name }, style = MaterialTheme.typography.titleMedium)
             }
         }
@@ -415,14 +416,14 @@ private fun GuidanceBar(g: NavigationController.Guidance, modifier: Modifier) {
     var showStop by remember { mutableStateOf(false) }
     if (showMessage) MessageDialog(g, onDismiss = { showMessage = false })
     if (showStop) AddStopDialog(onDismiss = { showStop = false })
-    Surface(modifier.fillMaxWidth().navigationBarsPadding().padding(12.dp), shape = RoundedCornerShape(20.dp), shadowElevation = 6.dp) {
+    Surface(modifier.fillMaxWidth().navigationBarsPadding().padding(12.dp), shape = RoundedCornerShape(20.dp), shadowElevation = 2.dp, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(tr("Ankunft %@", clock(g.remainingSeconds)), fontWeight = FontWeight.Bold)
+                Text(tr("Ankunft %@", clock(g.remainingSeconds)), fontWeight = FontWeight.SemiBold)
                 Text("${minutes(g.remainingSeconds)} · ${km(g.remainingDistance)}", style = MaterialTheme.typography.bodySmall)
                 val forecast by ChargeMonitor.forecast.collectAsState()
-                forecast?.let { Text(it.text, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold,
-                    color = if (it.low) Color(0xFFD92E36) else MeeterzColors.mintLight) }
+                forecast?.let { Text(it.text, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold,
+                    color = if (it.low) Color(0xFFD92E36) else MaterialTheme.colorScheme.primary) }
             }
             IconButton(onClick = { showStop = true }) { Icon(Icons.Default.AddLocationAlt, tr("Zwischenstopp")) }
             IconButton(onClick = { showMessage = true }) { Icon(Icons.AutoMirrored.Filled.Chat, tr("Bescheid geben")) }
@@ -438,10 +439,10 @@ private fun GuidanceBar(g: NavigationController.Guidance, modifier: Modifier) {
 /** Laden verfolgen (iOS: Ladekarte/CarPlay-Ring): Fortschritt, Leistung, Restzeit, Ziel wählbar */
 @Composable
 private fun ChargingCard(v: ChargingSession.View, modifier: Modifier) {
-    Surface(modifier.padding(24.dp), shape = RoundedCornerShape(20.dp), shadowElevation = 8.dp) {
+    Surface(modifier.padding(24.dp), shape = RoundedCornerShape(20.dp), shadowElevation = 2.dp, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(if (v.done) tr("Genug geladen") else tr("Lädt"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text("${Math.round(v.percent)} % → ${Math.round(v.target)} %", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Text(if (v.done) tr("Genug geladen") else tr("Lädt"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text("${Math.round(v.percent)} % → ${Math.round(v.target)} %", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
             LinearProgressIndicator(progress = { v.progress.toFloat() }, modifier = Modifier.fillMaxWidth())
             Text(listOfNotNull(
                 v.powerKW.takeIf { it > 0 }?.let { "${it.toInt()} kW" },
@@ -523,7 +524,7 @@ private fun StatusPill() {
     LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(20_000); tick++ } }
     val active = p.isIncognito || p.isSharingNow
     Box(Modifier.padding(top = 8.dp)) {
-        Surface(shape = RoundedCornerShape(50), shadowElevation = 2.dp, modifier = Modifier.clickable { open = true }) {
+        Surface(shape = RoundedCornerShape(50), shadowElevation = 2.dp, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), modifier = Modifier.clickable { open = true }) {
             Text((if (p.isIncognito) "◌ " else if (p.isSharingNow) "● " else "○ ") + sharingLabel(p).also { tick },
                 Modifier.padding(horizontal = 12.dp, vertical = 6.dp), fontWeight = FontWeight.SemiBold,
                 color = if (active) MeeterzColors.mint else Color.Gray, style = MaterialTheme.typography.bodySmall)
@@ -539,7 +540,8 @@ private fun StatusPill() {
             HorizontalDivider()
             for (mode in AppState.SharingMode.entries) {
                 androidx.compose.material3.DropdownMenuItem(
-                    text = { Text(tr("Teilen: %@", mode.title) + if (p.isSharingNow && AppState.sharingMode == mode) " ✓" else "") },
+                    text = { Text(tr("Teilen: %@", mode.title)) },
+                    trailingIcon = { if (p.isSharingNow && AppState.sharingMode == mode) Icon(Icons.Default.Check, null) },
                     onClick = { open = false; scope.launch { AppState.shareLocation(mode) } })
             }
             if (p.isSharingNow) androidx.compose.material3.DropdownMenuItem(text = { Text(tr("Teilen pausieren")) },
@@ -588,7 +590,7 @@ private fun AddStopDialog(onDismiss: () -> Unit) {
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextField(query, { query = it }, placeholder = { Text(tr("Suchen")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     for (c in listOf(PlaceSearch.Category.GAS, PlaceSearch.Category.REST_AREA, PlaceSearch.Category.COFFEE, PlaceSearch.Category.RESTAURANT)) {
                         FilterChip(selected = query.isBlank() && category == c, onClick = { category = c; query = "" }, label = { Text(c.title) })
                     }

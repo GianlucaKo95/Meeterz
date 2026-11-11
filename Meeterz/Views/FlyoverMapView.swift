@@ -101,8 +101,8 @@ struct FlyoverMapView: View {
                         .font(.system(size: 32))
                         .foregroundStyle(Theme.ink, Theme.accent)
                     Text(meetup.placeName)
-                        .font(.caption2.bold())
-                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .font(.caption2.weight(.semibold))
+                        .padding(.horizontal, 8).padding(.vertical, 2)
                         .background(Capsule().fill(Theme.panel))
                 }
             }

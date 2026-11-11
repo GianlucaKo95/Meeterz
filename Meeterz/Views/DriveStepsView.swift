@@ -82,19 +82,19 @@ struct DriveStepsView: View {
                         Label("Führung läuft in CarPlay", systemImage: "car.fill")
                             .font(.caption.weight(.semibold)).foregroundStyle(Theme.accent).padding(.top, 2)
                     }
-                    .padding(.vertical, 6)
+                    .padding(.vertical, 8)
                 }
                 .listRowBackground(Theme.panel)
 
                 Section("Nächste Schritte") {
                     ForEach(steps.rows) { row in
-                        HStack(spacing: 14) {
+                        HStack(spacing: 12) {
                             Image(systemName: row.symbol)
-                                .font(.system(size: 22, weight: .bold))
+                                .font(.system(size: 22, weight: .semibold))
                                 .foregroundStyle(row.id == 0 ? Color.black : Theme.accent)
                                 .frame(width: 44, height: 44)
                                 .background(RoundedRectangle(cornerRadius: 12).fill(row.id == 0 ? Theme.accent : Theme.panelRaised))
-                            VStack(alignment: .leading, spacing: 3) {
+                            VStack(alignment: .leading, spacing: 4) {
                                 Text(ActivityFormat.distance(row.distance))
                                     .font(Theme.title(row.id == 0 ? 20 : 16)).monospacedDigit()
                                 Text(row.text).font(row.id == 0 ? .body.weight(.semibold) : .subheadline)
@@ -104,7 +104,7 @@ struct DriveStepsView: View {
                                 }
                             }
                         }
-                        .padding(.vertical, 6)
+                        .padding(.vertical, 8)
                         .listRowBackground(row.id == 0 ? Theme.panelRaised : Theme.panel)
                     }
                 }

@@ -241,7 +241,7 @@ struct RoutePreviewView: View {
                 Button { select(index) } label: {
                     VStack(spacing: 2) {
                         Text(RouteVariety.label(for: index, in: current.options))
-                            .font(.caption.weight(.bold))
+                            .font(.caption.weight(.semibold))
                         Text("\(Format.minutes(seconds: route.expectedTravelTime)) · \(ActivityFormat.distance(route.distance))")
                             .font(.caption)
                     }
@@ -293,9 +293,9 @@ struct RoutePreviewView: View {
     }
 
     var body: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 12) {
           ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 16) {
             if !CarPlayController.shared.isConnected { modePicker }
             RoutePreviewMap(lines: current.lines, selected: selected, destination: current.destination.coordinate,
                             onSelect: { index in if index != selected { select(index) } })
@@ -325,7 +325,7 @@ struct RoutePreviewView: View {
                     .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
             }
             VStack(alignment: .leading, spacing: 4) {
-                Text("Ziel").font(.caption.weight(.bold)).foregroundStyle(Theme.accent).textCase(.uppercase)
+                Text("Ziel").font(.caption.weight(.semibold)).foregroundStyle(Theme.accent)
                 Text(current.destination.name).font(Theme.display(26))
                 if let address = current.destination.address {
                     Text(address).foregroundStyle(Theme.muted)

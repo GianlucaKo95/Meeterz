@@ -111,7 +111,7 @@ fun SoundPackScreen(onClose: () -> Unit) {
                         IconButton(enabled = !busy && (recording == null || isRecording),
                             onClick = { if (isRecording) SoundStore.stopRecording() else record(m) }) {
                             Icon(if (isRecording) Icons.Default.Stop else Icons.Default.Mic, if (isRecording) tr("Stopp") else "Aufnehmen",
-                                tint = if (isRecording) Color(0xFFD92E36) else MeeterzColors.mintLight)
+                                tint = if (isRecording) Color(0xFFD92E36) else MaterialTheme.colorScheme.primary)
                         }
                     }
                 }

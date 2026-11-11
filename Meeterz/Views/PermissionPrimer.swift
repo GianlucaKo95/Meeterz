@@ -152,7 +152,7 @@ struct PermissionPrimer: View {
                 .font(Theme.display(28))
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 12) {
                 ForEach(Array(kind.points.enumerated()), id: \.offset) { _, point in
                     HStack(alignment: .top, spacing: 12) {
                         Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.accent)
@@ -161,8 +161,8 @@ struct PermissionPrimer: View {
                     }
                 }
             }
-            .padding(18)
-            .background(RoundedRectangle(cornerRadius: 18).fill(Theme.panel))
+            .padding(16)
+            .background(RoundedRectangle(cornerRadius: 16).fill(Theme.panel))
             Spacer()
             Button("Weiter") { finish(true) }
                 .buttonStyle(PrimaryButtonStyle())

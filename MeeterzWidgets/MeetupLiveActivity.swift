@@ -75,7 +75,7 @@ private struct MemberRow: View {
     var body: some View {
         HStack(spacing: 8) {
             Text(member.initials)
-                .font(.caption2.weight(.bold)).foregroundStyle(.black)
+                .font(.caption2.weight(.semibold)).foregroundStyle(.black)
                 .frame(width: 24, height: 24)
                 .background(Circle().fill(member.here ? mint : Color.white.opacity(0.8)))
             Text(member.name).font(.subheadline.weight(.semibold))

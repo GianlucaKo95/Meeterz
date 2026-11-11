@@ -54,7 +54,7 @@ struct ChargePlanCard: View {
             }
             Text(ChargeSites.attribution + " · " + String(localized: "Höhen und Wetter: Open-Meteo.com (CC BY 4.0)")).font(.caption2).foregroundStyle(Theme.muted)
         }
-        .padding(14)
+        .padding(16)
         .background(RoundedRectangle(cornerRadius: 16).fill(Theme.panelRaised))
         .task(id: route.distance) {
             guard adopted == nil else { return }
@@ -130,17 +130,17 @@ struct ChargeTimeline: View {
                                 .overlay(Circle().stroke(Theme.accent, lineWidth: 2))
                                 .frame(width: 22, height: 22)
                             if node.charge {
-                                Image(systemName: "bolt.fill").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.ink)
+                                Image(systemName: "bolt.fill").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.ink)
                             }
                         }
-                        Text(node.value).font(.caption.weight(.bold))
+                        Text(node.value).font(.caption.weight(.semibold))
                             .foregroundStyle(node.low ? Theme.danger : Theme.text)
                         Text(node.title).font(.caption2).foregroundStyle(Theme.muted)
                     }
                     .frame(minWidth: 64)
                     if index < nodes.count - 1 {
                         Rectangle().fill(Theme.accent.opacity(0.6)).frame(height: 2).frame(minWidth: 18, maxWidth: .infinity)
-                            .padding(.top, 10)
+                            .padding(.top, 12)
                     }
                 }
             }

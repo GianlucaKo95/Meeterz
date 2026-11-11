@@ -29,7 +29,7 @@ struct NavigationLiveActivity: Widget {
                 DynamicIslandExpandedRegion(.leading) {
                     VStack(alignment: .leading, spacing: 2) {
                         Image(systemName: s.symbol)
-                            .font(.system(size: 30, weight: .bold))
+                            .font(.system(size: 30, weight: .semibold))
                             .foregroundStyle(accent)
                         Text(ActivityFormat.distance(s.distanceToTurn))
                             .font(.headline).monospacedDigit()
@@ -58,14 +58,14 @@ struct NavigationLiveActivity: Widget {
                 }
             } compactLeading: {
                 Image(systemName: s.symbol)
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(accent)
             } compactTrailing: {
                 Text(ActivityFormat.distance(s.distanceToTurn))
                     .font(.caption.weight(.semibold)).monospacedDigit()
             } minimal: {
                 Image(systemName: s.symbol)
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(accent)
             }
             .keylineTint(accent)
@@ -112,7 +112,7 @@ private struct CarDataView: View {
     private func value(_ symbol: String, _ text: String?, _ label: LocalizedStringKey) -> some View {
         VStack(alignment: .leading, spacing: 1) {
             Label(text ?? "–", systemImage: symbol)
-                .font(.system(size: 17, weight: .bold, design: .rounded)).monospacedDigit()
+                .font(.system(size: 17, weight: .semibold, design: .rounded)).monospacedDigit()
                 .labelStyle(.titleAndIcon)
                 .symbolRenderingMode(.hierarchical)
             Text(label).font(.caption2).foregroundStyle(.secondary)
@@ -126,7 +126,7 @@ private struct SmallTurnView: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: state.symbol).font(.system(size: 26, weight: .bold)).foregroundStyle(accent)
+            Image(systemName: state.symbol).font(.system(size: 26, weight: .semibold)).foregroundStyle(accent)
             VStack(alignment: .leading, spacing: 2) {
                 Text(ActivityFormat.distance(state.distanceToTurn)).font(.headline).monospacedDigit()
                 Text("\(ActivityFormat.time(state.arrival)) Ankunft").font(.caption).foregroundStyle(.secondary).monospacedDigit()
@@ -145,12 +145,12 @@ private struct LockScreenView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 12) {
                 Image(systemName: state.symbol)
-                    .font(.system(size: 34, weight: .bold))
+                    .font(.system(size: 34, weight: .semibold))
                     .foregroundStyle(accent)
                     .frame(width: 44)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(ActivityFormat.distance(state.distanceToTurn))
-                        .font(.title2.weight(.bold)).monospacedDigit()
+                        .font(.title2.weight(.semibold)).monospacedDigit()
                     Text(state.instruction)
                         .font(.subheadline).lineLimit(1)
                 }
@@ -180,7 +180,7 @@ private struct FriendChip: View {
         if let name = state.friendName {
             HStack(spacing: 6) {
                 Text(state.friendInitials ?? "")
-                    .font(.caption2.weight(.bold))
+                    .font(.caption2.weight(.semibold))
                     .foregroundStyle(.black)
                     .frame(width: 22, height: 22)
                     .background(Circle().fill(accent))

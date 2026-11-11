@@ -63,7 +63,7 @@ struct SignInView: View {
             Spacer()
             VStack(spacing: 12) {
                 Image(systemName: "point.topleft.down.to.point.bottomright.curvepath.fill")
-                    .font(.system(size: 54, weight: .bold))
+                    .font(.system(size: 54, weight: .semibold))
                     .foregroundStyle(Theme.accent)
                     .accessibilityHidden(true)
                 Text("Meeterz")
@@ -149,18 +149,18 @@ private struct DevLoginForm: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            Text("TEST-LOGIN").font(.caption.bold()).foregroundStyle(.orange)
+            Text("TEST-LOGIN").font(.caption.weight(.semibold)).foregroundStyle(.orange)
             TextField("E-Mail", text: $email)
                 .textContentType(.username)
                 .keyboardType(.emailAddress)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
-                .padding(14)
-                .background(RoundedRectangle(cornerRadius: 14).fill(Theme.panel))
+                .padding(16)
+                .background(RoundedRectangle(cornerRadius: 12).fill(Theme.panel))
             SecureField("Passwort (mind. 6 Zeichen)", text: $password)
                 .textContentType(.password)
-                .padding(14)
-                .background(RoundedRectangle(cornerRadius: 14).fill(Theme.panel))
+                .padding(16)
+                .background(RoundedRectangle(cornerRadius: 12).fill(Theme.panel))
             HStack(spacing: 10) {
                 Button("Registrieren") { submit(register: true) }
                     .buttonStyle(SecondaryButtonStyle())
@@ -200,16 +200,16 @@ struct OnboardingView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Anzeigename").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                 TextField("z. B. Luca", text: $displayName)
-                    .padding(14)
-                    .background(RoundedRectangle(cornerRadius: 14).fill(Theme.panel))
+                    .padding(16)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(Theme.panel))
             }
             VStack(alignment: .leading, spacing: 8) {
                 Text("Benutzername").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                 TextField("@benutzername", text: $handle)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
-                    .padding(14)
-                    .background(RoundedRectangle(cornerRadius: 14).fill(Theme.panel))
+                    .padding(16)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(Theme.panel))
                 Text("Darüber finden dich Freunde. 3–20 Zeichen: a–z, 0–9, _")
                     .font(.caption).foregroundStyle(Theme.muted)
             }

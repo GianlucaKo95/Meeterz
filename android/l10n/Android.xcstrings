@@ -1290,52 +1290,6 @@
         }
       }
     },
-    "✓ Ladestopps sind in der Route": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "✓ Ladestopps sind in der Route"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "✓ Charging stops are in the route"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "✓ Les arrêts de recharge sont dans l'itinéraire"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "✓ Las paradas de carga están en la ruta"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "✓ Le soste di ricarica sono nel percorso"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "✓ As paragens de carregamento estão na rota"
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "✓ Şarj molaları rotada"
-          }
-        }
-      }
-    },
     "Mit den Ladesäulen entlang der Route nicht planbar (Reichweite ca. %@ km). ": {
       "localizations": {
         "de": {
@@ -4464,52 +4418,6 @@
         }
       }
     },
-    "⚡ %@ % – genug geladen": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "⚡ %@ % – genug geladen"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "⚡ %@ % – charged enough"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "⚡ %@ % – assez chargé"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "⚡ %@ % – carga suficiente"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "⚡ %@ % – carica sufficiente"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "⚡ %@ % – carga suficiente"
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "⚡ %%%@ – yeterince şarj oldu"
-          }
-        }
-      }
-    },
     " · %@ Min.": {
       "localizations": {
         "de": {
@@ -5932,6 +5840,98 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bulunamadı: %@"
+          }
+        }
+      }
+    },
+    "%@ % – genug geladen": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ % – genug geladen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ % – charged enough"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ % – assez chargé"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ % – carga suficiente"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ % – carica sufficiente"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ % – carga suficiente"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%%%@ – yeterince şarj oldu"
+          }
+        }
+      }
+    },
+    "lädt": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "lädt"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "charging"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "en charge"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cargando"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "in carica"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "a carregar"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "şarj oluyor"
           }
         }
       }

@@ -21,9 +21,9 @@ object ChargingSession {
     data class View(val percent: Double, val start: Double, val target: Double, val powerKW: Double,
                     val remainingSeconds: Double?, val done: Boolean) {
         val progress get() = if (target > start) ((percent - start) / (target - start)).coerceIn(0.0, 1.0) else 1.0
-        /** „⚡ 54 % → 80 % · 18 Min.“ */
-        val short get() = if (done) tr("⚡ %@ % – genug geladen", Math.round(percent))
-            else "⚡ ${Math.round(percent)} % → ${Math.round(target)} %" + (remainingSeconds?.let { tr(" · %@ Min.", maxOf(1, Math.round(it / 60))) } ?: "")
+        /** „54 % → 80 % · 18 Min.“ */
+        val short get() = if (done) tr("%@ % – genug geladen", Math.round(percent))
+            else "${Math.round(percent)} % → ${Math.round(target)} %" + (remainingSeconds?.let { tr(" · %@ Min.", maxOf(1, Math.round(it / 60))) } ?: "")
     }
 
     private val _view = MutableStateFlow<View?>(null)

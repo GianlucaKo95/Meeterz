@@ -40,7 +40,7 @@ fun Avatar(userId: String, name: String, size: Dp = 40.dp) {
             Image(image.asImageBitmap(), name, Modifier.size(size), contentScale = ContentScale.Crop)
         } else {
             val initials = name.split(" ").filter { it.isNotBlank() }.take(2).joinToString("") { it.take(1).uppercase() }
-            Text(initials, color = MeeterzColors.petrol, fontWeight = FontWeight.Bold, fontSize = (size.value * 0.38).sp)
+            Text(initials, color = MeeterzColors.petrol, fontWeight = FontWeight.SemiBold, fontSize = (size.value * 0.38).sp)
         }
     }
 }

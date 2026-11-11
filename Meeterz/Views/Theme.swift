@@ -1,17 +1,18 @@
 import SwiftUI
 import UIKit
 
-/// Meeterz-Look nach dem Logo: Petrol-Grund, Mint-Akzent, Bernstein, runde Schrift (dunkel bzw. hell).
+/// Meeterz-Look nach dem Logo: ruhige Flächen mit leichtem Petrol-Stich, Mint als einziger Akzent, Bernstein für
+/// „unterwegs/da“, runde Schrift (dunkel bzw. hell). Die Farbe gehört der Karte, den Routen und den Freunden.
 /// Alle Farben passen sich dem Erscheinungsbild an (Einstellung „Darstellung“: System, Hell, Dunkel).
 enum Theme {
     enum UI {
-        // Farben aus dem Logo: tiefes Petrol (Grund), Mint (Akzent), Bernstein (zweite Markenfarbe)
-        static let ink = dynamic(dark: 0x062A32, light: 0xEEF4F4)
-        static let panel = dynamic(dark: 0x0A3640, light: 0xFFFFFF)
-        static let panelRaised = dynamic(dark: 0x0F414C, light: 0xE3ECED)
-        static let stroke = dynamic(dark: 0x134A54, light: 0xCBD8DA)
-        static let text = dynamic(dark: 0xEEF8F7, light: 0x082B33)
-        static let muted = dynamic(dark: 0x8FB3B4, light: 0x4E6A70)
+        // Neutrale Rampe mit leichtem Petrol-Stich (das kräftige Petrol bleibt Logo und CarPlay vorbehalten)
+        static let ink = dynamic(dark: 0x111719, light: 0xF3F5F5)
+        static let panel = dynamic(dark: 0x182022, light: 0xFFFFFF)
+        static let panelRaised = dynamic(dark: 0x1F282A, light: 0xE9EEEE)
+        static let stroke = dynamic(dark: 0x283234, light: 0xDCE2E2)
+        static let text = dynamic(dark: 0xECF1F1, light: 0x121A1C)
+        static let muted = dynamic(dark: 0x8D9A9C, light: 0x5A6769)
         /// Hell: dunkleres Türkis, damit Text und Symbole auf Weiß lesbar bleiben
         static let accent = dynamic(dark: 0x6FF3DA, light: 0x0B7F70)
         static let danger = dynamic(dark: 0xFF5A5F, light: 0xD92D35)
@@ -38,7 +39,7 @@ enum Theme {
         UIColor { $0.userInterfaceStyle == .light ? UIColor(hex: light, alpha: alpha) : UIColor(hex: dark, alpha: alpha) }
     }
 
-    static func display(_ size: CGFloat) -> Font { .system(size: size, weight: .heavy, design: .rounded) }
+    static func display(_ size: CGFloat) -> Font { .system(size: size, weight: .semibold, design: .rounded) }
     static func title(_ size: CGFloat = 17) -> Font { .system(size: size, weight: .semibold, design: .rounded) }
 }
 
@@ -119,7 +120,7 @@ struct Avatar: View {
                     .opacity(faded ? 0.5 : 1)
             } else {
                 Text(initials)
-                    .font(.system(size: size * 0.36, weight: .heavy, design: .rounded))
+                    .font(.system(size: size * 0.36, weight: .semibold, design: .rounded))
                     .foregroundStyle(Theme.ink)
                     .frame(width: size, height: size)
                     .background(Circle().fill(color.opacity(faded ? 0.5 : 1)))
@@ -133,7 +134,7 @@ struct Avatar: View {
 struct PrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 16, weight: .bold, design: .rounded))
+            .font(.system(size: 16, weight: .semibold, design: .rounded))
             .foregroundStyle(Theme.ink)
             .frame(maxWidth: .infinity, minHeight: 52)
             .background(Capsule().fill(Theme.accent.opacity(configuration.isPressed ? 0.8 : 1)))
@@ -195,8 +196,8 @@ struct Card<Content: View>: View {
         VStack(alignment: .leading, spacing: 12) { content }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 22).fill(Theme.panel))
-            .overlay(RoundedRectangle(cornerRadius: 22).stroke(Theme.stroke, lineWidth: 1))
+            .background(RoundedRectangle(cornerRadius: 20).fill(Theme.panel))
+            .overlay(RoundedRectangle(cornerRadius: 20).stroke(Theme.stroke, lineWidth: 1))
     }
 }
 
@@ -232,7 +233,7 @@ struct EmptyStateView<Action: View>: View {
             action().padding(.top, 4)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 18)
+        .padding(.vertical, 16)
     }
 }
 

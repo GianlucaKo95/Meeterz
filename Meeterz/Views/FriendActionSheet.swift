@@ -17,13 +17,13 @@ struct FriendActionSheet: View {
                 VStack(alignment: .leading, spacing: 16) {
                     header(item, route: route)
                     if let last = lastMessage {
-                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
                             Image(systemName: "bubble.left.fill").font(.caption).foregroundStyle(Theme.accent)
                             Text(last.incoming ? last.body : "Du: \(last.body)").font(.subheadline).foregroundStyle(Theme.text)
                             Spacer(minLength: 4)
                             Text(ActivityFormat.time(last.createdAt)).font(.caption2).foregroundStyle(Theme.muted)
                         }
-                        .padding(10)
+                        .padding(12)
                         .background(RoundedRectangle(cornerRadius: 12).fill(Theme.panel))
                     }
 
@@ -87,9 +87,9 @@ struct FriendActionSheet: View {
     }
 
     private func header(_ item: AppModel.FriendOnMap, route: FriendRoute?) -> some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 12) {
             Avatar(initials: item.friend.initials, color: FriendPalette.color(for: friendId), size: 56, userId: friendId)
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(item.friend.displayName).font(Theme.display(24))
                 Text(status(item, route: route)).font(.footnote).foregroundStyle(Theme.muted)
             }
@@ -123,7 +123,7 @@ struct FriendActionSheet: View {
                         row(String(localized: "Ankunft"), ActivityFormat.time(route.eta))
                     }
                 }
-                .background(RoundedRectangle(cornerRadius: 14).fill(Theme.panel))
+                .background(RoundedRectangle(cornerRadius: 12).fill(Theme.panel))
             }
             .padding(20)
         }
@@ -138,7 +138,7 @@ struct FriendActionSheet: View {
             Spacer()
             Text(value).font(.body.weight(.semibold))
         }
-        .padding(14)
+        .padding(16)
     }
 
     private var lastMessage: MessagesStore.Message? {

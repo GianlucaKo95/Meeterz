@@ -55,7 +55,7 @@ private struct Avatar: View {
     var size: CGFloat = 26
     var body: some View {
         Text(initials)
-            .font(.system(size: size * 0.4, weight: .bold, design: .rounded))
+            .font(.system(size: size * 0.4, weight: .semibold, design: .rounded))
             .foregroundStyle(.black)
             .frame(width: size, height: size)
             .background(Circle().fill(accent))
@@ -101,7 +101,7 @@ private struct FriendsWidgetView: View {
                 HStack(spacing: 10) {
                     Avatar(initials: f.initials, size: 34)
                     VStack(alignment: .leading, spacing: 0) {
-                        Text(f.name).font(.title3.weight(.bold)).lineLimit(1)
+                        Text(f.name).font(.title3.weight(.semibold)).lineLimit(1)
                         Text(distance(f.distance)).font(.headline).foregroundStyle(accent).monospacedDigit()
                     }
                 }
@@ -125,7 +125,7 @@ private struct FriendsWidgetView: View {
             let rows = Array(snapshot.friends.prefix(family == .systemSmall ? 3 : 4))
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Text("Freunde").font(.caption.weight(.bold)).foregroundStyle(accent)
+                    Text("Freunde").font(.caption.weight(.semibold)).foregroundStyle(accent)
                     Spacer()
                     if snapshot.updated > .distantPast {
                         Text(snapshot.updated, style: .time).font(.caption2).foregroundStyle(.secondary)
@@ -188,7 +188,7 @@ private struct MeetupWidgetView: View {
                 }
             default:
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Treffen").font(.caption.weight(.bold)).foregroundStyle(accent)
+                    Text("Treffen").font(.caption.weight(.semibold)).foregroundStyle(accent)
                     Text(m.place).font(.headline).foregroundStyle(.white).lineLimit(2)
                     Text("mit \(m.with)").font(.caption).foregroundStyle(.secondary)
                     Spacer(minLength: 0)
@@ -207,7 +207,7 @@ private struct MeetupWidgetView: View {
             case .accessoryInline: Text("Kein Treffen geplant")
             default:
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Treffen").font(.caption.weight(.bold)).foregroundStyle(accent)
+                    Text("Treffen").font(.caption.weight(.semibold)).foregroundStyle(accent)
                     Text("Kein Treffen geplant").font(.caption).foregroundStyle(.secondary)
                 }
             }
@@ -253,7 +253,7 @@ private struct SharingWidgetView: View {
                 AccessoryWidgetBackground()
                 VStack(spacing: 1) {
                     Image(systemName: snapshot.incognito ? "eye.slash.fill" : active ? "location.fill" : "location.slash")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.system(size: 16, weight: .semibold))
                         .widgetAccentable()
                     if active, let until = snapshot.sharingUntil {
                         Text(ActivityFormat.time(until)).font(.system(size: 10, weight: .semibold)).monospacedDigit()
@@ -304,10 +304,10 @@ private struct SuggestionWidgetView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Label(s.calendar ? String(localized: "Termin") : String(localized: "Nächstes Ziel"),
                           systemImage: s.calendar ? "calendar" : "clock.arrow.circlepath")
-                        .font(.caption.weight(.bold)).foregroundStyle(accent)
+                        .font(.caption.weight(.semibold)).foregroundStyle(accent)
                     Text(s.title).font(.headline).foregroundStyle(.white).lineLimit(2)
                     Spacer(minLength: 0)
-                    Text("\(s.minutes) Min.").font(.system(size: 28, weight: .heavy, design: .rounded)).foregroundStyle(.white)
+                    Text("\(s.minutes) Min.").font(.system(size: 28, weight: .semibold, design: .rounded)).foregroundStyle(.white)
                     Text("Ankunft \(ActivityFormat.time(s.arrival))").font(.caption).foregroundStyle(.secondary)
                 }
             }
@@ -317,7 +317,7 @@ private struct SuggestionWidgetView: View {
             default:
                 VStack(alignment: .leading, spacing: 6) {
                     Label("Nächstes Ziel", systemImage: "clock.arrow.circlepath")
-                        .font(.caption.weight(.bold)).foregroundStyle(accent)
+                        .font(.caption.weight(.semibold)).foregroundStyle(accent)
                     Text("Meeterz lernt deine häufigen Ziele und zeigt hier das nächste – oder einen Termin mit Ort.")
                         .font(.caption).foregroundStyle(.secondary)
                 }

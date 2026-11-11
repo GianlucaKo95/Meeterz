@@ -21,7 +21,7 @@ final class SuggestionCardView: UIView {
         layer.borderWidth = 1
         icon.tintColor = Theme.mintUI
         icon.contentMode = .scaleAspectFit
-        title.font = .systemFont(ofSize: 15, weight: .bold)
+        title.font = .systemFont(ofSize: 15, weight: .semibold)
         title.textColor = .white
         destination.font = .systemFont(ofSize: 13, weight: .regular)
         destination.textColor = UIColor(white: 1, alpha: 0.85)

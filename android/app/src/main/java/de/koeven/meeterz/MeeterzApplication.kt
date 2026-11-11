@@ -20,5 +20,6 @@ class MeeterzApplication : Application() {
         de.koeven.meeterz.sound.SoundStore.init(this)
         de.koeven.meeterz.data.AvatarStore.init(this)
         de.koeven.meeterz.social.Passengers.load()
+        de.koeven.meeterz.suggest.Parking.load()
     }
 }

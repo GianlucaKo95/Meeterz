@@ -41,6 +41,7 @@ class LocationSharingService : Service() {
             val manager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
             val l = LocationListener { loc ->
                 AppState.lastLocation = loc
+                de.koeven.meeterz.suggest.FrequentPlaces.onLocation(loc)
                 AppState.scope.launch {
                     de.koeven.meeterz.sound.SoundMoments.onLocation(loc)
                     AppState.meetups.checkArrival(loc)

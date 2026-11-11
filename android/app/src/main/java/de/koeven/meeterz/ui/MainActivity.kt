@@ -39,11 +39,31 @@ import de.koeven.meeterz.AppState
 import de.koeven.meeterz.auth.AuthRepository
 import de.koeven.meeterz.data.Profile
 import de.koeven.meeterz.live.LocationSharingService
+import de.koeven.meeterz.nav.NavigationController
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    companion object {
+        /** App öffnen und Route zu diesem Ort zeigen (Losfahr-Erinnerung, Widget „Nächstes Ziel“) */
+        fun planIntent(c: Context, name: String, lat: Double, lng: Double) = android.content.Intent(c, MainActivity::class.java)
+            .setFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            .putExtra("plan_name", name).putExtra("plan_lat", lat).putExtra("plan_lng", lng)
+    }
+
+    private fun handle(intent: android.content.Intent?) {
+        val name = intent?.getStringExtra("plan_name") ?: return
+        AppState.openPlace.value = NavigationController.Destination(name, intent.getDoubleExtra("plan_lat", 0.0), intent.getDoubleExtra("plan_lng", 0.0))
+        intent.removeExtra("plan_name")
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        handle(intent)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        handle(intent)
         MapboxNavigationApp.attach(this)
         lifecycle.addObserver(object : androidx.lifecycle.DefaultLifecycleObserver {
             override fun onStart(owner: androidx.lifecycle.LifecycleOwner) {

@@ -135,6 +135,8 @@ object NavigationController : MapboxNavigationObserver {
         _guidance.value = Guidance(destination)
         appContext?.let { de.koeven.meeterz.ev.ChargeMonitor.start(it) }
         AppState.meetups.announceDeparture(destination.lat, destination.lng)
+        de.koeven.meeterz.suggest.Recents.record(destination.name, destination.address, destination.lat, destination.lng)
+        de.koeven.meeterz.suggest.RouteSuggestions.clearCurrent()
     }
 
     /**

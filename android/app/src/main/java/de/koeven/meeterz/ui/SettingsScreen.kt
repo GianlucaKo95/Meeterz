@@ -121,6 +121,30 @@ fun SettingsScreen(onClose: () -> Unit) {
                     }
                 }
                 item {
+                    Text("Vorschläge und Parken", fontWeight = FontWeight.SemiBold)
+                    var parking by remember { mutableStateOf(de.koeven.meeterz.suggest.Parking.enabled) }
+                    SwitchRow("Geparktes Auto merken", "Beim Trennen von Android Auto und wenn das Auto „geparkt“ meldet", parking) {
+                        parking = it; de.koeven.meeterz.suggest.Parking.enabled = it
+                    }
+                    var frequent by remember { mutableStateOf(de.koeven.meeterz.suggest.RouteSuggestions.frequentEnabled) }
+                    SwitchRow("Häufige Ziele vorschlagen", "Lernt aus deinen Aufenthalten – bleibt auf dem Gerät", frequent) {
+                        frequent = it; de.koeven.meeterz.suggest.RouteSuggestions.frequentEnabled = it
+                    }
+                    var calendar by remember { mutableStateOf(de.koeven.meeterz.suggest.RouteSuggestions.calendarEnabled &&
+                        de.koeven.meeterz.suggest.RouteSuggestions.calendarAllowed(context)) }
+                    val calendarPermission = androidx.activity.compose.rememberLauncherForActivityResult(
+                        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { granted ->
+                        calendar = granted; de.koeven.meeterz.suggest.RouteSuggestions.calendarEnabled = granted
+                    }
+                    SwitchRow("Termine mit Ort vorschlagen", "Aus deinem Kalender, rechtzeitig vor der Abfahrt", calendar) { on ->
+                        if (!on) { calendar = false; de.koeven.meeterz.suggest.RouteSuggestions.calendarEnabled = false }
+                        else if (de.koeven.meeterz.suggest.RouteSuggestions.calendarAllowed(context)) { calendar = true; de.koeven.meeterz.suggest.RouteSuggestions.calendarEnabled = true }
+                        else calendarPermission.launch(android.Manifest.permission.READ_CALENDAR)
+                    }
+                    TextButton(onClick = { de.koeven.meeterz.suggest.FrequentPlaces.clear() }) { Text("Gelernte Orte löschen") }
+                    HorizontalDivider()
+                }
+                item {
                     Text("Route (Auto)", fontWeight = FontWeight.SemiBold)
                     Text("Gilt für jede Route, auch für Neuberechnungen unterwegs", style = MaterialTheme.typography.bodySmall)
                     for (o in de.koeven.meeterz.nav.RoutePreferences.Option.entries) {

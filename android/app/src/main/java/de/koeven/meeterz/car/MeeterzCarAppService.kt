@@ -65,6 +65,25 @@ class MeeterzCarSession : Session() {
 
     private var navigationEndedAt = 0L
 
+    private fun showRouteSuggestion(s: de.koeven.meeterz.suggest.RouteSuggestions.Suggestion) {
+        if (carContext.carAppApiLevel < CarAppApiLevels.LEVEL_5) {
+            CarToast.makeText(carContext, "${s.title} – ${s.subtitle}", CarToast.LENGTH_LONG).show()
+            return
+        }
+        val manager = carContext.getCarService(AppManager::class.java)
+        val alert = Alert.Builder(3, CarText.create("Nach ${s.title}?"), 15_000)
+            .setSubtitle(CarText.create(listOf(s.destinationText, s.detailText).filter { it.isNotEmpty() }.joinToString(" · ")))
+            .addAction(Action.Builder().setTitle("Los").setOnClickListener {
+                manager.dismissAlert(3)
+                carNavigateTo(carContext, s.name.ifEmpty { s.title }, s.lat, s.lng)
+            }.build())
+            .addAction(Action.Builder().setTitle("Nein").setOnClickListener {
+                manager.dismissAlert(3); de.koeven.meeterz.suggest.RouteSuggestions.dismissCurrent()
+            }.build())
+            .build()
+        manager.showAlert(alert)
+    }
+
     /** „Fährt Annika bei dir mit?“ – Ja blendet sie für die Fahrt aus. Nicht während/kurz nach der Führung (wie CarPlay). */
     private fun askPassenger(f: de.koeven.meeterz.data.FriendRow): Boolean {
         if (NavigationController.guidance.value != null || System.currentTimeMillis() - navigationEndedAt < 60_000) return false
@@ -100,6 +119,7 @@ class MeeterzCarSession : Session() {
 
             override fun onDestroy(owner: LifecycleOwner) {
                 de.koeven.meeterz.social.Passengers.reset()   // Mitfahrer gelten bis zum Trennen (wie CarPlay)
+                de.koeven.meeterz.suggest.Parking.save(AppState.lastLocation, "Android Auto")
                 carMap.unregisterObserver(mapLoader)
                 MapboxNavigationApp.detach(owner)
             }
@@ -145,6 +165,16 @@ class MeeterzCarSession : Session() {
                     CarToast.makeText(carContext, "$title – $subtitle", CarToast.LENGTH_LONG).show()
                 }
                 de.koeven.meeterz.social.Convoy.check { text, _ -> CarToast.makeText(carContext, text, CarToast.LENGTH_LONG).show() }
+            }
+        }
+        // Routenvorschlag (Termin oder häufiges Ziel): Hinweis mit „Los“ / „Nein“ (CarPlay: Vorschlagskarte)
+        lifecycleScope.launch {
+            AppState.scope.launch { de.koeven.meeterz.suggest.RouteSuggestions.refresh(force = true) }
+            var shown: String? = null
+            de.koeven.meeterz.suggest.RouteSuggestions.current.collect { s ->
+                if (s == null || s.id == shown || NavigationController.guidance.value != null) return@collect
+                shown = s.id
+                showRouteSuggestion(s)
             }
         }
         // Neuer Ladeplan unterwegs: Hinweis mit „Übernehmen“ (CarPlay: Navigationshinweis)

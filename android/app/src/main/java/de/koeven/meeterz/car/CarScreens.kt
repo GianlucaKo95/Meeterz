@@ -55,8 +55,9 @@ private suspend fun origin(): Point? {
  * Route planen und gleich losfahren (Android Auto erlaubt während der Fahrt keine lange Auswahl).
  * E-Auto: reicht der Akku nicht, kommen die Ladestopps gleich als Zwischenziele in die Route.
  */
-private fun Screen.navigateTo(name: String, lat: Double, lng: Double) {
-    val carContext = carContext
+private fun Screen.navigateTo(name: String, lat: Double, lng: Double) = carNavigateTo(carContext, name, lat, lng)
+
+internal fun carNavigateTo(carContext: CarContext, name: String, lat: Double, lng: Double) {
     // Nicht im Bildschirm-Lebenszyklus: der Bildschirm wird gleich nach dem Antippen geschlossen
     AppState.scope.launch {
         val from = origin() ?: return@launch
@@ -340,6 +341,11 @@ class CarStopScreen(carContext: CarContext, private val category: PlaceSearch.Ca
 class CarPlacesScreen(carContext: CarContext) : Screen(carContext) {
     override fun onGetTemplate(): Template {
         val list = ItemList.Builder().setNoItemsMessage("Noch keine Orte gespeichert – in der App bei der Routenvorschau „Als Zuhause“ o. Ä. wählen.")
+        // Vorschlag für jetzt (Termin oder häufiges Ziel)
+        de.koeven.meeterz.suggest.RouteSuggestions.current.value?.let { s ->
+            list.addItem(Row.Builder().setTitle(s.title).addText(s.subtitle)
+                .setOnClickListener { navigateTo(s.name.ifEmpty { s.title }, s.lat, s.lng); screenManager.pop() }.build())
+        }
         // Treffen zuerst (wie CarPlay: Treffen in der Zielliste); Einladungen öffnen Annehmen/Ablehnen
         AppState.meetups.meetups.value.filter { it.isAccepted || (it.incoming && it.isPending) }.take(4).forEach { m ->
             list.addItem(
@@ -360,6 +366,12 @@ class CarPlacesScreen(carContext: CarContext) : Screen(carContext) {
                     .setOnClickListener { navigateTo(fav.label, fav.lat, fav.lng); screenManager.pop() }
                     .build(),
             )
+        }
+        // Zuletzt angefahren (ohne Orte, die schon als Favorit da sind); Android Auto zeigt höchstens ~6 Zeilen
+        val favs = AppState.favorites.items.value
+        de.koeven.meeterz.suggest.Recents.items.value.filter { r -> favs.none { ChargePlanner.distance(it.lat, it.lng, r.lat, r.lng) < 50 } }.take(4).forEach { r ->
+            list.addItem(Row.Builder().setTitle(r.name).apply { r.address?.let { addText(it) } }
+                .setOnClickListener { navigateTo(r.name, r.lat, r.lng); screenManager.pop() }.build())
         }
         return ListTemplate.Builder().setTitle("Ziele").setHeaderAction(Action.BACK).setSingleList(list.build()).build()
     }

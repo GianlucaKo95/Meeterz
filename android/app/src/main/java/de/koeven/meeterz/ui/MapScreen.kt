@@ -193,6 +193,13 @@ fun MapScreen() {
         if (routes.isNotEmpty()) { preview = dest to routes; adopted = plan; selectedRoute = 0; ChargingSession.plan = plan }
     }
     LaunchedEffect(preview, selectedRoute, guidance == null) { if (guidance == null) binder.showPreview(preview?.second, selectedRoute) }
+    // Von außen angefragtes Ziel (Losfahr-Erinnerung, Widget): Route zeigen
+    val openPlace by AppState.openPlace.collectAsState()
+    LaunchedEffect(openPlace) {
+        val d = openPlace ?: return@LaunchedEffect
+        AppState.openPlace.value = null
+        planTo(d.name, d.address, d.lat, d.lng)
+    }
     LaunchedEffect(query) {
         delay(300)   // erst suchen, wenn kurz nicht getippt wird
         val me = AppState.lastLocation
@@ -221,6 +228,36 @@ fun MapScreen() {
             de.koeven.meeterz.nav.IncidentWatcher.alerts.collect { a ->
                 Toast.makeText(context, listOfNotNull(a.title, a.subtitle).joinToString(" – "), Toast.LENGTH_LONG).show()
             }
+        }
+        // Geparktes Auto (wie ParkedCarMarker auf iOS): Antippen → zu Fuß hin oder vergessen
+        val parked by de.koeven.meeterz.suggest.Parking.spot.collectAsState()
+        var parkedMenu by remember { mutableStateOf(false) }
+        val parkedManager = remember { mapView.annotations.createPointAnnotationManager() }
+        LaunchedEffect(parked) {
+            parkedManager.deleteAll()
+            parked?.let { p ->
+                parkedManager.create(PointAnnotationOptions().withPoint(Point.fromLngLat(p.lng, p.lat))
+                    .withIconImage(initialsBubble("🚗"))
+                    .withTextField("Dein Auto · ${clockAt(java.time.Instant.ofEpochMilli(p.at))}")
+                    .withTextOffset(listOf(0.0, 2.2)).withTextSize(12.0))
+            }
+            parkedManager.addClickListener { parkedMenu = true; true }
+        }
+        if (parkedMenu) parked?.let { p ->
+            AlertDialog(
+                onDismissRequest = { parkedMenu = false },
+                title = { Text("Dein Auto") },
+                text = { Text("Geparkt um ${clockAt(java.time.Instant.ofEpochMilli(p.at))}") },
+                confirmButton = { TextButton(onClick = {
+                    parkedMenu = false
+                    // Zu Fuß: Meeterz führt nur mit dem Auto – darum die Karten-App mit Fußweg
+                    val uri = android.net.Uri.parse("google.navigation:q=${p.lat},${p.lng}&mode=w")
+                    runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, uri)) }.onFailure {
+                        context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("geo:${p.lat},${p.lng}?q=${p.lat},${p.lng}(Dein Auto)")))
+                    }
+                }) { Text("Zu Fuß hinführen") } },
+                dismissButton = { TextButton(onClick = { parkedMenu = false; de.koeven.meeterz.suggest.Parking.clear() }) { Text("Parkplatz vergessen") } },
+            )
         }
         val charging by ChargingSession.view.collectAsState()
         charging?.let { ChargingCard(it, Modifier.align(Alignment.Center)) }

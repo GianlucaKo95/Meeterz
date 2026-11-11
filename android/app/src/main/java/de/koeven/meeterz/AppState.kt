@@ -52,6 +52,8 @@ object AppState {
 
     /** Letzter eigener Standort (für Suche und Routenplanung) */
     @Volatile var lastLocation: android.location.Location? = null
+    /** Von außen angefragtes Ziel (Mitteilung, Widget): die Karte zeigt die Route */
+    val openPlace = MutableStateFlow<de.koeven.meeterz.nav.NavigationController.Destination?>(null)
 
     private val _friends = MutableStateFlow<List<FriendRow>>(emptyList())
     val friends: StateFlow<List<FriendRow>> = _friends
@@ -69,6 +71,7 @@ object AppState {
     fun startSession(userId: String) {
         if (session?.isActive == true) return
         favorites.load(userId)
+        de.koeven.meeterz.suggest.Recents.load(userId)
         session = scope.launch {
             hub.startPublishing(userId)
             PushService.registerCurrent(appContext)
@@ -84,6 +87,8 @@ object AppState {
                 de.koeven.meeterz.sound.SoundMoments.checkJourneys()
                 // ponytail: Auto alle 30 s abfragen statt Live-Kanal wie auf iOS – reicht für die Anzeige
                 vehicle.refresh(userId)
+                de.koeven.meeterz.suggest.RouteSuggestions.refresh()
+                de.koeven.meeterz.suggest.DepartureReminder.refresh(appContext)
                 de.koeven.meeterz.widget.WidgetSnapshotWriter.update(appContext)
                 delay(30_000)
             }
@@ -94,6 +99,7 @@ object AppState {
         session?.cancel(); session = null
         messages.reset(); meetups.reset()
         de.koeven.meeterz.sound.SoundStore.reset(); de.koeven.meeterz.sound.SoundMoments.reset()
+        de.koeven.meeterz.suggest.Recents.reset()
         if (::appContext.isInitialized) {
             de.koeven.meeterz.widget.WidgetSnapshotWriter.clear(appContext)
             scope.launch { de.koeven.meeterz.widget.WidgetSnapshotWriter.update(appContext, force = true) }

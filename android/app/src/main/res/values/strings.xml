@@ -7,4 +7,6 @@
     <string name="widget_friends">Freunde</string>
     <string name="widget_meetup">Nächstes Treffen</string>
     <string name="widget_sharing">Teilen</string>
+    <string name="widget_suggestion">Nächstes Ziel</string>
+    <string name="widget_suggestion_desc">Termin mit Ort oder ein Ziel, das du um diese Zeit oft ansteuerst – mit Fahrzeit</string>
 </resources>

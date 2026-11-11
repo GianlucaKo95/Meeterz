@@ -19,6 +19,8 @@ data class VehicleStatus(
     @SerialName("odometer_km") val odometerKm: Double? = null,
     @SerialName("speed_kmh") val speedKmh: Double? = null,
     val parked: Boolean? = null,
+    val lat: Double? = null,
+    val lng: Double? = null,
     /** Restladezeit laut Auto (s) und wann gemeldet */
     @SerialName("charge_remaining_s") val chargeRemainingS: Double? = null,
     @SerialName("charge_remaining_at") val chargeRemainingAt: String? = null,
@@ -61,6 +63,7 @@ class VehicleStore {
             if (old == null || new.measuredAt != old.measuredAt) {
                 if (old != null) de.koeven.meeterz.ev.ConsumptionLearner.record(old, new)
                 de.koeven.meeterz.ev.ChargingSession.update(new)
+                de.koeven.meeterz.suggest.Parking.vehicleUpdate(new)
             }
         }
     }

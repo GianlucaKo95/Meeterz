@@ -47,7 +47,10 @@ data class WidgetSnapshot(
     val incognito: Boolean = false,
     val friends: List<Friend> = emptyList(),
     val meetup: Meetup? = null,
+    val suggestion: Suggestion? = null,
 ) {
+    @Serializable data class Suggestion(val title: String, val detail: String, val minutes: Int, val arrival: Long, val calendar: Boolean,
+                                        val lat: Double, val lng: Double, val name: String)
     @Serializable data class Friend(val name: String, val distance: Double? = null, val heading: String? = null, val arrival: Long? = null)
     @Serializable data class Meetup(val place: String, val with: String, val friendArrival: Long? = null, val myArrival: Long? = null)
 }
@@ -67,11 +70,14 @@ object WidgetSnapshotWriter {
         context.getSharedPreferences("widgets", 0).edit().putString("snapshot", json.encodeToString(s)).apply()
         val old = lastSaved
         val important = old == null || s.meetup != old.meetup || s.sharing != old.sharing || s.incognito != old.incognito ||
-            s.friends.map { it.name } != old.friends.map { it.name }
+            s.friends.map { it.name } != old.friends.map { it.name } || s.suggestion?.title != old.suggestion?.title
         lastSaved = s
         if (force || important || System.currentTimeMillis() - lastReload > 15 * 60_000) {
             lastReload = System.currentTimeMillis()
-            runCatching { FriendsWidget().updateAll(context); MeetupWidget().updateAll(context); SharingWidget().updateAll(context) }
+            runCatching {
+                FriendsWidget().updateAll(context); MeetupWidget().updateAll(context); SharingWidget().updateAll(context)
+                SuggestionWidget().updateAll(context)
+            }
         }
     }
 
@@ -95,7 +101,10 @@ object WidgetSnapshotWriter {
         }
         val p = AppState.profile
         return WidgetSnapshot(System.currentTimeMillis() / 1000, p?.isSharingNow == true, p?.sharingUntilInstant?.epochSecond,
-            p?.isIncognito == true, friends, meetup)
+            p?.isIncognito == true, friends, meetup,
+            de.koeven.meeterz.suggest.RouteSuggestions.current.value?.let { sg ->
+                WidgetSnapshot.Suggestion(sg.title, sg.subtitle, sg.minutes, sg.arrival / 1000, sg.calendarStart != null, sg.lat, sg.lng, sg.name.ifEmpty { sg.title })
+            })
     }
 }
 
@@ -173,6 +182,27 @@ class SharingWidget : GlanceAppWidget() {
     }
 }
 
+/** Nächstes Ziel: Termin mit Ort oder häufiges Ziel mit Fahrzeit – Tippen zeigt die Route */
+class SuggestionWidget : GlanceAppWidget() {
+    override suspend fun provideGlance(context: Context, id: GlanceId) {
+        val sg = WidgetSnapshotWriter.read(context).suggestion
+        provideContent {
+            val open = sg?.let { actionStartActivity(MainActivity.planIntent(context, it.name, it.lat, it.lng)) } ?: actionStartActivity<MainActivity>()
+            Column(GlanceModifier.fillMaxSize().background(petrol).cornerRadius(20.dp).padding(14.dp).clickable(open)) {
+                Header(if (sg?.calendar == true) "Termin" else "Nächstes Ziel")
+                Spacer(GlanceModifier.height(6.dp))
+                if (sg == null) Text("Gerade kein Vorschlag.", style = TextStyle(color = muted, fontSize = 13.sp))
+                else {
+                    Text(sg.title, style = TextStyle(color = white, fontSize = 17.sp, fontWeight = FontWeight.Bold), maxLines = 2)
+                    Text("${sg.minutes} Min.", style = TextStyle(color = mint, fontSize = 22.sp, fontWeight = FontWeight.Bold))
+                    Text(sg.detail, style = TextStyle(color = muted, fontSize = 12.sp), maxLines = 1)
+                }
+            }
+        }
+    }
+}
+
 class FriendsWidgetReceiver : GlanceAppWidgetReceiver() { override val glanceAppWidget = FriendsWidget() }
 class MeetupWidgetReceiver : GlanceAppWidgetReceiver() { override val glanceAppWidget = MeetupWidget() }
 class SharingWidgetReceiver : GlanceAppWidgetReceiver() { override val glanceAppWidget = SharingWidget() }
+class SuggestionWidgetReceiver : GlanceAppWidgetReceiver() { override val glanceAppWidget = SuggestionWidget() }

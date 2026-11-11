@@ -1,5 +1,6 @@
 package de.koeven.meeterz.suggest
 
+import de.koeven.meeterz.tr
 import android.app.AlarmManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -57,12 +58,12 @@ object DepartureReminder {
             val depart = at - (travel * 1000).toLong() - BUFFER
             val fire = depart - LEAD
             val minutes = Math.round(travel / 60)
-            val body = "Um ${meetupTime(m.meetAtSeconds!!)} bei ${m.withText} (${m.placeName}) · ca. $minutes Min. Fahrt"
+            val body = tr("Um %@ bei %@ (%@) · ca. %@ Min. Fahrt", meetupTime(m.meetAtSeconds!!), m.withText, m.placeName, minutes)
             if (fire > now + 30_000) {
-                schedule(context, m.id, "In 10 Min. losfahren", body, m.placeName, m.lat, m.lng, fire)
+                schedule(context, m.id, tr("In 10 Min. losfahren"), body, m.placeName, m.lat, m.lng, fire)
             } else if (m.id !in fired) {
                 val late = if (now > depart) Math.round((now - depart) / 60_000.0) else 0
-                show(context, m.id, if (late > 2) "Jetzt losfahren – ca. $late Min. zu spät" else "Jetzt losfahren", body, m.placeName, m.lat, m.lng)
+                show(context, m.id, if (late > 2) tr("Jetzt losfahren – ca. %lld Min. zu spät", late) else tr("Jetzt losfahren"), body, m.placeName, m.lat, m.lng)
                 fired += m.id
             }
             Diag.log("Losfahren-Erinnerung ${m.placeName}: Abfahrt ${DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(depart))} ($minutes Min.)")
@@ -93,7 +94,7 @@ object DepartureReminder {
     fun show(c: Context, id: String, title: String, body: String, name: String, lat: Double, lng: Double) {
         val manager = c.getSystemService(NotificationManager::class.java)
         if (Build.VERSION.SDK_INT >= 26 && manager.getNotificationChannel("depart") == null) {
-            manager.createNotificationChannel(NotificationChannel("depart", "Losfahren", NotificationManager.IMPORTANCE_HIGH))
+            manager.createNotificationChannel(NotificationChannel("depart", tr("Losfahren"), NotificationManager.IMPORTANCE_HIGH))
         }
         val open = PendingIntent.getActivity(c, id.hashCode(), MainActivity.planIntent(c, name, lat, lng),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
@@ -111,7 +112,7 @@ object DepartureReminder {
 class DepartureReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val id = intent.getStringExtra("id") ?: return
-        DepartureReminder.show(context, id, intent.getStringExtra("title") ?: "In 10 Min. losfahren", intent.getStringExtra("body").orEmpty(),
+        DepartureReminder.show(context, id, intent.getStringExtra("title") ?: tr("In 10 Min. losfahren"), intent.getStringExtra("body").orEmpty(),
             intent.getStringExtra("name").orEmpty(), intent.getDoubleExtra("lat", 0.0), intent.getDoubleExtra("lng", 0.0))
     }
 }

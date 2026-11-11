@@ -1,5 +1,6 @@
 package de.koeven.meeterz.nav
 
+import de.koeven.meeterz.tr
 import com.mapbox.api.directions.v5.models.DirectionsRoute
 import com.mapbox.navigation.base.route.NavigationRoute
 import de.koeven.meeterz.AppState
@@ -14,9 +15,9 @@ import kotlin.math.min
  */
 object RoutePreferences {
     enum class Option(val key: String, val title: String, val shortTitle: String, val exclude: String) {
-        TOLLS("tolls", "Maut meiden", "ohne Maut", "toll"),
-        MOTORWAYS("motorways", "Autobahnen meiden", "ohne Autobahn", "motorway"),
-        FERRIES("ferries", "Fähren meiden", "ohne Fähre", "ferry"),
+        TOLLS("tolls", tr("Maut meiden"), tr("ohne Maut"), "toll"),
+        MOTORWAYS("motorways", tr("Autobahnen meiden"), tr("ohne Autobahn"), "motorway"),
+        FERRIES("ferries", tr("Fähren meiden"), tr("ohne Fähre"), "ferry"),
     }
 
     private fun prefs() = AppState.appContextOrNull()?.getSharedPreferences("app", 0)
@@ -37,7 +38,7 @@ object RoutePreferences {
  * Mapbox liefert oft nur eine Alternative – darum eine zweite Anfrage ohne Autobahnen, aus allen Kandidaten werden drei gewählt.
  */
 object RouteVariety {
-    enum class Kind(val label: String) { FASTEST("Schnellste"), SHORTEST("Kürzeste"), NO_MOTORWAY("Ohne Autobahn"), OTHER("Alternative") }
+    enum class Kind(val label: String) { FASTEST(tr("Schnellste")), SHORTEST(tr("Kürzeste")), NO_MOTORWAY(tr("Ohne Autobahn")), OTHER(tr("Alternative")) }
 
     /** Bis zu dieser Länge der schnellsten Route wird „Ohne Autobahn“ angefragt */
     const val MAX_DISTANCE_NO_MOTORWAY = 150_000.0
@@ -72,7 +73,7 @@ object RouteVariety {
         return Kind.OTHER
     }
 
-    fun label(index: Int, all: List<NavigationRoute>) = kind(index, all).let { if (it == Kind.OTHER) "Alternative $index" else it.label }
+    fun label(index: Int, all: List<NavigationRoute>) = kind(index, all).let { if (it == Kind.OTHER) tr("Alternative %lld", index) else it.label }
 
     /** Höchstens 25 % länger unterwegs, mindestens aber 15 Min. Spielraum */
     private fun reasonable(r: DirectionsRoute, fastest: DirectionsRoute) = r.duration() <= max(fastest.duration() * 1.25, fastest.duration() + 900)

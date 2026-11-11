@@ -1,5 +1,6 @@
 package de.koeven.meeterz.car
 
+import de.koeven.meeterz.tr
 import android.location.Location
 import androidx.car.app.CarContext
 import de.koeven.meeterz.ui.NavigationMapBinder
@@ -73,7 +74,7 @@ internal fun carNavigateTo(carContext: CarContext, name: String, lat: Double, ln
                 CarToast.makeText(carContext, o.plan.summary, CarToast.LENGTH_LONG).show()
             }
             is ChargePlanner.Outcome.Unreachable ->
-                CarToast.makeText(carContext, "Akku reicht nicht – kein Ladeplan (Reichweite ca. ${o.reachKm.toInt()} km)", CarToast.LENGTH_LONG).show()
+                CarToast.makeText(carContext, tr("Akku reicht nicht – kein Ladeplan (Reichweite ca. %@ km)", o.reachKm.toInt()), CarToast.LENGTH_LONG).show()
             null -> Unit
         }
         if (routes.isNotEmpty()) NavigationController.start(routes, dest)
@@ -106,9 +107,9 @@ class FreeDriveScreen(carContext: CarContext, private val carMap: MapboxCarMap) 
         .setActionStrip(
             ActionStrip.Builder()
                 .apply { batteryAction(carContext)?.let { addAction(it) } }
-                .addAction(Action.Builder().setTitle("Suchen").setOnClickListener { screenManager.push(CarSearchScreen(carContext)) }.build())
-                .addAction(Action.Builder().setTitle("Ziele").setOnClickListener { screenManager.push(CarPlacesScreen(carContext)) }.build())
-                .addAction(Action.Builder().setTitle("Freunde").setOnClickListener { screenManager.push(CarFriendsScreen(carContext)) }.build())
+                .addAction(Action.Builder().setTitle(tr("Suchen")).setOnClickListener { screenManager.push(CarSearchScreen(carContext)) }.build())
+                .addAction(Action.Builder().setTitle(tr("Ziele")).setOnClickListener { screenManager.push(CarPlacesScreen(carContext)) }.build())
+                .addAction(Action.Builder().setTitle(tr("Freunde")).setOnClickListener { screenManager.push(CarFriendsScreen(carContext)) }.build())
                 .build(),
         )
         .setMapActionStrip(mapActions.build())
@@ -166,9 +167,9 @@ class GuidanceScreen(carContext: CarContext, private val carMap: MapboxCarMap) :
         .setActionStrip(
             ActionStrip.Builder()
                 .apply { batteryAction(carContext)?.let { addAction(it) } }
-                .addAction(Action.Builder().setTitle("Bescheid").setOnClickListener { screenManager.push(messageScreen(carContext)) }.build())
-                .addAction(Action.Builder().setTitle("Stopp").setOnClickListener { screenManager.push(CarStopScreen(carContext)) }.build())
-                .addAction(Action.Builder().setTitle("Beenden").setOnClickListener { NavigationController.stop() }.build())
+                .addAction(Action.Builder().setTitle(tr("Bescheid")).setOnClickListener { screenManager.push(messageScreen(carContext)) }.build())
+                .addAction(Action.Builder().setTitle(tr("Stopp")).setOnClickListener { screenManager.push(CarStopScreen(carContext)) }.build())
+                .addAction(Action.Builder().setTitle(tr("Beenden")).setOnClickListener { NavigationController.stop() }.build())
                 .build(),
         )
         .setMapActionStrip(mapActions.build())
@@ -201,11 +202,11 @@ fun messageScreen(carContext: CarContext): Screen {
 
 class CarMessageRecipientsScreen(carContext: CarContext) : Screen(carContext) {
     override fun onGetTemplate(): Template {
-        val list = ItemList.Builder().setNoItemsMessage("Noch keine Freunde.")
+        val list = ItemList.Builder().setNoItemsMessage(tr("Noch keine Freunde."))
         // Konvoi zuerst: wer zum selben Ziel fährt, mit Abstand entlang meiner Route
         val convoy = de.koeven.meeterz.social.Convoy.members().take(5)
         val atDestination = MessagesStore.recipientsAtDestination()
-        if (atDestination.size > 1) list.addItem(Row.Builder().setTitle("Alle am Ziel").addText(atDestination.joinToString(", ") { it.firstName })
+        if (atDestination.size > 1) list.addItem(Row.Builder().setTitle(tr("Alle am Ziel")).addText(atDestination.joinToString(", ") { it.firstName })
             .setOnClickListener { screenManager.push(CarQuickRepliesScreen(carContext, atDestination)) }.build())
         convoy.forEach { m ->
             list.addItem(Row.Builder().setTitle(m.friend.displayName).addText(m.summary)
@@ -215,7 +216,7 @@ class CarMessageRecipientsScreen(carContext: CarContext) : Screen(carContext) {
             list.addItem(Row.Builder().setTitle(f.displayName)
                 .setOnClickListener { screenManager.push(CarQuickRepliesScreen(carContext, listOf(f))) }.build())
         }
-        return ListTemplate.Builder().setTitle("Bescheid geben").setHeaderAction(Action.BACK).setSingleList(list.build()).build()
+        return ListTemplate.Builder().setTitle(tr("Bescheid geben")).setHeaderAction(Action.BACK).setSingleList(list.build()).build()
     }
 }
 
@@ -227,12 +228,12 @@ class CarQuickRepliesScreen(carContext: CarContext, private val to: List<FriendR
             list.addItem(Row.Builder().setTitle(text).setOnClickListener {
                 lifecycleScope.launch {
                     val sent = AppState.messages.send(text, to.map { it.friendId })
-                    CarToast.makeText(carContext, if (sent > 0) "Gesendet: „$text“" else "Nachricht nicht gesendet", CarToast.LENGTH_LONG).show()
+                    CarToast.makeText(carContext, if (sent > 0) tr("Gesendet: „%@“", text) else tr("Nachricht nicht gesendet"), CarToast.LENGTH_LONG).show()
                     screenManager.popToRoot()
                 }
             }.build())
         }
-        return ListTemplate.Builder().setTitle("An " + to.joinToString(", ") { it.firstName })
+        return ListTemplate.Builder().setTitle(tr("An %@", to.joinToString(", ") { it.firstName }))
             .setHeaderAction(Action.BACK).setSingleList(list.build()).build()
     }
 }
@@ -246,7 +247,7 @@ class CarFriendsScreen(carContext: CarContext) : Screen(carContext) {
     override fun onGetTemplate(): Template {
         val live = AppState.hub.positions.value
         val me = AppState.lastLocation
-        val list = ItemList.Builder().setNoItemsMessage("Gerade teilt kein Freund seinen Standort.")
+        val list = ItemList.Builder().setNoItemsMessage(tr("Gerade teilt kein Freund seinen Standort."))
         AppState.friends.value.filter { it.isAccepted }.forEach { f ->
             val p = live[f.friendId]
             val lat = p?.lat ?: f.lat ?: return@forEach
@@ -259,7 +260,7 @@ class CarFriendsScreen(carContext: CarContext) : Screen(carContext) {
                     .build(),
             )
         }
-        return ListTemplate.Builder().setTitle("Freunde").setHeaderAction(Action.BACK).setSingleList(list.build()).build()
+        return ListTemplate.Builder().setTitle(tr("Freunde")).setHeaderAction(Action.BACK).setSingleList(list.build()).build()
     }
 }
 
@@ -283,7 +284,7 @@ class CarSearchScreen(carContext: CarContext) : Screen(carContext) {
             override fun onSearchSubmitted(searchTerm: String) = search(searchTerm)
         })
             .setHeaderAction(Action.BACK)
-            .setSearchHint("Ziel oder Adresse")
+            .setSearchHint(tr("Ziel oder Adresse"))
             .setShowKeyboardByDefault(true)
             .setItemList(list.build())
             .build()
@@ -319,10 +320,10 @@ class CarStopScreen(carContext: CarContext, private val category: PlaceSearch.Ca
                 list.addItem(Row.Builder().setTitle(c.title).setBrowsable(true)
                     .setOnClickListener { screenManager.push(CarStopScreen(carContext, c)) }.build())
             }
-            list.addItem(Row.Builder().setTitle("Suchen").setBrowsable(true).setOnClickListener { screenManager.push(CarSearchScreen(carContext)) }.build())
+            list.addItem(Row.Builder().setTitle(tr("Suchen")).setBrowsable(true).setOnClickListener { screenManager.push(CarSearchScreen(carContext)) }.build())
         } else {
             val me = AppState.lastLocation
-            list.setNoItemsMessage("Nichts in der Nähe gefunden.")
+            list.setNoItemsMessage(tr("Nichts in der Nähe gefunden."))
             places?.forEach { p ->
                 list.addItem(Row.Builder().setTitle(p.name)
                     .apply { me?.let { addText(km(ChargePlanner.distance(it.latitude, it.longitude, p.lat, p.lng))) } }
@@ -332,7 +333,7 @@ class CarStopScreen(carContext: CarContext, private val category: PlaceSearch.Ca
                     }.build())
             }
         }
-        return ListTemplate.Builder().setTitle(category?.title ?: "Zwischenstopp").setHeaderAction(Action.BACK)
+        return ListTemplate.Builder().setTitle(category?.title ?: tr("Zwischenstopp")).setHeaderAction(Action.BACK)
             .apply { if (category != null && places == null) setLoading(true) else setSingleList(list.build()) }.build()
     }
 }
@@ -340,7 +341,7 @@ class CarStopScreen(carContext: CarContext, private val category: PlaceSearch.Ca
 /** Gespeicherte Orte (Zuhause, Arbeit, Favoriten) – Antippen fährt los */
 class CarPlacesScreen(carContext: CarContext) : Screen(carContext) {
     override fun onGetTemplate(): Template {
-        val list = ItemList.Builder().setNoItemsMessage("Noch keine Orte gespeichert – in der App bei der Routenvorschau „Als Zuhause“ o. Ä. wählen.")
+        val list = ItemList.Builder().setNoItemsMessage(tr("Noch keine Orte gespeichert – in der App bei der Routenvorschau „Als Zuhause“ o. Ä. wählen."))
         // Vorschlag für jetzt (Termin oder häufiges Ziel)
         de.koeven.meeterz.suggest.RouteSuggestions.current.value?.let { s ->
             list.addItem(Row.Builder().setTitle(s.title).addText(s.subtitle)
@@ -350,7 +351,7 @@ class CarPlacesScreen(carContext: CarContext) : Screen(carContext) {
         AppState.meetups.meetups.value.filter { it.isAccepted || (it.incoming && it.isPending) }.take(4).forEach { m ->
             list.addItem(
                 Row.Builder().setTitle(m.placeName)
-                    .addText((if (m.isPending) "Einladung von ${m.otherName}" else "Treffen mit ${m.withText}") +
+                    .addText((if (m.isPending) tr("Einladung von %@", m.otherName) else tr("Treffen mit %@", m.withText)) +
                         (m.meetAtSeconds?.let { " · " + de.koeven.meeterz.ui.meetupTime(it) } ?: ""))
                     .setOnClickListener {
                         if (m.isPending) screenManager.push(CarMeetupInviteScreen(carContext, m))
@@ -373,7 +374,7 @@ class CarPlacesScreen(carContext: CarContext) : Screen(carContext) {
             list.addItem(Row.Builder().setTitle(r.name).apply { r.address?.let { addText(it) } }
                 .setOnClickListener { navigateTo(r.name, r.lat, r.lng); screenManager.pop() }.build())
         }
-        return ListTemplate.Builder().setTitle("Ziele").setHeaderAction(Action.BACK).setSingleList(list.build()).build()
+        return ListTemplate.Builder().setTitle(tr("Ziele")).setHeaderAction(Action.BACK).setSingleList(list.build()).build()
     }
 }
 
@@ -381,12 +382,12 @@ class CarPlacesScreen(carContext: CarContext) : Screen(carContext) {
 class CarMeetupInviteScreen(carContext: CarContext, private val m: de.koeven.meeterz.data.Meetup) : Screen(carContext) {
     override fun onGetTemplate(): Template =
         androidx.car.app.model.MessageTemplate.Builder(m.placeName + (m.meetAtSeconds?.let { "\n" + de.koeven.meeterz.ui.meetupTime(it) } ?: ""))
-            .setTitle("${m.otherName} möchte sich treffen")
+            .setTitle(tr("%@ möchte sich treffen", m.otherName))
             .setHeaderAction(Action.BACK)
-            .addAction(Action.Builder().setTitle("Ablehnen").setOnClickListener {
+            .addAction(Action.Builder().setTitle(tr("Ablehnen")).setOnClickListener {
                 AppState.scope.launch { AppState.meetups.respond(m, false) }; screenManager.pop()
             }.build())
-            .addAction(Action.Builder().setTitle("Annehmen & los").setOnClickListener {
+            .addAction(Action.Builder().setTitle(tr("Annehmen & los")).setOnClickListener {
                 AppState.scope.launch { AppState.meetups.respond(m, true) }
                 navigateTo(m.placeName, m.lat, m.lng); screenManager.popToRoot()
             }.build())

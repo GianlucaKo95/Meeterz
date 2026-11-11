@@ -1,5 +1,6 @@
 package de.koeven.meeterz.ui
 
+import de.koeven.meeterz.tr
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.BackHandler
@@ -77,21 +78,21 @@ fun SoundPackScreen(onClose: () -> Unit) {
     Surface(Modifier.fillMaxSize()) {
         Column(Modifier.statusBarsPadding()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Zurück") }
-                Text("Sound-Pack", style = MaterialTheme.typography.titleLarge)
+                IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Zurück")) }
+                Text(tr("Sound-Pack"), style = MaterialTheme.typography.titleLarge)
             }
             LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 item {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("Schnipsel der Freunde abspielen", fontWeight = FontWeight.SemiBold)
-                            Text("Zum passenden Moment, auch im Auto – Musik wird kurz leiser", style = MaterialTheme.typography.bodySmall)
+                            Text(tr("Schnipsel der Freunde abspielen"), fontWeight = FontWeight.SemiBold)
+                            Text(tr("Zum passenden Moment, auch im Auto – Musik wird kurz leiser"), style = MaterialTheme.typography.bodySmall)
                         }
                         Switch(enabled, { enabled = it; SoundStore.enabled = it })
                     }
                     HorizontalDivider()
-                    Text("Deine Schnipsel", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp))
-                    Text("Nimm bis zu 5 Sekunden auf. Nur Freunde, deren Anfrage du angenommen hast, hören sie. Ohne Aufnahme sagt die Sprachausgabe Bescheid.",
+                    Text(tr("Deine Schnipsel"), fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp))
+                    Text(tr("Nimm bis zu 5 Sekunden auf. Nur Freunde, deren Anfrage du angenommen hast, hören sie. Ohne Aufnahme sagt die Sprachausgabe Bescheid."),
                         style = MaterialTheme.typography.bodySmall)
                 }
                 items(SoundMoment.entries) { m ->
@@ -100,16 +101,16 @@ fun SoundPackScreen(onClose: () -> Unit) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(m.title, fontWeight = FontWeight.SemiBold)
-                            Text(if (isRecording) "Nimmt auf … (tippen zum Beenden)" else if (has) "Aufgenommen" else "z. B. ${m.example}",
+                            Text(if (isRecording) tr("Nimmt auf … (tippen zum Beenden)") else if (has) tr("Aufgenommen") else "z. B. ${m.example}",
                                 style = MaterialTheme.typography.bodySmall, color = if (isRecording) Color(0xFFD92E36) else Color.Unspecified)
                         }
                         if (has && !isRecording) {
-                            IconButton(onClick = { scope.launch { SoundStore.preview(me!!, m) } }) { Icon(Icons.Default.PlayArrow, "Anhören") }
-                            IconButton(enabled = !busy, onClick = { scope.launch { SoundStore.removeMine(m) } }) { Icon(Icons.Default.Delete, "Löschen") }
+                            IconButton(onClick = { scope.launch { SoundStore.preview(me!!, m) } }) { Icon(Icons.Default.PlayArrow, tr("Anhören")) }
+                            IconButton(enabled = !busy, onClick = { scope.launch { SoundStore.removeMine(m) } }) { Icon(Icons.Default.Delete, tr("Löschen")) }
                         }
                         IconButton(enabled = !busy && (recording == null || isRecording),
                             onClick = { if (isRecording) SoundStore.stopRecording() else record(m) }) {
-                            Icon(if (isRecording) Icons.Default.Stop else Icons.Default.Mic, if (isRecording) "Stopp" else "Aufnehmen",
+                            Icon(if (isRecording) Icons.Default.Stop else Icons.Default.Mic, if (isRecording) tr("Stopp") else "Aufnehmen",
                                 tint = if (isRecording) Color(0xFFD92E36) else MeeterzColors.mintLight)
                         }
                     }

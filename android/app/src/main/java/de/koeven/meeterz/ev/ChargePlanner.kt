@@ -1,5 +1,6 @@
 package de.koeven.meeterz.ev
 
+import de.koeven.meeterz.tr
 import java.util.PriorityQueue
 import kotlin.math.PI
 import kotlin.math.atan2
@@ -40,10 +41,10 @@ object ChargePlanner {
         /** „2 Ladestopps · 35 Min. laden · Ankunft mit 21 %“ (Texte wie iOS) */
         val summary: String get() {
             val arrival = Math.round(arrivalPercent)
-            if (direct && belowTarget) return "Ankunft mit $arrival % · kein Ladestopp auf der Strecke"
-            if (direct) return "Kein Ladestopp nötig · Ankunft mit $arrival %"
-            val n = if (stops.size == 1) "1 Ladestopp" else "${stops.size} Ladestopps"
-            return "$n · ${Math.round(totalChargeTime / 60)} Min. laden · Ankunft mit $arrival %"
+            if (direct && belowTarget) return tr("Ankunft mit %@ % · kein Ladestopp auf der Strecke", arrival)
+            if (direct) return tr("Kein Ladestopp nötig · Ankunft mit %@ %", arrival)
+            val n = if (stops.size == 1) tr("1 Ladestopp") else tr("%lld Ladestopps", stops.size)
+            return tr("%@ · %@ Min. laden · Ankunft mit %@ %", n, Math.round(totalChargeTime / 60), arrival)
         }
     }
 

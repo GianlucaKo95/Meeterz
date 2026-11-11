@@ -1,5 +1,6 @@
 package de.koeven.meeterz.nav
 
+import de.koeven.meeterz.tr
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -31,7 +32,7 @@ object NavigationNotification {
         val app = context.applicationContext
         val manager = app.getSystemService(NotificationManager::class.java)
         if (Build.VERSION.SDK_INT >= 26 && manager.getNotificationChannel(CHANNEL) == null) {
-            manager.createNotificationChannel(NotificationChannel(CHANNEL, "Navigation", NotificationManager.IMPORTANCE_LOW).apply {
+            manager.createNotificationChannel(NotificationChannel(CHANNEL, tr("Navigation"), NotificationManager.IMPORTANCE_LOW).apply {
                 lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
                 setShowBadge(false)
             })
@@ -46,7 +47,7 @@ object NavigationNotification {
                 if (!turnChanged && now - lastPost < 5_000) return@collect
                 lastText = g.instruction; lastPost = now
                 val arrival = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(now + (g.remainingSeconds * 1000).toLong()))
-                val text = listOfNotNull("Ankunft $arrival", km(g.remainingDistance), f?.text).joinToString(" · ")
+                val text = listOfNotNull(tr("Ankunft %@", arrival), km(g.remainingDistance), f?.text).joinToString(" · ")
                 val open = PendingIntent.getActivity(app, 0, Intent(app, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
                 val notification = NotificationCompat.Builder(app, CHANNEL)
                     .setSmallIcon(R.drawable.ic_launcher_foreground)

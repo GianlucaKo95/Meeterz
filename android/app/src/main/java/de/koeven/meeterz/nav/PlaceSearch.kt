@@ -1,5 +1,6 @@
 package de.koeven.meeterz.nav
 
+import de.koeven.meeterz.tr
 import com.mapbox.common.MapboxOptions
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
@@ -22,11 +23,11 @@ object PlaceSearch {
 
     /** Treffpunkt-Kategorien (wie SearchService.Category auf iOS) */
     enum class Category(val title: String, val path: String, val query: String? = null) {
-        REST_AREA("Raststätte", "forward", "Raststätte"),
-        COFFEE("Café", "category/coffee"),
-        RESTAURANT("Essen", "category/restaurant"),
-        GAS("Tanken", "category/gas_station"),
-        PARK("Park", "category/park");
+        REST_AREA(tr("Raststätte"), "forward", tr("Raststätte")),
+        COFFEE(tr("Café"), "category/coffee"),
+        RESTAURANT(tr("Essen"), "category/restaurant"),
+        GAS(tr("Tanken"), "category/gas_station"),
+        PARK(tr("Park"), "category/park");
 
         companion object {
             /** Raststätte/Tankstelle nur, wenn alle mit dem Auto kommen; sonst Parks */

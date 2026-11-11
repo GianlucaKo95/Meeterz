@@ -1,5 +1,6 @@
 package de.koeven.meeterz.ui
 
+import de.koeven.meeterz.tr
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.LocationOff
 import androidx.activity.compose.BackHandler
@@ -65,65 +66,65 @@ fun FriendsScreen(onClose: () -> Unit) {
     Surface(Modifier.fillMaxSize()) {
         Column(Modifier.statusBarsPadding()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Zurück") }
-                Text("Freunde", style = MaterialTheme.typography.titleLarge)
+                IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Zurück")) }
+                Text(tr("Freunde"), style = MaterialTheme.typography.titleLarge)
             }
             LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 item {
-                    Text("Freund hinzufügen", fontWeight = FontWeight.SemiBold)
+                    Text(tr("Freund hinzufügen"), fontWeight = FontWeight.SemiBold)
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(handle, { handle = it }, label = { Text("Benutzername") }, singleLine = true, modifier = Modifier.weight(1f))
-                        Button(onClick = { scope.launch { if (AppState.sendFriendRequest(handle)) handle = "" } }, enabled = handle.length >= 3) { Text("Anfragen") }
+                        OutlinedTextField(handle, { handle = it }, label = { Text(tr("Benutzername")) }, singleLine = true, modifier = Modifier.weight(1f))
+                        Button(onClick = { scope.launch { if (AppState.sendFriendRequest(handle)) handle = "" } }, enabled = handle.length >= 3) { Text(tr("Anfragen")) }
                     }
                     error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 }
 
                 val incoming = friends.filter { !it.isAccepted && it.incoming }
-                if (incoming.isNotEmpty()) item { Text("Anfragen", fontWeight = FontWeight.SemiBold) }
+                if (incoming.isNotEmpty()) item { Text(tr("Anfragen"), fontWeight = FontWeight.SemiBold) }
                 items(incoming, key = { "in-" + it.friendId }) { row ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(row.displayName, Modifier.weight(1f))
-                        TextButton(onClick = { scope.launch { AppState.respond(row, false) } }) { Text("Ablehnen") }
-                        Button(onClick = { scope.launch { AppState.respond(row, true) } }) { Text("Annehmen") }
+                        TextButton(onClick = { scope.launch { AppState.respond(row, false) } }) { Text(tr("Ablehnen")) }
+                        Button(onClick = { scope.launch { AppState.respond(row, true) } }) { Text(tr("Annehmen")) }
                     }
                 }
 
                 val outgoing = friends.filter { !it.isAccepted && !it.incoming }
                 items(outgoing, key = { "out-" + it.friendId }) { row ->
-                    Text("${row.displayName} – Anfrage gesendet", style = MaterialTheme.typography.bodySmall)
+                    Text(tr("%@ – Anfrage gesendet", row.displayName), style = MaterialTheme.typography.bodySmall)
                 }
 
-                item { Text("Freunde", fontWeight = FontWeight.SemiBold) }
+                item { Text(tr("Freunde"), fontWeight = FontWeight.SemiBold) }
                 val accepted = friends.filter { it.isAccepted }
-                if (accepted.isEmpty()) item { Text("Noch keine Freunde – lade jemanden über den Benutzernamen ein.", style = MaterialTheme.typography.bodySmall) }
+                if (accepted.isEmpty()) item { Text(tr("Noch keine Freunde – lade jemanden über den Benutzernamen ein."), style = MaterialTheme.typography.bodySmall) }
                 items(accepted, key = { it.friendId }) { row ->
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Avatar(row.friendId, row.displayName)
                         Column(Modifier.weight(1f)) {
                             Text(row.displayName)
-                            Text(listOfNotNull("@${row.handle}", "sieht dich nicht".takeIf { row.friendId in hiddenFrom },
-                                "auf deiner Karte aus".takeIf { row.friendId in hiddenForMe }).joinToString(" · "),
+                            Text(listOfNotNull("@${row.handle}", tr("sieht dich nicht").takeIf { row.friendId in hiddenFrom },
+                                tr("auf deiner Karte aus").takeIf { row.friendId in hiddenForMe }).joinToString(" · "),
                                 style = MaterialTheme.typography.bodySmall)
                         }
                         // Nur auf meiner Karte ausblenden – Teilen läuft in beide Richtungen weiter (iOS: Freund-Ansicht)
                         val offMap = row.friendId in hiddenForMe
                         IconButton(onClick = { de.koeven.meeterz.social.Passengers.setHiddenForMe(row.friendId, !offMap) }) {
                             Icon(if (offMap) Icons.Default.LocationOff else Icons.Default.LocationOn,
-                                if (offMap) "Auf meiner Karte ausgeblendet" else "Auf meiner Karte sichtbar")
+                                if (offMap) tr("Auf meiner Karte ausgeblendet") else tr("Auf meiner Karte sichtbar"))
                         }
                         // Standort und Routen vor diesem Freund verbergen (iOS: Freund-Ansicht)
                         val hidden = row.friendId in hiddenFrom
                         IconButton(onClick = { scope.launch { AppState.setHidden(row.friendId, !hidden) } }) {
                             Icon(if (hidden) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                if (hidden) "Für ihn verborgen" else "Sieht dich")
+                                if (hidden) tr("Für ihn verborgen") else tr("Sieht dich"))
                         }
                         // Sound-Pack je Freund stumm schalten (iOS: in der Freund-Ansicht)
                         val muted = mutedVersion >= 0 && de.koeven.meeterz.sound.SoundStore.isMuted(row.friendId)
                         IconButton(onClick = { de.koeven.meeterz.sound.SoundStore.setMuted(row.friendId, !muted); mutedVersion++ }) {
                             Icon(if (muted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
-                                if (muted) "Schnipsel stumm" else "Schnipsel an")
+                                if (muted) tr("Schnipsel stumm") else tr("Schnipsel an"))
                         }
-                        TextButton(onClick = { scope.launch { AppState.removeFriend(row) } }) { Text("Entfernen") }
+                        TextButton(onClick = { scope.launch { AppState.removeFriend(row) } }) { Text(tr("Entfernen")) }
                     }
                 }
 

@@ -1,5 +1,6 @@
 package de.koeven.meeterz.suggest
 
+import de.koeven.meeterz.tr
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
@@ -62,9 +63,9 @@ object RouteSuggestions {
             }
         } else address?.replace("\n", ", ").orEmpty()
         /** „Termin 09:00 · 24 Min. · Ankunft 08:41“ bzw. „Oft um diese Zeit · …“ */
-        val detailText get() = listOf(calendarStart?.let { "Termin ${clock(it)}" } ?: "Oft um diese Zeit", "$minutes Min.", "Ankunft ${clock(arrival)}").joinToString(" · ")
+        val detailText get() = listOf(calendarStart?.let { tr("Termin %@", clock(it)) } ?: tr("Oft um diese Zeit"), tr("%@ Min.", minutes), tr("Ankunft %@", clock(arrival))).joinToString(" · ")
         /** „24 Min. · Termin 09:00“ bzw. „24 Min. · Ankunft 08:12“ */
-        val subtitle get() = "$minutes Min. · " + (calendarStart?.let { "Termin ${clock(it)}" } ?: "Ankunft ${clock(arrival)}")
+        val subtitle get() = tr("%@ Min. · ", minutes) + (calendarStart?.let { tr("Termin %@", clock(it)) } ?: tr("Ankunft %@", clock(arrival)))
     }
 
     private val _current = MutableStateFlow<Suggestion?>(null)
@@ -112,7 +113,7 @@ object RouteSuggestions {
             val spot = FrequentPlaces.likely(System.currentTimeMillis(), here.latitude, here.longitude) ?: return null
             if (isDismissed(spot.id)) return null
             val travel = Directions.duration(here.latitude, here.longitude, spot.lat, spot.lng) ?: return null
-            return Suggestion(spot.id, spot.name ?: "Häufiger Ort", null, spot.lat, spot.lng, null, null, travel)
+            return Suggestion(spot.id, spot.name ?: tr("Häufiger Ort"), null, spot.lat, spot.lng, null, null, travel)
         }
         return null
     }

@@ -1,5 +1,6 @@
 package de.koeven.meeterz.data
 
+import de.koeven.meeterz.tr
 import android.location.Location
 import de.koeven.meeterz.AppState
 import de.koeven.meeterz.live.PushService
@@ -87,9 +88,9 @@ class MessagesStore {
 
         /** Vorgefertigte Antworten – mit Ankunftszeit, wenn gerade navigiert wird (Texte wie iOS) */
         fun quickReplies(etaMillis: Long?): List<String> = buildList {
-            etaMillis?.let { add("Bin um ${DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(it))} da") }
-            addAll(listOf("Bin gleich da", "Bin unterwegs", "Komme ca. 10 Min. später", "Stehe im Stau",
-                "Bin da – wo seid ihr?", "Fangt schon ohne mich an", "Alles klar 👍"))
+            etaMillis?.let { add(tr("Bin um %@ da", DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(it)))) }
+            addAll(listOf(tr("Bin gleich da"), tr("Bin unterwegs"), tr("Komme ca. 10 Min. später"), tr("Stehe im Stau"),
+                tr("Bin da – wo seid ihr?"), tr("Fangt schon ohne mich an"), tr("Alles klar 👍")))
         }
 
         /**

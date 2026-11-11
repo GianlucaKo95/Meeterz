@@ -52,6 +52,17 @@ class VehicleStore {
     private val _status = MutableStateFlow<VehicleStatus?>(null)
     val status: StateFlow<VehicleStatus?> = _status
 
+    private var feed: de.koeven.meeterz.live.RealtimeFeed? = null
+
+    /** Live-Kanal auf vehicle_status (wie iOS) statt Abfragen im 30-s-Takt */
+    fun start(scope: kotlinx.coroutines.CoroutineScope, userId: String) {
+        if (feed != null) return
+        feed = de.koeven.meeterz.live.RealtimeFeed(scope, "vehicle-$userId", "vehicle_status", "user_id", userId) { refresh(userId) }
+            .also { it.start() }
+    }
+
+    fun stop() { feed?.stop(); feed = null; _status.value = null }
+
     suspend fun refresh(userId: String) {
         runCatching {
             Backend.client.from("vehicle_status").select { filter { eq("user_id", userId) } }.decodeList<VehicleStatus>()

@@ -1,5 +1,6 @@
 package de.koeven.meeterz.ev
 
+import de.koeven.meeterz.tr
 import de.koeven.meeterz.Diag
 import android.content.Context
 import com.mapbox.navigation.base.trip.model.RouteProgress
@@ -100,7 +101,7 @@ object ChargeMonitor {
         val (end, last) = legEnd(progress)
         val arrival = now - pct(p.energy(traveled, end))
         val limit = if (last) EvSettings.arrivalPercent else EvSettings.minAtChargerPercent
-        _forecast.value = Forecast(if (last) "Ziel" else "Stopp", arrival, arrival < limit, live != null)
+        _forecast.value = Forecast(if (last) tr("Ziel") else tr("Stopp"), arrival, arrival < limit, live != null)
     }
 
     private suspend fun check(context: Context) {
@@ -120,7 +121,7 @@ object ChargeMonitor {
 
         val message = when (result) {
             is ChargePlanner.Outcome.Unreachable ->
-                Suggestion("Akku reicht nicht bis zum Ziel", "Reichweite ca. ${result.reachKm.toInt()} km", null)
+                Suggestion(tr("Akku reicht nicht bis zum Ziel"), tr("Reichweite ca. %@ km", result.reachKm.toInt()), null)
             is ChargePlanner.Outcome.Planned -> {
                 val plan = result.plan
                 val matches = plan.stops.size == upcoming.size && plan.stops.zip(upcoming).all { (s, u) ->
@@ -128,9 +129,9 @@ object ChargeMonitor {
                 }
                 when {
                     matches || (plan.direct && upcoming.isEmpty()) -> null
-                    plan.direct -> Suggestion("Ladestopp nicht mehr nötig", "Ankunft mit ${Math.round(plan.arrivalPercent)} % auch ohne Laden", plan)
-                    else -> Suggestion("Neuer Ladeplan: ${plan.summary}",
-                        "Nächster Stopp: ${plan.stops[0].site.title} in ${(plan.stops[0].distanceFromStart / 1000).toInt()} km", plan)
+                    plan.direct -> Suggestion(tr("Ladestopp nicht mehr nötig"), tr("Ankunft mit %@ % auch ohne Laden", Math.round(plan.arrivalPercent)), plan)
+                    else -> Suggestion(tr("Neuer Ladeplan: %@", plan.summary),
+                        tr("Nächster Stopp: %@ in %lld km", plan.stops[0].site.title, (plan.stops[0].distanceFromStart / 1000).toInt()), plan)
                 }
             }
         } ?: return

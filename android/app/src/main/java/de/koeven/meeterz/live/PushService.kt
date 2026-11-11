@@ -1,5 +1,6 @@
 package de.koeven.meeterz.live
 
+import de.koeven.meeterz.tr
 import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -37,7 +38,7 @@ class PushService : FirebaseMessagingService() {
         when (message.data["kind"]) {
             // Freund hat die Karte offen und möchte meine aktuelle Position
             "locate" -> sendLocationOnce(this)
-            else -> message.notification?.let { show(this, it.title ?: "Meeterz", it.body ?: "") }
+            else -> message.notification?.let { show(this, it.title ?: tr("Meeterz"), it.body ?: "") }
         }
         // Neue Anfrage, Nachricht o. Ä.: gleich aktualisieren
         AppState.scope.launch {
@@ -103,7 +104,7 @@ class PushService : FirebaseMessagingService() {
         fun show(context: Context, title: String, body: String) {
             val manager = context.getSystemService(NotificationManager::class.java)
             if (Build.VERSION.SDK_INT >= 26 && manager.getNotificationChannel(CHANNEL) == null) {
-                manager.createNotificationChannel(NotificationChannel(CHANNEL, "Freunde und Treffen", NotificationManager.IMPORTANCE_HIGH))
+                manager.createNotificationChannel(NotificationChannel(CHANNEL, tr("Freunde und Treffen"), NotificationManager.IMPORTANCE_HIGH))
             }
             val open = PendingIntent.getActivity(context, 0, Intent(context, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
             manager.notify(System.currentTimeMillis().toInt(), NotificationCompat.Builder(context, CHANNEL)

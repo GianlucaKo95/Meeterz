@@ -1,5 +1,6 @@
 package de.koeven.meeterz.ui
 
+import de.koeven.meeterz.tr
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -56,6 +57,6 @@ fun AvatarEditor(p: Profile) {
         Box(Modifier.clickable(enabled = !busy) {
             picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
         }) { Avatar(p.id, p.displayName, 64.dp) }
-        if ((p.avatarVersion ?: 0) > 0) TextButton(enabled = !busy, onClick = { scope.launch { AvatarStore.removeMine() } }) { Text("Entfernen") }
+        if ((p.avatarVersion ?: 0) > 0) TextButton(enabled = !busy, onClick = { scope.launch { AvatarStore.removeMine() } }) { Text(tr("Entfernen")) }
     }
 }

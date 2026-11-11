@@ -1,5 +1,6 @@
 package de.koeven.meeterz.car
 
+import de.koeven.meeterz.tr
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -51,11 +52,11 @@ class MeeterzCarSession : Session() {
         }
         val alert = Alert.Builder(1, CarText.create(sg.title), 20_000)
             .setSubtitle(CarText.create(sg.subtitle))
-            .addAction(Action.Builder().setTitle("Übernehmen").setOnClickListener {
+            .addAction(Action.Builder().setTitle(tr("Übernehmen")).setOnClickListener {
                 carContext.getCarService(AppManager::class.java).dismissAlert(1)
                 AppState.scope.launch { ChargeMonitor.adopt(carContext, plan) }
             }.build())
-            .addAction(Action.Builder().setTitle("Nein").setOnClickListener {
+            .addAction(Action.Builder().setTitle(tr("Nein")).setOnClickListener {
                 carContext.getCarService(AppManager::class.java).dismissAlert(1)
             }.build())
             .build()
@@ -71,13 +72,13 @@ class MeeterzCarSession : Session() {
             return
         }
         val manager = carContext.getCarService(AppManager::class.java)
-        val alert = Alert.Builder(3, CarText.create("Nach ${s.title}?"), 15_000)
+        val alert = Alert.Builder(3, CarText.create(tr("Nach %@?", s.title)), 15_000)
             .setSubtitle(CarText.create(listOf(s.destinationText, s.detailText).filter { it.isNotEmpty() }.joinToString(" · ")))
-            .addAction(Action.Builder().setTitle("Los").setOnClickListener {
+            .addAction(Action.Builder().setTitle(tr("Los")).setOnClickListener {
                 manager.dismissAlert(3)
                 carNavigateTo(carContext, s.name.ifEmpty { s.title }, s.lat, s.lng)
             }.build())
-            .addAction(Action.Builder().setTitle("Nein").setOnClickListener {
+            .addAction(Action.Builder().setTitle(tr("Nein")).setOnClickListener {
                 manager.dismissAlert(3); de.koeven.meeterz.suggest.RouteSuggestions.dismissCurrent()
             }.build())
             .build()
@@ -90,12 +91,12 @@ class MeeterzCarSession : Session() {
         if (carContext.carAppApiLevel < CarAppApiLevels.LEVEL_5) return false
         Diag.log("Mitfahrer-Frage: ${f.displayName}")
         val manager = carContext.getCarService(AppManager::class.java)
-        val alert = Alert.Builder(2, CarText.create("Fährt ${f.firstName} bei dir mit?"), 20_000)
-            .setSubtitle(CarText.create("Dann blende ich ${f.firstName} für diese Fahrt aus"))
-            .addAction(Action.Builder().setTitle("Ja, ausblenden").setOnClickListener {
+        val alert = Alert.Builder(2, CarText.create(tr("Fährt %@ bei dir mit?", f.firstName)), 20_000)
+            .setSubtitle(CarText.create(tr("Dann blende ich %@ für diese Fahrt aus", f.firstName)))
+            .addAction(Action.Builder().setTitle(tr("Ja, ausblenden")).setOnClickListener {
                 manager.dismissAlert(2); de.koeven.meeterz.social.Passengers.setRiding(f.friendId, true)
             }.build())
-            .addAction(Action.Builder().setTitle("Nein").setOnClickListener { manager.dismissAlert(2) }.build())
+            .addAction(Action.Builder().setTitle(tr("Nein")).setOnClickListener { manager.dismissAlert(2) }.build())
             .build()
         manager.showAlert(alert)
         return true
@@ -149,7 +150,7 @@ class MeeterzCarSession : Session() {
                     if (de.koeven.meeterz.sound.SoundMoments.lateRecentlyNotified(m.otherId)) return@collect
                     de.koeven.meeterz.sound.SoundMoments.noteLateNotified(m.otherId)
                 }
-                NavigationController.announce("${m.firstName} schreibt: ${m.body}")
+                NavigationController.announce(tr("%@ schreibt: %@", m.firstName, m.body))
             }
         }
         // Sound-Pack-Momente: kurzer Hinweis (CarPlay: friendNotice)

@@ -1,5 +1,6 @@
 package de.koeven.meeterz.ui
 
+import de.koeven.meeterz.tr
 import androidx.compose.material.icons.filled.AddLocationAlt
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.graphics.asImageBitmap
@@ -218,9 +219,9 @@ fun MapScreen() {
                 title = { Text(sg.title) },
                 text = { Text(sg.subtitle) },
                 confirmButton = {
-                    sg.plan?.let { plan -> TextButton(onClick = { suggestion = null; scope.launch { ChargeMonitor.adopt(context, plan) } }) { Text("Übernehmen") } }
+                    sg.plan?.let { plan -> TextButton(onClick = { suggestion = null; scope.launch { ChargeMonitor.adopt(context, plan) } }) { Text(tr("Übernehmen")) } }
                 },
-                dismissButton = { TextButton(onClick = { suggestion = null }) { Text(if (sg.plan == null) "OK" else "Nein") } },
+                dismissButton = { TextButton(onClick = { suggestion = null }) { Text(if (sg.plan == null) "OK" else tr("Nein")) } },
             )
         }
         // Verkehrsmeldungen voraus (vorgelesen wird in IncidentWatcher)
@@ -238,7 +239,7 @@ fun MapScreen() {
             parked?.let { p ->
                 parkedManager.create(PointAnnotationOptions().withPoint(Point.fromLngLat(p.lng, p.lat))
                     .withIconImage(initialsBubble("🚗"))
-                    .withTextField("Dein Auto · ${clockAt(java.time.Instant.ofEpochMilli(p.at))}")
+                    .withTextField(tr("Dein Auto · %@", clockAt(java.time.Instant.ofEpochMilli(p.at))))
                     .withTextOffset(listOf(0.0, 2.2)).withTextSize(12.0))
             }
             parkedManager.addClickListener { parkedMenu = true; true }
@@ -246,8 +247,8 @@ fun MapScreen() {
         if (parkedMenu) parked?.let { p ->
             AlertDialog(
                 onDismissRequest = { parkedMenu = false },
-                title = { Text("Dein Auto") },
-                text = { Text("Geparkt um ${clockAt(java.time.Instant.ofEpochMilli(p.at))}") },
+                title = { Text(tr("Dein Auto")) },
+                text = { Text(tr("Geparkt um %@", clockAt(java.time.Instant.ofEpochMilli(p.at)))) },
                 confirmButton = { TextButton(onClick = {
                     parkedMenu = false
                     // Zu Fuß: Meeterz führt nur mit dem Auto – darum die Karten-App mit Fußweg
@@ -255,8 +256,8 @@ fun MapScreen() {
                     runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, uri)) }.onFailure {
                         context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("geo:${p.lat},${p.lng}?q=${p.lat},${p.lng}(Dein Auto)")))
                     }
-                }) { Text("Zu Fuß hinführen") } },
-                dismissButton = { TextButton(onClick = { parkedMenu = false; de.koeven.meeterz.suggest.Parking.clear() }) { Text("Parkplatz vergessen") } },
+                }) { Text(tr("Zu Fuß hinführen")) } },
+                dismissButton = { TextButton(onClick = { parkedMenu = false; de.koeven.meeterz.suggest.Parking.clear() }) { Text(tr("Parkplatz vergessen")) } },
             )
         }
         val charging by ChargingSession.view.collectAsState()
@@ -277,9 +278,9 @@ fun MapScreen() {
                 Surface(shape = RoundedCornerShape(16.dp), shadowElevation = 4.dp) {
                     TextField(
                         value = query, onValueChange = { query = it; preview = null },
-                        placeholder = { Text("Ziel oder Adresse suchen") },
+                        placeholder = { Text(tr("Ziel oder Adresse suchen")) },
                         leadingIcon = { Icon(Icons.Default.Search, null) },
-                        trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = ""; results = emptyList() }) { Icon(Icons.Default.Close, "Leeren") } },
+                        trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = ""; results = emptyList() }) { Icon(Icons.Default.Close, tr("Leeren")) } },
                         singleLine = true,
                         colors = TextFieldDefaults.colors(focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent),
                         modifier = Modifier.fillMaxWidth(),
@@ -297,9 +298,9 @@ fun MapScreen() {
                                     Modifier.padding(horizontal = 10.dp, vertical = 6.dp), fontWeight = FontWeight.SemiBold)
                             }
                         }
-                        FilledTonalIconButton(onClick = { showSettings = true }) { Icon(Icons.Default.Settings, "Einstellungen") }
-                        FilledTonalIconButton(onClick = { showMeetups = true }) { Icon(Icons.Default.Event, "Treffen") }
-                        FilledTonalIconButton(onClick = { showFriends = true }) { Icon(Icons.Default.People, "Freunde") }
+                        FilledTonalIconButton(onClick = { showSettings = true }) { Icon(Icons.Default.Settings, tr("Einstellungen")) }
+                        FilledTonalIconButton(onClick = { showMeetups = true }) { Icon(Icons.Default.Event, tr("Treffen")) }
+                        FilledTonalIconButton(onClick = { showFriends = true }) { Icon(Icons.Default.People, tr("Freunde")) }
                     }
                     StatusPill()
                 }
@@ -347,7 +348,7 @@ private fun PreviewCard(dest: NavigationController.Destination, routes: List<Nav
     Surface(modifier.fillMaxWidth().navigationBarsPadding().padding(12.dp), shape = RoundedCornerShape(20.dp), shadowElevation = 6.dp) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(dest.name, style = MaterialTheme.typography.titleMedium)
-            Text("${minutes(r.duration())} · ${km(r.distance())} · Ankunft ${clock(r.duration())}")
+            Text(tr("%@ · %@ · Ankunft %@", minutes(r.duration()), km(r.distance()), clock(r.duration())))
             // Bis zu drei Routen zur Wahl (Schnellste, Kürzeste, Ohne Autobahn) – wie die Routenwahl auf iOS
             if (routes.size > 1) Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 routes.forEachIndexed { i, route ->
@@ -356,19 +357,19 @@ private fun PreviewCard(dest: NavigationController.Destination, routes: List<Nav
                     })
                 }
             }
-            de.koeven.meeterz.nav.RoutePreferences.summary?.let { Text("Route $it", style = MaterialTheme.typography.bodySmall) }
+            de.koeven.meeterz.nav.RoutePreferences.summary?.let { Text(tr("Route %@", it), style = MaterialTheme.typography.bodySmall) }
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AssistChip(onClick = onInvite, label = { Text("Freunde einladen") })
+                AssistChip(onClick = onInvite, label = { Text(tr("Freunde einladen")) })
                 if (!saved) {
-                    AssistChip(onClick = { onSave("home", "Zuhause"); saved = true }, label = { Text("Als Zuhause") })
-                    AssistChip(onClick = { onSave("work", "Arbeit"); saved = true }, label = { Text("Als Arbeit") })
-                    AssistChip(onClick = { onSave("other", dest.name); saved = true }, label = { Text("Merken") })
+                    AssistChip(onClick = { onSave("home", tr("Zuhause")); saved = true }, label = { Text(tr("Als Zuhause")) })
+                    AssistChip(onClick = { onSave("work", tr("Arbeit")); saved = true }, label = { Text(tr("Als Arbeit")) })
+                    AssistChip(onClick = { onSave("other", dest.name); saved = true }, label = { Text(tr("Merken")) })
                 }
             }
             charge()
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(onClick = onCancel) { Text("Abbrechen") }
-                Button(onClick = onStart, modifier = Modifier.weight(1f)) { Text("Los") }
+                OutlinedButton(onClick = onCancel) { Text(tr("Abbrechen")) }
+                Button(onClick = onStart, modifier = Modifier.weight(1f)) { Text(tr("Los")) }
             }
         }
     }
@@ -388,7 +389,7 @@ private fun GuidanceBanner(g: NavigationController.Guidance) {
         // Vorfahrt achten / Stopp kurz vor dem Schild (wie RightOfWaySigns auf iOS), am Rand unter der Anzeige
         sign?.let { s ->
             androidx.compose.foundation.Image(de.koeven.meeterz.ui.RoadSigns.bitmap(s.stop).asImageBitmap(),
-                if (s.stop) "Stopp" else "Vorfahrt achten", Modifier.padding(top = 8.dp).size(56.dp))
+                if (s.stop) tr("Stopp") else tr("Vorfahrt achten"), Modifier.padding(top = 8.dp).size(56.dp))
         }
     }
 }
@@ -403,19 +404,19 @@ private fun GuidanceBar(g: NavigationController.Guidance, modifier: Modifier) {
     Surface(modifier.fillMaxWidth().navigationBarsPadding().padding(12.dp), shape = RoundedCornerShape(20.dp), shadowElevation = 6.dp) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("Ankunft ${clock(g.remainingSeconds)}", fontWeight = FontWeight.Bold)
+                Text(tr("Ankunft %@", clock(g.remainingSeconds)), fontWeight = FontWeight.Bold)
                 Text("${minutes(g.remainingSeconds)} · ${km(g.remainingDistance)}", style = MaterialTheme.typography.bodySmall)
                 val forecast by ChargeMonitor.forecast.collectAsState()
                 forecast?.let { Text(it.text, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold,
                     color = if (it.low) Color(0xFFD92E36) else MeeterzColors.mintLight) }
             }
-            IconButton(onClick = { showStop = true }) { Icon(Icons.Default.AddLocationAlt, "Zwischenstopp") }
-            IconButton(onClick = { showMessage = true }) { Icon(Icons.AutoMirrored.Filled.Chat, "Bescheid geben") }
+            IconButton(onClick = { showStop = true }) { Icon(Icons.Default.AddLocationAlt, tr("Zwischenstopp")) }
+            IconButton(onClick = { showMessage = true }) { Icon(Icons.AutoMirrored.Filled.Chat, tr("Bescheid geben")) }
             IconButton(onClick = { muted = !muted; NavigationController.muted = muted }) {
-                Icon(if (muted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp, "Ton")
+                Icon(if (muted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp, tr("Ton"))
             }
             Spacer(Modifier.padding(4.dp))
-            Button(onClick = { NavigationController.stop() }) { Text("Beenden") }
+            Button(onClick = { NavigationController.stop() }) { Text(tr("Beenden")) }
         }
     }
 }
@@ -425,15 +426,15 @@ private fun GuidanceBar(g: NavigationController.Guidance, modifier: Modifier) {
 private fun ChargingCard(v: ChargingSession.View, modifier: Modifier) {
     Surface(modifier.padding(24.dp), shape = RoundedCornerShape(20.dp), shadowElevation = 8.dp) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(if (v.done) "Genug geladen" else "Lädt", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(if (v.done) tr("Genug geladen") else tr("Lädt"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Text("${Math.round(v.percent)} % → ${Math.round(v.target)} %", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
             LinearProgressIndicator(progress = { v.progress.toFloat() }, modifier = Modifier.fillMaxWidth())
             Text(listOfNotNull(
                 v.powerKW.takeIf { it > 0 }?.let { "${it.toInt()} kW" },
-                v.remainingSeconds?.takeIf { !v.done }?.let { "noch ${maxOf(1, Math.round(it / 60))} Min." },
+                v.remainingSeconds?.takeIf { !v.done }?.let { tr("noch %@ Min.", maxOf(1, Math.round(it / 60))) },
             ).joinToString(" · "), style = MaterialTheme.typography.bodySmall)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                for (t in listOf(80.0, 90.0, 100.0)) AssistChip(onClick = { ChargingSession.setTarget(t) }, label = { Text("Bis ${t.toInt()} %") })
+                for (t in listOf(80.0, 90.0, 100.0)) AssistChip(onClick = { ChargingSession.setTarget(t) }, label = { Text(tr("Bis %@ %", t.toInt())) })
             }
         }
     }
@@ -452,8 +453,8 @@ private fun MessageDialog(g: NavigationController.Guidance, onDismiss: () -> Uni
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } },
-        title = { Text(if (to.isEmpty()) "Bescheid geben" else "An " + to.joinToString(", ") { it.firstName }) },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Abbrechen")) } },
+        title = { Text(if (to.isEmpty()) tr("Bescheid geben") else tr("An %@", to.joinToString(", ") { it.firstName })) },
         text = {
             LazyColumn(Modifier.heightIn(max = 420.dp)) {
                 if (to.isEmpty()) {
@@ -467,7 +468,7 @@ private fun MessageDialog(g: NavigationController.Guidance, onDismiss: () -> Uni
                             onDismiss()
                             scope.launch {
                                 val sent = AppState.messages.send(text, to.map { it.friendId })
-                                Toast.makeText(context, if (sent > 0) "Gesendet: „$text“" else "Nachricht nicht gesendet", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, if (sent > 0) tr("Gesendet: „%@“", text) else tr("Nachricht nicht gesendet"), Toast.LENGTH_SHORT).show()
                             }
                         }.padding(vertical = 12.dp))
                     }
@@ -479,7 +480,7 @@ private fun MessageDialog(g: NavigationController.Guidance, onDismiss: () -> Uni
 
 private fun minutes(seconds: Double): String {
     val m = maxOf(1, Math.round(seconds / 60).toInt())
-    return if (m < 60) "$m Min" else "${m / 60} Std ${m % 60} Min"
+    return if (m < 60) tr("%lld Min", m) else tr("%lld Std %lld Min", m / 60, m % 60)
 }
 
 /** Wie ActivityFormat.distance auf iOS: unter 100 m auf 10 m, unter 1 km auf 50 m gerundet */
@@ -515,19 +516,19 @@ private fun StatusPill() {
         }
         androidx.compose.material3.DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             if (p.isIncognito) {
-                androidx.compose.material3.DropdownMenuItem(text = { Text("Inkognito beenden") }, onClick = { open = false; scope.launch { AppState.stopIncognito() } })
+                androidx.compose.material3.DropdownMenuItem(text = { Text(tr("Inkognito beenden")) }, onClick = { open = false; scope.launch { AppState.stopIncognito() } })
             } else {
-                for ((label, seconds) in listOf("Inkognito 15 Min." to 15 * 60L, "Inkognito 1 Std." to 3600L, "Inkognito 3 Std." to 3 * 3600L, "Inkognito bis ich es ausschalte" to null)) {
+                for ((label, seconds) in listOf(tr("Inkognito 15 Min.") to 15 * 60L, tr("Inkognito 1 Std.") to 3600L, tr("Inkognito 3 Std.") to 3 * 3600L, tr("Inkognito bis ich es ausschalte") to null)) {
                     androidx.compose.material3.DropdownMenuItem(text = { Text(label) }, onClick = { open = false; scope.launch { AppState.startIncognito(seconds) } })
                 }
             }
             HorizontalDivider()
             for (mode in AppState.SharingMode.entries) {
                 androidx.compose.material3.DropdownMenuItem(
-                    text = { Text("Teilen: ${mode.title}" + if (p.isSharingNow && AppState.sharingMode == mode) " ✓" else "") },
+                    text = { Text(tr("Teilen: %@", mode.title) + if (p.isSharingNow && AppState.sharingMode == mode) " ✓" else "") },
                     onClick = { open = false; scope.launch { AppState.shareLocation(mode) } })
             }
-            if (p.isSharingNow) androidx.compose.material3.DropdownMenuItem(text = { Text("Teilen pausieren") },
+            if (p.isSharingNow) androidx.compose.material3.DropdownMenuItem(text = { Text(tr("Teilen pausieren")) },
                 onClick = { open = false; scope.launch { AppState.setSharing(false) } })
         }
     }
@@ -568,11 +569,11 @@ private fun AddStopDialog(onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } },
-        title = { Text("Zwischenstopp") },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Abbrechen")) } },
+        title = { Text(tr("Zwischenstopp")) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextField(query, { query = it }, placeholder = { Text("Suchen") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                TextField(query, { query = it }, placeholder = { Text(tr("Suchen")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     for (c in listOf(PlaceSearch.Category.GAS, PlaceSearch.Category.REST_AREA, PlaceSearch.Category.COFFEE, PlaceSearch.Category.RESTAURANT)) {
                         FilterChip(selected = query.isBlank() && category == c, onClick = { category = c; query = "" }, label = { Text(c.title) })
@@ -585,7 +586,7 @@ private fun AddStopDialog(onDismiss: () -> Unit) {
                             onDismiss()
                             scope.launch {
                                 val ok = NavigationController.addStop(context, p.name, p.lat, p.lng)
-                                Toast.makeText(context, if (ok) "Stopp: ${p.name}" else "Stopp konnte nicht eingefügt werden", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, if (ok) tr("Stopp: %@", p.name) else tr("Stopp konnte nicht eingefügt werden"), Toast.LENGTH_SHORT).show()
                             }
                         }.padding(vertical = 10.dp)) {
                             Text(p.name, fontWeight = FontWeight.SemiBold)

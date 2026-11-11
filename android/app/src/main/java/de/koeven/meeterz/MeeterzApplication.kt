@@ -9,6 +9,7 @@ import de.koeven.meeterz.nav.NavigationController
 class MeeterzApplication : Application() {
     override fun onCreate() {
         super.onCreate()
+        L10n.init(this)
         MapboxOptions.accessToken = getString(R.string.mapbox_access_token)
         // Eine Navigation für App und Android Auto
         if (!MapboxNavigationApp.isSetup()) MapboxNavigationApp.setup { NavigationOptions.Builder(this).build() }

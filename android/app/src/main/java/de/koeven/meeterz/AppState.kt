@@ -74,6 +74,7 @@ object AppState {
         de.koeven.meeterz.suggest.Recents.load(userId)
         session = scope.launch {
             hub.startPublishing(userId)
+            vehicle.start(scope, userId)
             PushService.registerCurrent(appContext)
             launch { meetups.acceptedByFriend.collect { de.koeven.meeterz.sound.SoundMoments.accepted(it.otherId, it.id) } }
             while (isActive) {
@@ -85,8 +86,6 @@ object AppState {
                 meetups.refresh()
                 de.koeven.meeterz.sound.SoundStore.sync()
                 de.koeven.meeterz.sound.SoundMoments.checkJourneys()
-                // ponytail: Auto alle 30 s abfragen statt Live-Kanal wie auf iOS – reicht für die Anzeige
-                vehicle.refresh(userId)
                 de.koeven.meeterz.suggest.RouteSuggestions.refresh()
                 de.koeven.meeterz.suggest.DepartureReminder.refresh(appContext)
                 de.koeven.meeterz.widget.WidgetSnapshotWriter.update(appContext)
@@ -97,6 +96,7 @@ object AppState {
 
     fun endSession() {
         session?.cancel(); session = null
+        vehicle.stop()
         messages.reset(); meetups.reset()
         de.koeven.meeterz.sound.SoundStore.reset(); de.koeven.meeterz.sound.SoundMoments.reset()
         de.koeven.meeterz.suggest.Recents.reset()
@@ -171,10 +171,10 @@ object AppState {
 
     /** Wie lange teilen (wie SharingMode auf iOS) */
     enum class SharingMode(val title: String, val explanation: String) {
-        FIFTEEN("15 Min.", "Das Teilen endet automatisch nach 15 Minuten."),
-        HOUR("1 Std.", "Das Teilen endet automatisch nach einer Stunde."),
-        UNTIL_ARRIVAL("Bis Ankunft", "Das Teilen endet 15 Minuten nach der Ankunft deiner nächsten Fahrt."),
-        ALWAYS("Immer", "Freunde sehen dich, bis du das Teilen pausierst.");
+        FIFTEEN(tr("15 Min."), tr("Das Teilen endet automatisch nach 15 Minuten.")),
+        HOUR(tr("1 Std."), tr("Das Teilen endet automatisch nach einer Stunde.")),
+        UNTIL_ARRIVAL(tr("Bis Ankunft"), tr("Das Teilen endet 15 Minuten nach der Ankunft deiner nächsten Fahrt.")),
+        ALWAYS(tr("Immer"), tr("Freunde sehen dich, bis du das Teilen pausierst."));
 
         fun until(etaSeconds: Long?): java.time.Instant? = when (this) {
             FIFTEEN -> java.time.Instant.now().plusSeconds(15 * 60)

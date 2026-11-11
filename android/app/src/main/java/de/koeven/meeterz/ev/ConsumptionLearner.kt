@@ -1,5 +1,6 @@
 package de.koeven.meeterz.ev
 
+import de.koeven.meeterz.tr
 import android.content.Context
 import android.content.SharedPreferences
 import de.koeven.meeterz.data.VehicleStatus
@@ -14,7 +15,7 @@ import kotlinx.serialization.json.Json
 object ConsumptionLearner {
     /** Ab so vielen Kilometern in einem Bereich gilt der gelernte Wert */
     const val MIN_KM = 25.0
-    val bandNames = listOf("Stadt", "Landstraße", "Autobahn")
+    val bandNames = listOf(tr("Stadt"), tr("Landstraße"), tr("Autobahn"))
 
     @Serializable
     data class Bucket(val km: Double = 0.0, val measured: Double = 0.0, val modeled: Double = 0.0) {

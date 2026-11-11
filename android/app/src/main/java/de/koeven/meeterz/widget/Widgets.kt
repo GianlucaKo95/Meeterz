@@ -1,5 +1,6 @@
 package de.koeven.meeterz.widget
 
+import de.koeven.meeterz.tr
 import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
@@ -92,7 +93,7 @@ object WidgetSnapshotWriter {
             val p = live[f.friendId] ?: return@mapNotNull null
             val r = routes[f.friendId]
             WidgetSnapshot.Friend(f.firstName, me?.let { ChargePlanner.distance(it.latitude, it.longitude, p.lat, p.lng) },
-                r?.let { route -> route.destinationName?.let { "nach $it" } ?: "unterwegs" }, r?.eta?.epochSecond)
+                r?.let { route -> route.destinationName?.let { tr("nach %@", it) } ?: "unterwegs" }, r?.eta?.epochSecond)
         }.sortedBy { it.distance ?: Double.MAX_VALUE }.take(6)
         val meetup = AppState.meetups.accepted.firstOrNull()?.let { m ->
             val friendEta = routes[m.otherId]?.takeIf { ChargePlanner.distance(it.destLat, it.destLng, m.lat, m.lng) < 300 }?.eta?.epochSecond
@@ -130,9 +131,9 @@ class FriendsWidget : GlanceAppWidget() {
         val s = WidgetSnapshotWriter.read(context)
         provideContent {
             Card {
-                Header("Freunde")
+                Header(tr("Freunde"))
                 Spacer(GlanceModifier.height(6.dp))
-                if (s.friends.isEmpty()) Text("Gerade teilt niemand seinen Standort.", style = TextStyle(color = muted, fontSize = 13.sp))
+                if (s.friends.isEmpty()) Text(tr("Gerade teilt niemand seinen Standort."), style = TextStyle(color = muted, fontSize = 13.sp))
                 for (f in s.friends.take(4)) Row(GlanceModifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(f.name, style = TextStyle(color = white, fontSize = 14.sp, fontWeight = FontWeight.Bold))
                     Text("  " + listOfNotNull(f.distance?.let { km(it) }, f.heading, f.arrival?.let { "an ${clock(it)}" }).joinToString(" · "),
@@ -149,12 +150,12 @@ class MeetupWidget : GlanceAppWidget() {
         val m = WidgetSnapshotWriter.read(context).meetup
         provideContent {
             Card {
-                Header("Treffen")
+                Header(tr("Treffen"))
                 Spacer(GlanceModifier.height(6.dp))
-                if (m == null) Text("Kein Treffen geplant.", style = TextStyle(color = muted, fontSize = 13.sp))
+                if (m == null) Text(tr("Kein Treffen geplant."), style = TextStyle(color = muted, fontSize = 13.sp))
                 else {
                     Text(m.place, style = TextStyle(color = white, fontSize = 17.sp, fontWeight = FontWeight.Bold), maxLines = 2)
-                    Text("mit ${m.with}", style = TextStyle(color = muted, fontSize = 13.sp))
+                    Text(tr("mit %@", m.with), style = TextStyle(color = muted, fontSize = 13.sp))
                     m.friendArrival?.let { Text("${m.with} an ${clock(it)}", style = TextStyle(color = mint, fontSize = 13.sp, fontWeight = FontWeight.Bold)) }
                     m.myArrival?.let { Text("Du an ${clock(it)}", style = TextStyle(color = white, fontSize = 13.sp)) }
                 }
@@ -169,12 +170,12 @@ class SharingWidget : GlanceAppWidget() {
         val s = WidgetSnapshotWriter.read(context)
         provideContent {
             Card {
-                Header("Standort")
+                Header(tr("Standort"))
                 Spacer(GlanceModifier.height(6.dp))
                 val (title, sub) = when {
-                    s.incognito -> "Inkognito" to "Niemand sieht dich"
-                    s.sharing -> "Teilst live" to (s.sharingUntil?.let { "bis ${clock(it)}" } ?: "dauerhaft")
-                    else -> "Pausiert" to "Freunde sehen dich nicht"
+                    s.incognito -> tr("Inkognito") to tr("Niemand sieht dich")
+                    s.sharing -> tr("Teilst live") to (s.sharingUntil?.let { tr("bis %@", clock(it)) } ?: tr("dauerhaft"))
+                    else -> tr("Pausiert") to tr("Freunde sehen dich nicht")
                 }
                 Text(title, style = TextStyle(color = if (s.sharing && !s.incognito) mint else white, fontSize = 18.sp, fontWeight = FontWeight.Bold))
                 Text(sub, style = TextStyle(color = muted, fontSize = 13.sp))
@@ -190,12 +191,12 @@ class SuggestionWidget : GlanceAppWidget() {
         provideContent {
             val open = sg?.let { androidx.glance.appwidget.action.actionStartActivity(MainActivity.planIntent(context, it.name, it.lat, it.lng)) } ?: actionStartActivity<MainActivity>()
             Column(GlanceModifier.fillMaxSize().background(petrol).cornerRadius(20.dp).padding(14.dp).clickable(open)) {
-                Header(if (sg?.calendar == true) "Termin" else "Nächstes Ziel")
+                Header(if (sg?.calendar == true) tr("Termin") else tr("Nächstes Ziel"))
                 Spacer(GlanceModifier.height(6.dp))
-                if (sg == null) Text("Gerade kein Vorschlag.", style = TextStyle(color = muted, fontSize = 13.sp))
+                if (sg == null) Text(tr("Gerade kein Vorschlag."), style = TextStyle(color = muted, fontSize = 13.sp))
                 else {
                     Text(sg.title, style = TextStyle(color = white, fontSize = 17.sp, fontWeight = FontWeight.Bold), maxLines = 2)
-                    Text("${sg.minutes} Min.", style = TextStyle(color = mint, fontSize = 22.sp, fontWeight = FontWeight.Bold))
+                    Text(tr("%@ Min.", sg.minutes), style = TextStyle(color = mint, fontSize = 22.sp, fontWeight = FontWeight.Bold))
                     Text(sg.detail, style = TextStyle(color = muted, fontSize = 12.sp), maxLines = 1)
                 }
             }

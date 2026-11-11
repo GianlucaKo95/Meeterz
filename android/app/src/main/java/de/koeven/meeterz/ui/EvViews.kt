@@ -1,5 +1,6 @@
 package de.koeven.meeterz.ui
 
+import de.koeven.meeterz.tr
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -59,22 +60,22 @@ fun ChargePlanSection(route: NavigationRoute, adopted: ChargePlanner.Plan?, onAd
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         HorizontalDivider()
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Ladeplan", fontWeight = FontWeight.Bold)
+            Text(tr("Ladeplan"), fontWeight = FontWeight.Bold)
             Spacer(Modifier.weight(1f))
             val soc = Math.round(EvSettings.chargePercent)
-            Text(if (EvSettings.liveSoc != null) "Start $soc % (live)" else "Start $soc %", style = MaterialTheme.typography.bodySmall)
+            Text(if (EvSettings.liveSoc != null) tr("Start %@ % (live)", soc) else tr("Start %@ %", soc), style = MaterialTheme.typography.bodySmall)
         }
         if (adopted != null) {
             Text(adopted.summary, fontWeight = FontWeight.SemiBold)
             Stops(adopted)
-            Text("✓ Ladestopps sind in der Route", color = MeeterzColors.mintLight, style = MaterialTheme.typography.bodySmall)
+            Text(tr("✓ Ladestopps sind in der Route"), color = MeeterzColors.mintLight, style = MaterialTheme.typography.bodySmall)
         } else when (val o = outcome) {
             null -> if (loading) Row(verticalAlignment = Alignment.CenterVertically) {
-                CircularProgressIndicator(Modifier.padding(end = 8.dp).size(16.dp), strokeWidth = 2.dp); Text("Berechne …")
+                CircularProgressIndicator(Modifier.padding(end = 8.dp).size(16.dp), strokeWidth = 2.dp); Text(tr("Berechne …"))
             }
             is ChargePlanner.Outcome.Unreachable -> Text(
-                "Mit den Ladesäulen entlang der Route nicht planbar (Reichweite ca. ${o.reachKm.toInt()} km). " +
-                    "Meeterz kennt Schnelllader in Deutschland, den Nachbarländern und Italien.",
+                tr("Mit den Ladesäulen entlang der Route nicht planbar (Reichweite ca. %@ km). ", o.reachKm.toInt()) +
+                    tr("Meeterz kennt Schnelllader in Deutschland, den Nachbarländern und Italien."),
                 style = MaterialTheme.typography.bodySmall)
             is ChargePlanner.Outcome.Planned -> {
                 Text(o.plan.summary, fontWeight = FontWeight.SemiBold)
@@ -83,7 +84,7 @@ fun ChargePlanSection(route: NavigationRoute, adopted: ChargePlanner.Plan?, onAd
                     FilledTonalButton(enabled = !adopting, onClick = {
                         adopting = true
                         scope.launch { onAdopt(o.plan); adopting = false }
-                    }) { Text(if (adopting) "Übernehme …" else "Ladestopps übernehmen") }
+                    }) { Text(if (adopting) tr("Übernehme …") else tr("Ladestopps übernehmen")) }
                 }
             }
         }
@@ -102,7 +103,7 @@ private fun Stops(plan: ChargePlanner.Plan) {
                     Text(listOfNotNull(a.text, a.priceText).joinToString(" · "), style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.SemiBold, color = if (a.free > 0) MeeterzColors.mintLight else androidx.compose.ui.graphics.Color(0xFFD92E36))
                 }
-                Text("${ChargeSiteText.power(s.site)} · ${Math.round(s.arrivalPercent)} → ${Math.round(s.departurePercent)} % · ${Math.round(s.chargeTime / 60)} Min.",
+                Text(tr("%@ · %@ → %@ % · %@ Min.", ChargeSiteText.power(s.site), Math.round(s.arrivalPercent), Math.round(s.departurePercent), Math.round(s.chargeTime / 60)),
                     style = MaterialTheme.typography.bodySmall)
             }
         }
@@ -110,7 +111,7 @@ private fun Stops(plan: ChargePlanner.Plan) {
 }
 
 object ChargeSiteText {
-    fun power(site: de.koeven.meeterz.ev.ChargeSite) = if (site.powerKnown) "${site.maxKW.toInt()} kW" else "Leistung unbekannt"
+    fun power(site: de.koeven.meeterz.ev.ChargeSite) = if (site.powerKnown) "${site.maxKW.toInt()} kW" else tr("Leistung unbekannt")
 }
 
 /** E-Auto einstellen: an/aus, Fahrzeug aus dem Katalog, Ziel-Akkustand, Akkustand ohne Live-Daten */
@@ -133,18 +134,18 @@ fun EvSettingsDialog(onClose: () -> Unit) {
                 EvSettings.arrivalPercent = arrival.toDouble(); EvSettings.minAtChargerPercent = minCharger.toDouble()
                 EvSettings.manualPercent = manual.toDouble()
                 onClose()
-            }) { Text("Fertig") }
+            }) { Text(tr("Fertig")) }
         },
-        dismissButton = { TextButton(onClick = onClose) { Text("Abbrechen") } },
-        title = { Text("E-Auto") },
+        dismissButton = { TextButton(onClick = onClose) { Text(tr("Abbrechen")) } },
+        title = { Text(tr("E-Auto")) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Ladeplanung", Modifier.weight(1f)); Switch(enabled, { enabled = it })
+                    Text(tr("Ladeplanung"), Modifier.weight(1f)); Switch(enabled, { enabled = it })
                 }
                 if (enabled) {
                     if (picking || vehicle == null) {
-                        OutlinedTextField(search, { search = it }, label = { Text("Fahrzeug suchen") }, singleLine = true)
+                        OutlinedTextField(search, { search = it }, label = { Text(tr("Fahrzeug suchen")) }, singleLine = true)
                         val matches = all.filter { v -> search.split(" ").filter { it.isNotBlank() }.all { v.fullName.contains(it, ignoreCase = true) } }
                         LazyColumn(Modifier.heightIn(max = 260.dp)) {
                             items(matches.take(60), key = EvVehicle::id) { v ->
@@ -158,18 +159,18 @@ fun EvSettingsDialog(onClose: () -> Unit) {
                     } else {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(vehicle!!.fullName, Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
-                            TextButton(onClick = { picking = true }) { Text("Ändern") }
+                            TextButton(onClick = { picking = true }) { Text(tr("Ändern")) }
                         }
                     }
-                    Text("Ankunft mit mindestens ${arrival.toInt()} %")
+                    Text(tr("Ankunft mit mindestens %@ %", arrival.toInt()))
                     Slider(arrival, { arrival = Math.round(it).toFloat() }, valueRange = 5f..60f)
-                    Text("An der Ladesäule mindestens ${minCharger.toInt()} %")
+                    Text(tr("An der Ladesäule mindestens %@ %", minCharger.toInt()))
                     Slider(minCharger, { minCharger = Math.round(it).toFloat() }, valueRange = 3f..30f)
                     if (EvSettings.liveSoc == null) {
-                        Text("Akkustand jetzt ${manual.toInt()} % (ohne Live-Daten vom Auto)")
+                        Text(tr("Akkustand jetzt %@ % (ohne Live-Daten vom Auto)", manual.toInt()))
                         Slider(manual, { manual = Math.round(it).toFloat() }, valueRange = 5f..100f)
                     } else {
-                        Text("Akkustand ${Math.round(EvSettings.liveSoc!!)} % live vom Auto", style = MaterialTheme.typography.bodySmall)
+                        Text(tr("Akkustand %@ % live vom Auto", Math.round(EvSettings.liveSoc!!)), style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }

@@ -1,5 +1,6 @@
 package de.koeven.meeterz.suggest
 
+import de.koeven.meeterz.tr
 import android.content.Context
 import android.location.Location
 import de.koeven.meeterz.AppState
@@ -61,7 +62,7 @@ object Parking {
     fun save(loc: Location?, source: String) {
         if (!enabled || loc == null) return
         val now = System.currentTimeMillis()
-        _spot.value?.let { if (now - it.at < 600_000 && ChargePlanner.distance(it.lat, it.lng, loc.latitude, loc.longitude) < 150 && source != "Auto") return }
+        _spot.value?.let { if (now - it.at < 600_000 && ChargePlanner.distance(it.lat, it.lng, loc.latitude, loc.longitude) < 150 && source != tr("Auto")) return }
         if (now - loc.time > 5 * 60_000 || (loc.hasAccuracy() && loc.accuracy >= 100)) { Diag.log("Parkplatz nicht gemerkt: Standort zu alt oder ungenau"); return }
         _spot.value = Spot(loc.latitude, loc.longitude, now)
         prefs()?.edit()?.putString("parking.spot", json.encodeToString(_spot.value))?.apply()
@@ -78,7 +79,7 @@ object Parking {
         if (!enabled || !parked || before != false || status.ageSeconds > 15 * 60) return
         val lat = status.lat ?: return; val lng = status.lng ?: return
         Diag.log("Parken erkannt (Auto meldet „geparkt“)")
-        save(Location("vehicle").apply { latitude = lat; longitude = lng; accuracy = 10f; time = status.measuredAt * 1000 }, "Auto")
+        save(Location("vehicle").apply { latitude = lat; longitude = lng; accuracy = 10f; time = status.measuredAt * 1000 }, tr("Auto"))
     }
 }
 

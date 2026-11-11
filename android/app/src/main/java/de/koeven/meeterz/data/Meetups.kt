@@ -1,5 +1,6 @@
 package de.koeven.meeterz.data
 
+import de.koeven.meeterz.tr
 import de.koeven.meeterz.Diag
 import android.location.Location
 import de.koeven.meeterz.AppState
@@ -37,7 +38,7 @@ data class Meetup(
     val isPending get() = status == "pending"
     val isGroup get() = groupId != null
     /** „Mit Lisa“ bzw. bei Gruppen „Mit Lisa und 2 weiteren“ */
-    val withText get() = if (isGroup && (groupSize ?: 2) > 2) "$otherName und ${(groupSize ?: 3) - 2} weiteren" else otherName
+    val withText get() = if (isGroup && (groupSize ?: 2) > 2) tr("%@ und %lld weiteren", otherName, (groupSize ?: 3) - 2) else otherName
     val isAccepted get() = status == "accepted"
     /** Verabredete Uhrzeit (Unix-Sekunden), null = „jetzt“ */
     val meetAtSeconds: Long? get() = meetAt?.let { runCatching { Instant.parse(it).epochSecond }.getOrNull() }
@@ -199,7 +200,7 @@ class MeetupsStore {
             announcedArrival[m.id] = etaSeconds
             val minutes = Math.round(late / 60.0)
             val at = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(etaSeconds * 1000))
-            AppState.messages.send("Ich komme ca. $minutes Min. später – neue Ankunft $at", partners(m), m.id, automatic = true)
+            AppState.messages.send(tr("Ich komme ca. %lld Min. später – neue Ankunft %@", minutes, at), partners(m), m.id, automatic = true)
             Diag.log("Verspätung gemeldet: +$minutes Min.")
         }
     }

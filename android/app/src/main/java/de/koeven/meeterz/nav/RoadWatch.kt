@@ -1,5 +1,6 @@
 package de.koeven.meeterz.nav
 
+import de.koeven.meeterz.tr
 import com.mapbox.navigation.base.trip.model.RouteProgress
 import com.mapbox.navigation.base.trip.model.roadobject.incident.Incident
 import com.mapbox.navigation.base.trip.model.roadobject.incident.IncidentImpact
@@ -43,7 +44,7 @@ object IncidentWatcher {
             val title = "${message.title} in ${km(distance)}"
             Diag.log("Verkehrsmeldung: $title${message.subtitle?.let { " – $it" } ?: ""}")
             _alerts.tryEmit(Alert(title, message.subtitle))
-            NavigationController.announce("Achtung, ${message.title} in ${spoken(distance)}.")
+            NavigationController.announce(tr("Achtung, %@ in %@.", message.title, if (de.koeven.meeterz.L10n.language == "de") spoken(distance) else km(distance)))
             return   // höchstens eine Meldung auf einmal
         }
     }
@@ -51,16 +52,16 @@ object IncidentWatcher {
     private fun message(info: com.mapbox.navigation.base.trip.model.roadobject.incident.IncidentInfo, length: Double?): Message? {
         val road = info.affectedRoadNames?.firstOrNull()
         val lanes = info.lanesBlocked.size
-        val lengthText = length?.takeIf { it > 300 }?.let { "${km(it)} lang" }
+        val lengthText = length?.takeIf { it > 300 }?.let { tr("%@ lang", km(it)) }
         val severe = info.impact == IncidentImpact.MAJOR || info.impact == IncidentImpact.CRITICAL
-        if (info.isClosed || info.type == IncidentType.ROAD_CLOSURE) return Message("Sperrung", road?.let { "$it gesperrt" } ?: "Straße gesperrt", true)
+        if (info.isClosed || info.type == IncidentType.ROAD_CLOSURE) return Message(tr("Sperrung"), road?.let { tr("%@ gesperrt", it) } ?: tr("Straße gesperrt"), true)
         return when (info.type) {
-            IncidentType.ACCIDENT -> Message("Unfall", if (lanes > 0) "$lanes Fahrstreifen blockiert" else road, false)
-            IncidentType.DISABLED_VEHICLE -> Message("Liegengebliebenes Fahrzeug", road, false)
-            IncidentType.ROAD_HAZARD -> Message("Gefahr auf der Fahrbahn", road, false)
-            IncidentType.CONGESTION -> if (severe) Message("Stau", listOfNotNull(lengthText, road).joinToString(" · ").ifEmpty { null }, false) else null
-            IncidentType.CONSTRUCTION -> if (lanes > 0 || severe) Message("Baustelle", if (lanes > 0) "$lanes Fahrstreifen gesperrt" else road, false) else null
-            IncidentType.WEATHER -> if (severe) Message("Wettergefahr", road, false) else null
+            IncidentType.ACCIDENT -> Message(tr("Unfall"), if (lanes > 0) tr("%lld Fahrstreifen blockiert", lanes) else road, false)
+            IncidentType.DISABLED_VEHICLE -> Message(tr("Liegengebliebenes Fahrzeug"), road, false)
+            IncidentType.ROAD_HAZARD -> Message(tr("Gefahr auf der Fahrbahn"), road, false)
+            IncidentType.CONGESTION -> if (severe) Message(tr("Stau"), listOfNotNull(lengthText, road).joinToString(" · ").ifEmpty { null }, false) else null
+            IncidentType.CONSTRUCTION -> if (lanes > 0 || severe) Message(tr("Baustelle"), if (lanes > 0) tr("%lld Fahrstreifen gesperrt", lanes) else road, false) else null
+            IncidentType.WEATHER -> if (severe) Message(tr("Wettergefahr"), road, false) else null
             else -> null
         }
     }

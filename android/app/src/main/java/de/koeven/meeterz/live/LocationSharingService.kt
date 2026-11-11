@@ -1,5 +1,6 @@
 package de.koeven.meeterz.live
 
+import de.koeven.meeterz.tr
 import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
@@ -67,13 +68,13 @@ class LocationSharingService : Service() {
     private fun notification(): Notification {
         val manager = getSystemService(NotificationManager::class.java)
         if (Build.VERSION.SDK_INT >= 26 && manager.getNotificationChannel(CHANNEL) == null) {
-            manager.createNotificationChannel(NotificationChannel(CHANNEL, "Standort teilen", NotificationManager.IMPORTANCE_LOW))
+            manager.createNotificationChannel(NotificationChannel(CHANNEL, tr("Standort teilen"), NotificationManager.IMPORTANCE_LOW))
         }
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         return NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle("Meeterz teilt deinen Standort")
-            .setContentText("Deine Freunde sehen, wo du bist.")
+            .setContentTitle(tr("Meeterz teilt deinen Standort"))
+            .setContentText(tr("Deine Freunde sehen, wo du bist."))
             .setContentIntent(open)
             .setOngoing(true)
             .build()

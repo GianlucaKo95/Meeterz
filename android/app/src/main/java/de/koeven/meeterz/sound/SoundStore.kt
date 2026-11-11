@@ -1,5 +1,6 @@
 package de.koeven.meeterz.sound
 
+import de.koeven.meeterz.tr
 import de.koeven.meeterz.Diag
 import android.content.Context
 import android.media.AudioAttributes
@@ -29,23 +30,23 @@ import java.io.File
 
 /** Die Momente, in denen ein Freund-Schnipsel abgespielt wird – Werte wie in der Datenbank und auf iOS */
 enum class SoundMoment(val raw: String, val title: String, val example: String) {
-    PASS("pass", "Fährt an dir vorbei", "„Hup mal, ich bin's!“"),
-    CATCH_UP("catchup", "Holt unterwegs zu dir auf", "„Na, fahren wir zusammen weiter?“"),
-    DEPARTED("departed", "Ist zum Treffpunkt losgefahren", "„Bin unterwegs, stell schon mal Kaffee an!“"),
-    SOON("soon", "Noch 5 Minuten bis zum Treffpunkt", "„Bin gleich da, bestell schon mal!“"),
-    LATE("late", "Verspätet sich", "„Sorry, wird ein bisschen später!“"),
-    ARRIVED("arrived", "Am Treffpunkt angekommen", "„Wo bleibst du denn?“"),
-    ACCEPTED("accepted", "Nimmt dein Treffen an", "„Deal, wir sehen uns!“");
+    PASS("pass", tr("Fährt an dir vorbei"), tr("„Hup mal, ich bin's!“")),
+    CATCH_UP("catchup", tr("Holt unterwegs zu dir auf"), tr("„Na, fahren wir zusammen weiter?“")),
+    DEPARTED("departed", tr("Ist zum Treffpunkt losgefahren"), tr("„Bin unterwegs, stell schon mal Kaffee an!“")),
+    SOON("soon", tr("Noch 5 Minuten bis zum Treffpunkt"), tr("„Bin gleich da, bestell schon mal!“")),
+    LATE("late", tr("Verspätet sich"), tr("„Sorry, wird ein bisschen später!“")),
+    ARRIVED("arrived", tr("Am Treffpunkt angekommen"), tr("„Wo bleibst du denn?“")),
+    ACCEPTED("accepted", tr("Nimmt dein Treffen an"), tr("„Deal, wir sehen uns!“"));
 
     /** Ansage, falls der Freund nichts aufgenommen hat */
     fun fallback(name: String) = when (this) {
-        PASS -> "$name ist gerade an dir vorbeigefahren."
-        CATCH_UP -> "$name und du seid jetzt zusammen unterwegs."
-        DEPARTED -> "$name ist zum Treffpunkt losgefahren."
-        SOON -> "$name ist in etwa fünf Minuten am Treffpunkt."
-        LATE -> "$name verspätet sich."
-        ARRIVED -> "$name ist am Treffpunkt angekommen."
-        ACCEPTED -> "$name hat dein Treffen angenommen."
+        PASS -> tr("%@ ist gerade an dir vorbeigefahren.", name)
+        CATCH_UP -> tr("%@ und du seid jetzt zusammen unterwegs.", name)
+        DEPARTED -> tr("%@ ist zum Treffpunkt losgefahren.", name)
+        SOON -> tr("%@ ist in etwa fünf Minuten am Treffpunkt.", name)
+        LATE -> tr("%@ verspätet sich.", name)
+        ARRIVED -> tr("%@ ist am Treffpunkt angekommen.", name)
+        ACCEPTED -> tr("%@ hat dein Treffen angenommen.", name)
     }
 
     companion object { fun of(raw: String) = entries.firstOrNull { it.raw == raw } }

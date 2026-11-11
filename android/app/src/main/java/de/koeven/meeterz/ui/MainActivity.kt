@@ -1,5 +1,6 @@
 package de.koeven.meeterz.ui
 
+import de.koeven.meeterz.tr
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
@@ -105,10 +106,10 @@ private fun LoginScreen() {
         verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("Meeterz", style = MaterialTheme.typography.headlineLarge)
-        Text("Sieh, wo deine Freunde gerade sind, und trefft euch auf dem Weg.", style = MaterialTheme.typography.bodyLarge)
+        Text(tr("Meeterz"), style = MaterialTheme.typography.headlineLarge)
+        Text(tr("Sieh, wo deine Freunde gerade sind, und trefft euch auf dem Weg."), style = MaterialTheme.typography.bodyLarge)
         Button(onClick = { scope.launch { AppState.auth.signInWithGoogle(context) } }, Modifier.fillMaxWidth()) {
-            Text("Mit Google anmelden")
+            Text(tr("Mit Google anmelden"))
         }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     }
@@ -121,14 +122,14 @@ private fun OnboardingScreen(userId: String, suggestedName: String?) {
     var handle by remember { mutableStateOf("") }
     val error by AppState.auth.error.collectAsState()
     Column(Modifier.fillMaxSize().padding(32.dp), verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically)) {
-        Text("Profil anlegen", style = MaterialTheme.typography.headlineMedium)
-        OutlinedTextField(name, { name = it }, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(handle, { handle = it }, label = { Text("Benutzername") }, modifier = Modifier.fillMaxWidth())
+        Text(tr("Profil anlegen"), style = MaterialTheme.typography.headlineMedium)
+        OutlinedTextField(name, { name = it }, label = { Text(tr("Name")) }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(handle, { handle = it }, label = { Text(tr("Benutzername")) }, modifier = Modifier.fillMaxWidth())
         Button(
             onClick = { scope.launch { AppState.auth.createProfile(userId, handle, name) } },
             enabled = name.isNotBlank() && handle.length >= 3,
             modifier = Modifier.fillMaxWidth(),
-        ) { Text("Weiter") }
+        ) { Text(tr("Weiter")) }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     }
 }

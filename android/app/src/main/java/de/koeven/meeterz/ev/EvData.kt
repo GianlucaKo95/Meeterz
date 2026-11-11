@@ -1,5 +1,6 @@
 package de.koeven.meeterz.ev
 
+import de.koeven.meeterz.tr
 import android.content.Context
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -86,12 +87,12 @@ data class ChargeAvailability(val free: Int = 0, val occupied: Int = 0, val outO
     val full get() = total > 0 && free == 0 && occupied > 0
     val allOutOfService get() = total > 0 && outOfService == total
     /** „2 von 4 frei“ */
-    val text get() = if (allOutOfService) "außer Betrieb" else "$free von $total frei"
+    val text get() = if (allOutOfService) tr("außer Betrieb") else tr("%lld von %lld frei", free, total)
 }
 
 object EvData {
     const val ATTRIBUTION = "Ladesäulen: Bundesnetzagentur.de (CC BY 4.0), data.gouv.fr IRVE, Bundesamt für Energie, " +
-        "Open Charge Map (CC BY 4.0), © OpenStreetMap-Mitwirkende (ODbL) · Höhen und Wetter: Open-Meteo.com (CC BY 4.0)"
+        tr("Open Charge Map (CC BY 4.0), © OpenStreetMap-Mitwirkende (ODbL) · Höhen und Wetter: Open-Meteo.com (CC BY 4.0)")
 
     private val json = Json { ignoreUnknownKeys = true }
     @Volatile private var vehicles: List<EvVehicle>? = null

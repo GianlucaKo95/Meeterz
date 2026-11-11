@@ -72,6 +72,9 @@ android {
 // Fahrzeugkatalog und Ladesäulen: dieselben Dateien wie in der iOS-App (eine Quelle für beide)
 val evData = tasks.register<Copy>("copyEvData") {
     from("../../Meeterz/Resources") { include("*.json") }
+    // Übersetzungen: derselbe Katalog wie iOS (7 Sprachen), dazu Texte, die es nur auf Android gibt
+    from("../../Shared") { include("Localizable.xcstrings") }
+    from("../l10n") { include("*.xcstrings") }
     into(layout.buildDirectory.dir("generated/evdata"))
 }
 android.sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("generated/evdata"))

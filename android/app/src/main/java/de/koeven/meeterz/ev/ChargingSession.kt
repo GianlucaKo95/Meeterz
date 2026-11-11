@@ -1,5 +1,6 @@
 package de.koeven.meeterz.ev
 
+import de.koeven.meeterz.tr
 import de.koeven.meeterz.Diag
 import de.koeven.meeterz.AppState
 import de.koeven.meeterz.data.VehicleStatus
@@ -21,8 +22,8 @@ object ChargingSession {
                     val remainingSeconds: Double?, val done: Boolean) {
         val progress get() = if (target > start) ((percent - start) / (target - start)).coerceIn(0.0, 1.0) else 1.0
         /** „⚡ 54 % → 80 % · 18 Min.“ */
-        val short get() = if (done) "⚡ ${Math.round(percent)} % – genug geladen"
-            else "⚡ ${Math.round(percent)} % → ${Math.round(target)} %" + (remainingSeconds?.let { " · ${maxOf(1, Math.round(it / 60))} Min." } ?: "")
+        val short get() = if (done) tr("⚡ %@ % – genug geladen", Math.round(percent))
+            else "⚡ ${Math.round(percent)} % → ${Math.round(target)} %" + (remainingSeconds?.let { tr(" · %@ Min.", maxOf(1, Math.round(it / 60))) } ?: "")
     }
 
     private val _view = MutableStateFlow<View?>(null)
@@ -95,8 +96,8 @@ object ChargingSession {
         _view.value = View(percent, startPercent, target, powerKW, remaining, done)
         if (done && !announcedDone) {
             announcedDone = true
-            val text = "Genug geladen: ${Math.round(percent)} % – weiter geht's"
-            de.koeven.meeterz.live.PushService.show(AppState.appContextOrNull() ?: return, "Meeterz", text)
+            val text = tr("Genug geladen: %@ % – weiter geht's", Math.round(percent))
+            de.koeven.meeterz.live.PushService.show(AppState.appContextOrNull() ?: return, tr("Meeterz"), text)
             NavigationController.announce(text)
         }
     }

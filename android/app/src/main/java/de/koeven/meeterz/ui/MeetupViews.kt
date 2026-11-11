@@ -1,5 +1,6 @@
 package de.koeven.meeterz.ui
 
+import de.koeven.meeterz.tr
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.border
@@ -70,9 +71,9 @@ fun meetupTime(seconds: Long): String {
     val diff = day.get(Calendar.DAY_OF_YEAR) - today.get(Calendar.DAY_OF_YEAR) +
         365 * (day.get(Calendar.YEAR) - today.get(Calendar.YEAR))
     val prefix = when (diff) {
-        0 -> "Heute"
-        1 -> "Morgen"
-        else -> java.text.SimpleDateFormat("EE, dd.MM.", java.util.Locale.GERMANY).format(Date(seconds * 1000))
+        0 -> tr("Heute")
+        1 -> tr("Morgen")
+        else -> java.text.SimpleDateFormat("EE, dd.MM.", java.util.Locale.getDefault()).format(Date(seconds * 1000))
     }
     return "$prefix ${clock(seconds)}"
 }
@@ -99,13 +100,13 @@ fun SocialCard(modifier: Modifier = Modifier, onPlan: (MeetupCandidate) -> Unit)
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             when {
                 incoming != null -> {
-                    Text(if (incoming.isGroup) "${incoming.otherName} lädt ${maxOf(2, (incoming.groupSize ?: 3) - 1)} Freunde ein"
-                        else "${incoming.otherName} möchte sich treffen",
+                    Text(if (incoming.isGroup) tr("%@ lädt %lld Freunde ein", incoming.otherName, maxOf(2, (incoming.groupSize ?: 3) - 1))
+                        else tr("%@ möchte sich treffen", incoming.otherName),
                         color = MeeterzColors.mintLight, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
                     Text(incoming.placeName, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                     incoming.meetAtSeconds?.let { Text("🕒 ${meetupTime(it)}", fontWeight = FontWeight.SemiBold) }
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        OutlinedButton(onClick = { scope.launch { AppState.meetups.respond(incoming, false) } }, Modifier.weight(1f)) { Text("Ablehnen") }
+                        OutlinedButton(onClick = { scope.launch { AppState.meetups.respond(incoming, false) } }, Modifier.weight(1f)) { Text(tr("Ablehnen")) }
                         Button(onClick = {
                             scope.launch {
                                 AppState.meetups.respond(incoming, true)
@@ -113,42 +114,42 @@ fun SocialCard(modifier: Modifier = Modifier, onPlan: (MeetupCandidate) -> Unit)
                                 val soon = (incoming.meetAtSeconds ?: 0) - System.currentTimeMillis() / 1000 < 45 * 60
                                 if (soon) NavigationController.addStop(context, incoming.placeName, incoming.lat, incoming.lng)
                             }
-                        }, Modifier.weight(1f)) { Text("Annehmen") }
+                        }, Modifier.weight(1f)) { Text(tr("Annehmen")) }
                     }
                 }
                 accepted != null -> {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("Treffen mit ${if (accepted.incoming) accepted.withText else accepted.otherName}",
+                            Text(tr("Treffen mit %@", if (accepted.incoming) accepted.withText else accepted.otherName),
                                 color = MeeterzColors.mintLight, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
                             Text(accepted.placeName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                             accepted.meetAtSeconds?.let { Text(meetupTime(it), style = MaterialTheme.typography.bodySmall) }
                         }
-                        TextButton(onClick = { scope.launch { AppState.meetups.cancel(accepted) } }) { Text("Absagen") }
+                        TextButton(onClick = { scope.launch { AppState.meetups.cancel(accepted) } }) { Text(tr("Absagen")) }
                     }
                     Button(onClick = { scope.launch { NavigationController.addStop(context, accepted.placeName, accepted.lat, accepted.lng) } },
-                        Modifier.fillMaxWidth()) { Text(if (guidance != null) "Als Zwischenstopp" else "Hinfahren") }
+                        Modifier.fillMaxWidth()) { Text(if (guidance != null) tr("Als Zwischenstopp") else tr("Hinfahren")) }
                 }
                 waiting != null -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
                     Column(Modifier.weight(1f)) {
-                        Text("Warte auf ${waiting.otherName}", fontWeight = FontWeight.SemiBold)
+                        Text(tr("Warte auf %@", waiting.otherName), fontWeight = FontWeight.SemiBold)
                         Text(waiting.placeName, style = MaterialTheme.typography.bodySmall)
                     }
-                    TextButton(onClick = { scope.launch { AppState.meetups.cancel(waiting) } }) { Text("Zurückziehen") }
+                    TextButton(onClick = { scope.launch { AppState.meetups.cancel(waiting) } }) { Text(tr("Zurückziehen")) }
                 }
                 candidate != null -> {
                     val f = friends.first { it.friendId == candidate.friendId }
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Avatar(f.friendId, f.displayName)
                         Column(Modifier.weight(1f)) {
-                            Text("${f.displayName} kreuzt deinen Weg", fontWeight = FontWeight.SemiBold)
+                            Text(tr("%@ kreuzt deinen Weg", f.displayName), fontWeight = FontWeight.SemiBold)
                             val minutes = (maxOf(candidate.myEtaSeconds, candidate.friendEtaSeconds) - System.currentTimeMillis() / 1000) / 60
-                            Text("In ${maxOf(1, minutes)} Min. seid ihr nah beieinander", style = MaterialTheme.typography.bodySmall)
+                            Text(tr("In %@ Min. seid ihr nah beieinander", maxOf(1, minutes)), style = MaterialTheme.typography.bodySmall)
                         }
-                        IconButton(onClick = { AppState.meetups.dismiss(candidate) }) { Icon(Icons.Default.Close, "Ausblenden") }
+                        IconButton(onClick = { AppState.meetups.dismiss(candidate) }) { Icon(Icons.Default.Close, tr("Ausblenden")) }
                     }
-                    Button(onClick = { onPlan(candidate) }, Modifier.fillMaxWidth()) { Text("Treffen planen") }
+                    Button(onClick = { onPlan(candidate) }, Modifier.fillMaxWidth()) { Text(tr("Treffen planen")) }
                 }
             }
         }
@@ -161,21 +162,22 @@ fun CandidatePlanDialog(candidate: MeetupCandidate, onClose: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val friend = AppState.friends.value.firstOrNull { it.friendId == candidate.friendId }
+    val friendName = friend?.displayName ?: tr("Freund")
     val categories = PlaceSearch.Category.available(allByCar = (candidate.friendMode ?: "car") == "car")
     var category by remember { mutableStateOf(categories[1]) }
     var places by remember { mutableStateOf<List<PlaceSearch.Place>>(emptyList()) }
-    val spot = PlaceSearch.Place("Treffpunkt auf der Route", null, candidate.lat, candidate.lng)
+    val spot = PlaceSearch.Place(tr("Treffpunkt auf der Route"), null, candidate.lat, candidate.lng)
     var selected by remember { mutableStateOf<PlaceSearch.Place?>(null) }
     var sending by remember { mutableStateOf(false) }
     LaunchedEffect(category) { places = PlaceSearch.places(category, candidate.lat, candidate.lng) }
 
     AlertDialog(
         onDismissRequest = onClose,
-        title = { Text("Treffen mit ${friend?.displayName ?: "Freund"}") },
+        title = { Text(tr("Treffen mit %@", friendName)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Du ${clock(candidate.myEtaSeconds)} · ${friend?.firstName ?: "Freund"} ${clock(candidate.friendEtaSeconds)} · " +
-                    "${(candidate.distanceM / 1000).let { if (it < 1) "${candidate.distanceM.toInt()} m" else "%.1f km".format(it) }} Abstand",
+                Text(tr("Du %@", clock(candidate.myEtaSeconds)) + " · " + (friend?.firstName ?: friendName) + " " +
+                    clock(candidate.friendEtaSeconds) + " · " + tr("%@ Abstand", km(candidate.distanceM)),
                     style = MaterialTheme.typography.bodySmall)
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     for (c in categories) FilterChip(selected = c == category, onClick = { category = c }, label = { Text(c.title) })
@@ -199,14 +201,14 @@ fun CandidatePlanDialog(candidate: MeetupCandidate, onClose: () -> Unit) {
                 sending = true
                 scope.launch {
                     if (AppState.meetups.propose(candidate.friendId, p.name, p.lat, p.lng)) {
-                        Toast.makeText(context, "Vorschlag an ${friend?.displayName ?: "Freund"} gesendet.", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, tr("Vorschlag an %@ gesendet.", friendName), Toast.LENGTH_SHORT).show()
                         onClose()
                     }
                     sending = false
                 }
-            }) { Text(if (sending) "Wird gesendet …" else "Treffen vorschlagen") }
+            }) { Text(if (sending) tr("Wird gesendet …") else tr("Treffen vorschlagen")) }
         },
-        dismissButton = { TextButton(onClick = onClose) { Text("Abbrechen") } },
+        dismissButton = { TextButton(onClick = onClose) { Text(tr("Abbrechen")) } },
     )
 }
 
@@ -219,8 +221,8 @@ fun InviteFriendsDialog(placeName: String, address: String?, lat: Double, lng: D
     val selected = remember { mutableStateListOf<String>() }
     var sending by remember { mutableStateOf(false) }
     // Uhrzeit: jetzt oder in festen Schritten (Material-Zeitwahl wäre im Dialog unhandlich)
-    val choices = listOf<Pair<String, Long?>>("Jetzt" to null, "In 30 Min." to 30 * 60L, "In 1 Std." to 3600L,
-        "In 2 Std." to 7200L, "Morgen" to null)
+    val choices = listOf<Pair<String, Long?>>(tr("Jetzt") to null, tr("In 30 Min.") to 30 * 60L, tr("In 1 Std.") to 3600L,
+        tr("In 2 Std.") to 7200L, tr("Morgen") to null)
     var choice by remember { mutableStateOf(0) }
     var tomorrowHour by remember { mutableStateOf(18) }
     fun meetAt(): Long? {
@@ -238,7 +240,7 @@ fun InviteFriendsDialog(placeName: String, address: String?, lat: Double, lng: D
     }
     AlertDialog(
         onDismissRequest = onClose,
-        title = { Column { Text("Einladen nach"); Text(placeName, fontWeight = FontWeight.Bold) } },
+        title = { Column { Text(tr("Einladen nach")); Text(placeName, fontWeight = FontWeight.Bold) } },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 address?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
@@ -258,7 +260,7 @@ fun InviteFriendsDialog(placeName: String, address: String?, lat: Double, lng: D
                 if (choice == 4) Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     for (h in listOf(8, 10, 12, 14, 16, 18, 19, 20)) FilterChip(selected = tomorrowHour == h, onClick = { tomorrowHour = h }, label = { Text("$h:00") })
                 }
-                meetAt()?.let { Text("Treffen ${meetupTime(it)} – Meeterz erinnert alle rechtzeitig ans Losfahren.", style = MaterialTheme.typography.bodySmall) }
+                meetAt()?.let { Text(tr("Treffen %@ – Meeterz erinnert alle rechtzeitig ans Losfahren.", meetupTime(it)), style = MaterialTheme.typography.bodySmall) }
             }
         },
         confirmButton = {
@@ -268,13 +270,13 @@ fun InviteFriendsDialog(placeName: String, address: String?, lat: Double, lng: D
                     val at = meetAt()
                     val sent = selected.count { AppState.meetups.propose(it, placeName, lat, lng, at) }
                     sending = false
-                    Toast.makeText(context, when (sent) { 0 -> "Einladung konnte nicht gesendet werden."; 1 -> "Einladung gesendet."; else -> "$sent Einladungen gesendet." },
+                    Toast.makeText(context, when (sent) { 0 -> tr("Einladung konnte nicht gesendet werden."); 1 -> tr("Einladung gesendet."); else -> tr("%lld Einladungen gesendet.", sent) },
                         Toast.LENGTH_SHORT).show()
                     if (sent > 0) onClose()
                 }
-            }) { Text(if (sending) "Wird gesendet …" else "Einladung senden") }
+            }) { Text(if (sending) tr("Wird gesendet …") else tr("Einladung senden")) }
         },
-        dismissButton = { TextButton(onClick = onClose) { Text("Abbrechen") } },
+        dismissButton = { TextButton(onClick = onClose) { Text(tr("Abbrechen")) } },
     )
 }
 
@@ -296,14 +298,14 @@ fun GroupMeetupScreen(onClose: () -> Unit) {
     Surface(Modifier.fillMaxSize()) {
         Column(Modifier.statusBarsPadding()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Zurück") }
-                Text("Gruppen-Treffen", style = MaterialTheme.typography.titleLarge)
+                IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Zurück")) }
+                Text(tr("Gruppen-Treffen"), style = MaterialTheme.typography.titleLarge)
             }
             LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 item {
-                    if (visible.isEmpty()) Text("Gerade teilt niemand seinen Standort. Für einen fairen Treffpunkt braucht Meeterz die Standorte.",
+                    if (visible.isEmpty()) Text(tr("Gerade teilt niemand seinen Standort. Für einen fairen Treffpunkt braucht Meeterz die Standorte."),
                         style = MaterialTheme.typography.bodySmall)
-                    Text("Wer kommt mit?", fontWeight = FontWeight.SemiBold)
+                    Text(tr("Wer kommt mit?"), fontWeight = FontWeight.SemiBold)
                 }
                 items(visible, key = { it.friendId }) { f ->
                     Row(Modifier.fillMaxWidth().clickable { if (f.friendId in selected) selected.remove(f.friendId) else selected.add(f.friendId) },
@@ -330,33 +332,33 @@ fun GroupMeetupScreen(onClose: () -> Unit) {
                                 .onSuccess { options = it }.onFailure { error = it.message; options = emptyList() }
                             searching = false
                         }
-                    }) { Text(if (searching) "Suche …" else "Fairen Treffpunkt finden") }
+                    }) { Text(if (searching) tr("Suche …") else tr("Fairen Treffpunkt finden")) }
                     error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 }
                 if (options.isNotEmpty()) item {
                     HorizontalDivider()
-                    Text("Vorschläge – fair für alle", fontWeight = FontWeight.SemiBold)
-                    Text("Sortiert nach der längsten Anfahrt: Niemand soll viel weiter fahren als die anderen.", style = MaterialTheme.typography.bodySmall)
+                    Text(tr("Vorschläge – fair für alle"), fontWeight = FontWeight.SemiBold)
+                    Text(tr("Sortiert nach der längsten Anfahrt: Niemand soll viel weiter fahren als die anderen."), style = MaterialTheme.typography.bodySmall)
                 }
                 items(options, key = { it.place.name + it.place.lat }) { o ->
                     Column(Modifier.fillMaxWidth().border(1.dp, MeeterzColors.mint.copy(alpha = 0.4f), RoundedCornerShape(14.dp)).padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Row { Text(o.place.name, Modifier.weight(1f), fontWeight = FontWeight.Bold); Text("max. ${(o.longest / 60).toInt()} Min.") }
+                        Row { Text(o.place.name, Modifier.weight(1f), fontWeight = FontWeight.Bold); Text(tr("max. %@ Min.", (o.longest / 60).toInt())) }
                         o.place.address?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
                         Text(o.durations.entries.joinToString(" · ") { (id, s) ->
                             val name = if (id == "me") "Du" else friends.firstOrNull { it.friendId == id }?.firstName ?: "?"
-                            "$name ${(s / 60).toInt()} Min."
+                            tr("%@ %@ Min.", name, (s / 60).toInt())
                         }, style = MaterialTheme.typography.bodySmall)
                         Button(enabled = sending == null, modifier = Modifier.fillMaxWidth(), onClick = {
                             sending = o.place.name
                             scope.launch {
                                 if (AppState.meetups.proposeGroup(selected.toList(), o.place.name, o.place.lat, o.place.lng)) {
-                                    Toast.makeText(context, "Einladung an ${selected.size} Freunde gesendet.", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, tr("Einladung an %@ Freunde gesendet.", selected.size), Toast.LENGTH_SHORT).show()
                                     onClose()
                                 }
                                 sending = null
                             }
-                        }) { Text(if (sending == o.place.name) "Wird gesendet …" else "Alle hierher einladen") }
+                        }) { Text(if (sending == o.place.name) tr("Wird gesendet …") else tr("Alle hierher einladen")) }
                     }
                 }
                 item { Spacer(Modifier.size(24.dp)) }
@@ -381,13 +383,13 @@ fun MeetupsOverviewScreen(onClose: () -> Unit) {
     Surface(Modifier.fillMaxSize()) {
         Column(Modifier.statusBarsPadding()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Zurück") }
-                Text("Treffen", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                TextButton(onClick = { showGroup = true }) { Text("Gruppe planen") }
+                IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Zurück")) }
+                Text(tr("Treffen"), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                TextButton(onClick = { showGroup = true }) { Text(tr("Gruppe planen")) }
             }
             LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (entries.isEmpty()) item {
-                    Text("Keine Treffen geplant. Lade Freunde über ein Ziel ein („Freunde einladen“) oder plane ein Gruppen-Treffen.",
+                    Text(tr("Keine Treffen geplant. Lade Freunde über ein Ziel ein („Freunde einladen“) oder plane ein Gruppen-Treffen."),
                         style = MaterialTheme.typography.bodySmall)
                 }
                 items(entries, key = { it.first().groupId ?: it.first().id }) { rows ->
@@ -399,7 +401,7 @@ fun MeetupsOverviewScreen(onClose: () -> Unit) {
                         Text(m.placeName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         m.meetAtSeconds?.let { Text(meetupTime(it), fontWeight = FontWeight.SemiBold) }
                         val people: List<Triple<String, String, String>> = if (m.groupId != null && members.isNotEmpty())
-                            members.map { Triple(it.userId, it.displayName, if (it.organizer) "lädt ein" else state(it.status)) }
+                            members.map { Triple(it.userId, it.displayName, if (it.organizer) tr("lädt ein") else state(it.status)) }
                         else rows.map { Triple(it.otherId, it.otherName, state(it.status)) }
                         for ((id, name, st) in people) {
                             val eta = AppState.routes.routes.value[id]?.takeIf { ChargePlanner.distance(it.destLat, it.destLng, m.lat, m.lng) < 300 }
@@ -408,7 +410,7 @@ fun MeetupsOverviewScreen(onClose: () -> Unit) {
                                 Avatar(id, name, 28.dp)
                                 Text(name, Modifier.weight(1f))
                                 Text(when {
-                                    here -> "ist da"
+                                    here -> tr("ist da")
                                     eta != null -> "an ${clock(eta.eta.epochSecond)}"
                                     else -> st
                                 }, style = MaterialTheme.typography.bodySmall)
@@ -416,14 +418,14 @@ fun MeetupsOverviewScreen(onClose: () -> Unit) {
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (m.incoming && m.isPending) {
-                                OutlinedButton(onClick = { scope.launch { AppState.meetups.respond(m, false) } }) { Text("Ablehnen") }
-                                Button(onClick = { scope.launch { AppState.meetups.respond(m, true) } }) { Text("Zusagen") }
+                                OutlinedButton(onClick = { scope.launch { AppState.meetups.respond(m, false) } }) { Text(tr("Ablehnen")) }
+                                Button(onClick = { scope.launch { AppState.meetups.respond(m, true) } }) { Text(tr("Zusagen")) }
                             } else {
                                 if (m.isAccepted) Button(onClick = {
                                     scope.launch { NavigationController.addStop(context, m.placeName, m.lat, m.lng) }; onClose()
-                                }) { Text("Hinfahren") }
+                                }) { Text(tr("Hinfahren")) }
                                 TextButton(onClick = { scope.launch { rows.forEach { AppState.meetups.cancel(it) } } }) {
-                                    Text(if (m.incoming) "Absagen" else if (m.isPending) "Zurückziehen" else "Absagen")
+                                    Text(if (m.incoming) tr("Absagen") else if (m.isPending) tr("Zurückziehen") else tr("Absagen"))
                                 }
                             }
                         }
@@ -436,8 +438,8 @@ fun MeetupsOverviewScreen(onClose: () -> Unit) {
 
 private fun state(status: String) = when (status) {
     "accepted" -> "kommt"
-    "pending" -> "noch offen"
-    "declined" -> "kommt nicht"
+    "pending" -> tr("noch offen")
+    "declined" -> tr("kommt nicht")
     else -> status
 }
 
@@ -478,7 +480,7 @@ fun MeetingPointCard(modifier: Modifier = Modifier) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("🏁 $name", Modifier.weight(1f), fontWeight = FontWeight.Bold, maxLines = 1)
                 if (g != null) androidx.compose.foundation.layout.Box {
-                    TextButton(onClick = { menu = true }) { Text("Bescheid geben") }
+                    TextButton(onClick = { menu = true }) { Text(tr("Bescheid geben")) }
                     androidx.compose.material3.DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         val eta = System.currentTimeMillis() + (g.remainingSeconds * 1000).toLong()
                         for (text in de.koeven.meeterz.data.MessagesStore.quickReplies(eta)) {
@@ -486,7 +488,7 @@ fun MeetingPointCard(modifier: Modifier = Modifier) {
                                 menu = false
                                 scope.launch {
                                     val n = AppState.messages.send(text, others.map { it.id })
-                                    Toast.makeText(context, if (n > 0) "Gesendet: „$text“" else "Nachricht nicht gesendet", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, if (n > 0) tr("Gesendet: „%@“", text) else tr("Nachricht nicht gesendet"), Toast.LENGTH_SHORT).show()
                                 }
                             })
                         }

@@ -1,5 +1,6 @@
 package de.koeven.meeterz.social
 
+import de.koeven.meeterz.tr
 import com.mapbox.geojson.LineString
 import com.mapbox.navigation.core.lifecycle.MapboxNavigationApp
 import de.koeven.meeterz.AppState
@@ -25,12 +26,12 @@ object Convoy {
     data class Member(val friend: FriendRow, val gap: Double?, val arrival: Long?, val stopped: Boolean) {
         val summary: String get() = listOfNotNull(
             when {
-                gap == null -> "andere Strecke"
-                abs(gap) < 150 -> "direkt bei dir"
-                gap > 0 -> "${km(abs(gap))} vor dir"
-                else -> "${km(abs(gap))} hinter dir"
+                gap == null -> tr("andere Strecke")
+                abs(gap) < 150 -> tr("direkt bei dir")
+                gap > 0 -> tr("%@ vor dir", km(abs(gap)))
+                else -> tr("%@ hinter dir", km(abs(gap)))
             },
-            "hält gerade".takeIf { stopped },
+            tr("hält gerade").takeIf { stopped },
             arrival?.let { "an ${clock(it)}" },
         ).joinToString(" · ")
     }
@@ -83,14 +84,14 @@ object Convoy {
             val first = m.friend.firstName
             m.gap?.let { gap ->
                 // Zurückgefallen: > 3 km hinter mir (erst wieder melden, wenn er unter 1,5 km aufholt)
-                if (gap < -3_000 && !s.behindFar) { s.behindFar = true; notify("$first ist ${km(-gap)} hinter dir", m.friend) }
+                if (gap < -3_000 && !s.behindFar) { s.behindFar = true; notify(tr("%@ ist %@ hinter dir", first, km(-gap)), m.friend) }
                 if (gap > -1_500) s.behindFar = false
             }
-            if (m.gap == null && !s.offRoute) { s.offRoute = true; notify("$first fährt eine andere Strecke", m.friend) }
+            if (m.gap == null && !s.offRoute) { s.offRoute = true; notify(tr("%@ fährt eine andere Strecke", first), m.friend) }
             if (m.gap != null) s.offRoute = false
             if (m.stopped) {
                 val since = s.stoppedSince ?: now.also { s.stoppedSince = it }
-                if (!s.stopAnnounced && now - since > 120_000) { s.stopAnnounced = true; notify("$first hält gerade an", m.friend) }
+                if (!s.stopAnnounced && now - since > 120_000) { s.stopAnnounced = true; notify(tr("%@ hält gerade an", first), m.friend) }
             } else { s.stoppedSince = null; s.stopAnnounced = false }
         }
     }
@@ -105,16 +106,16 @@ object Convoy {
             val last = arrivalAnnounced[f.friendId]
             if (last != null && (abs(last.first - eta) < 300 || now - last.second < 600_000)) continue
             arrivalAnnounced[f.friendId] = eta to now
-            var subtitle = "Ankunft ${clock(eta)}"
+            var subtitle = tr("Ankunft %@", clock(eta))
             if (myEta != null) {
                 val diff = Math.round((eta - myEta) / 60.0)
                 subtitle += when {
-                    diff > 0 -> " · $diff Min. nach dir"
-                    diff < 0 -> " · ${-diff} Min. vor dir"
-                    else -> " · gleichzeitig mit dir"
+                    diff > 0 -> tr(" · %lld Min. nach dir", diff)
+                    diff < 0 -> tr(" · %lld Min. vor dir", -diff)
+                    else -> tr(" · gleichzeitig mit dir")
                 }
             }
-            notify("${f.firstName} fährt auch hierher", subtitle, f)
+            notify(tr("%@ fährt auch hierher", f.firstName), subtitle, f)
             return
         }
     }

@@ -1,5 +1,6 @@
 package de.koeven.meeterz.sound
 
+import de.koeven.meeterz.tr
 import de.koeven.meeterz.Diag
 import android.location.Location
 import de.koeven.meeterz.AppState
@@ -106,8 +107,8 @@ object SoundMoments {
             if (myMoving && speed > 3 && now - (lastEncounter[id] ?: 0) > 15 * 60_000) {
                 encounter(id)?.let { e ->
                     lastEncounter[id] = now
-                    if (e == Encounter.PASS) fire(SoundMoment.PASS, f, "${f.firstName} fährt gerade an dir vorbei", 15 * 60_000)
-                    else fire(SoundMoment.CATCH_UP, f, "${f.firstName} fährt jetzt mit dir", 15 * 60_000)
+                    if (e == Encounter.PASS) fire(SoundMoment.PASS, f, tr("%@ fährt gerade an dir vorbei", f.firstName), 15 * 60_000)
+                    else fire(SoundMoment.CATCH_UP, f, tr("%@ fährt jetzt mit dir", f.firstName), 15 * 60_000)
                 }
             }
 
@@ -123,7 +124,7 @@ object SoundMoments {
                 if (key !in meetupAway) continue
                 if (d < 100 && "arrived-$key" !in announced) {
                     announced += "arrived-$key"; announced += "soon-$key"
-                    fire(SoundMoment.ARRIVED, f, "${f.firstName} ist am Treffpunkt angekommen", key = m.id)
+                    fire(SoundMoment.ARRIVED, f, tr("%@ ist am Treffpunkt angekommen", f.firstName), key = m.id)
                 } else if (d > 150 && "soon-$key" !in announced) {
                     val route = AppState.routes.routes.value[id]?.takeIf { ChargePlanner.distance(it.destLat, it.destLng, m.lat, m.lng) < 300 }
                     val eta: Double? = when {
@@ -133,7 +134,7 @@ object SoundMoments {
                     }
                     if (eta != null && eta > 0 && eta < 330) {
                         announced += "soon-$key"
-                        fire(SoundMoment.SOON, f, "${f.firstName} ist in ca. 5 Min. am Treffpunkt", key = m.id)
+                        fire(SoundMoment.SOON, f, tr("%@ ist in ca. 5 Min. am Treffpunkt", f.firstName), key = m.id)
                     }
                 }
             }
@@ -166,7 +167,7 @@ object SoundMoments {
                 if (had == false && "departed-$key" !in announced && !alreadyThere) {
                     announced += "departed-$key"
                     if (!isLate) {
-                        fire(SoundMoment.DEPARTED, f, "${f.firstName} ist losgefahren – Ankunft ${clock(eta)}", key = m.id)
+                        fire(SoundMoment.DEPARTED, f, tr("%@ ist losgefahren – Ankunft %@", f.firstName, clock(eta)), key = m.id)
                         continue
                     }
                 }
@@ -174,7 +175,7 @@ object SoundMoments {
                     lateAnnounced[key] = eta
                     if (lateRecentlyNotified(id)) continue
                     noteLateNotified(id)
-                    fire(SoundMoment.LATE, f, "${f.firstName} verspätet sich – Ankunft ${clock(eta)}", key = "${m.id}-$eta")
+                    fire(SoundMoment.LATE, f, tr("%@ verspätet sich – Ankunft %@", f.firstName, clock(eta)), key = "${m.id}-$eta")
                 }
             }
         }
@@ -183,6 +184,6 @@ object SoundMoments {
     /** Mein Vorschlag wurde angenommen */
     suspend fun accepted(friendId: String, meetupId: String) {
         val f = AppState.friends.value.firstOrNull { it.friendId == friendId } ?: return
-        fire(SoundMoment.ACCEPTED, f, "${f.firstName} hat dein Treffen angenommen", key = meetupId)
+        fire(SoundMoment.ACCEPTED, f, tr("%@ hat dein Treffen angenommen", f.firstName), key = meetupId)
     }
 }

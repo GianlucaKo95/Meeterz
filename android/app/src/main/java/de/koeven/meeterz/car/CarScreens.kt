@@ -86,17 +86,18 @@ class FreeDriveScreen(carContext: CarContext, private val carMap: MapboxCarMap) 
     init { lifecycleScope.launch { ChargingSession.view.collect { invalidate() } } }
     private val location = CarLocationRenderer()
     private val camera = CarNavigationCamera(CarCameraMode.FOLLOWING, null)
+    private val friendRoutes = CarFriendRoutes()
     private val friends = CarFriendMarkers()
     private val mapActions = MapboxMapActionStrip(this, camera)
 
     init {
         lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onResume(owner: LifecycleOwner) {
-                carMap.registerObserver(location); carMap.registerObserver(camera); carMap.registerObserver(friends)
+                carMap.registerObserver(location); carMap.registerObserver(camera); carMap.registerObserver(friendRoutes); carMap.registerObserver(friends)
                 carMap.setGestureHandler(camera.gestureHandler)
             }
             override fun onPause(owner: LifecycleOwner) {
-                carMap.unregisterObserver(location); carMap.unregisterObserver(camera); carMap.unregisterObserver(friends)
+                carMap.unregisterObserver(location); carMap.unregisterObserver(camera); carMap.unregisterObserver(friendRoutes); carMap.unregisterObserver(friends)
                 carMap.setGestureHandler(null)
             }
         })
@@ -126,6 +127,7 @@ class GuidanceScreen(carContext: CarContext, private val carMap: MapboxCarMap) :
     private val location = CarLocationRenderer()
     private val camera = CarNavigationCamera(CarCameraMode.FOLLOWING, CarCameraMode.OVERVIEW)
     private val markers = CarActiveGuidanceMarkers()
+    private val friendRoutes = CarFriendRoutes()
     private val friends = CarFriendMarkers()
     private val sign = CarSignMarker()
     private val info = CarNavigationInfoProvider().invalidateOnChange(this)
@@ -150,13 +152,13 @@ class GuidanceScreen(carContext: CarContext, private val carMap: MapboxCarMap) :
     init {
         lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onResume(owner: LifecycleOwner) {
-                listOf(routeLine, location, camera, markers, friends, sign, info).forEach(carMap::registerObserver)
+                listOf(routeLine, location, camera, markers, friendRoutes, friends, sign, info).forEach(carMap::registerObserver)
                 carMap.setGestureHandler(camera.gestureHandler)
                 MapboxNavigationApp.current()?.registerRouteProgressObserver(pitchObserver)
             }
             override fun onPause(owner: LifecycleOwner) {
                 MapboxNavigationApp.current()?.unregisterRouteProgressObserver(pitchObserver)
-                listOf(routeLine, location, camera, markers, friends, sign, info).forEach(carMap::unregisterObserver)
+                listOf(routeLine, location, camera, markers, friendRoutes, friends, sign, info).forEach(carMap::unregisterObserver)
                 carMap.setGestureHandler(null)
             }
         })
@@ -196,7 +198,7 @@ private fun batteryAction(carContext: CarContext): Action? {
 fun messageScreen(carContext: CarContext): Screen {
     val partners = MessagesStore.recipientsAtDestination()
     // Mit Konvoi: erst die Liste (wer wo ist), sonst gleich die Schnellantworten an alle am Ziel
-    return if (partners.isNotEmpty() && de.koeven.meeterz.social.Convoy.members().isEmpty()) CarQuickRepliesScreen(carContext, partners)
+    return if (partners.isNotEmpty() && de.koeven.meeterz.social.Convoy.members().isEmpty() && carArrivals() == null) CarQuickRepliesScreen(carContext, partners)
     else CarMessageRecipientsScreen(carContext)
 }
 
@@ -204,7 +206,11 @@ class CarMessageRecipientsScreen(carContext: CarContext) : Screen(carContext) {
     override fun onGetTemplate(): Template {
         val list = ItemList.Builder().setNoItemsMessage(tr("Noch keine Freunde."))
         // Konvoi zuerst: wer zum selben Ziel fährt, mit Abstand entlang meiner Route
-        val convoy = de.koeven.meeterz.social.Convoy.members().take(4)
+        // Zeitleiste „Wer ist wann da“ (auf der Karte gibt es in Android Auto keinen Platz für eigene Einblendungen)
+        val arrivals = carArrivals()
+        if (arrivals != null) list.addItem(Row.Builder().setTitle(tr("Wer ist wann da")).addText(arrivals.first).setBrowsable(true)
+            .setOnClickListener { screenManager.push(CarArrivalsScreen(carContext)) }.build())
+        val convoy = de.koeven.meeterz.social.Convoy.members().take(if (arrivals != null) 3 else 4)
         if (convoy.isNotEmpty()) list.addItem(Row.Builder().setTitle(tr("Pause vorschlagen")).addText(tr("Rastplatz, den alle noch erreichen"))
             .setOnClickListener {
                 AppState.scope.launch { de.koeven.meeterz.social.ConvoyPause.propose() }

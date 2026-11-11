@@ -408,6 +408,7 @@ final class CarPlayController: NSObject {
         watchInvites()
         startSpeedWarning()
         startFreezeWatch()
+        CarPlayTimeline.shared.start()
         // Läuft auf dem iPhone schon eine Navigation, übernimmt CarPlay sie – sonst wie Apple Karten ein Ziel vorschlagen
         if AppModel.shared.navigation.isNavigating {
             beginNavigationIfConnected()
@@ -421,6 +422,7 @@ final class CarPlayController: NSObject {
         Passengers.shared.reset()   // Fahrt vorbei: Mitfahrer wieder sichtbar
         CarPlayUI.shared.reset()
         CarPlayChargingOverlay.shared.hide()
+        CarPlayTimeline.shared.stop()
         browseOverlay?.stop()
         navigationOverlay?.stop()
         browseOverlay = nil

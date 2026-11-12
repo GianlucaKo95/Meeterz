@@ -1,0 +1,64 @@
+Commit: 55d14bf4895fa4f9639b86f6aa75b54a5c6076fe
+Ergebnis: success
+== Fehler ==
+== Ende ==
+> Task :app:processDebugManifestForPackage
+> Task :app:desugarDebugFileDependencies
+> Task :app:compressDebugAssets
+> Task :app:mergeDebugJniLibFolders
+> Task :app:checkDebugDuplicateClasses
+> Task :app:mergeLibDexDebug
+> Task :app:validateSigningDebug
+> Task :app:writeDebugAppMetadata
+> Task :app:writeDebugSigningConfigVersions
+> Task :app:preDebugUnitTestBuild
+> Task :app:javaPreCompileDebugUnitTest
+> Task :app:processDebugResources
+> Task :app:mergeDebugNativeLibs
+
+> Task :app:stripDebugDebugSymbols
+Unable to strip the following libraries, packaging them as they are: libSearchCore.so, libandroidx.graphics.path.so, libc++_shared.so, libmapbox-common.so, libmapbox-maps.so, libnavigator-android.so, libnn-perf-replay.so. Run with --info option to learn more.
+
+> Task :app:mergeExtDexDebug
+> Task :app:compileDebugKotlin
+w: file:///home/runner/work/Meeterz/Meeterz/android/app/src/main/java/de/koeven/meeterz/car/CarArrivals.kt:103:51 'fun setTitle(p0: CharSequence): PaneTemplate.Builder' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/Meeterz/Meeterz/android/app/src/main/java/de/koeven/meeterz/car/CarArrivals.kt:103:98 'fun setHeaderAction(p0: Action): PaneTemplate.Builder' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/Meeterz/Meeterz/android/app/src/main/java/de/koeven/meeterz/car/CarScreens.kt:230:39 'fun setTitle(p0: CharSequence): ListTemplate.Builder' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/Meeterz/Meeterz/android/app/src/main/java/de/koeven/meeterz/car/CarScreens.kt:230:70 'fun setHeaderAction(p0: Action): ListTemplate.Builder' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/Meeterz/Meeterz/android/app/src/main/java/de/koeven/meeterz/car/CarScreens.kt:247:39 'fun setTitle(p0: CharSequence): ListTemplate.Builder' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/Meeterz/Meeterz/android/app/src/main/java/de/koeven/meeterz/car/CarScreens.kt:248:14 'fun setHeaderAction(p0: Action): ListTemplate.Builder' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/Meeterz/Meeterz/android/app/src/main/java/de/koeven/meeterz/car/CarScreens.kt:274:39 'fun setTitle(p0: CharSequence): ListTemplate.Builder' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/Meeterz/Meeterz/android/app/src/main/java/de/koeven/meeterz/car/CarScreens.kt:274:63 'fun setHeaderAction(p0: Action): ListTemplate.Builder' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/Meeterz/Meeterz/android/app/src/main/java/de/koeven/meeterz/car/CarScreens.kt:347:39 'fun setTitle(p0: CharSequence): ListTemplate.Builder' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/Meeterz/Meeterz/android/app/src/main/java/de/koeven/meeterz/car/CarScreens.kt:347:88 'fun setHeaderAction(p0: Action): ListTemplate.Builder' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/Meeterz/Meeterz/android/app/src/main/java/de/koeven/meeterz/car/CarScreens.kt:388:39 'fun setTitle(p0: CharSequence): ListTemplate.Builder' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/Meeterz/Meeterz/android/app/src/main/java/de/koeven/meeterz/car/CarScreens.kt:388:61 'fun setHeaderAction(p0: Action): ListTemplate.Builder' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/Meeterz/Meeterz/android/app/src/main/java/de/koeven/meeterz/car/CarScreens.kt:396:14 'fun setTitle(p0: CharSequence): MessageTemplate.Builder' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/Meeterz/Meeterz/android/app/src/main/java/de/koeven/meeterz/car/CarScreens.kt:397:14 'fun setHeaderAction(p0: Action): MessageTemplate.Builder' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/Meeterz/Meeterz/android/app/src/main/java/de/koeven/meeterz/nav/NavigationController.kt:176:77 'fun coordinates(): (Mutable)List<Point!>' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/Meeterz/Meeterz/android/app/src/main/java/de/koeven/meeterz/nav/RouteSampler.kt:35:93 'fun coordinates(): (Mutable)List<Point!>' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/Meeterz/Meeterz/android/app/src/main/java/de/koeven/meeterz/nav/Speaker.kt:31:13 'lateinit' is unnecessary: definitely initialized in constructors.
+w: file:///home/runner/work/Meeterz/Meeterz/android/app/src/main/java/de/koeven/meeterz/social/Convoy.kt:142:55 'fun coordinates(): (Mutable)List<Point!>' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/Meeterz/Meeterz/android/app/src/main/java/de/koeven/meeterz/ui/SoundPackScreen.kt:108:88 Unnecessary non-null assertion (!!) on a non-null receiver of type 'String'.
+
+> Task :app:compileDebugJavaWithJavac
+> Task :app:dexBuilderDebug
+> Task :app:mergeDebugGlobalSynthetics
+> Task :app:processDebugJavaRes
+> Task :app:bundleDebugClassesToRuntimeJar
+> Task :app:bundleDebugClassesToCompileJar
+> Task :app:mergeProjectDexDebug
+> Task :app:mergeDebugJavaResource
+> Task :app:compileDebugUnitTestKotlin
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:processDebugUnitTestJavaRes
+> Task :app:testDebugUnitTest
+> Task :app:packageDebug
+> Task :app:createDebugApkListingFileRedirect
+> Task :app:assembleDebug
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/build-1794479796134.json
+
+[Incubating] Problems report is available at: file:///home/runner/work/Meeterz/Meeterz/android/build/reports/problems/problems-report.html
+
+BUILD SUCCESSFUL in 1m 16s
+45 actionable tasks: 45 executed

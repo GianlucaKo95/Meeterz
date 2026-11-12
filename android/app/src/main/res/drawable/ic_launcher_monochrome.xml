@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Doppel-Pin einfarbig: Themensymbol ab Android 13 (innerhalb der 66-dp-Sicherheitszone) (Quelle: design/meeterz-mark.svg) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <group android:scaleX="0.06818" android:scaleY="0.06818" android:translateX="11.045" android:translateY="13.636">
+        <path android:fillColor="#FFFFFFFF" android:fillType="evenOdd" android:pathData="M362,845 L207.9,583.9 A165,165 0 1,1 497.6,573.8 Z M280,500 a70,70 0 1,0 140,0 a70,70 0 1,0 -140,0 Z" />
+        <path android:fillColor="#FFFFFFFF" android:fillType="evenOdd" android:pathData="M890,848 L756.5,571.8 A165,165 0 1,1 1046.8,584.3 Z M835,500 a70,70 0 1,0 140,0 a70,70 0 1,0 -140,0 Z" />
+        <path android:fillColor="#FFFFFFFF" android:pathData="M362,845 C480,792 565,700 640,604 C690,540 728,476 768,420 L790,612 C720,650 560,782 386,860 Z" />
+    </group>
+</vector>

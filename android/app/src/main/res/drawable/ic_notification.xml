@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Einfarbiger Pin: Benachrichtigungs-Symbol und Android-13-Themensymbol -->
+<!-- Doppel-Pin einfarbig: Symbol in Statusleiste und Benachrichtigungen (Quelle: design/meeterz-mark.svg) -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
-    <path android:fillColor="#6FF3DA"
-        android:pathData="M54,30c-9.4,0 -17,7.6 -17,17c0,12.8 17,31 17,31s17,-18.2 17,-31c0,-9.4 -7.6,-17 -17,-17zM54,53a6,6 0,1 1,0 -12a6,6 0,1 1,0 12z" />
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <group android:scaleX="0.02500" android:scaleY="0.02500" android:translateX="-3.750" android:translateY="-2.800">
+        <path android:fillColor="#FFFFFFFF" android:fillType="evenOdd" android:pathData="M362,845 L207.9,583.9 A165,165 0 1,1 497.6,573.8 Z M280,500 a70,70 0 1,0 140,0 a70,70 0 1,0 -140,0 Z" />
+        <path android:fillColor="#FFFFFFFF" android:fillType="evenOdd" android:pathData="M890,848 L756.5,571.8 A165,165 0 1,1 1046.8,584.3 Z M835,500 a70,70 0 1,0 140,0 a70,70 0 1,0 -140,0 Z" />
+        <path android:fillColor="#FFFFFFFF" android:pathData="M362,845 C480,792 565,700 640,604 C690,540 728,476 768,420 L790,612 C720,650 560,782 386,860 Z" />
+    </group>
 </vector>

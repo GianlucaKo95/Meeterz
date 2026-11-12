@@ -45,7 +45,7 @@ class CarFriendRoutes : MapboxCarMapObserver {
                 map.getStyle { style ->
                     val data = FeatureCollection.fromFeatures(features)
                     val existing = style.getSourceAs<GeoJsonSource>(SOURCE)
-                    if (existing != null) { existing.featureCollection(data); return@getStyle }
+                    if (existing != null) { existing.featureCollection(data); keepBelowOwnRoute(style); return@getStyle }
                     style.addSource(geoJsonSource(SOURCE) { featureCollection(data) })
                     val casing = lineLayer(CASING, SOURCE) {
                         lineColor("#050A12"); lineOpacity(0.92); lineWidth(8.0); lineCap(LineCap.ROUND); lineJoin(LineJoin.ROUND)
@@ -56,9 +56,23 @@ class CarFriendRoutes : MapboxCarMapObserver {
                     // Unter die Freundes-Markierungen, falls schon da
                     if (style.styleLayerExists(FRIEND_DOTS)) { style.addLayerBelow(casing, FRIEND_DOTS); style.addLayerBelow(line, FRIEND_DOTS) }
                     else { style.addLayer(casing); style.addLayer(line) }
+                    keepBelowOwnRoute(style)
                 }
             }
         }
+    }
+
+    /**
+     * Freundes-Routen unter die eigene Route: Mapbox fügt seine Routenlinie erst beim Start der Führung hinzu,
+     * darum bei jeder Aktualisierung prüfen und beide Ebenen unter die unterste Navigations-Ebene schieben (wie iOS)
+     */
+    private fun keepBelowOwnRoute(style: com.mapbox.maps.Style) {
+        val ids = style.styleLayers.map { it.id }
+        val own = ids.indexOfFirst { it.startsWith("mapbox-layerGroup") || it.startsWith("mapbox-masking") || it.contains("route-line") }
+        val casing = ids.indexOf(CASING)
+        if (own < 0 || casing < 0 || casing < own) return
+        style.moveStyleLayer(CASING, com.mapbox.maps.LayerPosition(null, ids[own], null))
+        style.moveStyleLayer(LINE, com.mapbox.maps.LayerPosition(CASING, null, null))
     }
 
     override fun onDetached(mapboxCarMapSurface: MapboxCarMapSurface) {

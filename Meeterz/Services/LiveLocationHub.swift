@@ -128,6 +128,7 @@ final class LiveLocationHub {
         let goneStream = ch.broadcastStream(event: "gone")
         let pauseStream = ch.broadcastStream(event: "pause")
         let replyStream = ch.broadcastStream(event: "pause_reply")
+        let routeEndStream = ch.broadcastStream(event: "route_end")
         friendChannels[friendId] = ch
         do { try await ch.subscribeWithError() } catch { seenHidden.insert(friendId) }
 
@@ -153,6 +154,9 @@ final class LiveLocationHub {
                               let p = try? JSONDecoder().decode(ConvoyPause.Proposal.self, from: data), p.from == friendId else { continue }
                         await ConvoyPause.shared.received(p)
                     }
+                }
+                group.addTask {
+                    for await _ in routeEndStream { await AppModel.shared.routes.refresh() }
                 }
                 group.addTask {
                     for await message in replyStream {

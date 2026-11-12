@@ -8,6 +8,9 @@ import MapboxDirections
 import MapboxNavigationCore
 import MapboxNavigationUIKit
 
+/// Ereignis „route_end“ im Standort-Kanal (Feldname nur gemeinsam mit Android ändern)
+struct RouteEnd: Codable { let userId: UUID }
+
 /// Ein Navigationskern für iPhone und CarPlay (Vorgabe von Mapbox).
 @MainActor
 let navigationProvider = MapboxNavigationProvider(coreConfig: meeterzCoreConfig(simulate: false))
@@ -595,7 +598,11 @@ final class NavigationCoordinator: NSObject {
         eta = nil
         remaining = nil
         announcedArrival = [:]
-        Task { await AppModel.shared.routes.clearMine() }
+        Task {
+            await AppModel.shared.routes.clearMine()
+            // Freunde laden die Routen sofort neu, statt bis zu 30 s die alte Route zu zeigen
+            if let me = AppModel.shared.profile?.id { await AppModel.shared.hub.broadcast(event: "route_end", RouteEnd(userId: me)) }
+        }
     }
 
     // MARK: Route teilen

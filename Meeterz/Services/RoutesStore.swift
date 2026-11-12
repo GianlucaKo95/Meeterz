@@ -47,9 +47,34 @@ final class RoutesStore {
                     coordinates: coords
                 )
             }
+            noticeEnded(old: friendRoutes, new: next)
             friendRoutes = next
         } catch {
             // Netzfehler: alte Routen behalten, nächster Versuch in 30 s
+        }
+    }
+
+    @ObservationIgnored private var loaded = false
+
+    /// Ein Freund fuhr zu meinem Ziel oder unserem Treffpunkt, seine Route ist weg und er ist nicht dort angekommen:
+    /// „Annika fährt nicht mehr hierher“ (im Auto als Hinweis, sonst als Banner)
+    private func noticeEnded(old: [UUID: FriendRoute], new: [UUID: FriendRoute]) {
+        defer { loaded = true }
+        guard loaded else { return }
+        let app = AppModel.shared
+        var targets = app.meetups.accepted.map(\.coordinate)
+        if let d = app.navigation.destination?.coordinate { targets.append(d) }
+        for (id, route) in old where new[id] == nil {
+            guard targets.contains(where: { $0.distance(to: route.destination) < 300 }),
+                  let friend = app.friend(id) else { continue }
+            if let pos = app.hub.positions[id], pos.coordinate.distance(to: route.destination) < 150 { continue }   // angekommen
+            let text = String(localized: "\(friend.firstName) fährt nicht mehr hierher")
+            Diag.log("Route beendet ohne Ankunft: \(friend.firstName)")
+            if CarPlayController.shared.isConnected {
+                CarPlayController.shared.showNotice(title: [text], subtitle: [String(localized: "Navigation beendet")], seconds: 8)
+            } else {
+                app.show(text, isError: false)
+            }
         }
     }
 

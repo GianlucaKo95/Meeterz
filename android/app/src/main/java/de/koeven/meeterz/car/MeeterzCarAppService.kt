@@ -222,6 +222,9 @@ class MeeterzCarSession : Session() {
             }
         }
         lifecycleScope.launch {
+            AppState.routes.ended.collect { CarToast.makeText(carContext, it, CarToast.LENGTH_LONG).show() }
+        }
+        lifecycleScope.launch {
             de.koeven.meeterz.social.ConvoyPause.notices.collect { CarToast.makeText(carContext, it, CarToast.LENGTH_LONG).show() }
         }
         // Routenvorschlag (Termin oder häufiges Ziel): Hinweis mit „Los“ / „Nein“ (CarPlay: Vorschlagskarte)

@@ -223,7 +223,11 @@ object NavigationController : MapboxNavigationObserver {
     fun stop() {
         fixedStops = emptyList()
         stopNames.clear()
-        if (_guidance.value != null) AppState.scope.launch { runCatching { Backend.client.postgrest.rpc("clear_active_route") } }
+        if (_guidance.value != null) AppState.scope.launch {
+            runCatching { Backend.client.postgrest.rpc("clear_active_route") }
+            // Freunde laden die Routen sofort neu, statt bis zu 30 s die alte Route zu zeigen (wie iOS)
+            AppState.myId?.let { me -> AppState.hub.broadcast("route_end", kotlinx.serialization.json.buildJsonObject { put("userId", kotlinx.serialization.json.JsonPrimitive(me)) }) }
+        }
         lastShare = 0L
         navigation?.setNavigationRoutes(emptyList())
         speaker?.stop()

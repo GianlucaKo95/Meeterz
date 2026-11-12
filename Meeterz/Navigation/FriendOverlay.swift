@@ -10,9 +10,11 @@ final class FriendOverlay {
     private let lines: PolylineAnnotationManager
     private let isVisible: () -> Bool
     private var timer: Timer?
+    private weak var mapView: MapView?
 
     init(mapView: MapView, isVisible: @escaping () -> Bool) {
         let suffix = UUID().uuidString.prefix(6)
+        self.mapView = mapView
         lines = mapView.annotations.makePolylineAnnotationManager(id: "meeterz-routes-\(suffix)")
         markers = mapView.annotations.makePointAnnotationManager(id: "meeterz-friends-\(suffix)")
         self.isVisible = isVisible
@@ -30,6 +32,16 @@ final class FriendOverlay {
         timer = nil
         markers.annotations = []
         lines.annotations = []
+    }
+
+    /// Freundes-Routen unter die eigene Route legen: Mapbox fügt seine Routenlinie erst beim Start hinzu, darum bei
+    /// jeder Aktualisierung prüfen und die Freundes-Ebene bei Bedarf unter die unterste Navigations-Ebene schieben
+    private func keepBelowOwnRoute() {
+        guard let map = mapView?.mapboxMap else { return }
+        let ids = map.allLayerIdentifiers.map(\.id)
+        guard let own = ids.firstIndex(where: { $0.hasPrefix("com.mapbox.navigation") && $0.contains("route") }),
+              let mine = ids.firstIndex(of: lines.layerId), mine > own else { return }
+        try? map.moveLayer(withId: lines.layerId, to: .below(ids[own]))
     }
 
     func refresh() {
@@ -53,6 +65,7 @@ final class FriendOverlay {
             return line
         }
         lines.annotations = lineItems
+        keepBelowOwnRoute()
 
         var points: [PointAnnotation] = model.friendsOnMap.map { item in
             var p = PointAnnotation(id: "friend-\(item.friend.friendId)", coordinate: item.position.coordinate)

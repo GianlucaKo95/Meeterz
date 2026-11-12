@@ -235,6 +235,7 @@ fun MapScreen() {
         LaunchedEffect(Unit) {
             de.koeven.meeterz.social.ConvoyPause.notices.collect { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }
         }
+        LaunchedEffect(Unit) { AppState.routes.ended.collect { Toast.makeText(context, it, Toast.LENGTH_LONG).show() } }
         // Verkehrsmeldungen voraus (vorgelesen wird in IncidentWatcher)
         LaunchedEffect(Unit) {
             de.koeven.meeterz.nav.IncidentWatcher.alerts.collect { a ->

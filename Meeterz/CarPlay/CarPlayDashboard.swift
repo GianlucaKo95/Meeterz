@@ -589,6 +589,23 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
         }
     }
 
+    /// Während der Fahrt denselben Zoom wie die große Karte. Mapbox rahmt im kleineren Dashboard sonst selbst und zoomt
+    /// weiter heraus – unter Zoom 14,5 fehlen dann auch die 3D-Gebäude (12.11.). Eigener Zoom (Kombiinstrument) bleibt.
+    func mirrorZoom(_ zoom: Double) {
+        guard ownZoom == nil, AppModel.shared.navigation.isNavigating, let nav = mapbox,
+              let source = nav.navigationCamera.viewportDataSource as? CarPlayViewportDataSource else { return }
+        var options = source.options
+        if options.followingCameraOptions.zoomUpdatesAllowed {
+            options.followingCameraOptions.zoomUpdatesAllowed = false
+            source.options = options
+        }
+        var current = source.currentNavigationCameraOptions
+        let target = min(zoom, Self.maxZoom)
+        guard abs((current.followingCamera.zoom ?? 0) - target) > 0.05 else { return }
+        current.followingCamera.zoom = target
+        source.currentNavigationCameraOptions = current
+    }
+
     /// Vor Abbiegungen flacher statt 2D (wie die große Karte)
     func applyManeuverPitch(_ progress: RouteProgress) {
         NavigationZoom.applyManeuverPitch(carPlay: mapbox, progress: progress)

@@ -1366,6 +1366,7 @@ extension CarPlayController: CarPlayManagerDelegate {
                 ManeuverGuidance.shared.onProgress = { [weak self] progress in
                     NavigationZoom.applyManeuverPitch(carPlay: self?.navMap, progress: progress)
                     CarPlayDashboard.shared.applyManeuverPitch(progress)
+                    if let zoom = self?.navMap?.mapView.mapboxMap.cameraState.zoom { CarPlayDashboard.shared.mirrorZoom(zoom) }
                     CarPlayDashboard.cluster.applyManeuverPitch(progress)
                 }
                 ManeuverGuidance.shared.start(navigationViewController)

@@ -113,7 +113,7 @@ class LiveLocationHub(private val scope: CoroutineScope) {
             scope.launch { positions.collect { p -> if (p.userId.equals(friendId, true)) _positions.update { it + (friendId to p) } } },
             scope.launch { gone.collect { g -> if (g.userId.equals(friendId, true)) _positions.update { it - friendId } } },
             scope.launch { pause.collect { p -> if (p.from.equals(friendId, true)) de.koeven.meeterz.social.ConvoyPause.received(p) } },
-            scope.launch { routeEnd.collect { AppState.routes.refresh() } },
+            scope.launch { routeEnd.collect { de.koeven.meeterz.AppState.routes.refresh() } },
             scope.launch { reply.collect { r -> if (r.userId.equals(friendId, true)) de.koeven.meeterz.social.ConvoyPause.received(r) } },
         )
         runCatching { ch.subscribe() }

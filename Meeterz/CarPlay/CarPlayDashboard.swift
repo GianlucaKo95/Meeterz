@@ -536,7 +536,10 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
 
         // Schnellwahl (Freunde/Zuhause) aktuell halten
         timer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.updateShortcuts(); self?.syncDayNight() }
+            MainActor.assumeIsolated {
+                self?.updateShortcuts(); self?.syncDayNight()
+                self?.mirrorZoom(CarPlayController.shared.displayedZoom)
+            }
         }
         // Routenvorschlag (alle 5 Min. neu, sonst aus dem Zwischenspeicher)
         Task { @MainActor in _ = await RouteSuggestions.shared.refresh() }
@@ -552,7 +555,7 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
             try? await Task.sleep(for: .seconds(5))
             guard let self, let nav else { return }
             let cam = nav.mapView.mapboxMap.cameraState
-            Diag.log("\(self.name) nach 5 s (Mapbox): \(Int(nav.bounds.width))x\(Int(nav.bounds.height)), im Fenster=\(nav.window != nil), gezeichnet=\(self.mapboxRendered), Neigung \(Int(cam.pitch))°, Zoom \(String(format: "%.1f", cam.zoom))")
+            Diag.log("\(self.name) nach 5 s (Mapbox): \(Int(nav.bounds.width))x\(Int(nav.bounds.height)), im Fenster=\(nav.window != nil), gezeichnet=\(self.mapboxRendered), Neigung \(Int(cam.pitch))°, Zoom \(String(format: "%.1f", cam.zoom)) (große Karte \(String(format: "%.1f", CarPlayController.shared.displayedZoom)))")
         }
     }
 
@@ -589,10 +592,11 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
         }
     }
 
-    /// Während der Fahrt denselben Zoom wie die große Karte. Mapbox rahmt im kleineren Dashboard sonst selbst und zoomt
-    /// weiter heraus – unter Zoom 14,5 fehlen dann auch die 3D-Gebäude (12.11.). Eigener Zoom (Kombiinstrument) bleibt.
+    /// Immer denselben Zoom wie die große Karte (Fahrt und freie Fahrt). Mapbox rahmt im kleineren Dashboard sonst
+    /// selbst und blieb laut Protokoll bei 13,5 – unter 14,5 fehlen dann auch die 3D-Gebäude (12.11.).
+    /// Eigener Zoom (Kombiinstrument) bleibt.
     func mirrorZoom(_ zoom: Double) {
-        guard ownZoom == nil, AppModel.shared.navigation.isNavigating, let nav = mapbox,
+        guard ownZoom == nil, let nav = mapbox,
               let source = nav.navigationCamera.viewportDataSource as? CarPlayViewportDataSource else { return }
         var options = source.options
         if options.followingCameraOptions.zoomUpdatesAllowed {

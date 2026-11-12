@@ -22,7 +22,7 @@ object Shortcuts {
         val key = favs.map { it.id + it.label } + friends.map { it.friendId } + (AppState.profile?.isSharingNow?.toString() ?: "")
         if (key == last) return
         last = key
-        val icon = IconCompat.createWithResource(context, R.drawable.ic_launcher_foreground)
+        val icon = IconCompat.createWithResource(context, R.mipmap.ic_launcher)
         fun open() = Intent(context, MainActivity::class.java).setAction(Intent.ACTION_VIEW)
         val list = buildList {
             for (f in favs) add(ShortcutInfoCompat.Builder(context, "fav-${f.id}").setShortLabel(tr("Nach %@", f.label)).setIcon(icon)

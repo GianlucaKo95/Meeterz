@@ -1,7 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Platzhalter: Mint-Pin auf Petrol, bis das echte Logo als Vektor vorliegt -->
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
-    <path android:fillColor="#6FF3DA"
-        android:pathData="M54,30c-9.4,0 -17,7.6 -17,17c0,12.8 17,31 17,31s17,-18.2 17,-31c0,-9.4 -7.6,-17 -17,-17zM54,53a6,6 0,1 1,0 -12a6,6 0,1 1,0 12z" />
-</vector>
+<!-- Das Logo liegt vollständig im Hintergrund-Bild (ic_launcher_art); die Vordergrund-Ebene bleibt leer -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="@android:color/transparent" />
+</shape>

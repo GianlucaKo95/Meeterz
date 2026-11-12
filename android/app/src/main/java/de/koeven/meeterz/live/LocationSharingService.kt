@@ -72,7 +72,7 @@ class LocationSharingService : Service() {
         }
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         return NotificationCompat.Builder(this, CHANNEL)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(tr("Meeterz teilt deinen Standort"))
             .setContentText(tr("Deine Freunde sehen, wo du bist."))
             .setContentIntent(open)

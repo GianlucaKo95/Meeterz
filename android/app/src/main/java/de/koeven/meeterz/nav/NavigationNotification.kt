@@ -50,7 +50,7 @@ object NavigationNotification {
                 val text = listOfNotNull(tr("Ankunft %@", arrival), km(g.remainingDistance), f?.text).joinToString(" · ")
                 val open = PendingIntent.getActivity(app, 0, Intent(app, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
                 val notification = NotificationCompat.Builder(app, CHANNEL)
-                    .setSmallIcon(R.drawable.ic_launcher_foreground)
+                    .setSmallIcon(R.drawable.ic_notification)
                     .setContentTitle(title)
                     .setContentText(text)
                     .setSubText(g.destination.name)

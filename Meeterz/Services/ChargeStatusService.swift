@@ -59,7 +59,7 @@ final class ChargeStatusService {
         } catch {
             // Die Ladeplanung darf nicht ausfallen, wenn der Datenabruf gerade nicht erreichbar ist.
             lastMobilithekPullTrigger = Date().addingTimeInterval(-150)
-            Diag.log("Mobilithek-Pull konnte nicht gestartet werden: \\(error.localizedDescription)")
+            Diag.log("Mobilithek-Pull konnte nicht gestartet werden: \(error.localizedDescription)")
         }
     }
 

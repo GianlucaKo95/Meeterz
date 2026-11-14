@@ -14,10 +14,14 @@ final class ChargeStatusService {
     private var swiss: [String: String] = [:]   // EvseID → Available / Occupied / OutOfService …
     private var swissLoaded = Date.distantPast
     private var loading: Task<Void, Never>?
+    private var lastMobilithekPullTrigger = Date.distantPast
+
+    private struct PullTriggerBody: Encodable {}
 
     /// Belegung für alle Standorte mit Ladepunkt-IDs entlang der Route (lädt die Daten bei Bedarf, max. alle 3 Min.)
     func availability(along route: Route) async -> [ChargeSite: ChargeAvailability] {
         guard let coords = route.shape?.coordinates, !coords.isEmpty else { return [:] }
+        await requestMobilithekPullIfNeeded(along: coords)
         var result = await germany(along: coords)
         // Schweiz nur laden, wenn die Route sie berührt
         let inSwitzerland = coords.contains { $0.latitude > 45.8 && $0.latitude < 47.9 && $0.longitude > 5.9 && $0.longitude < 10.5 }
@@ -36,6 +40,27 @@ final class ChargeStatusService {
             if a.total > 0 { result[site] = a }
         }
         return result
+    }
+
+    /// Startet den serverseitigen Mobilithek-Pull bei einer Ladeplanung in Deutschland.
+    /// Die Edge Function sperrt parallele Aufrufe und drosselt dynamische (3 Min.) und statische (12 Std.) Feeds.
+    private func requestMobilithekPullIfNeeded(along coords: [CLLocationCoordinate2D]) async {
+        let crossesGermany = coords.contains {
+            $0.latitude >= 47.2 && $0.latitude <= 55.1 && $0.longitude >= 5.8 && $0.longitude <= 15.1
+        }
+        guard crossesGermany, Date().timeIntervalSince(lastMobilithekPullTrigger) >= 180 else { return }
+        lastMobilithekPullTrigger = Date()
+        do {
+            try await Backend.client.functions.invoke(
+                "mobilithek-pull-trigger",
+                options: FunctionInvokeOptions(body: PullTriggerBody())
+            )
+            Diag.log("Mobilithek-Pull bei Ladeplanung angefragt (serverseitig gedrosselt)")
+        } catch {
+            // Die Ladeplanung darf nicht ausfallen, wenn der Datenabruf gerade nicht erreichbar ist.
+            lastMobilithekPullTrigger = Date().addingTimeInterval(-150)
+            Diag.log("Mobilithek-Pull konnte nicht gestartet werden: \(error.localizedDescription)")
+        }
     }
 
     /// Mobilithek-Standorte im Korridor der Route, je dem nächsten eigenen Standort (bis 150 m) zugeordnet

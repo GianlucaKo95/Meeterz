@@ -15,6 +15,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.zip.GZIPInputStream
 import de.koeven.meeterz.data.Backend
+import io.github.jan.supabase.functions.functions
 import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -31,9 +32,12 @@ object ChargeStatusService {
     private var swiss: Map<String, String> = emptyMap()   // EvseID → Available / Occupied / OutOfService …
     private var swissLoaded = 0L
     private val mutex = Mutex()
+    private var lastMobilithekPullTrigger = 0L
+    private val pullTriggerMutex = Mutex()
 
     /** Belegung der Standorte mit Ladepunkt-IDs entlang der Route (lädt höchstens alle 3 Minuten) */
     suspend fun availability(context: Context, points: List<ChargePlanner.RoutePoint>): Map<ChargeSite, ChargeAvailability> {
+        requestMobilithekPullIfNeeded(points)
         val result = HashMap(germany(context, points))
         val inSwitzerland = points.any { it.lat > 45.8 && it.lat < 47.9 && it.lng > 5.9 && it.lng < 10.5 }
         if (!inSwitzerland) return result
@@ -52,6 +56,26 @@ object ChargeStatusService {
             if (a.total > 0) result[site] = a
         }
         return result
+    }
+
+    /** Startet den serverseitigen Mobilithek-Pull bei einer Ladeplanung in Deutschland. */
+    private suspend fun requestMobilithekPullIfNeeded(points: List<ChargePlanner.RoutePoint>) {
+        pullTriggerMutex.withLock {
+            val crossesGermany = points.any {
+                it.lat in 47.2..55.1 && it.lng in 5.8..15.1
+            }
+            val now = System.currentTimeMillis()
+            if (!crossesGermany || now - lastMobilithekPullTrigger < 180_000) return@withLock
+            lastMobilithekPullTrigger = now
+            runCatching {
+                Backend.client.functions.invoke("mobilithek-pull-trigger", buildJsonObject {})
+            }.onSuccess {
+                Diag.log("Mobilithek-Pull bei Ladeplanung angefragt (serverseitig gedrosselt)")
+            }.onFailure {
+                lastMobilithekPullTrigger = System.currentTimeMillis() - 150_000
+                Diag.log("Mobilithek-Pull konnte nicht gestartet werden: ${it.message}")
+            }
+        }
     }
 
     @Serializable

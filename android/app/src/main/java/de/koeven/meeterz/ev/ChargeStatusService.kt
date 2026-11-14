@@ -59,20 +59,22 @@ object ChargeStatusService {
     }
 
     /** Startet den serverseitigen Mobilithek-Pull bei einer Ladeplanung in Deutschland. */
-    private suspend fun requestMobilithekPullIfNeeded(points: List<ChargePlanner.RoutePoint>) = pullTriggerMutex.withLock {
-        val crossesGermany = points.any {
-            it.lat in 47.2..55.1 && it.lng in 5.8..15.1
-        }
-        val now = System.currentTimeMillis()
-        if (!crossesGermany || now - lastMobilithekPullTrigger < 180_000) return@withLock
-        lastMobilithekPullTrigger = now
-        runCatching {
-            Backend.client.functions.invoke("mobilithek-pull-trigger", buildJsonObject {})
-        }.onSuccess {
-            Diag.log("Mobilithek-Pull bei Ladeplanung angefragt (serverseitig gedrosselt)")
-        }.onFailure {
-            lastMobilithekPullTrigger = System.currentTimeMillis() - 150_000
-            Diag.log("Mobilithek-Pull konnte nicht gestartet werden: ${it.message}")
+    private suspend fun requestMobilithekPullIfNeeded(points: List<ChargePlanner.RoutePoint>) {
+        pullTriggerMutex.withLock {
+            val crossesGermany = points.any {
+                it.lat in 47.2..55.1 && it.lng in 5.8..15.1
+            }
+            val now = System.currentTimeMillis()
+            if (!crossesGermany || now - lastMobilithekPullTrigger < 180_000) return@withLock
+            lastMobilithekPullTrigger = now
+            runCatching {
+                Backend.client.functions.invoke("mobilithek-pull-trigger", buildJsonObject {})
+            }.onSuccess {
+                Diag.log("Mobilithek-Pull bei Ladeplanung angefragt (serverseitig gedrosselt)")
+            }.onFailure {
+                lastMobilithekPullTrigger = System.currentTimeMillis() - 150_000
+                Diag.log("Mobilithek-Pull konnte nicht gestartet werden: ${it.message}")
+            }
         }
     }
 

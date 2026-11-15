@@ -106,13 +106,14 @@ fun MapScreen() {
     val friends by AppState.friends.collectAsState()
     val live by AppState.hub.positions.collectAsState()
     val guidance by NavigationController.guidance.collectAsState()
-    var satelliteStyle by remember { mutableStateOf(false) }
+    val mapStyle by UiPreferences.mapStyle.collectAsState()
+    val map3d by UiPreferences.map3d.collectAsState()
     var mapStyleRevision by remember { mutableStateOf(0) }
 
     val compassTopMarginPx = 96f * context.resources.displayMetrics.density
     val mapView = remember {
         MapView(context).apply {
-            mapboxMap.loadStyle(Style.STANDARD)
+            mapboxMap.loadStyle(if (UiPreferences.mapStyle.value == "satellite") Style.STANDARD_SATELLITE else Style.STANDARD)
             // MapView liegt edge-to-edge unter der Statusleiste: den nativen Kompass darunter verschieben.
             compass.updateSettings {
                 marginTop = compassTopMarginPx
@@ -127,6 +128,15 @@ fun MapScreen() {
         }
     }
     val binder = remember { NavigationMapBinder(mapView) }
+    LaunchedEffect(mapStyle) {
+        mapView.mapboxMap.loadStyle(if (mapStyle == "satellite") Style.STANDARD_SATELLITE else Style.STANDARD) {
+            binder.refreshStyle()
+            mapStyleRevision++
+        }
+    }
+    LaunchedEffect(map3d) {
+        mapView.mapboxMap.setCamera(CameraOptions.Builder().pitch(if (map3d) 45.0 else 0.0).build())
+    }
     DisposableEffect(Unit) { binder.attach(); onDispose { binder.detach() } }
     LaunchedEffect(guidance != null) {
         binder.setActive(guidance != null)
@@ -221,14 +231,9 @@ fun MapScreen() {
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             FilledTonalIconButton(onClick = {
-                satelliteStyle = !satelliteStyle
-                mapView.mapboxMap.loadStyle(if (satelliteStyle) Style.STANDARD_SATELLITE else Style.STANDARD) {
-                    // Routenlinie und Annotation-Layer werden im neuen Style wiederhergestellt.
-                    binder.refreshStyle()
-                    mapStyleRevision++
-                }
+                UiPreferences.setMapStyle(if (mapStyle == "satellite") "standard" else "satellite")
             }) {
-                Icon(Icons.Default.Layers, contentDescription = tr(if (satelliteStyle) "Standardkarte" else "Satellitenkarte"))
+                Icon(Icons.Default.Layers, contentDescription = tr(if (mapStyle == "satellite") "Standardkarte" else "Satellitenkarte"))
             }
         }
 

@@ -108,6 +108,14 @@ fun MapScreen() {
     val guidance by NavigationController.guidance.collectAsState()
     val mapStyle by UiPreferences.mapStyle.collectAsState()
     val map3d by UiPreferences.map3d.collectAsState()
+    val staleHours by UiPreferences.staleHours.collectAsState()
+    val visibleFriends = remember(friends, live, staleHours) {
+        friends.filter { friend ->
+            val updated = live[friend.friendId]?.ts ?: friend.locationUpdatedAt?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() / 1000.0 }.getOrNull() }
+            staleHours == 0 || updated == null || System.currentTimeMillis() / 1000.0 - updated <= staleHours * 3600.0
+        }
+    }
+    val visibleFriendIds = remember(visibleFriends) { visibleFriends.map { it.friendId }.toSet() }
     var mapStyleRevision by remember { mutableStateOf(0) }
 
     val compassTopMarginPx = 96f * context.resources.displayMetrics.density
@@ -145,10 +153,10 @@ fun MapScreen() {
 
     val friendRoutes by AppState.routes.routes.collectAsState()
     val lines = remember(mapView, mapStyleRevision) { mapView.annotations.createPolylineAnnotationManager() }
-    LaunchedEffect(friendRoutes, mapStyleRevision) {
+    LaunchedEffect(friendRoutes, visibleFriendIds, mapStyleRevision) {
         // Routen der Freunde in ihrer Farbe mit dunkler Umrandung (wie iOS)
         lines.deleteAll()
-        for ((id, r) in friendRoutes) {
+        for ((id, r) in friendRoutes.filterKeys { it in visibleFriendIds }) {
             val points = r.coordinates.map { Point.fromLngLat(it.first, it.second) }
             lines.create(PolylineAnnotationOptions().withPoints(points).withLineColor(FriendPalette.routeCasing.toArgb()).withLineWidth(8.0))
             lines.create(PolylineAnnotationOptions().withPoints(points).withLineColor(FriendPalette.routeColor(id).toArgb()).withLineWidth(5.0))
@@ -157,10 +165,10 @@ fun MapScreen() {
     val annotations: PointAnnotationManager = remember(mapView, mapStyleRevision) { mapView.annotations.createPointAnnotationManager() }
     val avatars by de.koeven.meeterz.data.AvatarStore.images.collectAsState()
     val passengerVersion by de.koeven.meeterz.social.Passengers.version.collectAsState()
-    LaunchedEffect(friends, live, friendRoutes, avatars, passengerVersion, mapStyleRevision) {
+    LaunchedEffect(visibleFriends, live, friendRoutes, avatars, passengerVersion, mapStyleRevision) {
         annotations.deleteAll()
         val riding = de.koeven.meeterz.social.Passengers.riding
-        for (f in friends.filter { it.isAccepted && it.friendId !in riding }) {
+        for (f in visibleFriends.filter { it.isAccepted && it.friendId !in riding }) {
             val pos = live[f.friendId]
             val lat = pos?.lat ?: f.lat ?: continue
             val lng = pos?.lng ?: f.lng ?: continue

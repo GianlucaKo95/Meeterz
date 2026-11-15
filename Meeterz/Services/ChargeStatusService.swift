@@ -67,7 +67,7 @@ final class ChargeStatusService {
         let crossesGermany = coords.contains {
             $0.latitude >= 47.2 && $0.latitude <= 55.1 && $0.longitude >= 5.8 && $0.longitude <= 15.1
         }
-        guard crossesGermany, Date().timeIntervalSince(lastMobilithekPullTrigger) >= 30 else { return }
+        guard crossesGermany, Date().timeIntervalSince(lastMobilithekPullTrigger) >= 180 else { return }
         lastMobilithekPullTrigger = Date()
 
         // Kein await: weder Routenstart noch vorhandene Verfügbarkeitsanzeige warten auf Mobilithek.
@@ -79,7 +79,7 @@ final class ChargeStatusService {
                 )
                 Diag.log("Gezielter Mobilithek-Pull angefragt: \(operators.count) Routen-Betreiber")
             } catch {
-                self.lastMobilithekPullTrigger = Date().addingTimeInterval(-25)
+                self.lastMobilithekPullTrigger = Date().addingTimeInterval(-150)
                 Diag.log("Mobilithek-Pull konnte nicht gestartet werden: \(error.localizedDescription)")
             }
         }

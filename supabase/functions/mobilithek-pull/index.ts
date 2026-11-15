@@ -69,13 +69,14 @@ function parseDynamic(json: unknown, now: string) {
   const rows: Record<string, unknown>[] = [];
   for (const site of findAll(json, "energyInfrastructureSiteStatus")) {
     const siteId = idOf(site);
+    const operator = isObj(site) ? textValue(site.operator ?? {}, "name") ?? null : null;
     for (const point of findAll(site, "aegiElectricChargingPointStatus")) {
       if (!isObj(point)) continue;
       const pointId = idOf(point);
       const status = isObj(point.status) ? point.status.value : undefined;
       if (!pointId || typeof status !== "string") continue;
       rows.push({
-        point_id: pointId, site_id: siteId ?? null, status,
+        point_id: pointId, site_id: siteId ?? null, operator, status,
         price_kwh: pricePerKwh(point) ?? null,
         reported_at: typeof point.lastUpdated === "string" ? point.lastUpdated :
           (isObj(site) && typeof site.lastUpdated === "string" ? site.lastUpdated : null),
@@ -86,24 +87,28 @@ function parseDynamic(json: unknown, now: string) {
   return rows;
 }
 function parseStatic(json: unknown, now: string) {
-  const sites: Record<string, unknown>[] = [], points: Record<string, unknown>[] = [];
+  const sites: Record<string, unknown>[] = [], points: Record<string, unknown>[] = [], mappings: Record<string, unknown>[] = [];
   for (const site of findAll(json, "energyInfrastructureSite")) {
     if (!isObj(site)) continue;
     const siteId = idOf(site);
     const c = coordinates(site.locationReference ?? site);
     if (!siteId || !c) continue;
+    const operator = textValue(site.operator ?? {}, "name") ?? null;
     sites.push({
       site_id: siteId, lat: c.lat, lng: c.lng,
       name: textValue(site, "name") ?? null,
-      operator: textValue(site.operator ?? {}, "name") ?? null,
+      operator,
       max_kw: maxKw(site) ?? null, updated_at: now
     });
     for (const p of findAll(site, "aegiElectricChargingPoint")) {
       const pointId = idOf(p);
-      if (pointId) points.push({ point_id: pointId, site_id: siteId, max_kw: maxKw(p) ?? null, updated_at: now });
+      if (pointId) {
+        points.push({ point_id: pointId, site_id: siteId, max_kw: maxKw(p) ?? null, updated_at: now });
+        mappings.push({ subscription_id: "", point_id: pointId, site_id: siteId, operator, publication_type: "STATIC_TABLE", updated_at: now });
+      }
     }
   }
-  return { sites, points };
+  return { sites, points, mappings };
 }
 async function upsertChunks(admin: ReturnType<typeof createClient>, table: string, rows: Record<string, unknown>[], key: string) {
   const unique = [...new Map(rows.map(row => [String(row[key]), row])).values()];
@@ -150,12 +155,38 @@ async function upsertStatusRows(admin: ReturnType<typeof createClient>, rows: Re
   }
   return affected;
 }
+async function saveSubscriptionPoints(
+  admin: ReturnType<typeof createClient>,
+  subscriptionId: string,
+  publicationType: string,
+  mappings: Record<string, unknown>[]
+) {
+  const rows = mappings.map(row => ({ ...row, subscription_id: subscriptionId, publication_type: publicationType, updated_at: new Date().toISOString() }));
+  const unique = [...new Map(rows.map(row => [String(row.point_id), row])).values()];
+  for (let i = 0; i < unique.length; i += 500) {
+    const { error } = await admin.from("mobilithek_subscription_points").upsert(unique.slice(i, i + 500), { onConflict: "subscription_id,point_id" });
+    if (error) throw new Error("subscription point mapping upsert failed: " + error.message);
+  }
+}
 Deno.serve(async (req: Request) => {
   if (req.method !== "GET" && req.method !== "POST") return Response.json({ ok: false, error: "METHOD_NOT_ALLOWED" }, { status: 405 });
   const url = new URL(req.url);
-  const batch = Number(url.searchParams.get("batch") ?? "0");
+  const batchParam = url.searchParams.get("batch");
   const mode = url.searchParams.get("mode") ?? "dry-run";
-  if (!Number.isInteger(batch) || batch < 0 || batch > 6) return Response.json({ ok: false, error: "INVALID_BATCH", validBatches: "0-6" }, { status: 400 });
+  const forceMapping = url.searchParams.get("forceMapping") === "1";
+  let slice: string[];
+  const idsParam = url.searchParams.get("ids");
+  if (idsParam !== null) {
+    const requested = [...new Set(idsParam.split(",").map(x => x.trim()).filter(Boolean))];
+    if (requested.length < 1 || requested.length > BATCH_SIZE || requested.some(id => !IDS.includes(id))) {
+      return Response.json({ ok: false, error: "INVALID_SUBSCRIPTION_IDS", maxPerRequest: BATCH_SIZE }, { status: 400 });
+    }
+    slice = requested;
+  } else {
+    const batch = Number(batchParam ?? "0");
+    if (!Number.isInteger(batch) || batch < 0 || batch > 6) return Response.json({ ok: false, error: "INVALID_BATCH", validBatches: "0-6" }, { status: 400 });
+    slice = IDS.slice(batch * BATCH_SIZE, (batch + 1) * BATCH_SIZE);
+  }
   if (mode !== "dry-run" && mode !== "commit") return Response.json({ ok: false, error: "INVALID_MODE", allowed: ["dry-run", "commit"] }, { status: 400 });
 
   const cert = Deno.env.get("MOBILITHEK_CLIENT_CERT_PEM"), key = Deno.env.get("MOBILITHEK_CLIENT_KEY_PEM");
@@ -168,7 +199,6 @@ Deno.serve(async (req: Request) => {
   let client: Deno.HttpClient | undefined;
   try {
     client = createHttpClient({ cert, key });
-    const slice = IDS.slice(batch * BATCH_SIZE, (batch + 1) * BATCH_SIZE);
     const results: Record<string, unknown>[] = [];
     let cursor = 0;
     async function worker() {
@@ -188,7 +218,11 @@ Deno.serve(async (req: Request) => {
             const ttlMs = previousState?.publication_type === "DYNAMIC_STATUS" ? 3 * 60 * 1000
               : previousState?.publication_type === "STATIC_TABLE" ? 12 * 60 * 60 * 1000
               : previousState?.publication_type === "UNKNOWN" ? 3 * 60 * 1000 : 0;
-            if (ttlMs > 0 && ageMs >= 0 && ageMs < ttlMs) {
+            const { count: mappedCount, error: mappingReadError } = await admin.from("mobilithek_subscription_points")
+              .select("point_id", { count: "exact", head: true }).eq("subscription_id", id);
+            if (mappingReadError) throw new Error("subscription mapping read failed: " + mappingReadError.message);
+            const mappingMissing = (mappedCount ?? 0) === 0;
+            if (!forceMapping && !mappingMissing && ttlMs > 0 && ageMs >= 0 && ageMs < ttlMs) {
               results[i] = { subscriptionId: id, classification: "SKIPPED_FRESH", publicationType: previousState?.publication_type, ageSeconds: Math.floor(ageMs / 1000), written: false };
               continue;
             }
@@ -221,13 +255,17 @@ Deno.serve(async (req: Request) => {
             const rows = parseDynamic(parsed, now);
             const uniquePoints = newestStatusRows(rows);
             const pointsWritten = mode === "commit" && uniquePoints.length ? await upsertStatusRows(admin, uniquePoints) : 0;
-            if (mode === "commit") await saveSubscriptionState(admin, id, "DYNAMIC_STATUS", 200, now);
+            if (mode === "commit") {
+              if (rows.length) await saveSubscriptionPoints(admin, id, "DYNAMIC_STATUS", rows.map(r => ({ point_id: r.point_id, site_id: r.site_id ?? null, operator: r.operator ?? null })));
+              await saveSubscriptionState(admin, id, "DYNAMIC_STATUS", 200, now);
+            }
             results[i] = { ...baseResult, classification: "DYNAMIC_STATUS", pointsParsed: rows.length, uniquePoints: uniquePoints.length, pointsUpserted: pointsWritten, pricedPoints: uniquePoints.filter(r => r.price_kwh !== null).length, written: mode === "commit" && pointsWritten > 0 };
           } else if (isStatic) {
-            const { sites, points } = parseStatic(parsed, now);
+            const { sites, points, mappings } = parseStatic(parsed, now);
             if (mode === "commit") {
               if (sites.length) await upsertChunks(admin, "charge_site_static", sites, "site_id");
               if (points.length) await upsertChunks(admin, "charge_point_static", points, "point_id");
+              if (mappings.length) await saveSubscriptionPoints(admin, id, "STATIC_TABLE", mappings);
               await saveSubscriptionState(admin, id, "STATIC_TABLE", 200, now);
             }
             results[i] = { ...baseResult, classification: "STATIC_TABLE", sitesParsed: sites.length, pointsParsed: points.length, written: mode === "commit" && (sites.length + points.length > 0) };
@@ -246,8 +284,8 @@ Deno.serve(async (req: Request) => {
     const failures = results.filter(r => ["HTTP_ERROR", "NON_JSON", "UNKNOWN_PUBLICATION_TYPE", "PROCESSING_ERROR"].includes(String(r.classification))).length;
     return Response.json({
       ok: failures === 0, stage: mode === "commit" ? "mobilithek_batch_committed" : "mobilithek_batch_dry_run",
-      batch, batchesTotal: 7, batchSize: slice.length, uniqueSubscriptionsTotal: IDS.length,
-      mode, failures, results,
+      batch: batchParam === null ? null : Number(batchParam), batchesTotal: 7, batchSize: slice.length, uniqueSubscriptionsTotal: IDS.length,
+      subscriptionIds: slice, forceMapping, mode, failures, results,
       note: "Only idempotent upserts are used. No rows are deleted. Existing charge_availability() is not modified."
     });
   } catch (e) {

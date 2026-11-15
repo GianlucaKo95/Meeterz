@@ -16,12 +16,17 @@ final class ChargeStatusService {
     private var loading: Task<Void, Never>?
     private var lastMobilithekPullTrigger = Date.distantPast
 
-    private struct PullTriggerBody: Encodable {}
+    private struct PullTriggerBody: Encodable {
+        let operators: [String]
+    }
 
     /// Belegung für alle Standorte mit Ladepunkt-IDs entlang der Route (lädt die Daten bei Bedarf, max. alle 3 Min.)
     func availability(along route: Route) async -> [ChargeSite: ChargeAvailability] {
         guard let coords = route.shape?.coordinates, !coords.isEmpty else { return [:] }
-        await requestMobilithekPullIfNeeded(along: coords)
+        // Der externe Pull läuft unabhängig. Die Navigation/Ladeplanung liest sofort den
+        // zuletzt gespeicherten Datenstand aus Supabase und wartet nicht auf Mobilithek.
+        let routeOperators = mobilithekProviderKeys(along: route)
+        requestMobilithekPullIfNeeded(along: coords, operators: routeOperators)
         var result = await germany(along: coords)
         // Schweiz nur laden, wenn die Route sie berührt
         let inSwitzerland = coords.contains { $0.latitude > 45.8 && $0.latitude < 47.9 && $0.longitude > 5.9 && $0.longitude < 10.5 }
@@ -42,24 +47,41 @@ final class ChargeStatusService {
         return result
     }
 
-    /// Startet den serverseitigen Mobilithek-Pull bei einer Ladeplanung in Deutschland.
-    /// Die Edge Function sperrt parallele Aufrufe und drosselt dynamische (3 Min.) und statische (12 Std.) Feeds.
-    private func requestMobilithekPullIfNeeded(along coords: [CLLocationCoordinate2D]) async {
+    /// Betreiber-Schlüssel der gleichen Routen-Kandidaten, aus denen ChargePlanner mögliche Stopps auswählt.
+    /// So werden nicht nur finale Stopps, sondern auch Alternativen entlang der Route berücksichtigt.
+    private func mobilithekProviderKeys(along route: Route) -> [String] {
+        guard let vehicle = EVSettings.vehicle else { return [] }
+        let settings = EVSettings.plannerSettings
+        let profile = ChargePlanner.profile(of: route, vehicle: vehicle, temperature: settings.temperature, factors: settings.factors)
+        let eligibleSites = ChargeSites.all.filter {
+            $0.country == "DE" && !$0.operatorName.isEmpty
+                && !settings.avoidedNetworks.contains(ChargeNetworks.key($0.operatorName))
+        }
+        let candidates = ChargePlanner.candidates(along: profile, sites: eligibleSites, preferred: settings.preferredNetworks)
+        return Array(Set(candidates.map { ChargeNetworks.key($0.site.operatorName) }.filter { !$0.isEmpty })).sorted()
+    }
+
+    /// Startet den serverseitigen Mobilithek-Pull nur für die Betreiber der möglichen Routen-Ladestopps.
+    /// Beim ersten Aufruf wird einmalig der Reverse-Index aus allen Subscriptions aufgebaut.
+    private func requestMobilithekPullIfNeeded(along coords: [CLLocationCoordinate2D], operators: [String]) {
         let crossesGermany = coords.contains {
             $0.latitude >= 47.2 && $0.latitude <= 55.1 && $0.longitude >= 5.8 && $0.longitude <= 15.1
         }
         guard crossesGermany, Date().timeIntervalSince(lastMobilithekPullTrigger) >= 180 else { return }
         lastMobilithekPullTrigger = Date()
-        do {
-            try await Backend.client.functions.invoke(
-                "mobilithek-pull-trigger",
-                options: FunctionInvokeOptions(body: PullTriggerBody())
-            )
-            Diag.log("Mobilithek-Pull bei Ladeplanung angefragt (serverseitig gedrosselt)")
-        } catch {
-            // Die Ladeplanung darf nicht ausfallen, wenn der Datenabruf gerade nicht erreichbar ist.
-            lastMobilithekPullTrigger = Date().addingTimeInterval(-150)
-            Diag.log("Mobilithek-Pull konnte nicht gestartet werden: \(error.localizedDescription)")
+
+        // Kein await: weder Routenstart noch vorhandene Verfügbarkeitsanzeige warten auf Mobilithek.
+        Task { @MainActor in
+            do {
+                try await Backend.client.functions.invoke(
+                    "mobilithek-pull-trigger",
+                    options: FunctionInvokeOptions(body: PullTriggerBody(operators: operators))
+                )
+                Diag.log("Gezielter Mobilithek-Pull angefragt: \(operators.count) Routen-Betreiber")
+            } catch {
+                self.lastMobilithekPullTrigger = Date().addingTimeInterval(-150)
+                Diag.log("Mobilithek-Pull konnte nicht gestartet werden: \(error.localizedDescription)")
+            }
         }
     }
 

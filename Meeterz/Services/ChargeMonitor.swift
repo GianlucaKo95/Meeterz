@@ -11,6 +11,7 @@ final class ChargeMonitor {
     static let shared = ChargeMonitor()
 
     private var timer: Timer?
+    private var lastAvailabilityRefresh = Date.distantPast
     private var lastAlert = Date.distantPast
     private var lastSignature = ""
 
@@ -37,7 +38,9 @@ final class ChargeMonitor {
         lastEstimate = nil
         legMark = ("", 0)
         arrivalPercent = nil
-        timer = Timer.scheduledTimer(withTimeInterval: 120, repeats: true) { _ in
+        // 30-s-Tick mit adaptiver Drosselung in check(): nahe am nächsten Ladestopp
+        // häufiger, weit entfernte Stopps deutlich seltener neu bewerten.
+        timer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { _ in
             Task { @MainActor in await ChargeMonitor.shared.check() }
         }
         // Erste Prognose, sobald die Route steht
@@ -114,10 +117,41 @@ final class ChargeMonitor {
         CarPlayBatteryChip.shared.show(label: last ? String(localized: "Ziel") : String(localized: "Stopp"), percent: arrival, low: arrival < limit, live: live != nil)
     }
 
+    /// Abstand zum nächsten übernommenen Ladestopp bestimmt die Aktualisierungsfrequenz.
+    /// Die Datenbankabfrage liest nur den vorhandenen Snapshot; Mobilithek selbst bleibt gedrosselt.
+    private func availabilityRefreshInterval() -> TimeInterval {
+        guard let progress = navigationProvider.mapboxNavigation.navigation().currentRouteProgress?.routeProgress else {
+            return 300
+        }
+        let traveled = progress.distanceTraveled
+        let nextStopDistance = ChargingSession.shared.plan?.stops
+            .filter { !$0.fixed }
+            .map { $0.distanceFromStart - traveled }
+            .filter { $0 > 0 }
+            .min() ?? .infinity
+
+        switch nextStopDistance {
+        case ..<1_000: return 30
+        case ..<5_000: return 30
+        case ..<20_000: return 60
+        case ..<50_000: return 120
+        default: return 300
+        }
+    }
+
     /// `pause`: gleich nach dem Einfügen einer Konvoi-Pause – auch ohne Live-Wert (dann mit der Schätzung), ohne
     /// Sperrzeit, und mit Rückmeldung, wie viel in der Pause geladen wird
     func check(pause: Place? = nil) async {
         updateForecast()
+
+        // Häufige lokale Supabase-Abfrage nur bei Bedarf. Der Mobilithek-Quellabruf
+        // bleibt davon unabhängig serverseitig auf maximal 1x/180 s gedrosselt.
+        if pause == nil {
+            let interval = availabilityRefreshInterval()
+            guard Date().timeIntervalSince(lastAvailabilityRefresh) >= interval else { return }
+            lastAvailabilityRefresh = Date()
+        }
+
         let fresh = (AppModel.shared.vehicle.status?.age ?? .infinity) < 4 * 60
         let live = fresh ? AppModel.shared.vehicle.liveSoc : nil
         // Ohne Live-Daten mit der Schätzung (Verbrauchsmodell, an Ladestopps auf den geplanten Stand gesetzt)

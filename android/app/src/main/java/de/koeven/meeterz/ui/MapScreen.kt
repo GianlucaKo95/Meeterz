@@ -223,7 +223,8 @@ fun MapScreen() {
             FilledTonalIconButton(onClick = {
                 satelliteStyle = !satelliteStyle
                 mapView.mapboxMap.loadStyle(if (satelliteStyle) Style.STANDARD_SATELLITE else Style.STANDARD) {
-                    // Annotation-Layer werden mit dem neuen Style neu angelegt und aus AppState rekonstruiert.
+                    // Routenlinie und Annotation-Layer werden im neuen Style wiederhergestellt.
+                    binder.refreshStyle()
                     mapStyleRevision++
                 }
             }) {

@@ -63,7 +63,7 @@ object AppState {
 
     private lateinit var appContext: Context
 
-    fun init(context: Context) { appContext = context.applicationContext; favorites = FavoritesStore(context) }
+    fun init(context: Context) { appContext = context.applicationContext; favorites = FavoritesStore(context); sharingModeState.value = sharingMode }
 
     fun appContextOrNull(): Context? = if (::appContext.isInitialized) appContext else null
 
@@ -185,9 +185,10 @@ object AppState {
         }
     }
 
+    val sharingModeState = MutableStateFlow(SharingMode.ALWAYS)
     var sharingMode: SharingMode
         get() = SharingMode.entries.getOrNull(appContext.getSharedPreferences("app", 0).getInt("sharingMode", 3)) ?: SharingMode.ALWAYS
-        set(v) { appContext.getSharedPreferences("app", 0).edit().putInt("sharingMode", v.ordinal).apply() }
+        set(v) { appContext.getSharedPreferences("app", 0).edit().putInt("sharingMode", v.ordinal).apply(); sharingModeState.value = v }
 
     suspend fun shareLocation(mode: SharingMode) {
         sharingMode = mode

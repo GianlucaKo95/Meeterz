@@ -73,6 +73,7 @@ fun SettingsScreen(onClose: () -> Unit) {
     val authError by AppState.auth.error.collectAsState()
     val profile = (auth as? AuthRepository.State.Ready)?.profile
     val favorites by AppState.favorites.items.collectAsState()
+    val sharingMode by AppState.sharingModeState.collectAsState()
     val appearance by UiPreferences.appearance.collectAsState()
     val mapStyle by UiPreferences.mapStyle.collectAsState()
     val map3d by UiPreferences.map3d.collectAsState()
@@ -161,7 +162,7 @@ fun SettingsScreen(onClose: () -> Unit) {
                         SettingsNavRow(tr("Routenvorschläge"), if (frequent || calendar) tr("Aktiv") else tr("Aus"), "›") { page = SettingsPage.SUGGESTIONS }
                         SettingsNavRow(tr("Datenschutz"), "", "›") { page = SettingsPage.PRIVACY }
                         SettingsNavRow(tr("Für Entwickler"), "", "›") { page = SettingsPage.DEVELOPER }
-                        SettingsNavRow(tr("Version"), BuildConfig.VERSION_NAME, "")
+                        SettingsNavRow(tr("Version"), BuildConfig.VERSION_NAME, "") {}
                         SettingsSectionTitle(tr("Konto"))
                         SettingsNavRow(tr("Kontoverwaltung"), tr("Abmelden und Konto löschen"), "›") { page = SettingsPage.ACCOUNT }
                         if (favorites.isNotEmpty()) {
@@ -174,7 +175,7 @@ fun SettingsScreen(onClose: () -> Unit) {
                             SettingsSectionTitle(tr("Standortfreigabe"))
                             Text(sharingLabel(p), style = MaterialTheme.typography.bodySmall)
                             for (mode in AppState.SharingMode.entries) {
-                                SettingsChoiceRow(mode.title, AppState.sharingMode == mode && p.isSharingNow) {
+                                SettingsChoiceRow(mode.title, sharingMode == mode && p.isSharingNow) {
                                     scope.launch { AppState.shareLocation(mode) }
                                 }
                             }
@@ -246,7 +247,7 @@ fun SettingsScreen(onClose: () -> Unit) {
                         SettingsSwitch(tr("Sprachansagen"), tr("Abbiegehinweise während der Navigation vorlesen"),
                             !NavigationController.muted) { NavigationController.muted = !it }
                         OutlinedButton(onClick = {
-                            runCatching { context.startActivity(Intent(TextToSpeech.Engine.ACTION_TTS_SETTINGS)) }
+                            runCatching { context.startActivity(Intent("com.android.settings.TTS_SETTINGS")) }
                         }, Modifier.fillMaxWidth()) { Text(tr("Navigationsstimme und Sprache auswählen")) }
                         Text(tr("Die verfügbaren Stimmen und Sprachen werden von der auf deinem Android-Gerät installierten Sprachengine bereitgestellt."),
                             style = MaterialTheme.typography.bodySmall)

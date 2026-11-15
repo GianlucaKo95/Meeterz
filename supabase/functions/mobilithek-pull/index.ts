@@ -69,13 +69,14 @@ function parseDynamic(json: unknown, now: string) {
   const rows: Record<string, unknown>[] = [];
   for (const site of findAll(json, "energyInfrastructureSiteStatus")) {
     const siteId = idOf(site);
+    const operator = isObj(site) ? textValue(site.operator ?? {}, "name") ?? null : null;
     for (const point of findAll(site, "aegiElectricChargingPointStatus")) {
       if (!isObj(point)) continue;
       const pointId = idOf(point);
       const status = isObj(point.status) ? point.status.value : undefined;
       if (!pointId || typeof status !== "string") continue;
       rows.push({
-        point_id: pointId, site_id: siteId ?? null, status,
+        point_id: pointId, site_id: siteId ?? null, operator, status,
         price_kwh: pricePerKwh(point) ?? null,
         reported_at: typeof point.lastUpdated === "string" ? point.lastUpdated :
           (isObj(site) && typeof site.lastUpdated === "string" ? site.lastUpdated : null),
@@ -255,7 +256,7 @@ Deno.serve(async (req: Request) => {
             const uniquePoints = newestStatusRows(rows);
             const pointsWritten = mode === "commit" && uniquePoints.length ? await upsertStatusRows(admin, uniquePoints) : 0;
             if (mode === "commit") {
-              if (rows.length) await saveSubscriptionPoints(admin, id, "DYNAMIC_STATUS", rows.map(r => ({ point_id: r.point_id, site_id: r.site_id ?? null, operator: null })));
+              if (rows.length) await saveSubscriptionPoints(admin, id, "DYNAMIC_STATUS", rows.map(r => ({ point_id: r.point_id, site_id: r.site_id ?? null, operator: r.operator ?? null })));
               await saveSubscriptionState(admin, id, "DYNAMIC_STATUS", 200, now);
             }
             results[i] = { ...baseResult, classification: "DYNAMIC_STATUS", pointsParsed: rows.length, uniquePoints: uniquePoints.length, pointsUpserted: pointsWritten, pricedPoints: uniquePoints.filter(r => r.price_kwh !== null).length, written: mode === "commit" && pointsWritten > 0 };

@@ -125,8 +125,8 @@ fun MapScreen() {
             mapboxMap.loadStyle(if (UiPreferences.mapStyle.value == "satellite") Style.STANDARD_SATELLITE else Style.STANDARD)
             // MapView liegt edge-to-edge unter der Statusleiste: den nativen Kompass darunter verschieben.
             compass.updateSettings {
-                marginTop = compassTopMarginPx
-                marginRight = 12.0 * context.resources.displayMetrics.density
+                marginTop = compassTopMarginPx.toFloat()
+                marginRight = (12.0 * context.resources.displayMetrics.density).toFloat()
             }
             mapboxMap.setCamera(CameraOptions.Builder().zoom(14.0).build())
             location.updateSettings {

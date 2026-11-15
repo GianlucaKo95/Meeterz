@@ -131,6 +131,7 @@ fun SettingsScreen(onClose: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 when (page) {
+                    SettingsPage.SOUND -> Unit
                     SettingsPage.HOME -> {
                         profile?.let { p ->
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {

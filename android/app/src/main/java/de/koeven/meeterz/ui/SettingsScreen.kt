@@ -6,6 +6,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -69,12 +70,16 @@ fun SettingsScreen(onClose: () -> Unit) {
     if (showEv) EvSettingsDialog(onClose = { showEv = false })
 
     Surface(Modifier.fillMaxSize()) {
-        Column(Modifier.statusBarsPadding()) {
+        Column(Modifier.fillMaxSize().statusBarsPadding()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Zurück")) }
                 Text(tr("Einstellungen"), style = MaterialTheme.typography.titleLarge)
             }
-            LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            LazyColumn(
+                Modifier.weight(1f).navigationBarsPadding().padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(bottom = 20.dp),
+            ) {
                 profile?.let { p ->
                     item {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {

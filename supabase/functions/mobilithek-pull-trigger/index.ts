@@ -114,7 +114,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    const cooldown = forceMapping ? 180 : 15;
+    const cooldown = 180;
     const { data: claimed, error } = await admin.rpc("claim_mobilithek_pull", { p_cooldown_seconds: cooldown, p_lease_seconds: 600 });
     if (error) throw new Error("Could not claim Mobilithek pull: " + error.message);
     if (!claimed) return Response.json({ ok: true, status: "already_running_or_recent", cooldownSeconds: cooldown, targetedSubscriptions: subscriptionIds.length });

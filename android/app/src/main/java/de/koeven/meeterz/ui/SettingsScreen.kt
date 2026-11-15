@@ -103,6 +103,10 @@ fun SettingsScreen(onClose: () -> Unit) {
                     confirmDelete = false
                     scope.launch {
                         LocationSharingService.stop(context)
+                        de.koeven.meeterz.data.AvatarStore.removeMine()
+                        for (moment in de.koeven.meeterz.sound.SoundMoment.entries) {
+                            de.koeven.meeterz.sound.SoundStore.removeMine(moment)
+                        }
                         AppState.endSession()
                         AppState.auth.deleteAccount()
                     }

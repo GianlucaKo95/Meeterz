@@ -73,6 +73,7 @@ fun SettingsScreen(onClose: () -> Unit) {
     val authError by AppState.auth.error.collectAsState()
     val profile = (auth as? AuthRepository.State.Ready)?.profile
     val favorites by AppState.favorites.items.collectAsState()
+    val sharingMode by AppState.sharingModeState.collectAsState()
     val appearance by UiPreferences.appearance.collectAsState()
     val mapStyle by UiPreferences.mapStyle.collectAsState()
     val map3d by UiPreferences.map3d.collectAsState()
@@ -174,7 +175,7 @@ fun SettingsScreen(onClose: () -> Unit) {
                             SettingsSectionTitle(tr("Standortfreigabe"))
                             Text(sharingLabel(p), style = MaterialTheme.typography.bodySmall)
                             for (mode in AppState.SharingMode.entries) {
-                                SettingsChoiceRow(mode.title, AppState.sharingMode == mode && p.isSharingNow) {
+                                SettingsChoiceRow(mode.title, sharingMode == mode && p.isSharingNow) {
                                     scope.launch { AppState.shareLocation(mode) }
                                 }
                             }

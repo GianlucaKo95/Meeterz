@@ -106,6 +106,7 @@ fun MapScreen() {
     val friends by AppState.friends.collectAsState()
     val live by AppState.hub.positions.collectAsState()
     val guidance by NavigationController.guidance.collectAsState()
+    val meetups by AppState.meetups.meetups.collectAsState()
     val mapStyle by UiPreferences.mapStyle.collectAsState()
     val map3d by UiPreferences.map3d.collectAsState()
     val staleHours by UiPreferences.staleHours.collectAsState()
@@ -136,6 +137,10 @@ fun MapScreen() {
         }
     }
     val binder = remember { NavigationMapBinder(mapView) }
+    val isMeetupGuidance = guidance?.destination?.let { destination ->
+        meetups.any { meetup -> meetup.isAccepted && ChargePlanner.distance(meetup.lat, meetup.lng, destination.lat, destination.lng) < 300 }
+    } == true
+    LaunchedEffect(isMeetupGuidance) { binder.setMeetingMode(isMeetupGuidance) }
     LaunchedEffect(mapStyle) {
         mapView.mapboxMap.loadStyle(if (mapStyle == "satellite") Style.STANDARD_SATELLITE else Style.STANDARD) {
             binder.refreshStyle()
@@ -317,7 +322,7 @@ fun MapScreen() {
         planCandidate?.let { CandidatePlanDialog(it, onClose = { planCandidate = null }) }
         inviteTo?.let { d -> InviteFriendsDialog(d.name, d.address, d.lat, d.lng, onClose = { inviteTo = null }) }
         if (g != null) {
-            GuidanceBanner(g)
+            if (!isMeetupGuidance) GuidanceBanner(g)
             Column(Modifier.align(Alignment.BottomCenter)) {
                 SocialCard { planCandidate = it }
                 MeetingPointCard()

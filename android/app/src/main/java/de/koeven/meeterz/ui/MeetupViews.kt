@@ -89,7 +89,7 @@ fun meetupTime(seconds: Long): String {
  * oder eine Gelegenheit („kreuzt deinen Weg“) – immer nur die wichtigste.
  */
 @Composable
-fun SocialCard(modifier: Modifier = Modifier, onPlan: (MeetupCandidate) -> Unit) {
+fun SocialCard(modifier: Modifier = Modifier, hideAccepted: Boolean = false, onPlan: (MeetupCandidate) -> Unit) {
     val meetups by AppState.meetups.meetups.collectAsState()
     val candidates by AppState.meetups.candidates.collectAsState()
     val friends by AppState.friends.collectAsState()
@@ -97,7 +97,7 @@ fun SocialCard(modifier: Modifier = Modifier, onPlan: (MeetupCandidate) -> Unit)
     val scope = rememberCoroutineScope()
     val guidance by NavigationController.guidance.collectAsState()
     val incoming = meetups.firstOrNull { it.incoming && it.isPending }
-    val accepted = meetups.firstOrNull { it.isAccepted }
+    val accepted = if (hideAccepted) null else meetups.firstOrNull { it.isAccepted }
     val waiting = meetups.firstOrNull { !it.incoming && it.isPending }
     val candidate = candidates.let { AppState.meetups.visibleCandidates() }.firstOrNull { c -> friends.any { it.friendId == c.friendId } }
     if (incoming == null && accepted == null && waiting == null && candidate == null) return

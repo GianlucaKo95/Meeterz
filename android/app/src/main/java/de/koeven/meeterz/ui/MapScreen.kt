@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
@@ -78,6 +79,7 @@ import com.mapbox.geojson.Point
 import com.mapbox.maps.CameraOptions
 import com.mapbox.maps.MapView
 import com.mapbox.maps.Style
+import com.mapbox.maps.plugin.compass.compass
 import com.mapbox.maps.plugin.annotation.annotations
 import com.mapbox.maps.plugin.annotation.generated.PointAnnotationManager
 import com.mapbox.maps.plugin.annotation.generated.PointAnnotationOptions
@@ -104,10 +106,28 @@ fun MapScreen() {
     val friends by AppState.friends.collectAsState()
     val live by AppState.hub.positions.collectAsState()
     val guidance by NavigationController.guidance.collectAsState()
+    val meetups by AppState.meetups.meetups.collectAsState()
+    val mapStyle by UiPreferences.mapStyle.collectAsState()
+    val map3d by UiPreferences.map3d.collectAsState()
+    val staleHours by UiPreferences.staleHours.collectAsState()
+    val visibleFriends = remember(friends, live, staleHours) {
+        friends.filter { friend ->
+            val updated = live[friend.friendId]?.ts ?: friend.locationUpdatedAt?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() / 1000.0 }.getOrNull() }
+            staleHours == 0 || updated == null || System.currentTimeMillis() / 1000.0 - updated <= staleHours * 3600.0
+        }
+    }
+    val visibleFriendIds = remember(visibleFriends) { visibleFriends.map { it.friendId }.toSet() }
+    var mapStyleRevision by remember { mutableStateOf(0) }
 
+    val compassTopMarginPx = 96.0 * context.resources.displayMetrics.density
     val mapView = remember {
         MapView(context).apply {
-            mapboxMap.loadStyle(Style.STANDARD)
+            mapboxMap.loadStyle(if (UiPreferences.mapStyle.value == "satellite") Style.STANDARD_SATELLITE else Style.STANDARD)
+            // MapView liegt edge-to-edge unter der Statusleiste: den nativen Kompass darunter verschieben.
+            compass.updateSettings {
+                marginTop = compassTopMarginPx
+                marginRight = 12.0 * context.resources.displayMetrics.density
+            }
             mapboxMap.setCamera(CameraOptions.Builder().zoom(14.0).build())
             location.updateSettings {
                 enabled = true
@@ -117,6 +137,19 @@ fun MapScreen() {
         }
     }
     val binder = remember { NavigationMapBinder(mapView) }
+    val isMeetupGuidance = guidance?.destination?.let { destination ->
+        meetups.any { meetup -> meetup.isAccepted && ChargePlanner.distance(meetup.lat, meetup.lng, destination.lat, destination.lng) < 300 }
+    } == true
+    LaunchedEffect(isMeetupGuidance) { binder.setMeetingMode(isMeetupGuidance) }
+    LaunchedEffect(mapStyle) {
+        mapView.mapboxMap.loadStyle(if (mapStyle == "satellite") Style.STANDARD_SATELLITE else Style.STANDARD) {
+            binder.refreshStyle()
+            mapStyleRevision++
+        }
+    }
+    LaunchedEffect(map3d) {
+        mapView.mapboxMap.setCamera(CameraOptions.Builder().pitch(if (map3d) 45.0 else 0.0).build())
+    }
     DisposableEffect(Unit) { binder.attach(); onDispose { binder.detach() } }
     LaunchedEffect(guidance != null) {
         binder.setActive(guidance != null)
@@ -124,23 +157,23 @@ fun MapScreen() {
     }
 
     val friendRoutes by AppState.routes.routes.collectAsState()
-    val lines = remember { mapView.annotations.createPolylineAnnotationManager() }
-    LaunchedEffect(friendRoutes) {
+    val lines = remember(mapView, mapStyleRevision) { mapView.annotations.createPolylineAnnotationManager() }
+    LaunchedEffect(friendRoutes, visibleFriendIds, mapStyleRevision) {
         // Routen der Freunde in ihrer Farbe mit dunkler Umrandung (wie iOS)
         lines.deleteAll()
-        for ((id, r) in friendRoutes) {
+        for ((id, r) in friendRoutes.filterKeys { it in visibleFriendIds }) {
             val points = r.coordinates.map { Point.fromLngLat(it.first, it.second) }
             lines.create(PolylineAnnotationOptions().withPoints(points).withLineColor(FriendPalette.routeCasing.toArgb()).withLineWidth(8.0))
             lines.create(PolylineAnnotationOptions().withPoints(points).withLineColor(FriendPalette.routeColor(id).toArgb()).withLineWidth(5.0))
         }
     }
-    val annotations: PointAnnotationManager = remember { mapView.annotations.createPointAnnotationManager() }
+    val annotations: PointAnnotationManager = remember(mapView, mapStyleRevision) { mapView.annotations.createPointAnnotationManager() }
     val avatars by de.koeven.meeterz.data.AvatarStore.images.collectAsState()
     val passengerVersion by de.koeven.meeterz.social.Passengers.version.collectAsState()
-    LaunchedEffect(friends, live, friendRoutes, avatars, passengerVersion) {
+    LaunchedEffect(visibleFriends, live, friendRoutes, avatars, passengerVersion, mapStyleRevision) {
         annotations.deleteAll()
         val riding = de.koeven.meeterz.social.Passengers.riding
-        for (f in friends.filter { it.isAccepted && it.friendId !in riding }) {
+        for (f in visibleFriends.filter { it.isAccepted && it.friendId !in riding }) {
             val pos = live[f.friendId]
             val lat = pos?.lat ?: f.lat ?: continue
             val lng = pos?.lng ?: f.lng ?: continue
@@ -170,7 +203,6 @@ fun MapScreen() {
     var adopted by remember { mutableStateOf<ChargePlanner.Plan?>(null) }
     val favorites by AppState.favorites.items.collectAsState()
     val car by AppState.vehicle.status.collectAsState()
-
     fun planTo(name: String, address: String?, lat: Double, lng: Double) {
         val me = AppState.lastLocation ?: return
         val dest = NavigationController.Destination(name, lat, lng, address)
@@ -190,7 +222,7 @@ fun MapScreen() {
             via = plan.stops.map { Point.fromLngLat(it.site.lng, it.site.lat) })
         if (routes.isNotEmpty()) { preview = dest to routes; adopted = plan; selectedRoute = 0; ChargingSession.plan = plan }
     }
-    LaunchedEffect(preview, selectedRoute, guidance == null) { if (guidance == null) binder.showPreview(preview?.second, selectedRoute) }
+    LaunchedEffect(preview, selectedRoute, guidance == null, mapStyleRevision) { if (guidance == null) binder.showPreview(preview?.second, selectedRoute) }
     // Von außen angefragtes Ziel (Losfahr-Erinnerung, Widget): Route zeigen
     val openPlace by AppState.openPlace.collectAsState()
     LaunchedEffect(openPlace) {
@@ -206,6 +238,17 @@ fun MapScreen() {
 
     Box(Modifier.fillMaxSize()) {
         AndroidView(factory = { mapView }, modifier = Modifier.fillMaxSize())
+        // Kartenstil-Wechsel ist eine eigene Compose-Steuerung; der Mapbox-Kompass bleibt darunter.
+        Column(
+            Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 8.dp, end = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            FilledTonalIconButton(onClick = {
+                UiPreferences.setMapStyle(if (mapStyle == "satellite") "standard" else "satellite")
+            }) {
+                Icon(Icons.Default.Layers, contentDescription = tr(if (mapStyle == "satellite") "Standardkarte" else "Satellitenkarte"))
+            }
+        }
 
         // Neuer Ladeplan unterwegs (ChargeMonitor) und Laden (ChargingSession)
         var suggestion by remember { mutableStateOf<ChargeMonitor.Suggestion?>(null) }
@@ -245,8 +288,8 @@ fun MapScreen() {
         // Geparktes Auto (wie ParkedCarMarker auf iOS): Antippen → zu Fuß hin oder vergessen
         val parked by de.koeven.meeterz.suggest.Parking.spot.collectAsState()
         var parkedMenu by remember { mutableStateOf(false) }
-        val parkedManager = remember { mapView.annotations.createPointAnnotationManager() }
-        LaunchedEffect(parked) {
+        val parkedManager = remember(mapView, mapStyleRevision) { mapView.annotations.createPointAnnotationManager() }
+        LaunchedEffect(parked, mapStyleRevision) {
             parkedManager.deleteAll()
             parked?.let { p ->
                 parkedManager.create(PointAnnotationOptions().withPoint(Point.fromLngLat(p.lng, p.lat))
@@ -281,7 +324,7 @@ fun MapScreen() {
         if (g != null) {
             GuidanceBanner(g)
             Column(Modifier.align(Alignment.BottomCenter)) {
-                SocialCard { planCandidate = it }
+                SocialCard(hideAccepted = isMeetupGuidance) { planCandidate = it }
                 MeetingPointCard()
                 GuidanceBar(g, Modifier)
             }

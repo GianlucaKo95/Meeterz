@@ -78,6 +78,7 @@ class NavigationMapBinder(private val mapView: MapView) : MapboxNavigationObserv
     }
     private val camera = NavigationCamera(mapView.mapboxMap, mapView.camera, viewport)
     private var active = false
+    private var lastRenderedRoutes: List<NavigationRoute> = emptyList()
 
     fun attach() = MapboxNavigationApp.registerObserver(this)
     fun detach() = MapboxNavigationApp.unregisterObserver(this)
@@ -104,22 +105,35 @@ class NavigationMapBinder(private val mapView: MapView) : MapboxNavigationObserv
         if (active) return
         val style = mapView.mapboxMap.style ?: return
         if (routes.isNullOrEmpty()) {
+            lastRenderedRoutes = emptyList()
             routeLineApi.clearRouteLine { routeLineView.renderClearRouteLineValue(style, it) }
             viewport.clearRouteData()
             mapView.viewport.transitionTo(mapView.viewport.makeFollowPuckViewportState())
             return
         }
         val main = routes.getOrNull(selected) ?: routes.first()
-        routeLineApi.setNavigationRoutes(listOf(main) + routes.filter { it !== main }) { routeLineView.renderRouteDrawData(style, it) }
+        lastRenderedRoutes = listOf(main) + routes.filter { it !== main }
+        routeLineApi.setNavigationRoutes(lastRenderedRoutes) { routeLineView.renderRouteDrawData(style, it) }
         viewport.onRouteChanged(main)
         viewport.evaluate()
         mapView.viewport.idle()   // „Puck folgen“ loslassen, sonst zieht es die Kamera zurück
         camera.requestNavigationCameraToOverview()
     }
 
+    /** Nach einem Kartenstil-Wechsel die zuletzt dargestellte Route in den neuen Style zeichnen. */
+    fun refreshStyle() {
+        val style = mapView.mapboxMap.style ?: return
+        val routes = lastRenderedRoutes
+        if (routes.isEmpty()) return
+        routeLineApi.setNavigationRoutes(routes) { value ->
+            routeLineView.renderRouteDrawData(style, value)
+        }
+    }
+
     private val routesObserver = RoutesObserver { result ->
         val routes: List<NavigationRoute> = result.navigationRoutes
         if (routes.isEmpty()) return@RoutesObserver
+        lastRenderedRoutes = routes
         routeLineApi.setNavigationRoutes(routes) { value ->
             mapView.mapboxMap.style?.let { routeLineView.renderRouteDrawData(it, value) }
         }

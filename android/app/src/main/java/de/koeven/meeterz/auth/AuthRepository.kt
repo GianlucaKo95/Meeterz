@@ -13,6 +13,7 @@ import io.github.jan.supabase.auth.providers.Google
 import io.github.jan.supabase.auth.providers.builtin.IDToken
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Columns
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -99,4 +100,12 @@ class AuthRepository(private val scope: CoroutineScope) {
     suspend fun reload() = load((state.value as? State.Ready)?.profile?.id)
 
     suspend fun signOut() { runCatching { client.auth.signOut() } }
+
+    /** Gleicher serverseitiger Löschvorgang wie in der iOS-App. */
+    suspend fun deleteAccount() {
+        runCatching {
+            client.postgrest.rpc("delete_account")
+            client.auth.signOut()
+        }.onFailure { error.value = it.message }
+    }
 }

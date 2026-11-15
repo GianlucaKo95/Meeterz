@@ -17,7 +17,8 @@ grant all on table public.mobilithek_subscription_points to service_role;
 
 create table if not exists public.mobilithek_mapping_bootstrap (
   id boolean primary key default true check (id),
-  completed_at timestamptz
+  completed_at timestamptz,
+  completed_subscriptions text[] not null default '{}'::text[]
 );
 
 insert into public.mobilithek_mapping_bootstrap (id, completed_at)

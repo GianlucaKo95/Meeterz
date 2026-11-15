@@ -21,7 +21,9 @@ final class ChargeStatusService {
     /// Belegung für alle Standorte mit Ladepunkt-IDs entlang der Route (lädt die Daten bei Bedarf, max. alle 3 Min.)
     func availability(along route: Route) async -> [ChargeSite: ChargeAvailability] {
         guard let coords = route.shape?.coordinates, !coords.isEmpty else { return [:] }
-        await requestMobilithekPullIfNeeded(along: coords)
+        // Der externe Pull läuft unabhängig. Die Navigation/Ladeplanung liest sofort den
+        // zuletzt gespeicherten Datenstand aus Supabase und wartet nicht auf Mobilithek.
+        requestMobilithekPullIfNeeded(along: coords)
         var result = await germany(along: coords)
         // Schweiz nur laden, wenn die Route sie berührt
         let inSwitzerland = coords.contains { $0.latitude > 45.8 && $0.latitude < 47.9 && $0.longitude > 5.9 && $0.longitude < 10.5 }
@@ -44,22 +46,27 @@ final class ChargeStatusService {
 
     /// Startet den serverseitigen Mobilithek-Pull bei einer Ladeplanung in Deutschland.
     /// Die Edge Function sperrt parallele Aufrufe und drosselt dynamische (3 Min.) und statische (12 Std.) Feeds.
-    private func requestMobilithekPullIfNeeded(along coords: [CLLocationCoordinate2D]) async {
+    private func requestMobilithekPullIfNeeded(along coords: [CLLocationCoordinate2D]) {
         let crossesGermany = coords.contains {
             $0.latitude >= 47.2 && $0.latitude <= 55.1 && $0.longitude >= 5.8 && $0.longitude <= 15.1
         }
         guard crossesGermany, Date().timeIntervalSince(lastMobilithekPullTrigger) >= 180 else { return }
         lastMobilithekPullTrigger = Date()
-        do {
-            try await Backend.client.functions.invoke(
-                "mobilithek-pull-trigger",
-                options: FunctionInvokeOptions(body: PullTriggerBody())
-            )
-            Diag.log("Mobilithek-Pull bei Ladeplanung angefragt (serverseitig gedrosselt)")
-        } catch {
-            // Die Ladeplanung darf nicht ausfallen, wenn der Datenabruf gerade nicht erreichbar ist.
-            lastMobilithekPullTrigger = Date().addingTimeInterval(-150)
-            Diag.log("Mobilithek-Pull konnte nicht gestartet werden: \(error.localizedDescription)")
+
+        // Kein await: selbst eine langsame/unerreichbare Edge Function darf weder
+        // den Routenstart noch die Anzeige des vorhandenen Datenbestands verzögern.
+        Task { @MainActor in
+            do {
+                try await Backend.client.functions.invoke(
+                    "mobilithek-pull-trigger",
+                    options: FunctionInvokeOptions(body: PullTriggerBody())
+                )
+                Diag.log("Mobilithek-Pull im Hintergrund angefragt (serverseitig gedrosselt)")
+            } catch {
+                // Nächster Versuch frühestens nach kurzer lokaler Rückstufung.
+                self.lastMobilithekPullTrigger = Date().addingTimeInterval(-150)
+                Diag.log("Mobilithek-Pull konnte nicht gestartet werden: \(error.localizedDescription)")
+            }
         }
     }
 

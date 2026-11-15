@@ -94,7 +94,7 @@ Deno.serve(async (req: Request) => {
     const forceMapping = !bootstrap?.completed_at;
     let subscriptionIds: string[];
     if (forceMapping) {
-      // One-time initial mapping: learn which Mobilithek subscription contains each EVSE ID.
+      // One-time initial mapping: learn which Mobilithek subscriptions serve each operator.
       // Successfully processed subscriptions are not fetched again if another batch fails.
       const completed = bootstrap?.completed_subscriptions ?? [];
       subscriptionIds = IDS.filter(id => !completed.includes(id));
@@ -106,7 +106,7 @@ Deno.serve(async (req: Request) => {
     } else {
       if (!operators.length) return Response.json({ ok: true, status: "no_route_operators", targetedSubscriptions: 0 });
       const { data, error } = await admin.rpc("mobilithek_subscriptions_for_operators", { p_operator_keys: operators });
-      if (error) throw new Error("Could not resolve route EVSE IDs to subscriptions: " + error.message);
+      if (error) throw new Error("Could not resolve route operators to subscriptions: " + error.message);
       subscriptionIds = [...new Set((data ?? []).map((row: { subscription_id: string }) => row.subscription_id))]
         .filter(id => IDS.includes(id));
       if (!subscriptionIds.length) {

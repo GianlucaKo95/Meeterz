@@ -64,7 +64,7 @@ object NavigationController : MapboxNavigationObserver {
 
     fun init(context: Context) {
         appContext = context.applicationContext
-        if (speaker == null) { speaker = Speaker(context.applicationContext); NavigationNotification.start(context) }
+        if (speaker == null) { speaker = Speaker(context.applicationContext).also { it.muted = context.getSharedPreferences("app", 0).getBoolean("voice.muted", false) }; NavigationNotification.start(context) }
         MapboxNavigationApp.registerObserver(this)
     }
 
@@ -245,7 +245,7 @@ object NavigationController : MapboxNavigationObserver {
 
     var muted: Boolean
         get() = speaker?.muted ?: false
-        set(value) { speaker?.muted = value; if (value) speaker?.stop() }
+        set(value) { speaker?.muted = value; appContext?.getSharedPreferences("app", 0)?.edit()?.putBoolean("voice.muted", value)?.apply(); if (value) speaker?.stop() }
 
     private val routesObserver = RoutesObserver { result ->
         if (result.navigationRoutes.isEmpty()) _progress.value = null

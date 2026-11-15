@@ -57,7 +57,7 @@ import java.text.DateFormat
 import java.util.Date
 
 private enum class SettingsPage(val title: String) {
-    HOME("Einstellungen"), SHARING("Standort teilen"), APPEARANCE("Darstellung"),
+    HOME("Einstellungen"), SHARING("Standort teilen"), SOUND("Sound-Pack"), APPEARANCE("Darstellung"),
     MAP("Karte & Navigation"), VOICE("Sprachansagen"), EV("E-Auto"),
     SUGGESTIONS("Routenvorschläge"), PRIVACY("Datenschutz"),
     DEVELOPER("Für Entwickler"), ACCOUNT("Konto"), FAVORITES("Gespeicherte Orte")
@@ -66,7 +66,6 @@ private enum class SettingsPage(val title: String) {
 /** Android-Einstellungsstruktur an iOS angeglichen: Hauptmenü, gruppierte Unterseiten, Konto. */
 @Composable
 fun SettingsScreen(onClose: () -> Unit) {
-    BackHandler { /* below: the current page owns the back action */ }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val auth by AppState.auth.state.collectAsState()
@@ -91,6 +90,7 @@ fun SettingsScreen(onClose: () -> Unit) {
     }
 
     BackHandler(enabled = page != SettingsPage.HOME) { page = SettingsPage.HOME }
+    if (page == SettingsPage.SOUND) { SoundPackScreen(onClose = { page = SettingsPage.HOME }); return }
     if (showEvDialog) EvSettingsDialog(onClose = { showEvDialog = false })
     if (confirmDelete) {
         AlertDialog(
@@ -143,9 +143,7 @@ fun SettingsScreen(onClose: () -> Unit) {
                         }
                         SettingsSectionTitle(tr("Persönlich"))
                         SettingsNavRow(tr("Standort teilen"), sharingLabel(profile), "›") { page = SettingsPage.SHARING }
-                        SettingsNavRow(tr("Sound-Pack"), if (de.koeven.meeterz.sound.SoundStore.enabled) tr("An") else tr("Aus"), "›") {
-                            SoundPackScreen(onClose = { page = SettingsPage.HOME })
-                        }
+                        SettingsNavRow(tr("Sound-Pack"), if (de.koeven.meeterz.sound.SoundStore.enabled) tr("An") else tr("Aus"), "›") { page = SettingsPage.SOUND }
                         SettingsSectionTitle(tr("App"))
                         SettingsNavRow(tr("Darstellung"), when (appearance) {
                             "dark" -> tr("Dunkel"); "light" -> tr("Hell"); else -> tr("Wie System")

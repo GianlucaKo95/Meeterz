@@ -136,7 +136,7 @@ fun SettingsScreen(onClose: () -> Unit) {
                                 AvatarEditor(p)
                                 Column {
                                     Text(p.displayName, style = MaterialTheme.typography.titleMedium)
-                                    Text("@\${p.handle}", style = MaterialTheme.typography.bodySmall)
+                                    Text("@${p.handle}", style = MaterialTheme.typography.bodySmall)
                                 }
                             }
                             HorizontalDivider()
@@ -159,7 +159,7 @@ fun SettingsScreen(onClose: () -> Unit) {
                         SettingsNavRow(tr("Kontoverwaltung"), tr("Abmelden und Konto löschen"), "›") { page = SettingsPage.ACCOUNT }
                         if (favorites.isNotEmpty()) {
                             SettingsSectionTitle(tr("Gespeicherte Orte"))
-                            SettingsNavRow(tr("Favoriten verwalten"), "\${favorites.size}", "›") { page = SettingsPage.FAVORITES }
+                            SettingsNavRow(tr("Favoriten verwalten"), "${favorites.size}", "›") { page = SettingsPage.FAVORITES }
                         }
                     }
                     SettingsPage.SHARING -> {
@@ -214,7 +214,7 @@ fun SettingsScreen(onClose: () -> Unit) {
                         SettingsSectionTitle(tr("Freunde"))
                         Text(tr("Freunde ohne aktuelle Standortdaten nach dieser Zeit von der Karte ausblenden."), style = MaterialTheme.typography.bodySmall)
                         for (hours in listOf(1, 3, 6, 12, 24, 0)) {
-                            SettingsChoiceRow(if (hours == 0) tr("Nie") else tr("\${hours} Std."), staleHours == hours) {
+                            SettingsChoiceRow(if (hours == 0) tr("Nie") else tr("${hours} Std."), staleHours == hours) {
                                 UiPreferences.setStaleHours(hours)
                             }
                         }
@@ -275,7 +275,7 @@ fun SettingsScreen(onClose: () -> Unit) {
                         Text(tr("Standort, Mitteilungen, Kalender und Mikrofon werden über die Android-App-Berechtigungen verwaltet."),
                             style = MaterialTheme.typography.bodySmall)
                         OutlinedButton(onClick = {
-                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:\${context.packageName}"))
+                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
                             context.startActivity(intent)
                         }, Modifier.fillMaxWidth()) { Text(tr("Berechtigungen und App-Informationen öffnen")) }
                         Text(tr("Die iOS-Option zur Mapbox-Telemetrie ist in der Android-App derzeit nicht separat verfügbar."),

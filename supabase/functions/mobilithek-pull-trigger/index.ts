@@ -80,12 +80,12 @@ Deno.serve(async (req: Request) => {
   const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
   try {
-    const body = await req.json().catch(() => ({})) as { evseIds?: unknown };
-    const rawIds = Array.isArray(body.evseIds) ? body.evseIds : [];
-    if (rawIds.length > 2000 || rawIds.some(id => typeof id !== "string" || !id.trim() || id.length > 100)) {
-      return Response.json({ ok: false, error: "INVALID_EVSE_IDS", maxIds: 2000 }, { status: 400 });
+    const body = await req.json().catch(() => ({})) as { operators?: unknown };
+    const rawOperators = Array.isArray(body.operators) ? body.operators : [];
+    if (rawOperators.length > 500 || rawOperators.some(name => typeof name !== "string" || !name.trim() || name.length > 100)) {
+      return Response.json({ ok: false, error: "INVALID_OPERATORS", maxOperators: 500 }, { status: 400 });
     }
-    const evseIds = [...new Set((rawIds as string[]).map(id => id.trim()))];
+    const operators = [...new Set((rawOperators as string[]).map(name => name.trim().toLowerCase()))];
 
     const { data: bootstrap, error: bootstrapError } = await admin.from("mobilithek_mapping_bootstrap")
       .select("completed_at,completed_subscriptions").eq("id", true).maybeSingle();
@@ -104,13 +104,13 @@ Deno.serve(async (req: Request) => {
         return Response.json({ ok: true, status: "mapping_bootstrap_complete", targetedSubscriptions: 0 });
       }
     } else {
-      if (!evseIds.length) return Response.json({ ok: true, status: "no_route_evse_ids", targetedSubscriptions: 0 });
-      const { data, error } = await admin.rpc("mobilithek_subscriptions_for_points", { p_point_ids: evseIds });
+      if (!operators.length) return Response.json({ ok: true, status: "no_route_operators", targetedSubscriptions: 0 });
+      const { data, error } = await admin.rpc("mobilithek_subscriptions_for_operators", { p_operator_keys: operators });
       if (error) throw new Error("Could not resolve route EVSE IDs to subscriptions: " + error.message);
       subscriptionIds = [...new Set((data ?? []).map((row: { subscription_id: string }) => row.subscription_id))]
         .filter(id => IDS.includes(id));
       if (!subscriptionIds.length) {
-        return Response.json({ ok: true, status: "no_matching_subscriptions", routeEvseIds: evseIds.length, targetedSubscriptions: 0 });
+        return Response.json({ ok: true, status: "no_matching_subscriptions", routeOperators: operators.length, targetedSubscriptions: 0 });
       }
     }
 
@@ -120,7 +120,7 @@ Deno.serve(async (req: Request) => {
     if (!claimed) return Response.json({ ok: true, status: "already_running_or_recent", cooldownSeconds: cooldown, targetedSubscriptions: subscriptionIds.length });
     EdgeRuntime.waitUntil(runPull(supabaseUrl, serviceKey, admin, subscriptionIds, forceMapping));
     return Response.json({
-      ok: true, status: "started", bootstrap: forceMapping, routeEvseIds: evseIds.length,
+      ok: true, status: "started", bootstrap: forceMapping, routeOperators: operators.length,
       targetedSubscriptions: subscriptionIds.length, batches: Math.ceil(subscriptionIds.length / BATCH_SIZE),
       cooldownSeconds: cooldown, dynamicRefreshSeconds: 180, staticRefreshSeconds: 43200
     }, { status: 202 });

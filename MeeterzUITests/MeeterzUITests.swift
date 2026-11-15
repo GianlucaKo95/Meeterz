@@ -234,13 +234,19 @@ final class MeeterzUITests: MeeterzTestBase {
         list.swipeUp()
         shot("einstellungen-unten")
 
-        // Navigationsstimme: Auswahl öffnet, „Automatisch“ ist vorgewählt
-        for _ in 0..<4 where !app.buttons["Navigationsstimme"].exists { list.swipeUp() }
+        // Sprachansagen sind eine eigene Unterseite unter „App“.
+        // Erst diese öffnen, dann die Auswahl der Navigationsstimme.
+        for _ in 0..<4 where !app.buttons["Sprachansagen"].exists { list.swipeUp() }
+        need(app.buttons["Sprachansagen"], "sprachansagen-einstellungen").tap()
+        need(app.navigationBars["Sprachansagen"], "sprachansagen-ansicht")
         need(app.buttons["Navigationsstimme"], "stimme-zeile").tap()
         need(app.navigationBars["Navigationsstimme"], "stimme-ansicht")
         need(app.staticTexts["Automatisch"], "stimme-automatisch")
         shot("navigationsstimme")
         app.navigationBars["Navigationsstimme"].buttons.firstMatch.tap()
+        need(app.navigationBars["Sprachansagen"], "zurueck-sprachansagen")
+        app.navigationBars["Sprachansagen"].buttons.firstMatch.tap()
+        need(app.navigationBars["Einstellungen"], "zurueck-einstellungen")
         pause(1)
 
         // 7. Konto löschen (räumt das Testkonto auf)

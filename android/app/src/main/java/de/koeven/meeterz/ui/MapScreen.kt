@@ -118,14 +118,14 @@ fun MapScreen() {
     val visibleFriendIds = remember(visibleFriends) { visibleFriends.map { it.friendId }.toSet() }
     var mapStyleRevision by remember { mutableStateOf(0) }
 
-    val compassTopMarginPx = 96f * context.resources.displayMetrics.density
+    val compassTopMarginPx = 96.0 * context.resources.displayMetrics.density
     val mapView = remember {
         MapView(context).apply {
             mapboxMap.loadStyle(if (UiPreferences.mapStyle.value == "satellite") Style.STANDARD_SATELLITE else Style.STANDARD)
             // MapView liegt edge-to-edge unter der Statusleiste: den nativen Kompass darunter verschieben.
             compass.updateSettings {
                 marginTop = compassTopMarginPx
-                marginRight = 12f * context.resources.displayMetrics.density
+                marginRight = 12.0 * context.resources.displayMetrics.density
             }
             mapboxMap.setCamera(CameraOptions.Builder().zoom(14.0).build())
             location.updateSettings {

@@ -43,16 +43,18 @@ final class ChargeMonitor {
         timer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { _ in
             Task { @MainActor in await ChargeMonitor.shared.check() }
         }
-        // Erste Prognose, sobald die Route steht
+        // Erster Snapshot kurz nach Navigationsstart – ohne den Routenstart aufzuhalten.
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(4))
             ChargeMonitor.shared.updateForecast()
+            await ChargeMonitor.shared.check()
         }
     }
 
     func stop() {
         timer?.invalidate()
         timer = nil
+        lastAvailabilityRefresh = .distantPast
         lastSignature = ""
         profile = nil
         profileKey = ""

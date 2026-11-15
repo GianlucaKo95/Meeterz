@@ -322,9 +322,9 @@ fun MapScreen() {
         planCandidate?.let { CandidatePlanDialog(it, onClose = { planCandidate = null }) }
         inviteTo?.let { d -> InviteFriendsDialog(d.name, d.address, d.lat, d.lng, onClose = { inviteTo = null }) }
         if (g != null) {
-            if (!isMeetupGuidance) GuidanceBanner(g)
+            GuidanceBanner(g)
             Column(Modifier.align(Alignment.BottomCenter)) {
-                SocialCard { planCandidate = it }
+                SocialCard(hideAccepted = isMeetupGuidance) { planCandidate = it }
                 MeetingPointCard()
                 GuidanceBar(g, Modifier)
             }

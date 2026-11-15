@@ -69,6 +69,7 @@ fun SettingsScreen(onClose: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val auth by AppState.auth.state.collectAsState()
+    val authError by AppState.auth.error.collectAsState()
     val profile = (auth as? AuthRepository.State.Ready)?.profile
     val favorites by AppState.favorites.items.collectAsState()
     val appearance by UiPreferences.appearance.collectAsState()
@@ -275,6 +276,9 @@ fun SettingsScreen(onClose: () -> Unit) {
                         Text(tr("Standort, Mitteilungen, Kalender und Mikrofon werden über die Android-App-Berechtigungen verwaltet."),
                             style = MaterialTheme.typography.bodySmall)
                         OutlinedButton(onClick = {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://gianlucako95.github.io/Meeterz/datenschutz")))
+                        }, Modifier.fillMaxWidth()) { Text(tr("Datenschutzerklärung")) }
+                        OutlinedButton(onClick = {
                             val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
                             context.startActivity(intent)
                         }, Modifier.fillMaxWidth()) { Text(tr("Berechtigungen und App-Informationen öffnen")) }
@@ -312,6 +316,7 @@ fun SettingsScreen(onClose: () -> Unit) {
                         OutlinedButton(onClick = { confirmDelete = true }, Modifier.fillMaxWidth()) {
                             Text(tr("Konto und alle Daten löschen"), color = MaterialTheme.colorScheme.error)
                         }
+                        authError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                     }
                     SettingsPage.FAVORITES -> {
                         for (fav in favorites) {

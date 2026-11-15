@@ -106,6 +106,8 @@ fun MapScreen() {
     val friends by AppState.friends.collectAsState()
     val live by AppState.hub.positions.collectAsState()
     val guidance by NavigationController.guidance.collectAsState()
+    var satelliteStyle by remember { mutableStateOf(false) }
+    var mapStyleRevision by remember { mutableStateOf(0) }
 
     val compassTopMarginPx = 96f * context.resources.displayMetrics.density
     val mapView = remember {
@@ -132,8 +134,8 @@ fun MapScreen() {
     }
 
     val friendRoutes by AppState.routes.routes.collectAsState()
-    val lines = remember { mapView.annotations.createPolylineAnnotationManager() }
-    LaunchedEffect(friendRoutes) {
+    val lines = remember(mapView, mapStyleRevision) { mapView.annotations.createPolylineAnnotationManager() }
+    LaunchedEffect(friendRoutes, mapStyleRevision) {
         // Routen der Freunde in ihrer Farbe mit dunkler Umrandung (wie iOS)
         lines.deleteAll()
         for ((id, r) in friendRoutes) {
@@ -142,10 +144,10 @@ fun MapScreen() {
             lines.create(PolylineAnnotationOptions().withPoints(points).withLineColor(FriendPalette.routeColor(id).toArgb()).withLineWidth(5.0))
         }
     }
-    val annotations: PointAnnotationManager = remember { mapView.annotations.createPointAnnotationManager() }
+    val annotations: PointAnnotationManager = remember(mapView, mapStyleRevision) { mapView.annotations.createPointAnnotationManager() }
     val avatars by de.koeven.meeterz.data.AvatarStore.images.collectAsState()
     val passengerVersion by de.koeven.meeterz.social.Passengers.version.collectAsState()
-    LaunchedEffect(friends, live, friendRoutes, avatars, passengerVersion) {
+    LaunchedEffect(friends, live, friendRoutes, avatars, passengerVersion, mapStyleRevision) {
         annotations.deleteAll()
         val riding = de.koeven.meeterz.social.Passengers.riding
         for (f in friends.filter { it.isAccepted && it.friendId !in riding }) {
@@ -178,8 +180,6 @@ fun MapScreen() {
     var adopted by remember { mutableStateOf<ChargePlanner.Plan?>(null) }
     val favorites by AppState.favorites.items.collectAsState()
     val car by AppState.vehicle.status.collectAsState()
-    var satelliteStyle by remember { mutableStateOf(false) }
-
     fun planTo(name: String, address: String?, lat: Double, lng: Double) {
         val me = AppState.lastLocation ?: return
         val dest = NavigationController.Destination(name, lat, lng, address)
@@ -199,7 +199,7 @@ fun MapScreen() {
             via = plan.stops.map { Point.fromLngLat(it.site.lng, it.site.lat) })
         if (routes.isNotEmpty()) { preview = dest to routes; adopted = plan; selectedRoute = 0; ChargingSession.plan = plan }
     }
-    LaunchedEffect(preview, selectedRoute, guidance == null) { if (guidance == null) binder.showPreview(preview?.second, selectedRoute) }
+    LaunchedEffect(preview, selectedRoute, guidance == null, mapStyleRevision) { if (guidance == null) binder.showPreview(preview?.second, selectedRoute) }
     // Von außen angefragtes Ziel (Losfahr-Erinnerung, Widget): Route zeigen
     val openPlace by AppState.openPlace.collectAsState()
     LaunchedEffect(openPlace) {
@@ -223,7 +223,8 @@ fun MapScreen() {
             FilledTonalIconButton(onClick = {
                 satelliteStyle = !satelliteStyle
                 mapView.mapboxMap.loadStyle(if (satelliteStyle) Style.STANDARD_SATELLITE else Style.STANDARD) {
-                    if (guidance == null) binder.showPreview(preview?.second, selectedRoute)
+                    // Annotation-Layer werden mit dem neuen Style neu angelegt und aus AppState rekonstruiert.
+                    mapStyleRevision++
                 }
             }) {
                 Icon(Icons.Default.Layers, contentDescription = tr(if (satelliteStyle) "Standardkarte" else "Satellitenkarte"))
@@ -268,8 +269,8 @@ fun MapScreen() {
         // Geparktes Auto (wie ParkedCarMarker auf iOS): Antippen → zu Fuß hin oder vergessen
         val parked by de.koeven.meeterz.suggest.Parking.spot.collectAsState()
         var parkedMenu by remember { mutableStateOf(false) }
-        val parkedManager = remember { mapView.annotations.createPointAnnotationManager() }
-        LaunchedEffect(parked) {
+        val parkedManager = remember(mapView, mapStyleRevision) { mapView.annotations.createPointAnnotationManager() }
+        LaunchedEffect(parked, mapStyleRevision) {
             parkedManager.deleteAll()
             parked?.let { p ->
                 parkedManager.create(PointAnnotationOptions().withPoint(Point.fromLngLat(p.lng, p.lat))

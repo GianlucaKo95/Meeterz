@@ -240,7 +240,9 @@ Deno.serve(async (req: Request) => {
         }
       }
     }
-    await Promise.all([worker(), worker()]);
+    // Eine Subscription nach der anderen verarbeiten. Große Mobilithek-Payloads
+    // parallel im selben Edge-Worker haben WORKER_RESOURCE_LIMIT ausgelöst.
+    await worker();
     const failures = results.filter(r => ["HTTP_ERROR", "NON_JSON", "UNKNOWN_PUBLICATION_TYPE", "PROCESSING_ERROR"].includes(String(r.classification))).length;
     return Response.json({
       ok: failures === 0, stage: mode === "commit" ? "mobilithek_batch_committed" : "mobilithek_batch_dry_run",

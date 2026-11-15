@@ -78,6 +78,21 @@ class NavigationMapBinder(private val mapView: MapView) : MapboxNavigationObserv
     }
     private val camera = NavigationCamera(mapView.mapboxMap, mapView.camera, viewport)
     private var active = false
+    private var meetingMode = false
+
+    /** Treffen-Navigation: den Positionspfeil oberhalb der dauerhaft eingeblendeten unteren Karten halten. */
+    fun setMeetingMode(enabled: Boolean) {
+        if (meetingMode == enabled) return
+        meetingMode = enabled
+        val d = mapView.resources.displayMetrics.density
+        viewport.followingPadding = if (enabled) {
+            // Größerer unterer Sicherheitsabstand verschiebt den Puck sichtbar nach oben.
+            EdgeInsets(120.0 * d, 40.0 * d, 420.0 * d, 40.0 * d)
+        } else {
+            EdgeInsets(180.0 * d, 40.0 * d, 120.0 * d, 40.0 * d)
+        }
+        if (active) viewport.evaluate()
+    }
     private var lastRenderedRoutes: List<NavigationRoute> = emptyList()
 
     fun attach() = MapboxNavigationApp.registerObserver(this)

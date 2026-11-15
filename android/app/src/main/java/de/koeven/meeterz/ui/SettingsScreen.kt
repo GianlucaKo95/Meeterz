@@ -161,7 +161,7 @@ fun SettingsScreen(onClose: () -> Unit) {
                         SettingsNavRow(tr("Routenvorschläge"), if (frequent || calendar) tr("Aktiv") else tr("Aus"), "›") { page = SettingsPage.SUGGESTIONS }
                         SettingsNavRow(tr("Datenschutz"), "", "›") { page = SettingsPage.PRIVACY }
                         SettingsNavRow(tr("Für Entwickler"), "", "›") { page = SettingsPage.DEVELOPER }
-                        SettingsNavRow(tr("Version"), BuildConfig.VERSION_NAME, "")
+                        SettingsNavRow(tr("Version"), BuildConfig.VERSION_NAME, "") {}
                         SettingsSectionTitle(tr("Konto"))
                         SettingsNavRow(tr("Kontoverwaltung"), tr("Abmelden und Konto löschen"), "›") { page = SettingsPage.ACCOUNT }
                         if (favorites.isNotEmpty()) {
@@ -246,7 +246,7 @@ fun SettingsScreen(onClose: () -> Unit) {
                         SettingsSwitch(tr("Sprachansagen"), tr("Abbiegehinweise während der Navigation vorlesen"),
                             !NavigationController.muted) { NavigationController.muted = !it }
                         OutlinedButton(onClick = {
-                            runCatching { context.startActivity(Intent(TextToSpeech.Engine.ACTION_TTS_SETTINGS)) }
+                            runCatching { context.startActivity(Intent("com.android.settings.TTS_SETTINGS")) }
                         }, Modifier.fillMaxWidth()) { Text(tr("Navigationsstimme und Sprache auswählen")) }
                         Text(tr("Die verfügbaren Stimmen und Sprachen werden von der auf deinem Android-Gerät installierten Sprachengine bereitgestellt."),
                             style = MaterialTheme.typography.bodySmall)

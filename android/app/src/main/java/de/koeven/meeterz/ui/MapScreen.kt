@@ -78,6 +78,7 @@ import com.mapbox.geojson.Point
 import com.mapbox.maps.CameraOptions
 import com.mapbox.maps.MapView
 import com.mapbox.maps.Style
+import com.mapbox.maps.plugin.compass.compass
 import com.mapbox.maps.plugin.annotation.annotations
 import com.mapbox.maps.plugin.annotation.generated.PointAnnotationManager
 import com.mapbox.maps.plugin.annotation.generated.PointAnnotationOptions
@@ -105,9 +106,15 @@ fun MapScreen() {
     val live by AppState.hub.positions.collectAsState()
     val guidance by NavigationController.guidance.collectAsState()
 
+    val compassTopMarginPx = 96f * context.resources.displayMetrics.density
     val mapView = remember {
         MapView(context).apply {
             mapboxMap.loadStyle(Style.STANDARD)
+            // MapView liegt edge-to-edge unter der Statusleiste: den nativen Kompass darunter verschieben.
+            compass.updateSettings {
+                marginTop = compassTopMarginPx
+                marginRight = 12f * context.resources.displayMetrics.density
+            }
             mapboxMap.setCamera(CameraOptions.Builder().zoom(14.0).build())
             location.updateSettings {
                 enabled = true
@@ -170,6 +177,7 @@ fun MapScreen() {
     var adopted by remember { mutableStateOf<ChargePlanner.Plan?>(null) }
     val favorites by AppState.favorites.items.collectAsState()
     val car by AppState.vehicle.status.collectAsState()
+    var satelliteStyle by remember { mutableStateOf(false) }
 
     fun planTo(name: String, address: String?, lat: Double, lng: Double) {
         val me = AppState.lastLocation ?: return
@@ -206,6 +214,20 @@ fun MapScreen() {
 
     Box(Modifier.fillMaxSize()) {
         AndroidView(factory = { mapView }, modifier = Modifier.fillMaxSize())
+        // Kartenstil-Wechsel ist eine eigene Compose-Steuerung; der Mapbox-Kompass bleibt darunter.
+        Column(
+            Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 8.dp, end = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            FilledTonalIconButton(onClick = {
+                satelliteStyle = !satelliteStyle
+                mapView.mapboxMap.loadStyle(if (satelliteStyle) Style.STANDARD_SATELLITE else Style.STANDARD) {
+                    if (guidance == null) binder.showPreview(preview?.second, selectedRoute)
+                }
+            }) {
+                Icon(Icons.Default.Layers, contentDescription = tr(if (satelliteStyle) "Standardkarte" else "Satellitenkarte"))
+            }
+        }
 
         // Neuer Ladeplan unterwegs (ChargeMonitor) und Laden (ChargingSession)
         var suggestion by remember { mutableStateOf<ChargeMonitor.Suggestion?>(null) }

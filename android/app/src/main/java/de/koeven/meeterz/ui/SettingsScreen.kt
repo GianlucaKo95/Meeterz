@@ -89,7 +89,7 @@ fun SettingsScreen(onClose: () -> Unit) {
         de.koeven.meeterz.suggest.RouteSuggestions.calendarEnabled = granted
     }
 
-    BackHandler(enabled = page != SettingsPage.HOME) { page = SettingsPage.HOME }
+    BackHandler { if (page == SettingsPage.HOME) onClose() else page = SettingsPage.HOME }
     if (page == SettingsPage.SOUND) { SoundPackScreen(onClose = { page = SettingsPage.HOME }); return }
     if (showEvDialog) EvSettingsDialog(onClose = { showEvDialog = false })
     if (confirmDelete) {

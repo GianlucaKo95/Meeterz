@@ -97,7 +97,8 @@ final class RouteSuggestions {
         return result
     }
 
-    /// „Nein“ in CarPlay: Vorschlag weg (auch im Dashboard) und dasselbe Ziel 3 Stunden nicht mehr vorschlagen
+    /// „Zurück“ in der Vorschau: Vorschlag weg (auch im Dashboard) und dasselbe Ziel für diese Fahrt nicht mehr
+    /// vorschlagen (bis CarPlay getrennt wird, höchstens 3 Stunden)
     func dismissCurrent() {
         guard let current else { return }
         dismissed[current.place.id] = Date().addingTimeInterval(3 * 3600)
@@ -106,6 +107,9 @@ final class RouteSuggestions {
         Diag.log("Routenvorschlag abgelehnt: \(current.title)")
         CarPlayDashboard.suggestionChanged()
     }
+
+    /// Fahrt vorbei (CarPlay getrennt): abgelehnte Vorschläge dürfen bei der nächsten Fahrt wieder kommen
+    func newDrive() { dismissed.removeAll() }
 
     /// Fahrt gestartet: Vorschlag ist erledigt
     func clearCurrent() {

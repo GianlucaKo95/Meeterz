@@ -420,6 +420,7 @@ final class CarPlayController: NSObject {
     func disconnect(scene: CPTemplateApplicationScene, interfaceController: CPInterfaceController, window: CPWindow) {
         DriveHealth.shared.stop()
         Passengers.shared.reset()   // Fahrt vorbei: Mitfahrer wieder sichtbar
+        RouteSuggestions.shared.newDrive()
         CarPlayUI.shared.reset()
         CarPlayChargingOverlay.shared.hide()
         CarPlayTimeline.shared.stop()
@@ -759,16 +760,17 @@ final class CarPlayController: NSObject {
     private var splitTrips: [CPTrip] = []
 
     /// Wartende Fahrt aus dem Dashboard (Freund oder Favorit angetippt)
-    private var dashboardRequest: Place?
+    private var dashboardRequest: (place: Place, preview: Bool)?
     /// Läuft gerade ein Start? Mehrfaches Tippen startete mehrere Berechnungen parallel – die App stürzte ab.
     private var guidanceStarting: Date?
 
     /// Dashboard-Knopf: sofort die große Meeterz-Ansicht öffnen (mit Ladeanzeige), dann die Fahrt starten
-    func openFromDashboard(_ place: Place, scene: UIScene?) {
+    /// `preview`: Routenvorschlag – die große Karte öffnet die Routenauswahl statt gleich zu starten
+    func openFromDashboard(_ place: Place, scene: UIScene?, preview: Bool = false) {
         guard isConnected else { return }
-        if let started = guidanceStarting, Date().timeIntervalSince(started) < 20 { return }
-        guidanceStarting = Date()
-        dashboardRequest = place
+        if !preview, let started = guidanceStarting, Date().timeIntervalSince(started) < 20 { return }
+        if !preview { guidanceStarting = Date() }
+        dashboardRequest = (place, preview)
         Diag.log("Dashboard: \(place.name) angetippt – öffne Meeterz")
         if let scene, let url = URL(string: "meeterz://carplay/route") {
             scene.open(url, options: nil) { [weak self] ok in
@@ -788,9 +790,19 @@ final class CarPlayController: NSObject {
     }
 
     func consumeDashboardRequest() {
-        guard let place = dashboardRequest else { return }
+        guard let request = dashboardRequest else { return }
         dashboardRequest = nil
-        startGuidance(to: place, showProgress: true)
+        if request.preview { previewSuggestion(request.place) } else { startGuidance(to: request.place, showProgress: true) }
+    }
+
+    /// Routenvorschlag aus dem Dashboard: Routenauswahl auf der großen Karte. „Zurück“ ohne Start verwirft den
+    /// Vorschlag für diese Fahrt (carPlayManagerDidCancelPreview).
+    private func previewSuggestion(_ place: Place) {
+        guard !AppModel.shared.navigation.isNavigating else { go(to: place); return }
+        Diag.log("Dashboard: Routenvorschlag \(place.name) – Routenauswahl")
+        select(place) {}
+        // nach select (das setzt eine neue Auswahl zurück): Vorschlag merken, damit „Zurück“ ihn verwirft
+        activeSuggestion = RouteSuggestions.shared.current.flatMap { $0.place.id == place.id ? $0 : nil }
     }
 
     /// Route berechnen und sofort starten, ohne Vorschau

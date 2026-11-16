@@ -121,6 +121,7 @@ class MeeterzCarSession : Session() {
 
             override fun onDestroy(owner: LifecycleOwner) {
                 de.koeven.meeterz.social.Passengers.reset()   // Mitfahrer gelten bis zum Trennen (wie CarPlay)
+                de.koeven.meeterz.suggest.RouteSuggestions.newDrive()
                 de.koeven.meeterz.suggest.Parking.save(AppState.lastLocation, "Android Auto")
                 carMap.unregisterObserver(mapLoader)
                 MapboxNavigationApp.detach(owner)

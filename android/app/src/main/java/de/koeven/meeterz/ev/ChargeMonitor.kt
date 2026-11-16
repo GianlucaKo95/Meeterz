@@ -53,12 +53,29 @@ object ChargeMonitor {
         lastEstimate = null
         legMark = "" to 0
         job = AppState.scope.launch {
-            var tick = 0
+            var lastCheck = System.currentTimeMillis()
             while (isActive) {
                 delay(10_000)
                 runCatching { updateForecast() }.onFailure { Diag.log("Akku-Prognose: ${it.message}") }
-                if (++tick % 12 == 0) runCatching { check(context) }.onFailure { Diag.log("Ladeplan unterwegs: ${it.message}") }
+                // Alle 2 Minuten prüfen; nah am nächsten Ladestopp öfter, damit neue Belegung schnell ankommt (wie iOS)
+                val now = System.currentTimeMillis()
+                if (now - lastCheck >= checkInterval()) {
+                    lastCheck = now
+                    runCatching { check(context) }.onFailure { Diag.log("Ladeplan unterwegs: ${it.message}") }
+                }
             }
+        }
+    }
+
+    /** Abstand zum nächsten geplanten Ladestopp: unter 5 km alle 30 s, unter 20 km jede Minute, sonst alle 2 Minuten */
+    private fun checkInterval(): Long {
+        val traveled = NavigationController.progress.value?.distanceTraveled?.toDouble() ?: return 120_000
+        val next = ChargingSession.plan?.stops?.filter { !it.fixed }?.map { it.distanceFromStart - traveled }?.filter { it > 0 }?.minOrNull()
+            ?: return 120_000
+        return when {
+            next < 5_000 -> 30_000
+            next < 20_000 -> 60_000
+            else -> 120_000
         }
     }
 

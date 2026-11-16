@@ -12,6 +12,10 @@ final class ChargeMonitor {
 
     private var timer: Timer?
     private var lastAvailabilityRefresh = Date.distantPast
+    /// Zuletzt geladene Belegung (zwischen zwei Abfragen weiterverwendet)
+    private var availability: [ChargeSite: ChargeAvailability] = [:]
+    private var availabilityRoute = ""
+    private var lastCheck = Date.distantPast
     private var lastAlert = Date.distantPast
     private var lastSignature = ""
 
@@ -41,7 +45,7 @@ final class ChargeMonitor {
         // 30-s-Tick mit adaptiver Drosselung in check(): nahe am nächsten Ladestopp
         // häufiger, weit entfernte Stopps deutlich seltener neu bewerten.
         timer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { _ in
-            Task { @MainActor in await ChargeMonitor.shared.check() }
+            Task { @MainActor in await ChargeMonitor.shared.check(tick: true) }
         }
         // Erster Snapshot kurz nach Navigationsstart – ohne den Routenstart aufzuhalten.
         Task { @MainActor in
@@ -55,6 +59,9 @@ final class ChargeMonitor {
         timer?.invalidate()
         timer = nil
         lastAvailabilityRefresh = .distantPast
+        lastCheck = .distantPast
+        availability = [:]
+        availabilityRoute = ""
         lastSignature = ""
         profile = nil
         profileKey = ""
@@ -133,7 +140,6 @@ final class ChargeMonitor {
             .min() ?? .infinity
 
         switch nextStopDistance {
-        case ..<1_000: return 30
         case ..<5_000: return 30
         case ..<20_000: return 60
         case ..<50_000: return 120
@@ -143,16 +149,15 @@ final class ChargeMonitor {
 
     /// `pause`: gleich nach dem Einfügen einer Konvoi-Pause – auch ohne Live-Wert (dann mit der Schätzung), ohne
     /// Sperrzeit, und mit Rückmeldung, wie viel in der Pause geladen wird
-    func check(pause: Place? = nil) async {
+    /// `tick`: Aufruf vom 30-s-Takt. Geprüft wird wie bisher alle 2 Minuten; nur die Belegung hat ihren eigenen,
+    /// vom Abstand zum nächsten Ladestopp abhängigen Takt (nah: alle 30 s, dann auch mit sofortiger Prüfung).
+    func check(pause: Place? = nil, tick: Bool = false) async {
         updateForecast()
-
-        // Häufige lokale Supabase-Abfrage nur bei Bedarf. Der Mobilithek-Quellabruf
-        // bleibt davon unabhängig serverseitig auf maximal 1x/180 s gedrosselt.
-        if pause == nil {
-            let interval = availabilityRefreshInterval()
-            guard Date().timeIntervalSince(lastAvailabilityRefresh) >= interval else { return }
-            lastAvailabilityRefresh = Date()
+        let availabilityDue = Date().timeIntervalSince(lastAvailabilityRefresh) >= availabilityRefreshInterval()
+        if tick, pause == nil {
+            guard availabilityDue || Date().timeIntervalSince(lastCheck) >= 120 else { return }
         }
+        lastCheck = Date()
 
         let fresh = (AppModel.shared.vehicle.status?.age ?? .infinity) < 4 * 60
         let live = fresh ? AppModel.shared.vehicle.liveSoc : nil
@@ -176,7 +181,14 @@ final class ChargeMonitor {
                                                                  operatorName: "", city: ""),
                                         along: legEnd - traveled, offset: 0, fixed: true, canCharge: site != nil))
         }
-        settings.availability = await ChargeStatusService.shared.availability(along: route)
+        // Belegung nur in ihrem Takt neu laden (Supabase-Abfrage; der Mobilithek-Abruf selbst ist serverseitig
+        // auf 1×/180 s gedrosselt), sonst die zuletzt geladene der selben Route
+        if availabilityDue || pause != nil || availabilityRoute != "\(routeId)" {
+            availability = await ChargeStatusService.shared.availability(along: route)
+            availabilityRoute = "\(routeId)"
+            lastAvailabilityRefresh = Date()
+        }
+        settings.availability = availability
         settings.conditions = await RouteConditionsService.shared.conditions(for: route)
         let result = await Task.detached(priority: .utility) {
             let rest = ChargePlanner.profile(of: route, vehicle: vehicle, temperature: settings.temperature,

@@ -102,6 +102,9 @@ object RouteSuggestions {
     }
 
     /** Fahrt gestartet: Vorschlag erledigt */
+    /** Fahrt vorbei (Android Auto getrennt): abgelehnte Vorschläge dürfen bei der nächsten Fahrt wieder kommen (wie iOS) */
+    fun newDrive() = dismissed.clear()
+
     fun clearCurrent() { _current.value = null; computedAt = System.currentTimeMillis() }
 
     private fun isDismissed(id: String) = (dismissed[id] ?: 0) > System.currentTimeMillis()

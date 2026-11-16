@@ -287,6 +287,21 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
         }
     }
 
+    /// Nach der Meldung „fertig“: abspielen, sobald Puffer da sind und 0,25 s lang keine neuen kamen (höchstens 3 s)
+    private func renderSettled(id: UUID, attempt: Int = 0) {
+        guard let count = rendering.flatMap({ $0.item.id == id ? $0.buffers.count : nil }) else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self, let now = self.rendering, now.item.id == id else { return }   // Endmarke kam inzwischen
+                if (now.buffers.isEmpty || now.buffers.count != count) && attempt < 12 {
+                    self.renderSettled(id: id, attempt: attempt + 1)
+                } else {
+                    self.renderDone()
+                }
+            }
+        }
+    }
+
     /// Fertig berechnet (Endmarke oder – je nach iOS-Version – nur die Meldung „fertig“): abspielen
     private func renderDone() {
         guard let done = rendering else { return }
@@ -313,7 +328,10 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
     }
 
     private func play(_ buffers: [AVAudioPCMBuffer], item: Item) {
-        guard let format = buffers.first?.format else { finish(item); return }
+        guard let format = buffers.first?.format else {
+            Diag.log("Ansage ohne Ton übersprungen (nichts berechnet): \(item.text)")
+            finish(item); return
+        }
         playingBuffers = buffers
         playGeneration += 1
         let generation = playGeneration
@@ -421,8 +439,12 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
 
 extension MeeterzSpeechSynthesizer: AVSpeechSynthesizerDelegate {
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        // Nach den Puffern einreihen, damit alle schon angekommen sind
-        DispatchQueue.main.async { MainActor.assumeIsolated { self.renderDone() } }
+        // „Fertig“ kann vor den Puffern ankommen (eigene Warteschlange). Protokoll 09./12.11.: „Ansage berechnet“,
+        // aber kein Ton – abgespielt wurde eine leere Liste, gerade bei der ersten Ansage, wenn die Stimme erst lädt.
+        // Daher warten, bis Puffer da sind und keine mehr nachkommen.
+        DispatchQueue.main.async { MainActor.assumeIsolated {
+            if let id = self.rendering?.item.id { self.renderSettled(id: id) }
+        } }
     }
 }
 

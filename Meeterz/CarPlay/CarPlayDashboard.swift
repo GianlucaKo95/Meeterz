@@ -403,6 +403,7 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
         shortcutKey = key
         controller.shortcutButtons = shortcuts.map { s in
             let place = s.place
+            let suggestion = s.key.hasPrefix("suggest-")
             return CPDashboardButton(titleVariants: [s.title], subtitleVariants: s.subtitle.isEmpty ? [] : [s.subtitle], image: s.image) { _ in
                 Task { @MainActor in
                     // Freund: Ziel ist seine Position jetzt, nicht die beim letzten Setzen des Knopfs
@@ -411,7 +412,7 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
                        let item = AppModel.shared.friendsOnMap.first(where: { "friend-\($0.friend.friendId)" == place.id }) {
                         target = Place(id: place.id, name: place.name, address: nil, coordinate: item.position.coordinate)
                     }
-                    CarPlayController.shared.openFromDashboard(target, scene: CarPlayDashboard.shared.scene)
+                    CarPlayController.shared.openFromDashboard(target, scene: CarPlayDashboard.shared.scene, preview: suggestion)
                 }
             }
         }

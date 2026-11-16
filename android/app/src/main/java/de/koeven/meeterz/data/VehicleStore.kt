@@ -1,6 +1,7 @@
 package de.koeven.meeterz.data
 
 import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.SerialName
@@ -61,7 +62,34 @@ class VehicleStore {
             .also { it.start() }
     }
 
-    fun stop() { feed?.stop(); feed = null; _status.value = null }
+    fun stop() { feed?.stop(); feed = null; _status.value = null; _token.value = null }
+
+    /** Geräte-ID fürs Home-Assistant-Add-on (wie iOS VehicleStore.token) */
+    private val _token = MutableStateFlow<String?>(null)
+    val token: StateFlow<String?> = _token
+
+    @kotlinx.serialization.Serializable private data class Link(val token: String)
+
+    suspend fun loadToken(userId: String) {
+        _token.value = runCatching {
+            Backend.client.from("vehicle_links").select { filter { eq("user_id", userId) } }.decodeList<Link>().firstOrNull()?.token
+        }.getOrNull()
+    }
+
+    /** Neue Geräte-ID anlegen (eine alte wird ungültig) */
+    suspend fun connect(): String? = runCatching {
+        Backend.client.postgrest.rpc("create_vehicle_link").decodeAs<String>()
+    }.onSuccess { _token.value = it }.onFailure { de.koeven.meeterz.Diag.log("Live-Daten verbinden: ${it.message}") }.getOrNull()
+
+    suspend fun disconnect() {
+        runCatching { Backend.client.postgrest.rpc("remove_vehicle_link") }
+        _token.value = null; _status.value = null
+    }
+
+    companion object {
+        /** Adresse, die im Add-on als OsmAnd-Server eingetragen wird */
+        val telemetryUrl get() = de.koeven.meeterz.BuildConfig.SUPABASE_URL.trimEnd('/') + "/functions/v1/vehicle-telemetry"
+    }
 
     suspend fun refresh(userId: String) {
         runCatching {

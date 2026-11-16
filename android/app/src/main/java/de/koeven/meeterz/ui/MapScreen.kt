@@ -96,6 +96,8 @@ import com.mapbox.maps.plugin.annotation.generated.PolylineAnnotationOptions
 import com.mapbox.maps.plugin.locationcomponent.createDefault2DPuck
 import com.mapbox.maps.plugin.locationcomponent.location
 import com.mapbox.maps.plugin.viewport.viewport
+import com.mapbox.maps.plugin.animation.camera
+import com.mapbox.maps.plugin.animation.flyTo
 import com.mapbox.navigation.base.route.NavigationRoute
 import de.koeven.meeterz.AppState
 import de.koeven.meeterz.nav.NavigationController
@@ -204,6 +206,8 @@ fun MapScreen() {
     var showFriends by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
     var showMeetups by remember { mutableStateOf(false) }
+    var showUnterwegs by remember { mutableStateOf(false) }
+    var showGroupMeetup by remember { mutableStateOf(false) }
     var planCandidate by remember { mutableStateOf<de.koeven.meeterz.data.MeetupCandidate?>(null) }
     var inviteTo by remember { mutableStateOf<NavigationController.Destination?>(null) }
     /** Übernommener Ladeplan: Vorschau-Route führt schon über die Säulen */
@@ -333,7 +337,7 @@ fun MapScreen() {
                     SearchCapsule(query, { query = it; preview = null }, { query = ""; results = emptyList() },
                         Modifier.weight(1f).onFocusChanged { searchFocused = it.isFocused })
                     MapCircleButton(Icons.Default.People, tr("Freunde"),
-                        badge = friends.any { !it.isAccepted && it.incoming }, activeDot = friendRoutes.isNotEmpty()) { showFriends = true }
+                        badge = friends.any { !it.isAccepted && it.incoming }, activeDot = friendRoutes.isNotEmpty()) { showUnterwegs = true }
                 }
                 if (query.isEmpty() && preview == null && searchFocused) {
                     // Gespeicherte Orte beim Suchen (iOS: oben in der Suche)
@@ -385,8 +389,22 @@ fun MapScreen() {
                 MeetingPointCard()
             }
             if (showMeetups) MeetupsOverviewScreen(onClose = { showMeetups = false })
-            if (showFriends) FriendsScreen(onClose = { showFriends = false },
-                onSettings = { showFriends = false; showSettings = true }, onMeetups = { showFriends = false; showMeetups = true })
+            if (showUnterwegs) UnterwegsSheet(visibleFriends, onDismiss = { showUnterwegs = false },
+                onFocus = { f ->
+                    showUnterwegs = false
+                    val p = live[f.friendId]
+                    val lat = p?.lat ?: f.lat; val lng = p?.lng ?: f.lng
+                    if (lat != null && lng != null) {
+                        mapView.viewport.idle()
+                        mapView.camera.flyTo(CameraOptions.Builder().center(Point.fromLngLat(lng, lat)).zoom(15.0).build())
+                    }
+                },
+                onMeetups = { showUnterwegs = false; showMeetups = true },
+                onGroupMeetup = { showUnterwegs = false; showGroupMeetup = true },
+                onManage = { showUnterwegs = false; showFriends = true })
+            if (showGroupMeetup) GroupMeetupScreen(onClose = { showGroupMeetup = false })
+            // Wie iOS: Einstellungen liegen über „Freunde & Profil“ – Zurück führt dorthin
+            if (showFriends) FriendsScreen(onClose = { showFriends = false }, onSettings = { showSettings = true })
             if (showSettings) SettingsScreen(onClose = { showSettings = false })
             preview?.let { (dest, routes) ->
                 PreviewCard(dest, routes, selectedRoute, { selectedRoute = it }, Modifier.align(Alignment.BottomCenter),
@@ -553,7 +571,7 @@ fun km(meters: Double): String {
     return String.format(java.util.Locale.GERMANY, "%.1f km", meters / 1000)
 }
 
-private fun clockAt(at: java.time.Instant): String = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(at.toEpochMilli()))
+internal fun clockAt(at: java.time.Instant): String = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(at.toEpochMilli()))
 
 private fun clock(secondsFromNow: Double): String =
     DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(System.currentTimeMillis() + (secondsFromNow * 1000).toLong()))

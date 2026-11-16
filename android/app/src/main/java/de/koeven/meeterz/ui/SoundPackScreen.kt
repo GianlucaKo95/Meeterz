@@ -77,46 +77,42 @@ fun SoundPackScreen(onClose: () -> Unit) {
         }
     }
 
-    Surface(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize().statusBarsPadding()) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Zurück")) }
-                Text(tr("Sound-Pack"), style = MaterialTheme.typography.titleLarge)
+    val friends by AppState.friends.collectAsState()
+    var mutedVersion by remember { mutableStateOf(0) }
+    // Aufbau wie iOS (Einstellungen → Sound-Pack): Schalter, je Moment aufnehmen/anhören, je Freund an/aus
+    GroupedPage(tr("Sound-Pack"), onBack = onClose) {
+        Group(footer = tr("Nimm bis zu 5 Sekunden auf. Nur Freunde, deren Anfrage du angenommen hast, hören sie – zum passenden Moment, auch im Auto. Ohne Aufnahme sagt die Sprachausgabe Bescheid.")) {
+            ToggleRow(tr("Stimmen von Freunden abspielen"), enabled) { enabled = it; SoundStore.enabled = it }
+            for (m in SoundMoment.entries) {
+                GroupDivider()
+                val has = me != null && (versions[me]?.get(m) ?: 0) > 0
+                val isRecording = recording == m
+                Row(Modifier.padding(start = 16.dp, end = 4.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(m.title)
+                        Text(if (isRecording) tr("Nimmt auf … (tippen zum Beenden)") else m.example,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (isRecording) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    if (has && !isRecording) {
+                        IconButton(onClick = { scope.launch { SoundStore.preview(me!!, m) } }) {
+                            Icon(Icons.Default.PlayArrow, tr("Anhören"), tint = MaterialTheme.colorScheme.primary)
+                        }
+                        IconButton(enabled = !busy, onClick = { scope.launch { SoundStore.removeMine(m) } }) {
+                            Icon(Icons.Default.Delete, tr("Löschen"), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    IconButton(enabled = !busy && (recording == null || isRecording),
+                        onClick = { if (isRecording) SoundStore.stopRecording() else record(m) }) {
+                        Icon(if (isRecording) Icons.Default.Stop else Icons.Default.Mic, if (isRecording) tr("Stopp") else tr("Aufnehmen"),
+                            tint = if (isRecording) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+                    }
+                }
             }
-            LazyColumn(Modifier.weight(1f).navigationBarsPadding().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(bottom = 20.dp)) {
-                item {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(tr("Schnipsel der Freunde abspielen"), fontWeight = FontWeight.SemiBold)
-                            Text(tr("Zum passenden Moment, auch im Auto – Musik wird kurz leiser"), style = MaterialTheme.typography.bodySmall)
-                        }
-                        Switch(enabled, { enabled = it; SoundStore.enabled = it })
-                    }
-                    HorizontalDivider()
-                    Text(tr("Deine Schnipsel"), fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp))
-                    Text(tr("Nimm bis zu 5 Sekunden auf. Nur Freunde, deren Anfrage du angenommen hast, hören sie. Ohne Aufnahme sagt die Sprachausgabe Bescheid."),
-                        style = MaterialTheme.typography.bodySmall)
-                }
-                items(SoundMoment.entries) { m ->
-                    val has = me != null && (versions[me]?.get(m) ?: 0) > 0
-                    val isRecording = recording == m
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(m.title, fontWeight = FontWeight.SemiBold)
-                            Text(if (isRecording) tr("Nimmt auf … (tippen zum Beenden)") else if (has) tr("Aufgenommen") else "z. B. ${m.example}",
-                                style = MaterialTheme.typography.bodySmall, color = if (isRecording) Color(0xFFD92E36) else Color.Unspecified)
-                        }
-                        if (has && !isRecording) {
-                            IconButton(onClick = { scope.launch { SoundStore.preview(me!!, m) } }) { Icon(Icons.Default.PlayArrow, tr("Anhören")) }
-                            IconButton(enabled = !busy, onClick = { scope.launch { SoundStore.removeMine(m) } }) { Icon(Icons.Default.Delete, tr("Löschen")) }
-                        }
-                        IconButton(enabled = !busy && (recording == null || isRecording),
-                            onClick = { if (isRecording) SoundStore.stopRecording() else record(m) }) {
-                            Icon(if (isRecording) Icons.Default.Stop else Icons.Default.Mic, if (isRecording) tr("Stopp") else "Aufnehmen",
-                                tint = if (isRecording) Color(0xFFD92E36) else MaterialTheme.colorScheme.primary)
-                        }
-                    }
-                }
+            for (f in friends.filter { it.isAccepted }) {
+                GroupDivider()
+                val on = mutedVersion >= 0 && !SoundStore.isMuted(f.friendId)
+                ToggleRow(tr("%@ abspielen", f.displayName), on) { SoundStore.setMuted(f.friendId, !it); mutedVersion++ }
             }
         }
     }

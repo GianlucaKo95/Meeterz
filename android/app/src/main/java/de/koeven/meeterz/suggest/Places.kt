@@ -148,6 +148,8 @@ object FrequentPlaces {
     }
 
     fun clear() { spots = mutableListOf(); loaded = true; save(); Diag.log("Gelernte Orte gelöscht") }
+    /** Anzahl gelernter Orte (Einstellungen: „Gelernte Orte löschen (n)“) */
+    fun count(): Int { AppState.appContextOrNull()?.let { if (!loaded) { spots = runCatching { kotlinx.serialization.json.Json.decodeFromString<MutableList<Spot>>(file(it).readText()) }.getOrDefault(mutableListOf()); loaded = true } }; return spots.size }
 
     /**
      * Wahrscheinlichstes Ziel jetzt: Ankünfte der letzten 8 Wochen im Fenster „jetzt -15 bis +90 Min.“, gleicher

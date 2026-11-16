@@ -3,6 +3,12 @@ package de.koeven.meeterz.ui
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Event
 import de.koeven.meeterz.tr
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.LocationOff
 import androidx.activity.compose.BackHandler
@@ -49,91 +55,142 @@ import de.koeven.meeterz.auth.AuthRepository
 import de.koeven.meeterz.live.LocationSharingService
 import kotlinx.coroutines.launch
 
-/** Freunde und Einstellungen (iOS: FriendsView) */
+/**
+ * Freunde und Profil wie iOS (FriendsView): Titel „Hallo Luca“, Zahnrad zu den Einstellungen, Profilbild,
+ * Freund hinzufügen, Anfragen, deine Freunde (Aktionen im Menü statt Wischgesten), Gesendet.
+ */
 @Composable
 fun FriendsScreen(onClose: () -> Unit, onSettings: () -> Unit = {}, onMeetups: () -> Unit = {}) {
     BackHandler(onBack = onClose)
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val auth by AppState.auth.state.collectAsState()
     val profile = (auth as? AuthRepository.State.Ready)?.profile
     val friends by AppState.friends.collectAsState()
     val error by AppState.friendError.collectAsState()
-    val favorites by AppState.favorites.items.collectAsState()
+    val live by AppState.hub.positions.collectAsState()
+    val routes by AppState.routes.routes.collectAsState()
     var handle by remember { mutableStateOf("") }
     var mutedVersion by remember { mutableStateOf(0) }
     val hiddenFrom by AppState.hiddenFrom.collectAsState()
     val hiddenForMe by de.koeven.meeterz.social.Passengers.hiddenForMe.collectAsState()
+    val first = profile?.displayName?.split(" ")?.firstOrNull().orEmpty()
 
-    Surface(Modifier.fillMaxSize()) {
-        Column(Modifier.statusBarsPadding()) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Zurück")) }
-                Text(tr("Freunde"), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                // Treffen und Einstellungen wie auf iOS über den Freunde-Bildschirm (nicht als Knöpfe auf der Karte)
-                IconButton(onClick = onMeetups) { Icon(Icons.Default.Event, tr("Treffen")) }
-                IconButton(onClick = onSettings) { Icon(Icons.Default.Settings, tr("Einstellungen")) }
+    GroupedPage(if (first.isEmpty()) tr("Hallo") else tr("Hallo %@", first), onBack = onClose, trailing = {
+        IconButton(onClick = onSettings) { Icon(Icons.Default.Settings, tr("Einstellungen"), tint = MaterialTheme.colorScheme.primary) }
+    }) {
+        profile?.let { p ->
+            Group(tr("Profilbild"), tr("Dein Foto sehen nur Freunde, deren Anfrage du angenommen hast. Ohne Foto erscheinen deine Initialen.")) {
+                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    AvatarEditor(p)
+                    Column(Modifier.padding(start = 16.dp)) {
+                        Text(p.displayName, fontWeight = FontWeight.SemiBold)
+                        Text("@${p.handle}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
             }
-            LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                item {
-                    Text(tr("Freund hinzufügen"), fontWeight = FontWeight.SemiBold)
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(handle, { handle = it }, label = { Text(tr("Benutzername")) }, singleLine = true, modifier = Modifier.weight(1f))
-                        Button(onClick = { scope.launch { if (AppState.sendFriendRequest(handle)) handle = "" } }, enabled = handle.length >= 3) { Text(tr("Anfragen")) }
+        }
+        Group(tr("Freund hinzufügen"), profile?.let { tr("Dein Benutzername: @%@", it.handle) }) {
+            Row(Modifier.padding(start = 16.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.foundation.text.BasicTextField(handle, { handle = it }, singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                    cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
+                    modifier = Modifier.weight(1f).padding(vertical = 14.dp),
+                    decorationBox = { inner ->
+                        if (handle.isEmpty()) Text("@benutzername", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        inner()
+                    })
+                val clean = handle.replace("@", "")
+                TextButton(enabled = clean.length >= 3, onClick = { scope.launch { if (AppState.sendFriendRequest(clean)) handle = "" } }) {
+                    Text(tr("Hinzufügen"))
+                }
+            }
+        }
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+
+        val incoming = friends.filter { !it.isAccepted && it.incoming }
+        if (incoming.isNotEmpty()) Group(tr("Anfragen")) {
+            incoming.forEachIndexed { i, row ->
+                if (i > 0) GroupDivider()
+                Row(Modifier.padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    FriendLabel(row, Modifier.weight(1f))
+                    IconButton(onClick = { scope.launch { AppState.respond(row, false) } }) { Icon(Icons.Default.Close, tr("Ablehnen")) }
+                    Button(onClick = { scope.launch { AppState.respond(row, true) } }) { Text(tr("Annehmen")) }
+                }
+            }
+        }
+
+        val accepted = friends.filter { it.isAccepted }
+        Group(tr("Deine Freunde")) {
+            if (accepted.isEmpty()) {
+                Text(tr("Füge jemanden oben über den Benutzernamen hinzu – oder schick eine Einladung."), Modifier.padding(16.dp),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            accepted.forEachIndexed { i, row ->
+                if (i > 0) GroupDivider()
+                var menu by remember { mutableStateOf(false) }
+                val hidden = row.friendId in hiddenFrom
+                val offMap = row.friendId in hiddenForMe
+                val muted = mutedVersion >= 0 && de.koeven.meeterz.sound.SoundStore.isMuted(row.friendId)
+                val status = when {
+                    routes.containsKey(row.friendId) -> tr("unterwegs")
+                    live[row.friendId] != null -> ago(live[row.friendId]!!.ageSeconds)
+                    else -> tr("teilt nicht")
+                }
+                Box {
+                    Row(Modifier.fillMaxWidth().clickable { menu = true }.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        FriendLabel(row, Modifier.weight(1f))
+                        if (hidden) Icon(Icons.Default.VisibilityOff, tr("Standort verborgen"), tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(end = 8.dp).size(18.dp))
+                        Text(status, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                }
-
-                val incoming = friends.filter { !it.isAccepted && it.incoming }
-                if (incoming.isNotEmpty()) item { Text(tr("Anfragen"), fontWeight = FontWeight.SemiBold) }
-                items(incoming, key = { "in-" + it.friendId }) { row ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(row.displayName, Modifier.weight(1f))
-                        TextButton(onClick = { scope.launch { AppState.respond(row, false) } }) { Text(tr("Ablehnen")) }
-                        Button(onClick = { scope.launch { AppState.respond(row, true) } }) { Text(tr("Annehmen")) }
+                    DropdownMenu(menu, { menu = false }) {
+                        DropdownMenuItem(text = { Text(if (hidden) tr("Standort wieder zeigen") else tr("Standort vor %@ verbergen", row.displayName)) },
+                            leadingIcon = { Icon(if (hidden) Icons.Default.Visibility else Icons.Default.VisibilityOff, null) },
+                            onClick = { menu = false; scope.launch { AppState.setHidden(row.friendId, !hidden) } })
+                        DropdownMenuItem(text = { Text(if (offMap) tr("Auf meiner Karte einblenden") else tr("Auf meiner Karte ausblenden")) },
+                            leadingIcon = { Icon(if (offMap) Icons.Default.LocationOn else Icons.Default.LocationOff, null) },
+                            onClick = { menu = false; de.koeven.meeterz.social.Passengers.setHiddenForMe(row.friendId, !offMap) })
+                        DropdownMenuItem(text = { Text(if (muted) tr("%@ abspielen", row.displayName) else tr("Schnipsel stumm")) },
+                            leadingIcon = { Icon(if (muted) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff, null) },
+                            onClick = { menu = false; de.koeven.meeterz.sound.SoundStore.setMuted(row.friendId, !muted); mutedVersion++ })
+                        DropdownMenuItem(text = { Text(tr("Entfernen"), color = MaterialTheme.colorScheme.error) },
+                            onClick = { menu = false; scope.launch { AppState.removeFriend(row) } })
                     }
                 }
+            }
+        }
 
-                val outgoing = friends.filter { !it.isAccepted && !it.incoming }
-                items(outgoing, key = { "out-" + it.friendId }) { row ->
-                    Text(tr("%@ – Anfrage gesendet", row.displayName), style = MaterialTheme.typography.bodySmall)
-                }
-
-                item { Text(tr("Freunde"), fontWeight = FontWeight.SemiBold) }
-                val accepted = friends.filter { it.isAccepted }
-                if (accepted.isEmpty()) item { Text(tr("Noch keine Freunde – lade jemanden über den Benutzernamen ein."), style = MaterialTheme.typography.bodySmall) }
-                items(accepted, key = { it.friendId }) { row ->
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Avatar(row.friendId, row.displayName)
-                        Column(Modifier.weight(1f)) {
-                            Text(row.displayName)
-                            Text(listOfNotNull("@${row.handle}", tr("sieht dich nicht").takeIf { row.friendId in hiddenFrom },
-                                tr("auf deiner Karte aus").takeIf { row.friendId in hiddenForMe }).joinToString(" · "),
-                                style = MaterialTheme.typography.bodySmall)
-                        }
-                        // Nur auf meiner Karte ausblenden – Teilen läuft in beide Richtungen weiter (iOS: Freund-Ansicht)
-                        val offMap = row.friendId in hiddenForMe
-                        IconButton(onClick = { de.koeven.meeterz.social.Passengers.setHiddenForMe(row.friendId, !offMap) }) {
-                            Icon(if (offMap) Icons.Default.LocationOff else Icons.Default.LocationOn,
-                                if (offMap) tr("Auf meiner Karte ausgeblendet") else tr("Auf meiner Karte sichtbar"))
-                        }
-                        // Standort und Routen vor diesem Freund verbergen (iOS: Freund-Ansicht)
-                        val hidden = row.friendId in hiddenFrom
-                        IconButton(onClick = { scope.launch { AppState.setHidden(row.friendId, !hidden) } }) {
-                            Icon(if (hidden) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                if (hidden) tr("Für ihn verborgen") else tr("Sieht dich"))
-                        }
-                        // Sound-Pack je Freund stumm schalten (iOS: in der Freund-Ansicht)
-                        val muted = mutedVersion >= 0 && de.koeven.meeterz.sound.SoundStore.isMuted(row.friendId)
-                        IconButton(onClick = { de.koeven.meeterz.sound.SoundStore.setMuted(row.friendId, !muted); mutedVersion++ }) {
-                            Icon(if (muted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
-                                if (muted) tr("Schnipsel stumm") else tr("Schnipsel an"))
-                        }
-                        TextButton(onClick = { scope.launch { AppState.removeFriend(row) } }) { Text(tr("Entfernen")) }
+        val outgoing = friends.filter { !it.isAccepted && !it.incoming }
+        if (outgoing.isNotEmpty()) Group(tr("Gesendet")) {
+            outgoing.forEachIndexed { i, row ->
+                if (i > 0) GroupDivider()
+                Row(Modifier.padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    FriendLabel(row, Modifier.weight(1f))
+                    TextButton(onClick = { scope.launch { AppState.removeFriend(row) } }) {
+                        Text(tr("Zurückziehen"), color = MaterialTheme.colorScheme.error)
                     }
                 }
-
             }
         }
     }
+}
+
+/** Avatar mit Name und @Benutzername (iOS: FriendLabel) */
+@Composable
+private fun FriendLabel(row: de.koeven.meeterz.data.FriendRow, modifier: Modifier = Modifier) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        Avatar(row.friendId, row.displayName, 36.dp)
+        Column(Modifier.padding(start = 12.dp)) {
+            Text(row.displayName, fontWeight = FontWeight.SemiBold)
+            Text("@${row.handle}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+/** „live“ / „vor 5 Min.“ / „vor 2 Std.“ (wie iOS Format.age) */
+internal fun ago(seconds: Double): String = when {
+    seconds < 60 -> tr("live")
+    seconds < 3600 -> tr("vor %@ Min.", (seconds / 60).toInt())
+    else -> tr("vor %@ Std.", (seconds / 3600).toInt())
 }

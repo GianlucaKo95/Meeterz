@@ -10,6 +10,13 @@ final class RoutesStore {
 
     private var client: SupabaseClient { Backend.client }
 
+    /// Freunde, die ihre Fahrt zu diesem Ziel abgebrochen haben – bis sie wieder eine Route teilen. Sie „kommen“
+    /// dann nicht mehr: keine „gleich da“/„angekommen“-Hinweise, kein Platz in der Zeitleiste (16.11.).
+    @ObservationIgnored private var withdrawn: [UUID: CLLocationCoordinate2D] = [:]
+    func withdrew(_ id: UUID, from place: CLLocationCoordinate2D) -> Bool {
+        withdrawn[id].map { $0.distance(to: place) < 300 } ?? false
+    }
+
     /// Route des Freundes, wenn sie (bis auf 300 m) zu diesem Ort führt
     func route(of id: UUID, to place: CLLocationCoordinate2D) -> FriendRoute? {
         friendRoutes[id].flatMap { $0.destination.distance(to: place) < 300 ? $0 : nil }
@@ -47,6 +54,7 @@ final class RoutesStore {
                     coordinates: coords
                 )
             }
+            for id in next.keys { withdrawn[id] = nil }
             noticeEnded(old: friendRoutes, new: next)
             friendRoutes = next
         } catch {
@@ -68,6 +76,7 @@ final class RoutesStore {
             guard targets.contains(where: { $0.distance(to: route.destination) < 300 }),
                   let friend = app.friend(id) else { continue }
             if let pos = app.hub.positions[id], pos.coordinate.distance(to: route.destination) < 150 { continue }   // angekommen
+            withdrawn[id] = route.destination
             let text = String(localized: "\(friend.firstName) fährt nicht mehr hierher")
             Diag.log("Route beendet ohne Ankunft: \(friend.firstName)")
             if CarPlayController.shared.isConnected {

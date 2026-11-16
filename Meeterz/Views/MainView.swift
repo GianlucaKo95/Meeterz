@@ -884,6 +884,7 @@ struct MeetingPointCard: View {
         for item in app.friendsOnMap {
             let id = item.friend.friendId
             let first = item.friend.firstName
+            guard !app.routes.withdrew(id, from: place) else { continue }
             let here = item.position.coordinate.distance(to: place) < 150
             let route = app.routes.route(of: id, to: place)
             guard here || route != nil else { continue }

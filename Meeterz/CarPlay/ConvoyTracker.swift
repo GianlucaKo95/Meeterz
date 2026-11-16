@@ -55,7 +55,8 @@ final class ConvoyTracker {
         return app.friendsOnMap.compactMap { item in
             let id = item.friend.friendId
             let route = app.routes.friendRoutes[id]
-            guard app.routes.route(of: id, to: destination.coordinate) != nil || meetupIds.contains(id) else { return nil }
+            guard app.routes.route(of: id, to: destination.coordinate) != nil
+                    || (meetupIds.contains(id) && !app.routes.withdrew(id, from: destination.coordinate)) else { return nil }
             var gap: Double?
             if let myIndex, let hit = nearest(to: item.position.coordinate), hit.distance < 300 {
                 gap = cumulative[hit.index] - cumulative[myIndex]

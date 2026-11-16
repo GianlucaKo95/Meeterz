@@ -35,7 +35,7 @@ final class MeetupLiveActivityController {
         let place = meetup.coordinate
         let ids = Set(group.map(\.otherId))
         let members: [MeetupActivityAttributes.Member] = ids.compactMap { id in
-            guard let friend = app.friend(id) else { return nil }
+            guard let friend = app.friend(id), !app.routes.withdrew(id, from: place) else { return nil }
             let first = friend.firstName
             let position = app.hub.positions[id]
             let distance = position.map { $0.coordinate.distance(to: place) }

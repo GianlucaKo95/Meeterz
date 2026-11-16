@@ -188,7 +188,7 @@ final class NavigationLiveActivityController {
     private func addFriend(to state: inout NavigationActivityAttributes.ContentState) {
         guard let destination else { return }
         let app = AppModel.shared
-        for friend in app.friends.accepted {
+        for friend in app.friends.accepted where !app.routes.withdrew(friend.friendId, from: destination) {
             let firstName = friend.firstName
             if let pos = app.friendsOnMap.first(where: { $0.friend.friendId == friend.friendId })?.position,
                pos.coordinate.distance(to: destination) < 100, pos.age < 10 * 60 {

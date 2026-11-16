@@ -6,6 +6,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
+import kotlinx.serialization.json.put
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -37,7 +39,7 @@ object ChargeStatusService {
 
     /** Belegung der Standorte mit Ladepunkt-IDs entlang der Route (lädt höchstens alle 3 Minuten) */
     suspend fun availability(context: Context, points: List<ChargePlanner.RoutePoint>): Map<ChargeSite, ChargeAvailability> {
-        requestMobilithekPullIfNeeded(points)
+        requestMobilithekPullIfNeeded(context, points)
         val result = HashMap(germany(context, points))
         val inSwitzerland = points.any { it.lat > 45.8 && it.lat < 47.9 && it.lng > 5.9 && it.lng < 10.5 }
         if (!inSwitzerland) return result
@@ -58,22 +60,40 @@ object ChargeStatusService {
         return result
     }
 
-    /** Startet den serverseitigen Mobilithek-Pull bei einer Ladeplanung in Deutschland. */
-    private suspend fun requestMobilithekPullIfNeeded(points: List<ChargePlanner.RoutePoint>) {
+    /** Betreiber der möglichen Ladestopps entlang der Route (wie mobilithekProviderKeys auf iOS) */
+    private fun providerKeys(context: Context, points: List<ChargePlanner.RoutePoint>): List<String> {
+        val vehicle = EvSettings.vehicle ?: return emptyList()
+        val settings = ChargePlanner.Settings(preferredNetworks = ChargeNetworks.preferred, avoidedNetworks = ChargeNetworks.avoided)
+        val profile = ChargePlanner.profile(points, vehicle, settings)
+        val sites = EvData.sites(context).filter {
+            it.country == "DE" && it.operatorName.isNotEmpty() && ChargeNetworks.key(it.operatorName) !in settings.avoidedNetworks
+        }
+        return ChargePlanner.candidates(profile, sites, preferred = settings.preferredNetworks)
+            .map { ChargeNetworks.key(it.site.operatorName) }.filter { it.isNotEmpty() }.distinct().sorted()
+    }
+
+    /**
+     * Startet den serverseitigen Mobilithek-Pull nur für die Betreiber der möglichen Routen-Ladestopps (wie iOS).
+     * Ohne Betreiber zieht der Server nach dem ersten Abgleich nichts. Kein Warten: die Planung liest den letzten Stand.
+     */
+    private suspend fun requestMobilithekPullIfNeeded(context: Context, points: List<ChargePlanner.RoutePoint>) {
         pullTriggerMutex.withLock {
-            val crossesGermany = points.any {
-                it.lat in 47.2..55.1 && it.lng in 5.8..15.1
-            }
+            val crossesGermany = points.any { it.lat in 47.2..55.1 && it.lng in 5.8..15.1 }
             val now = System.currentTimeMillis()
             if (!crossesGermany || now - lastMobilithekPullTrigger < 180_000) return@withLock
             lastMobilithekPullTrigger = now
-            runCatching {
-                Backend.client.functions.invoke("mobilithek-pull-trigger", buildJsonObject {})
-            }.onSuccess {
-                Diag.log("Mobilithek-Pull bei Ladeplanung angefragt (serverseitig gedrosselt)")
-            }.onFailure {
-                lastMobilithekPullTrigger = System.currentTimeMillis() - 150_000
-                Diag.log("Mobilithek-Pull konnte nicht gestartet werden: ${it.message}")
+            val operators = withContext(Dispatchers.Default) { providerKeys(context, points) }
+            kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+                runCatching {
+                    Backend.client.functions.invoke("mobilithek-pull-trigger", buildJsonObject {
+                        put("operators", JsonArray(operators.map { JsonPrimitive(it) }))
+                    })
+                }.onSuccess {
+                    Diag.log("Gezielter Mobilithek-Pull angefragt: ${operators.size} Routen-Betreiber")
+                }.onFailure {
+                    lastMobilithekPullTrigger = System.currentTimeMillis() - 150_000
+                    Diag.log("Mobilithek-Pull konnte nicht gestartet werden: ${it.message}")
+                }
             }
         }
     }

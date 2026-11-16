@@ -32,7 +32,7 @@ fun carArrivals(): Pair<String, List<TimelineItem>>? {
     val live = AppState.hub.positions.value
     val routes = AppState.routes.routes.value
     val riding = Passengers.riding
-    val friends = AppState.friends.value.filter { it.isAccepted && it.friendId !in riding }.mapNotNull { f ->
+    val friends = AppState.friends.value.filter { it.isAccepted && it.friendId !in riding && !AppState.routes.withdrew(it.friendId, d.lat, d.lng) }.mapNotNull { f ->
         val p = live[f.friendId]
         val here = p != null && ChargePlanner.distance(p.lat, p.lng, d.lat, d.lng) < 150
         val eta = routes[f.friendId]?.takeIf { ChargePlanner.distance(it.destLat, it.destLng, d.lat, d.lng) < 300 }?.eta?.epochSecond

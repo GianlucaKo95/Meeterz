@@ -113,7 +113,7 @@ object SoundMoments {
             }
 
             // 2./3. Treffpunkt: gleich da / angekommen – nur anstehende Treffen, nur wenn er vorher weg war
-            for (m in AppState.meetups.accepted.filter { AppState.meetups.isPartner(id, it) }) {
+            for (m in AppState.meetups.accepted.filter { AppState.meetups.isPartner(id, it) && !AppState.routes.withdrew(id, it.lat, it.lng) }) {
                 val at = m.meetAtSeconds
                 if (at != null && abs(at - now / 1000) > 3 * 3600) continue
                 val key = "${m.id}-$id"

@@ -35,6 +35,7 @@ final class CarPlayTimeline {
         var items: [ArrivalTimeline.Item] = []
         for item in app.friendsOnMap where !Passengers.shared.riding.contains(item.friend.friendId) {
             let id = item.friend.friendId
+            guard !app.routes.withdrew(id, from: dest.coordinate) else { continue }
             let here = item.position.coordinate.distance(to: dest.coordinate) < 150
             let route = app.routes.route(of: id, to: dest.coordinate)
             guard here || route != nil else { continue }
@@ -43,9 +44,11 @@ final class CarPlayTimeline {
         guard !items.isEmpty else { return hide() }
         items.append(.init(id: "me", name: String(localized: "Du"), color: Color(uiColor: Theme.mintUI), eta: nav.eta, here: false))
 
-        // Sicherer Bereich ohne unseren eigenen Zuschlag
-        var base = view.safeAreaInsets
-        base.bottom -= vc.additionalSafeAreaInsets.bottom
+        // Sicherer Bereich des CarPlay-Fensters – ohne unseren Zuschlag und ohne Mapbox' eigene Ränder, sonst schwebt die
+        // Einblendung zu hoch über dem unteren Rand (16.11.)
+        let base = view.window?.safeAreaInsets ?? {
+            var b = view.safeAreaInsets; b.bottom -= vc.additionalSafeAreaInsets.bottom; return b
+        }()
         let safe = view.bounds.inset(by: base)
         let size = CGSize(width: min(340, safe.width * 0.5), height: 104)
         // Kleine Anzeige: lieber keine Zeitleiste, als die Route zu verdrängen
@@ -69,10 +72,10 @@ final class CarPlayTimeline {
             h.view.isUserInteractionEnabled = false
             view.addSubview(h.view)
         }
-        h.view.frame = CGRect(x: safe.minX + 10, y: safe.maxY - size.height - 10, width: size.width, height: size.height)
+        h.view.frame = CGRect(x: safe.minX + 10, y: safe.maxY - size.height - 6, width: size.width, height: size.height)
         host = h
         // Fahrzeugpfeil über die Einblendung schieben
-        let extra = size.height + 16
+        let extra = size.height + 12
         if vc.additionalSafeAreaInsets.bottom != extra {
             vc.additionalSafeAreaInsets.bottom = extra
             Diag.log("CarPlay-Zeitleiste: Kamera um \(Int(extra)) pt angehoben")

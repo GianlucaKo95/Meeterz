@@ -476,7 +476,7 @@ fun MeetingPointCard(modifier: Modifier = Modifier) {
     val (name, lat, lng) = target
     data class Arrival(val id: String, val name: String, val eta: Long?, val here: Boolean)
     val riding = if (version >= 0) de.koeven.meeterz.social.Passengers.riding else emptySet()
-    val others = friends.filter { it.isAccepted && it.friendId !in riding }.mapNotNull { f ->
+    val others = friends.filter { it.isAccepted && it.friendId !in riding && !AppState.routes.withdrew(it.friendId, lat, lng) }.mapNotNull { f ->
         val p = live[f.friendId]
         val here = p != null && ChargePlanner.distance(p.lat, p.lng, lat, lng) < 150
         val eta = routes[f.friendId]?.takeIf { ChargePlanner.distance(it.destLat, it.destLng, lat, lng) < 300 }?.eta?.epochSecond

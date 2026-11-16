@@ -310,7 +310,7 @@ final class AppModel {
 
             // 2./3. Treffpunkt: Freund etwa 5 Min. entfernt bzw. angekommen (je Treffen einmal) – nur für Treffen,
             // die jetzt anstehen (ohne Uhrzeit oder höchstens 3 Stunden davor/danach), nicht für morgen
-            for m in meetups.accepted where meetups.isPartner(id, in: m) {
+            for m in meetups.accepted where meetups.isPartner(id, in: m) && !routes.withdrew(id, from: m.coordinate) {
                 if let at = m.meetAt, abs(at.timeIntervalSince(now)) > 3 * 3600 { continue }
                 let key = "\(m.id)-\(id)"
                 let d = f.position.coordinate.distance(to: m.coordinate)

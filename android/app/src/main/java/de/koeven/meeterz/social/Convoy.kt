@@ -66,7 +66,7 @@ object Convoy {
         return AppState.friends.value.filter { it.isAccepted && it.friendId !in riding }.mapNotNull { f ->
             val p = live[f.friendId] ?: return@mapNotNull null
             val eta = arrival(f.friendId, dest.lat, dest.lng)
-            if (eta == null && f.friendId !in meetupIds) return@mapNotNull null
+            if (eta == null && (f.friendId !in meetupIds || AppState.routes.withdrew(f.friendId, dest.lat, dest.lng))) return@mapNotNull null
             val gap = if (myIndex != null) nearest(p.lat, p.lng)?.takeIf { it.second < 300 }?.let { cumulative[it.first] - cumulative[myIndex] } else null
             val stopped = p.ageSeconds < 120 && (p.speed ?: 0.0) < 1 && ChargePlanner.distance(p.lat, p.lng, dest.lat, dest.lng) > 300
             Member(f, gap, eta, stopped)

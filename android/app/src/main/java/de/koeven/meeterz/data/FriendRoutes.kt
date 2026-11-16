@@ -42,6 +42,11 @@ class FriendRoutesStore {
     val ended: kotlinx.coroutines.flow.SharedFlow<String> = _ended
     private var loaded = false
 
+    /** Freunde, die ihre Fahrt zu diesem Ziel abgebrochen haben – bis sie wieder eine Route teilen (wie iOS, 16.11.) */
+    private val withdrawn = java.util.concurrent.ConcurrentHashMap<String, Pair<Double, Double>>()
+    fun withdrew(id: String, lat: Double, lng: Double): Boolean =
+        withdrawn[id]?.let { de.koeven.meeterz.ev.ChargePlanner.distance(it.first, it.second, lat, lng) < 300 } == true
+
     /** Freund fuhr zu meinem Ziel oder unserem Treffpunkt, seine Route ist weg und er ist nicht dort angekommen */
     private fun noticeEnded(old: Map<String, FriendRoute>, new: Map<String, FriendRoute>) {
         if (!loaded) { loaded = true; return }
@@ -53,6 +58,7 @@ class FriendRoutesStore {
             val friend = de.koeven.meeterz.AppState.friends.value.firstOrNull { it.friendId == id } ?: continue
             val pos = de.koeven.meeterz.AppState.hub.positions.value[id]
             if (pos != null && dist(pos.lat, pos.lng, r.destLat, r.destLng) < 150) continue   // angekommen
+            withdrawn[id] = r.destLat to r.destLng
             de.koeven.meeterz.Diag.log("Route beendet ohne Ankunft: ${friend.firstName}")
             _ended.tryEmit(de.koeven.meeterz.tr("%@ fährt nicht mehr hierher", friend.firstName))
         }
@@ -71,6 +77,7 @@ class FriendRoutesStore {
                 val eta = runCatching { Instant.parse(r.eta) }.getOrNull() ?: return@mapNotNull null
                 r.friend_id to FriendRoute(r.friend_id, r.destination_name, r.dest_lat, r.dest_lng, eta, coords)
             }.toMap()
+            _routes.value.keys.forEach { withdrawn.remove(it) }
             noticeEnded(old, _routes.value)
         }
     }

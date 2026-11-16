@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -100,7 +101,7 @@ fun Group(header: String? = null, footer: String? = null, content: @Composable C
 fun GroupDivider() = HorizontalDivider(Modifier.padding(start = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
 
 @Composable
-private fun RowShell(onClick: (() -> Unit)?, icon: ImageVector?, content: @Composable () -> Unit) {
+private fun RowShell(onClick: (() -> Unit)?, icon: ImageVector?, content: @Composable RowScope.() -> Unit) {
     Row(
         Modifier.fillMaxWidth().heightIn(min = 48.dp)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)

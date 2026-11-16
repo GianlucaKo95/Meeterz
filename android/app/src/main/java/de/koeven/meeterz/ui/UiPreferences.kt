@@ -7,14 +7,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 object UiPreferences {
     private lateinit var prefs: android.content.SharedPreferences
     val appearance = MutableStateFlow("system") // system, light, dark
-    val mapStyle = MutableStateFlow("standard") // standard, satellite
+    val mapStyle = MutableStateFlow("satellite") // satellite (Vorgabe wie iOS), standard
     val map3d = MutableStateFlow(true)
     val staleHours = MutableStateFlow(6)
 
     fun init(context: Context) {
         prefs = context.applicationContext.getSharedPreferences("app", Context.MODE_PRIVATE)
         appearance.value = prefs.getString("appearance", "system") ?: "system"
-        mapStyle.value = prefs.getString("android.map.style", "standard") ?: "standard"
+        mapStyle.value = prefs.getString("android.map.style", "satellite") ?: "satellite"
         map3d.value = prefs.getBoolean("android.map.3d", true)
         staleHours.value = prefs.getInt("map.hideStaleHours", 6)
     }

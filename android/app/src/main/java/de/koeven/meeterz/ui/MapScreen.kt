@@ -43,6 +43,13 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Layers
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.border
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.material.icons.filled.NearMe
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
@@ -238,17 +245,6 @@ fun MapScreen() {
 
     Box(Modifier.fillMaxSize()) {
         AndroidView(factory = { mapView }, modifier = Modifier.fillMaxSize())
-        // Kartenstil-Wechsel ist eine eigene Compose-Steuerung; der Mapbox-Kompass bleibt darunter.
-        Column(
-            Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 8.dp, end = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            FilledTonalIconButton(onClick = {
-                UiPreferences.setMapStyle(if (mapStyle == "satellite") "standard" else "satellite")
-            }) {
-                Icon(Icons.Default.Layers, contentDescription = tr(if (mapStyle == "satellite") "Standardkarte" else "Satellitenkarte"))
-            }
-        }
 
         // Neuer Ladeplan unterwegs (ChargeMonitor) und Laden (ChargingSession)
         var suggestion by remember { mutableStateOf<ChargeMonitor.Suggestion?>(null) }
@@ -329,35 +325,44 @@ fun MapScreen() {
                 GuidanceBar(g, Modifier)
             }
         } else {
-            Column(Modifier.statusBarsPadding().padding(12.dp)) {
-                Surface(shape = RoundedCornerShape(16.dp), shadowElevation = 2.dp, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-                    TextField(
-                        value = query, onValueChange = { query = it; preview = null },
-                        placeholder = { Text(tr("Ziel oder Adresse suchen")) },
-                        leadingIcon = { Icon(Icons.Default.Search, null) },
-                        trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = ""; results = emptyList() }) { Icon(Icons.Default.Close, tr("Leeren")) } },
-                        singleLine = true,
-                        colors = TextFieldDefaults.colors(focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+            // Aufbau wie iOS (MainView): oben „Wohin?“ und Freunde, darunter links die Status-Pille, rechts
+            // Kartenansicht und Standort. Einstellungen und Treffen liegen wie auf iOS im Freunde-Bildschirm.
+            var searchFocused by remember { mutableStateOf(false) }
+            Column(Modifier.statusBarsPadding().padding(horizontal = 16.dp).padding(top = 8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    SearchCapsule(query, { query = it; preview = null }, { query = ""; results = emptyList() },
+                        Modifier.weight(1f).onFocusChanged { searchFocused = it.isFocused })
+                    MapCircleButton(Icons.Default.People, tr("Freunde"),
+                        badge = friends.any { !it.isAccepted && it.incoming }, activeDot = friendRoutes.isNotEmpty()) { showFriends = true }
                 }
-                if (query.isEmpty() && preview == null) {
-                    Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (query.isEmpty() && preview == null && searchFocused) {
+                    // Gespeicherte Orte beim Suchen (iOS: oben in der Suche)
+                    Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         for (fav in favorites.sortedBy { listOf("home", "work", "other").indexOf(it.kind) }.take(3)) {
                             AssistChip(onClick = { planTo(fav.label, fav.address, fav.lat, fav.lng) }, label = { Text(fav.label) })
                         }
-                        Spacer(Modifier.weight(1f))
-                        car?.takeIf { it.soc != null && it.ageSeconds < 7 * 86400 }?.let { c ->
-                            Surface(shape = RoundedCornerShape(12.dp), shadowElevation = 2.dp, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-                                Text("${c.soc!!.toInt()} %" + (c.rangeKm?.let { " · ${it.toInt()} km" } ?: "") + if (c.charging == true) " · " + tr("lädt") else "",
-                                    Modifier.padding(horizontal = 10.dp, vertical = 6.dp), fontWeight = FontWeight.SemiBold)
+                    }
+                }
+                if (query.isEmpty() && preview == null) {
+                    Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.Top) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            StatusPill()
+                            car?.takeIf { it.soc != null && it.ageSeconds < 7 * 86400 }?.let { c ->
+                                Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)) {
+                                    Text("${c.soc!!.toInt()} %" + (c.rangeKm?.let { " · ${it.toInt()} km" } ?: "") + if (c.charging == true) " · " + tr("lädt") else "",
+                                        Modifier.padding(horizontal = 12.dp, vertical = 8.dp), fontWeight = FontWeight.SemiBold,
+                                        style = MaterialTheme.typography.bodySmall)
+                                }
                             }
                         }
-                        FilledTonalIconButton(onClick = { showSettings = true }) { Icon(Icons.Default.Settings, tr("Einstellungen")) }
-                        FilledTonalIconButton(onClick = { showMeetups = true }) { Icon(Icons.Default.Event, tr("Treffen")) }
-                        FilledTonalIconButton(onClick = { showFriends = true }) { Icon(Icons.Default.People, tr("Freunde")) }
+                        Spacer(Modifier.weight(1f))
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            MapStyleMenu(mapStyle, map3d)
+                            MapCircleButton(Icons.Default.NearMe, tr("Auf meinen Standort zentrieren"), tint = MaterialTheme.colorScheme.primary) {
+                                mapView.viewport.transitionTo(mapView.viewport.makeFollowPuckViewportState())
+                            }
+                        }
                     }
-                    StatusPill()
                 }
                 if (results.isNotEmpty() && preview == null) {
                     Surface(shape = RoundedCornerShape(16.dp), shadowElevation = 2.dp, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), modifier = Modifier.padding(top = 8.dp)) {
@@ -380,7 +385,8 @@ fun MapScreen() {
                 MeetingPointCard()
             }
             if (showMeetups) MeetupsOverviewScreen(onClose = { showMeetups = false })
-            if (showFriends) FriendsScreen(onClose = { showFriends = false })
+            if (showFriends) FriendsScreen(onClose = { showFriends = false },
+                onSettings = { showFriends = false; showSettings = true }, onMeetups = { showFriends = false; showMeetups = true })
             if (showSettings) SettingsScreen(onClose = { showSettings = false })
             preview?.let { (dest, routes) ->
                 PreviewCard(dest, routes, selectedRoute, { selectedRoute = it }, Modifier.align(Alignment.BottomCenter),
@@ -552,6 +558,70 @@ private fun clockAt(at: java.time.Instant): String = DateFormat.getTimeInstance(
 private fun clock(secondsFromNow: Double): String =
     DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(System.currentTimeMillis() + (secondsFromNow * 1000).toLong()))
 
+/** Suchfeld als Kapsel wie iOS („Wohin?“, 52 dp) */
+@Composable
+private fun SearchCapsule(query: String, onChange: (String) -> Unit, onClear: () -> Unit, modifier: Modifier) {
+    Surface(modifier.height(52.dp), shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.surface,
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+        Row(Modifier.padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.width(10.dp))
+            Box(Modifier.weight(1f)) {
+                if (query.isEmpty()) Text(tr("Wohin?"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
+                androidx.compose.foundation.text.BasicTextField(query, onChange, singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                    cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
+                    modifier = Modifier.fillMaxWidth())
+            }
+            if (query.isNotEmpty()) IconButton(onClick = onClear) { Icon(Icons.Default.Close, tr("Leeren")) }
+        }
+    }
+}
+
+/** Runder Kartenknopf wie iOS CircleIconButton: 48 dp, Fläche mit Rand; roter Punkt = Anfrage, Bernstein = unterwegs */
+@Composable
+internal fun MapCircleButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String,
+                             tint: Color = MaterialTheme.colorScheme.onSurface, badge: Boolean = false, activeDot: Boolean = false,
+                             onClick: () -> Unit) {
+    Box {
+        Surface(onClick = onClick, shape = CircleShape, color = MaterialTheme.colorScheme.surface,
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), modifier = Modifier.size(48.dp)) {
+            Box(contentAlignment = Alignment.Center) { Icon(icon, label, tint = tint, modifier = Modifier.size(22.dp)) }
+        }
+        val ring = MaterialTheme.colorScheme.surface
+        if (activeDot) Box(Modifier.align(if (badge) Alignment.BottomEnd else Alignment.TopEnd).padding(1.dp).size(11.dp)
+            .background(MaterialTheme.colorScheme.tertiary, CircleShape).border(2.dp, ring, CircleShape))
+        if (badge) Box(Modifier.align(Alignment.TopEnd).padding(1.dp).size(11.dp)
+            .background(MaterialTheme.colorScheme.error, CircleShape).border(2.dp, ring, CircleShape))
+    }
+}
+
+/** Kartenansicht wie iOS: ein Knopf, Menü mit Kartenstil und 2D/3D */
+@Composable
+private fun MapStyleMenu(mapStyle: String, map3d: Boolean) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        MapCircleButton(Icons.Default.Layers, tr("Kartenansicht")) { open = true }
+        androidx.compose.material3.DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            Text(tr("Karte"), Modifier.padding(horizontal = 16.dp, vertical = 6.dp), style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            for ((key, label) in listOf("satellite" to tr("Satellit"), "standard" to tr("Klassische Karte"))) {
+                androidx.compose.material3.DropdownMenuItem(text = { Text(label) },
+                    trailingIcon = { if (mapStyle == key) Icon(Icons.Default.Check, null) },
+                    onClick = { open = false; UiPreferences.setMapStyle(key) })
+            }
+            HorizontalDivider()
+            Text(tr("Ansicht"), Modifier.padding(horizontal = 16.dp, vertical = 6.dp), style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            for ((on, label) in listOf(true to tr("3D"), false to tr("2D"))) {
+                androidx.compose.material3.DropdownMenuItem(text = { Text(label) },
+                    trailingIcon = { if (map3d == on) Icon(Icons.Default.Check, null) },
+                    onClick = { open = false; UiPreferences.setMap3d(on) })
+            }
+        }
+    }
+}
+
 /** Status-Pille (wie iOS): teile ich gerade, bis wann, inkognito? Antippen öffnet Dauer, Pausieren, Inkognito. */
 @Composable
 private fun StatusPill() {
@@ -563,11 +633,15 @@ private fun StatusPill() {
     var tick by remember { mutableStateOf(0) }
     LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(20_000); tick++ } }
     val active = p.isIncognito || p.isSharingNow
-    Box(Modifier.padding(top = 8.dp)) {
-        Surface(shape = RoundedCornerShape(50), shadowElevation = 2.dp, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), modifier = Modifier.clickable { open = true }) {
-            Text((if (p.isIncognito) "◌ " else if (p.isSharingNow) "● " else "○ ") + sharingLabel(p).also { tick },
-                Modifier.padding(horizontal = 12.dp, vertical = 6.dp), fontWeight = FontWeight.SemiBold,
-                color = if (active) MeeterzColors.mint else Color.Gray, style = MaterialTheme.typography.bodySmall)
+    Box {
+        val tint = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+        Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f), modifier = Modifier.clickable { open = true }) {
+            Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (p.isIncognito) Icon(Icons.Default.VisibilityOff, null, tint = tint, modifier = Modifier.size(13.dp))
+                else Box(Modifier.size(8.dp).background(tint, CircleShape))
+                Spacer(Modifier.width(8.dp))
+                Text(sharingLabel(p).also { tick }, fontWeight = FontWeight.SemiBold, color = tint, style = MaterialTheme.typography.bodySmall)
+            }
         }
         androidx.compose.material3.DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             if (p.isIncognito) {

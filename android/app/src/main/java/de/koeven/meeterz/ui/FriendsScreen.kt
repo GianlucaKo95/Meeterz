@@ -1,5 +1,7 @@
 package de.koeven.meeterz.ui
 
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Event
 import de.koeven.meeterz.tr
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.LocationOff
@@ -49,7 +51,7 @@ import kotlinx.coroutines.launch
 
 /** Freunde und Einstellungen (iOS: FriendsView) */
 @Composable
-fun FriendsScreen(onClose: () -> Unit) {
+fun FriendsScreen(onClose: () -> Unit, onSettings: () -> Unit = {}, onMeetups: () -> Unit = {}) {
     BackHandler(onBack = onClose)
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -67,7 +69,10 @@ fun FriendsScreen(onClose: () -> Unit) {
         Column(Modifier.statusBarsPadding()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Zurück")) }
-                Text(tr("Freunde"), style = MaterialTheme.typography.titleLarge)
+                Text(tr("Freunde"), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                // Treffen und Einstellungen wie auf iOS über den Freunde-Bildschirm (nicht als Knöpfe auf der Karte)
+                IconButton(onClick = onMeetups) { Icon(Icons.Default.Event, tr("Treffen")) }
+                IconButton(onClick = onSettings) { Icon(Icons.Default.Settings, tr("Einstellungen")) }
             }
             LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 item {

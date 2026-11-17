@@ -82,9 +82,10 @@ object RouteSuggestions {
         get() = prefs()?.getBoolean("suggest.calendar", false) == true
         set(v) { prefs()?.edit()?.putBoolean("suggest.calendar", v)?.apply() }
 
-    /** Vorschlag für jetzt (höchstens alle 5 Minuten neu; nicht während einer Führung) */
+    /** Vorschlag für jetzt (alle 5 Minuten neu, unterwegs alle 2 – Fahrzeit ab hier wie iOS; nicht während einer Führung) */
     suspend fun refresh(force: Boolean = false) {
-        if (!force && System.currentTimeMillis() - computedAt < 5 * 60_000) return
+        val moving = (AppState.lastLocation?.speed ?: 0f) > 3f
+        if (!force && System.currentTimeMillis() - computedAt < (if (moving) 2 else 5) * 60_000) return
         computedAt = System.currentTimeMillis()
         val result = if (de.koeven.meeterz.nav.NavigationController.guidance.value != null) null else compute()
         if (result?.id != _current.value?.id || (result != null && result.minutes != _current.value?.minutes)) {

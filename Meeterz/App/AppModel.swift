@@ -221,6 +221,7 @@ final class AppModel {
         await hub.publish(loc, userId: profile.id, sharingEnabled: profile.isSharingNow)
         await checkSoundMoments(me: loc)
         await meetups.checkArrival(at: loc)
+        RouteSuggestions.shared.follow(loc)
         WidgetSnapshotWriter.shared.update()
     }
 

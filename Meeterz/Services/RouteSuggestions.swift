@@ -3,6 +3,7 @@ import CoreLocation
 import EventKit
 import MapboxDirections
 import MapboxNavigationCore
+import Turf
 
 /// Routenvorschlag wie bei Apple Karten: EIN Ziel, das jetzt wahrscheinlich ist – ein Kalendertermin mit Ort, zu dem man
 /// bald losfahren muss, sonst ein Ort, den man um diese Zeit an diesem Wochentag oft ansteuert.
@@ -61,6 +62,8 @@ final class RouteSuggestions {
     /// Abgelehnte Ziele: bis wann sie nicht erneut vorgeschlagen werden
     private var dismissed: [String: Date] = [:]
     private var computedAt = Date.distantPast
+    /// Wann die gezeigte Vorschlagsroute berechnet wurde
+    private var routesAt = Date.distantPast
     private var computing: Task<Suggestion?, Never>?
 
     // MARK: Einstellungen
@@ -87,14 +90,33 @@ final class RouteSuggestions {
         let result = await task.value
         computing = nil
         computedAt = Date()
-        if result != current {
+        let entry = result.flatMap { routeCache[Self.key($0.place.coordinate)] }
+        // Auch bei gleichem Ziel: neu berechnete Route zeigen (vorher blieb die alte Linie stehen, wenn man anders fuhr)
+        if result != current || (entry?.at ?? .distantPast) != routesAt {
+            if result != current { Diag.log(result.map { "Routenvorschlag: \($0.title) – \($0.subtitle)" } ?? "Routenvorschlag: keiner") }
             current = result
-            currentRoutes = result.flatMap { routeCache[Self.key($0.place.coordinate)]?.routes }
-            Diag.log(result.map { "Routenvorschlag: \($0.title) – \($0.subtitle)" } ?? "Routenvorschlag: keiner")
+            currentRoutes = entry?.routes
+            routesAt = entry?.at ?? .distantPast
             CarPlayDashboard.suggestionChanged()
             WidgetSnapshotWriter.shared.update(force: true)
         }
         return result
+    }
+
+    /// Bei jeder Standortmeldung: Fährt man ohne Navigation, folgt die Vorschlagsroute – neu ab hier, sobald man mehr als
+    /// 150 m neben ihr ist, sonst alle 2 Minuten (Startpunkt und Ankunftszeit bleiben aktuell)
+    func follow(_ loc: CLLocation) {
+        guard let current, let routes = currentRoutes, computing == nil, !AppModel.shared.navigation.isNavigating,
+              loc.speed > 3, loc.horizontalAccuracy < 50 else { return }
+        let age = Date().timeIntervalSince(routesAt)
+        guard age > 15 else { return }
+        let off = routes.mainRoute.route.shape
+            .flatMap { LineString($0.coordinates).closestCoordinate(to: loc.coordinate) }
+            .map { $0.coordinate.distance(to: loc.coordinate) } ?? 0
+        guard off > 150 || age > 120 else { return }
+        if off > 150 { Diag.log("Routenvorschlag \(current.title): \(Int(off)) m neben der Route – neu ab hier") }
+        routeCache[Self.key(current.place.coordinate)] = nil
+        Task { _ = await refresh(force: true) }
     }
 
     /// „Zurück“ in der Vorschau: Vorschlag weg (auch im Dashboard) und dasselbe Ziel für diese Fahrt nicht mehr
@@ -116,6 +138,7 @@ final class RouteSuggestions {
         guard current != nil else { return }
         current = nil
         currentRoutes = nil
+        routesAt = .distantPast
         computedAt = Date()
         CarPlayDashboard.suggestionChanged()
     }

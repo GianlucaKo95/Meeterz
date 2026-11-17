@@ -253,7 +253,49 @@ object NavigationController : MapboxNavigationObserver {
         set(value) { speaker?.muted = value; appContext?.getSharedPreferences("app", 0)?.edit()?.putBoolean("voice.muted", value)?.apply(); if (value) speaker?.stop() }
 
     private val routesObserver = RoutesObserver { result ->
-        if (result.navigationRoutes.isEmpty()) _progress.value = null
+        if (result.navigationRoutes.isEmpty()) { _progress.value = null; _faster.value = null; return@RoutesObserver }
+        checkFaster(result.navigationRoutes)
+    }
+
+    /** Schnellere Alternative unterwegs (wie iOS: „x Min. sparen – wechseln?“), Antwort über [answerFaster] */
+    data class FasterRoute(val route: NavigationRoute, val minutes: Int)
+    private val _faster = MutableStateFlow<FasterRoute?>(null)
+    val faster: StateFlow<FasterRoute?> = _faster
+    private val offeredFaster = mutableSetOf<String>()
+
+    /** Mapbox liefert unterwegs laufend Alternativen; ist eine mindestens 3 Min. schneller, fragen (einmal je Route) */
+    private fun checkFaster(routes: List<NavigationRoute>) {
+        val nav = navigation ?: return
+        if (_guidance.value == null || routes.size < 2) return
+        val left = _progress.value?.durationRemaining ?: return
+        if (left < 600) return
+        val primary = routes.first().directionsRoute.duration()
+        val best = routes.drop(1).mapNotNull { alt ->
+            val total = nav.getAlternativeMetadataFor(alt)?.infoFromStartOfPrimary?.duration ?: return@mapNotNull null
+            alt to (primary - total)
+        }.maxByOrNull { it.second } ?: return
+        if (best.second < 180 || best.first.id in offeredFaster) return
+        offeredFaster += best.first.id
+        val minutes = maxOf(1, Math.round(best.second / 60).toInt())
+        Diag.log("Schnellere Route gefunden: $minutes Min. sparen")
+        _faster.value = FasterRoute(best.first, minutes)
+        // Wie iOS: nur im Auto (Android Auto) fragen, sonst gleich wechseln
+        if (!carConnected) answerFaster(true)
+    }
+
+    /** Android Auto verbunden (MeeterzCarSession) */
+    @Volatile var carConnected = false
+
+    /** „Wechseln“ / „Behalten“ */
+    fun answerFaster(accept: Boolean) {
+        val f = _faster.value ?: return
+        _faster.value = null
+        if (!accept) return
+        val nav = navigation ?: return
+        val current = nav.getNavigationRoutes()
+        if (f.route !in current) return
+        nav.setNavigationRoutes(listOf(f.route) + current.filter { it !== f.route })
+        Diag.log("Auf schnellere Route gewechselt (${f.minutes} Min.)")
     }
 
     private var lastShare = 0L

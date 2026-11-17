@@ -109,6 +109,7 @@ class MeeterzCarSession : Session() {
     init {
         lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onCreate(owner: LifecycleOwner) {
+                NavigationController.carConnected = true
                 MapboxNavigationApp.attach(owner)
                 carMap.setup(carContext, MapInitOptions(carContext))
                 carMap.registerObserver(mapLoader)
@@ -120,6 +121,7 @@ class MeeterzCarSession : Session() {
             }
 
             override fun onDestroy(owner: LifecycleOwner) {
+                NavigationController.carConnected = false
                 de.koeven.meeterz.social.Passengers.reset()   // Mitfahrer gelten bis zum Trennen (wie CarPlay)
                 de.koeven.meeterz.suggest.RouteSuggestions.newDrive()
                 de.koeven.meeterz.suggest.Parking.save(AppState.lastLocation, "Android Auto")
@@ -224,6 +226,27 @@ class MeeterzCarSession : Session() {
         }
         lifecycleScope.launch {
             AppState.routes.ended.collect { CarToast.makeText(carContext, it, CarToast.LENGTH_LONG).show() }
+        }
+        // Schnellere Route unterwegs (wie CarPlay): „x Min. sparen“ mit „Wechseln“ / „Behalten“, ohne Antwort behalten
+        lifecycleScope.launch {
+            NavigationController.faster.collect { f ->
+                if (f == null) return@collect
+                if (carContext.carAppApiLevel < CarAppApiLevels.LEVEL_5) { NavigationController.answerFaster(true); return@collect }
+                val manager = carContext.getCarService(AppManager::class.java)
+                manager.showAlert(Alert.Builder(5, CarText.create(tr("Schnellere Route – %@ Min. sparen", f.minutes)), 12_000)
+                    .setSubtitle(CarText.create(tr("Auf die schnellere Route wechseln?")))
+                    .addAction(Action.Builder().setTitle(tr("Wechseln")).setOnClickListener {
+                        manager.dismissAlert(5); NavigationController.answerFaster(true)
+                    }.build())
+                    .addAction(Action.Builder().setTitle(tr("Behalten")).setOnClickListener {
+                        manager.dismissAlert(5); NavigationController.answerFaster(false)
+                    }.build())
+                    .setCallback(object : androidx.car.app.model.AlertCallback {
+                        override fun onCancel(reason: Int) = NavigationController.answerFaster(false)
+                        override fun onDismiss() = Unit
+                    })
+                    .build())
+            }
         }
         lifecycleScope.launch {
             de.koeven.meeterz.social.ConvoyPause.notices.collect { CarToast.makeText(carContext, it, CarToast.LENGTH_LONG).show() }

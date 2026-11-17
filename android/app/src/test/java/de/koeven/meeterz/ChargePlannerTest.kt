@@ -40,6 +40,22 @@ class ChargePlannerTest {
         plan.stops.forEach { assertTrue(it.arrivalPercent >= 10 - 1) }
     }
 
+    @Test fun alternativesForStop() {
+        val s = ChargePlanner.Settings()
+        val p = ChargePlanner.profile(points(600), vehicle, s)
+        val all = sites(10, 600)
+        val plan = (ChargePlanner.plan(p, vehicle, 90.0, s, all) as ChargePlanner.Outcome.Planned).plan
+        val stop = plan.stops.first()
+        val alts = ChargePlanner.alternatives(stop, plan, p, vehicle, 90.0, s, all)
+        assertTrue(alts.isNotEmpty() && alts.size <= 3)
+        alts.forEach { alt ->
+            assertTrue(alt.site != stop.site)
+            val at = alt.plan.stops.first { it.site == alt.site }
+            assertTrue(kotlin.math.abs(at.distanceFromStart - stop.distanceFromStart) <= 25_001)
+        }
+        assertEquals(alts.map { it.delta }.sorted(), alts.map { it.delta })
+    }
+
     private fun fixed(km: Int, charger: Boolean) = ChargePlanner.Candidate(
         ChargeSite(52 - km / 111.32, 8.002, if (charger) 150.0 else 0.0, 4, "Pause", "Test", ""), km * 1000.0, 0.0, fixed = true, canCharge = charger)
 

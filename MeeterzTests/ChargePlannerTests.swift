@@ -109,6 +109,24 @@ final class ChargePlannerTests: XCTestCase {
         XCTAssertTrue(plan.stops.allSatisfy { $0.site.operatorName == "Beta AG" })
     }
 
+    /// Ladealternativen: andere Säulen nahe am Stopp, Plan führt über die gewählte, nicht doppelt die alte
+    func testAlternativesForStop() throws {
+        let p = profile(km: 600)
+        let all = sites(every: 10, upTo: 600)
+        let plan = try ChargePlanner.plan(profile: p, vehicle: vehicle, startPercent: 90, settings: .init(), sites: all).get()
+        let stop = try XCTUnwrap(plan.stops.first)
+        let alts = ChargePlanner.alternatives(for: stop, in: plan, profile: p, vehicle: vehicle, startPercent: 90,
+                                              settings: .init(), sites: all)
+        XCTAssertFalse(alts.isEmpty)
+        XCTAssertLessThanOrEqual(alts.count, 3)
+        for alt in alts {
+            XCTAssertNotEqual(alt.site, stop.site)
+            XCTAssertTrue(alt.plan.stops.contains { $0.site == alt.site })
+            XCTAssertLessThan(abs(try XCTUnwrap(alt.plan.stops.first { $0.site == alt.site }).distanceFromStart - stop.distanceFromStart), 25_001)
+        }
+        XCTAssertEqual(alts.map(\.delta), alts.map(\.delta).sorted())
+    }
+
     func testUnreachableWithoutChargers() {
         let result = ChargePlanner.plan(profile: profile(km: 600), vehicle: vehicle, startPercent: 80,
                                         settings: .init(), sites: [])

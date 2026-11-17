@@ -87,6 +87,7 @@ import com.mapbox.maps.CameraOptions
 import com.mapbox.maps.MapView
 import com.mapbox.maps.Style
 import com.mapbox.maps.plugin.compass.compass
+import com.mapbox.maps.plugin.scalebar.scalebar
 import com.mapbox.maps.plugin.annotation.annotations
 import com.mapbox.maps.plugin.annotation.generated.PointAnnotationManager
 import com.mapbox.maps.plugin.annotation.generated.PointAnnotationOptions
@@ -131,15 +132,22 @@ fun MapScreen() {
     val visibleFriendIds = remember(visibleFriends) { visibleFriends.map { it.friendId }.toSet() }
     var mapStyleRevision by remember { mutableStateOf(0) }
 
-    val compassTopMarginPx = 96.0 * context.resources.displayMetrics.density
+    // Kompass unter die rechte Knopfspalte (Freunde, Kartenansicht, Standort) statt dahinter – wie iOS unter der
+    // Knopfleiste: Statusleiste + 8 + 52 (Suche) + 10 + 48 + 8 + 48 + 10 dp
+    val density = context.resources.displayMetrics.density
+    val statusBarPx = context.resources.getIdentifier("status_bar_height", "dimen", "android")
+        .takeIf { it > 0 }?.let { context.resources.getDimensionPixelSize(it) } ?: (24 * density).toInt()
+    val compassTopMarginPx = statusBarPx + 184.0 * density
     val mapView = remember {
         MapView(context).apply {
             mapboxMap.loadStyle(if (UiPreferences.mapStyle.value == "satellite") Style.STANDARD_SATELLITE else Style.STANDARD)
             // MapView liegt edge-to-edge unter der Statusleiste: den nativen Kompass darunter verschieben.
             compass.updateSettings {
                 marginTop = compassTopMarginPx.toFloat()
-                marginRight = (12.0 * context.resources.displayMetrics.density).toFloat()
+                marginRight = (20.0 * context.resources.displayMetrics.density).toFloat()
             }
+            // Maßstab lag über der Statusleiste (Foto 17.11.) – iOS zeigt keinen
+            scalebar.enabled = false
             mapboxMap.setCamera(CameraOptions.Builder().zoom(14.0).build())
             location.updateSettings {
                 enabled = true

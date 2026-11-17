@@ -233,7 +233,7 @@ class MeeterzCarSession : Session() {
                 if (f == null) return@collect
                 if (carContext.carAppApiLevel < CarAppApiLevels.LEVEL_5) { NavigationController.answerFaster(true); return@collect }
                 val manager = carContext.getCarService(AppManager::class.java)
-                manager.showAlert(Alert.Builder(5, CarText.create(tr("Schnellere Route – %@ Min. sparen", f.minutes)), 12_000)
+                manager.showAlert(Alert.Builder(5, CarText.create(tr("Schnellere Route – %lld Min. sparen", f.minutes)), 12_000)
                     .setSubtitle(CarText.create(tr("Auf die schnellere Route wechseln?")))
                     .addAction(Action.Builder().setTitle(tr("Wechseln")).setOnClickListener {
                         manager.dismissAlert(5); NavigationController.answerFaster(true)

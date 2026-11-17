@@ -74,7 +74,7 @@ fun UnterwegsSheet(
                 Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(12.dp))
                     .clickable(onClick = onMeetups).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Event, null, tint = MaterialTheme.colorScheme.primary)
-                    Text(if (meetupCount == 1) tr("1 Treffen") else tr("%@ Treffen", meetupCount), Modifier.weight(1f).padding(start = 10.dp),
+                    Text(if (meetupCount == 1) tr("1 Treffen") else tr("%lld Treffen", meetupCount), Modifier.weight(1f).padding(start = 10.dp),
                         fontWeight = FontWeight.SemiBold)
                     Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -86,7 +86,7 @@ fun UnterwegsSheet(
                     context.startActivity(Intent.createChooser(send, tr("Einladung senden")))
                 }, Modifier.fillMaxWidth()) { Text(tr("Einladung senden")) }
             } else {
-                Text(tr("%@ von %@ sichtbar", onMap.size, accepted.size), style = MaterialTheme.typography.bodySmall,
+                Text(tr("%lld von %lld sichtbar", onMap.size, accepted.size), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 for (f in onMap) {
                     val route = routes[f.friendId]

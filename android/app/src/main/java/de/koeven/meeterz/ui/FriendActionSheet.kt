@@ -98,7 +98,7 @@ fun FriendActionSheet(
                         GroupDivider()
                         ValueRow(tr("Entfernung"), distanceText(de.koeven.meeterz.ev.ChargePlanner.distance(me.latitude, me.longitude, lat, lng)))
                     }
-                    pos?.speed?.takeIf { it > 1 }?.let { GroupDivider(); ValueRow(tr("Tempo"), tr("%@ km/h", Math.round(it * 3.6))) }
+                    pos?.speed?.takeIf { it > 1 }?.let { GroupDivider(); ValueRow(tr("Tempo"), tr("%lld km/h", Math.round(it * 3.6))) }
                     route?.let {
                         GroupDivider(); ValueRow(tr("Ziel"), it.destinationName ?: tr("Unterwegs"))
                         GroupDivider(); ValueRow(tr("Ankunft"), clockAt(it.eta))

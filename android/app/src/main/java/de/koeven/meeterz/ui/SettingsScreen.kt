@@ -225,7 +225,7 @@ fun SettingsScreen(onClose: () -> Unit) {
                 }
                 val hours = listOf(1, 3, 6, 12, 24, 0)
                 Group(footer = tr("Freunde, von denen so lange kein neuer Standort kam, verschwinden von der Karte – statt an einem alten Ort zu stehen. Sobald sie wieder teilen, sind sie zurück.")) {
-                    MenuRow(tr("Freunde ausblenden nach"), hours.map { if (it == 0) tr("Nie") else tr("%@ Std.", it) },
+                    MenuRow(tr("Freunde ausblenden nach"), hours.map { if (it == 0) tr("Nie") else tr("%lld Std.", it) },
                         hours.indexOf(staleHours).coerceAtLeast(0)) { UiPreferences.setStaleHours(hours[it]) }
                 }
                 Group(tr("Routenoptionen (Auto)"), tr("Gilt für alle Routen, auch in Android Auto und für den Ladeplan. Geht ein Ziel nur mit Maut oder Fähre, nimmt Meeterz die normale Route und sagt Bescheid.")) {
@@ -256,7 +256,7 @@ fun SettingsScreen(onClose: () -> Unit) {
                     }
                 }
                 if (evEnabled) Group(tr("Ladeplanung")) {
-                    evVehicle?.let { v -> ValueRow(tr("Reichweite bei 100 %"), tr("ca. %@ km", (v.battery / v.consumption * 100).toInt())); GroupDivider() }
+                    evVehicle?.let { v -> ValueRow(tr("Reichweite bei 100 %"), tr("ca. %lld km", (v.battery / v.consumption * 100).toInt())); GroupDivider() }
                     StepperRow(tr("Ankunft mit mindestens"), "${evArrival.toInt()} %", evArrival > 5, evArrival < 60,
                         { evArrival -= 5; EvSettings.arrivalPercent = evArrival }, { evArrival += 5; EvSettings.arrivalPercent = evArrival })
                     GroupDivider()
@@ -299,7 +299,7 @@ fun SettingsScreen(onClose: () -> Unit) {
                 var battery by remember { mutableStateOf(current?.battery ?: 60.0) }
                 var consumption by remember { mutableStateOf(current?.consumption ?: 18.0) }
                 var dcMax by remember { mutableStateOf(current?.dcMax ?: 100.0) }
-                Group(footer = tr("Reichweite bei 100 %: ca. %@ km", (battery / consumption * 100).toInt())) {
+                Group(footer = tr("Reichweite bei 100 %%: ca. %lld km", (battery / consumption * 100).toInt())) {
                     StepperRow(tr("Nutzbare Batterie"), "${battery.toInt()} kWh", battery > 10, battery < 200, { battery -= 1 }, { battery += 1 })
                     GroupDivider()
                     StepperRow(tr("Verbrauch"), String.format(java.util.Locale.getDefault(), "%.1f kWh/100 km", consumption),
@@ -327,7 +327,7 @@ fun SettingsScreen(onClose: () -> Unit) {
                 }
                 evVehicle?.let { v ->
                     val buckets = de.koeven.meeterz.ev.ConsumptionLearner.buckets(v)
-                    Group(tr("Dein Verbrauch"), tr("Gelernt aus deinen Fahrten mit Live-Daten. Ab %@ km je Bereich rechnet die Ladeplanung damit statt mit dem Durchschnittswert (%@ kWh/100 km).",
+                    Group(tr("Dein Verbrauch"), tr("Gelernt aus deinen Fahrten mit Live-Daten. Ab %lld km je Bereich rechnet die Ladeplanung damit statt mit dem Durchschnittswert (%@ kWh/100 km).",
                         de.koeven.meeterz.ev.ConsumptionLearner.MIN_KM.toInt(), String.format("%.1f", v.consumption))) {
                         buckets.forEachIndexed { i, b ->
                             if (i > 0) GroupDivider()
@@ -396,7 +396,7 @@ fun SettingsScreen(onClose: () -> Unit) {
                     }
                 }
                 if (learned > 0) Group {
-                    ActionRow(tr("Gelernte Orte löschen (%@)", learned), destructive = true) {
+                    ActionRow(tr("Gelernte Orte löschen (%lld)", learned), destructive = true) {
                         de.koeven.meeterz.suggest.FrequentPlaces.clear(); learned = 0
                     }
                 }

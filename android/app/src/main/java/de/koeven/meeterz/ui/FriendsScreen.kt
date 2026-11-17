@@ -191,6 +191,6 @@ private fun FriendLabel(row: de.koeven.meeterz.data.FriendRow, modifier: Modifie
 /** „live“ / „vor 5 Min.“ / „vor 2 Std.“ (wie iOS Format.age) */
 internal fun ago(seconds: Double): String = when {
     seconds < 60 -> tr("live")
-    seconds < 3600 -> tr("vor %@ Min.", (seconds / 60).toInt())
-    else -> tr("vor %@ Std.", (seconds / 3600).toInt())
+    seconds < 3600 -> tr("vor %lld Min.", (seconds / 60).toInt())
+    else -> tr("vor %lld Std.", (seconds / 3600).toInt())
 }

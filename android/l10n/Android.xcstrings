@@ -5935,6 +5935,834 @@
           }
         }
       }
+    },
+    " · Fahrzeugdaten: Open EV Data (github.com/KilowattApp/open-ev-data). Werte sind Durchschnittswerte; Meeterz lernt mit der Zeit aus deinen Fahrten.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " · Fahrzeugdaten: Open EV Data (github.com/KilowattApp/open-ev-data). Werte sind Durchschnittswerte; Meeterz lernt mit der Zeit aus deinen Fahrten."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " · Vehicle data: Open EV Data (github.com/KilowattApp/open-ev-data). Values are averages; Meeterz learns from your drives over time."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " · Données véhicules : Open EV Data (github.com/KilowattApp/open-ev-data). Valeurs moyennes ; Meeterz apprend au fil de vos trajets."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " · Datos de vehículos: Open EV Data (github.com/KilowattApp/open-ev-data). Son valores medios; Meeterz aprende de tus viajes con el tiempo."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " · Dati veicoli: Open EV Data (github.com/KilowattApp/open-ev-data). Valori medi; Meeterz impara col tempo dai tuoi viaggi."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " · Dados dos veículos: Open EV Data (github.com/KilowattApp/open-ev-data). Valores médios; o Meeterz aprende com as tuas viagens."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " · Araç verileri: Open EV Data (github.com/KilowattApp/open-ev-data). Değerler ortalamadır; Meeterz zamanla sürüşlerinden öğrenir."
+          }
+        }
+      }
+    },
+    "Akkustand jetzt (ohne Live-Daten)": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Akkustand jetzt (ohne Live-Daten)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Battery now (without live data)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Batterie actuelle (sans données en direct)"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Batería ahora (sin datos en vivo)"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Batteria ora (senza dati live)"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bateria agora (sem dados ao vivo)"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şu anki batarya (canlı veri olmadan)"
+          }
+        }
+      }
+    },
+    "Aufnehmen": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aufnehmen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Record"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enregistrer"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grabar"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Registra"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gravar"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaydet"
+          }
+        }
+      }
+    },
+    "Berechtigungen in den Android-Einstellungen": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Berechtigungen in den Android-Einstellungen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permissions in Android settings"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autorisations dans les réglages Android"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permisos en los ajustes de Android"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autorizzazioni nelle impostazioni Android"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permissões nas definições do Android"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Android ayarlarında izinler"
+          }
+        }
+      }
+    },
+    "Die Stimmen kommen von der Sprachausgabe deines Android-Geräts. Eine natürlichere Stimme lädst du dort unter „Sprachdaten installieren“.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Stimmen kommen von der Sprachausgabe deines Android-Geräts. Eine natürlichere Stimme lädst du dort unter „Sprachdaten installieren“."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voices come from your Android device's text-to-speech. Download a more natural voice there under “Install voice data”."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les voix proviennent de la synthèse vocale de votre appareil Android. Téléchargez une voix plus naturelle sous « Installer les données vocales »."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las voces vienen de la síntesis de voz de tu dispositivo Android. Descarga una voz más natural en «Instalar datos de voz»."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le voci provengono dalla sintesi vocale del tuo dispositivo Android. Scarica una voce più naturale in «Installa dati vocali»."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "As vozes vêm da síntese de voz do teu dispositivo Android. Descarrega uma voz mais natural em «Instalar dados de voz»."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sesler Android cihazının metin okuma özelliğinden gelir. Daha doğal bir sesi orada “Ses verilerini yükle” altından indirebilirsin."
+          }
+        }
+      }
+    },
+    "Du: %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Du: %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous : %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tú: %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu: %@"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu: %@"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sen: %@"
+          }
+        }
+      }
+    },
+    "Gilt für Handy und Android Auto gleichermaßen und sofort, auch während der Fahrt. Satellit: Luftbild mit 3D-Gebäuden.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gilt für Handy und Android Auto gleichermaßen und sofort, auch während der Fahrt. Satellit: Luftbild mit 3D-Gebäuden."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Applies to phone and Android Auto alike, instantly, even while driving. Satellite: aerial imagery with 3D buildings."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "S'applique au téléphone et à Android Auto, immédiatement, même en roulant. Satellite : vue aérienne avec bâtiments 3D."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se aplica al móvil y a Android Auto por igual y al instante, incluso conduciendo. Satélite: imagen aérea con edificios 3D."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vale per telefono e Android Auto, subito, anche durante la guida. Satellite: immagine aerea con edifici 3D."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aplica-se ao telemóvel e ao Android Auto, de imediato, mesmo a conduzir. Satélite: imagem aérea com edifícios 3D."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Telefon ve Android Auto için aynı şekilde ve anında geçerlidir, sürüş sırasında da. Uydu: 3D binalı hava görüntüsü."
+          }
+        }
+      }
+    },
+    "Gilt für alle Routen, auch in Android Auto und für den Ladeplan. Geht ein Ziel nur mit Maut oder Fähre, nimmt Meeterz die normale Route und sagt Bescheid.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gilt für alle Routen, auch in Android Auto und für den Ladeplan. Geht ein Ziel nur mit Maut oder Fähre, nimmt Meeterz die normale Route und sagt Bescheid."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Applies to all routes, also in Android Auto and for the charging plan. If a destination needs tolls or a ferry, Meeterz takes the normal route and tells you."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "S'applique à tous les itinéraires, aussi dans Android Auto et pour le plan de recharge. Si une destination exige un péage ou un ferry, Meeterz prend l'itinéraire normal et vous prévient."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se aplica a todas las rutas, también en Android Auto y para el plan de carga. Si un destino solo es posible con peaje o ferry, Meeterz usa la ruta normal y te avisa."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vale per tutti i percorsi, anche in Android Auto e per il piano di ricarica. Se una destinazione richiede pedaggi o traghetto, Meeterz usa il percorso normale e ti avvisa."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aplica-se a todas as rotas, também no Android Auto e no plano de carregamento. Se um destino exigir portagens ou ferry, o Meeterz usa a rota normal e avisa."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tüm rotalar için geçerlidir, Android Auto ve şarj planı dahil. Bir hedef yalnızca ücretli yol veya feribotla mümkünse Meeterz normal rotayı kullanır ve haber verir."
+          }
+        }
+      }
+    },
+    "Lass uns Meeterz nutzen – dann sehen wir uns unterwegs auf der Karte.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lass uns Meeterz nutzen – dann sehen wir uns unterwegs auf der Karte."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Let's use Meeterz – then we'll see each other on the map on the go."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utilisons Meeterz – on se verra sur la carte en route."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usemos Meeterz – así nos vemos en el mapa por el camino."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usiamo Meeterz – così ci vediamo sulla mappa in giro."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vamos usar o Meeterz – assim vemo-nos no mapa pelo caminho."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meeterz kullanalım – yolda birbirimizi haritada görürüz."
+          }
+        }
+      }
+    },
+    "Meeterz übernimmt Akkustand, Reichweite und Ladezustand live aus deinem Auto – über das Home-Assistant-Add-on „MG to ABRP Bridge“ (iSMART). Damit entfällt die Akku-Eingabe, und die Ladeplanung rechnet mit echten Werten.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meeterz übernimmt Akkustand, Reichweite und Ladezustand live aus deinem Auto – über das Home-Assistant-Add-on „MG to ABRP Bridge“ (iSMART). Damit entfällt die Akku-Eingabe, und die Ladeplanung rechnet mit echten Werten."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meeterz takes battery level, range and charging state live from your car – via the Home Assistant add-on “MG to ABRP Bridge” (iSMART). No more entering the battery level, and charge planning uses real values."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meeterz récupère en direct le niveau de batterie, l'autonomie et l'état de charge de votre voiture – via l'add-on Home Assistant « MG to ABRP Bridge » (iSMART). Plus besoin de saisir la batterie, et le plan de recharge utilise des valeurs réelles."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meeterz toma en vivo la batería, la autonomía y el estado de carga de tu coche – con el complemento de Home Assistant «MG to ABRP Bridge» (iSMART). Ya no hace falta introducir la batería y el plan de carga usa valores reales."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meeterz riceve in tempo reale livello batteria, autonomia e stato di ricarica dalla tua auto – tramite l'add-on Home Assistant «MG to ABRP Bridge» (iSMART). Niente più inserimento della batteria, e il piano di ricarica usa valori reali."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Meeterz recebe ao vivo o nível de bateria, a autonomia e o estado de carga do teu carro – através do add-on Home Assistant «MG to ABRP Bridge» (iSMART). Deixas de introduzir a bateria e o plano de carregamento usa valores reais."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meeterz batarya seviyesini, menzili ve şarj durumunu aracından canlı alır – Home Assistant eklentisi “MG to ABRP Bridge” (iSMART) üzerinden. Batarya girişi gerekmez ve şarj planı gerçek değerlerle hesaplanır."
+          }
+        }
+      }
+    },
+    "Nicht verfügbar": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht verfügbar"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not available"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non disponible"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No disponible"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non disponibile"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Indisponível"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kullanılamıyor"
+          }
+        }
+      }
+    },
+    "Nimm bis zu 5 Sekunden auf. Nur Freunde, deren Anfrage du angenommen hast, hören sie – zum passenden Moment, auch im Auto. Ohne Aufnahme sagt die Sprachausgabe Bescheid.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nimm bis zu 5 Sekunden auf. Nur Freunde, deren Anfrage du angenommen hast, hören sie – zum passenden Moment, auch im Auto. Ohne Aufnahme sagt die Sprachausgabe Bescheid."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Record up to 5 seconds. Only friends whose request you accepted hear them – at the right moment, also in the car. Without a recording, text-to-speech lets them know."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enregistrez jusqu'à 5 secondes. Seuls les amis dont vous avez accepté la demande les entendent – au bon moment, aussi en voiture. Sans enregistrement, la synthèse vocale prévient."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Graba hasta 5 segundos. Solo los amigos cuya solicitud aceptaste los oyen – en el momento justo, también en el coche. Sin grabación, avisa la síntesis de voz."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Registra fino a 5 secondi. Li sentono solo gli amici di cui hai accettato la richiesta – al momento giusto, anche in auto. Senza registrazione avvisa la sintesi vocale."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grava até 5 segundos. Só os amigos cujo pedido aceitaste os ouvem – no momento certo, também no carro. Sem gravação, a síntese de voz avisa."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5 saniyeye kadar kaydet. Yalnızca isteğini kabul ettiğin arkadaşlar duyar – doğru anda, arabada da. Kayıt yoksa metin okuma haber verir."
+          }
+        }
+      }
+    },
+    "Protokoll ausblenden": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Protokoll ausblenden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide log"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masquer le journal"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ocultar registro"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nascondi registro"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ocultar registo"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Günlüğü gizle"
+          }
+        }
+      }
+    },
+    "Reicht der Akku nicht bis zum Ziel, schlägt Meeterz Ladesäulen entlang der Route vor (mit 10 % Reserve).": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reicht der Akku nicht bis zum Ziel, schlägt Meeterz Ladesäulen entlang der Route vor (mit 10 % Reserve)."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "If the battery won't reach the destination, Meeterz suggests chargers along the route (with 10 % reserve)."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Si la batterie ne suffit pas jusqu'à destination, Meeterz propose des bornes le long de l'itinéraire (avec 10 % de réserve)."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Si la batería no llega al destino, Meeterz propone cargadores a lo largo de la ruta (con 10 % de reserva)."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se la batteria non basta fino alla destinazione, Meeterz propone colonnine lungo il percorso (con 10 % di riserva)."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se a bateria não chegar ao destino, o Meeterz sugere postos de carregamento ao longo da rota (com 10 % de reserva)."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Batarya hedefe yetmezse Meeterz rota boyunca şarj istasyonları önerir (%10 rezervle)."
+          }
+        }
+      }
+    },
+    "Standort, Mitteilungen, Kalender und Mikrofon verwaltest du in den Android-Einstellungen der App.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Standort, Mitteilungen, Kalender und Mikrofon verwaltest du in den Android-Einstellungen der App."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manage location, notifications, calendar and microphone in the app's Android settings."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gérez la position, les notifications, le calendrier et le micro dans les réglages Android de l'app."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gestiona ubicación, notificaciones, calendario y micrófono en los ajustes de Android de la app."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gestisci posizione, notifiche, calendario e microfono nelle impostazioni Android dell'app."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gere localização, notificações, calendário e microfone nas definições Android da app."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konum, bildirimler, takvim ve mikrofonu uygulamanın Android ayarlarından yönetirsin."
+          }
+        }
+      }
+    },
+    "Weniger": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weniger"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Less"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Moins"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Menos"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meno"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Menos"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daha az"
+          }
+        }
+      }
+    },
+    "Wie bei Google Maps schlägt Android Auto beim Einsteigen ein Ziel vor: einen Termin mit Ort, zu dem du bald losfahren musst, oder einen Ort, den du um diese Zeit oft ansteuerst. Die gelernten Orte bleiben nur auf diesem Gerät.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wie bei Google Maps schlägt Android Auto beim Einsteigen ein Ziel vor: einen Termin mit Ort, zu dem du bald losfahren musst, oder einen Ort, den du um diese Zeit oft ansteuerst. Die gelernten Orte bleiben nur auf diesem Gerät."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Like Google Maps, Android Auto suggests a destination when you get in: an event with a location you need to leave for soon, or a place you often head to at this time. Learned places stay on this device only."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comme Google Maps, Android Auto propose une destination au démarrage : un rendez-vous avec lieu pour lequel vous devez bientôt partir, ou un lieu où vous allez souvent à cette heure. Les lieux appris restent sur cet appareil."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Como Google Maps, Android Auto propone un destino al subir: una cita con lugar a la que debes salir pronto, o un sitio al que sueles ir a esta hora. Los lugares aprendidos se quedan en este dispositivo."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Come Google Maps, Android Auto propone una destinazione quando sali: un appuntamento con luogo per cui devi partire presto, o un posto dove vai spesso a quest'ora. I luoghi appresi restano su questo dispositivo."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tal como o Google Maps, o Android Auto sugere um destino ao entrares: um compromisso com local para o qual tens de sair em breve, ou um sítio onde vais muitas vezes a esta hora. Os locais aprendidos ficam só neste dispositivo."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google Haritalar gibi Android Auto da bindiğinde bir hedef önerir: yakında çıkman gereken konumlu bir randevu ya da bu saatte sık gittiğin bir yer. Öğrenilen yerler yalnızca bu cihazda kalır."
+          }
+        }
+      }
+    },
+    "unterwegs": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "unterwegs"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "on the way"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "en route"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "en camino"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "in viaggio"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "a caminho"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "yolda"
+          }
+        }
+      }
     }
   }
 }

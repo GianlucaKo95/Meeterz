@@ -136,10 +136,17 @@ enum FriendPalette {
 }
 
 enum AvatarRenderer {
-    static func image(initials: String, color: UIColor, faded: Bool, photo: UIImage? = nil) -> UIImage {
-        let size = CGSize(width: 44, height: 44)
+    /// `story`: ungesehene Story – Ring in Akzentfarbe um das Bild
+    static func image(initials: String, color: UIColor, faded: Bool, photo: UIImage? = nil, story: Bool = false) -> UIImage {
+        let size = CGSize(width: story ? 52 : 44, height: story ? 52 : 44)
         return UIGraphicsImageRenderer(size: size).image { ctx in
-            let rect = CGRect(origin: .zero, size: size).insetBy(dx: 2, dy: 2)
+            var rect = CGRect(origin: .zero, size: size).insetBy(dx: 2, dy: 2)
+            if story {
+                Theme.mintUI.setStroke()
+                ctx.cgContext.setLineWidth(3)
+                ctx.cgContext.strokeEllipse(in: rect.insetBy(dx: 1.5, dy: 1.5))
+                rect = rect.insetBy(dx: 4, dy: 4)
+            }
             Theme.petrolUI.setFill()
             ctx.cgContext.fillEllipse(in: rect)
             if let photo {

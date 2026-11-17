@@ -105,6 +105,7 @@ final class MessagesStore {
                 Diag.log("Nachricht nicht gesendet: \(error.localizedDescription)")
             }
         }
+        if sent > 0 { ConvoyFeed.shared.messageSent(body, to: ids) }
         await refresh()
         return sent
     }

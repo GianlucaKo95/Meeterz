@@ -527,6 +527,7 @@ final class NavigationCoordinator: NSObject {
         phoneSteps?.dismiss(animated: true)
         phoneSteps = nil
         guard isNavigating || phoneController != nil else { return }
+        ConvoyFeed.shared.navigationEnded()
         subscriptions.removeAll()
         overlay?.stop()
         overlay = nil

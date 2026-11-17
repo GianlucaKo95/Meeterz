@@ -79,6 +79,7 @@ final class ChargingSession {
         if status.charging == true {
             if !active {
                 active = true
+                ConvoyFeed.shared.post(.charge)
                 startPercent = soc
                 startedAt = Date()
                 announcedDone = false

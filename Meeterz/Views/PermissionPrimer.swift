@@ -30,7 +30,7 @@ enum PermissionKind: String, Identifiable {
         case .always: "Auch im Hintergrund sichtbar sein"
         case .notifications: "Mitteilungen erlauben"
         case .microphone: "Mikrofon für Sprachschnipsel"
-        case .camera: "Kamera für dein Profilfoto"
+        case .camera: "Kamera für Profilfoto und Stories"
         case .calendar: "Termine als Ziele vorschlagen"
         case .motion: "Parkplatz automatisch merken"
         }
@@ -50,7 +50,7 @@ enum PermissionKind: String, Identifiable {
                               "Keine Werbung"]
         case .microphone: ["Kurze Sprachschnipsel (höchstens 5 Sekunden) für deine Freunde",
                            "Nur während du aufnimmst"]
-        case .camera: ["Ein Profilfoto, das nur deine Freunde sehen"]
+        case .camera: ["Ein Profilfoto und Stories, die nur deine Freunde sehen"]
         case .calendar: ["Termine mit Ort erscheinen in CarPlay, sobald du losfahren musst",
                          "Die Termine bleiben auf deinem iPhone"]
         case .motion: ["Meeterz erkennt den Wechsel vom Auto zum Gehen",

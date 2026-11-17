@@ -88,6 +88,7 @@ final class ConvoyPause {
         await app.hub.broadcast(event: "pause", proposal)
         Diag.log("Konvoi-Pause vorgeschlagen: \(pick.name) an \(members.count) Mitfahrende")
         notice(String(localized: "Pause vorgeschlagen: \(pick.name)"))
+        ConvoyFeed.shared.post(.pause, text: pick.name)
         await stopHere(proposal)
     }
 

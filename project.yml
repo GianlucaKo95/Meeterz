@@ -72,8 +72,8 @@ targets:
         # Hell/Dunkel steuert die Einstellung „Darstellung“ (AppAppearance).
         UIBackgroundModes: [location, audio, remote-notification]
         NSMotionUsageDescription: "Meeterz erkennt am Wechsel vom Auto zum Gehen, wo du geparkt hast (nur wenn „Geparktes Auto merken“ an ist)."
-        NSMicrophoneUsageDescription: "Meeterz nutzt das Mikrofon, damit du kurze Sprachschnipsel für deine Freunde aufnehmen kannst (max. 5 Sekunden)."
-        NSCameraUsageDescription: "Meeterz nutzt die Kamera, damit du ein Profilfoto aufnehmen kannst, das nur deine Freunde sehen."
+        NSMicrophoneUsageDescription: "Meeterz nutzt das Mikrofon, damit du kurze Sprachschnipsel (max. 5 Sekunden) und Story-Videos mit Ton für deine Freunde aufnehmen kannst."
+        NSCameraUsageDescription: "Meeterz nutzt die Kamera, damit du ein Profilfoto und Stories aufnehmen kannst, die nur deine Freunde sehen."
         NSLocationWhenInUseUsageDescription: "Meeterz zeigt deinen Standort auf der Karte, navigiert dich und teilt deinen Standort mit Freunden, die du freigegeben hast."
         NSLocationAlwaysAndWhenInUseUsageDescription: "Damit Freunde dich auch sehen, wenn Meeterz im Hintergrund läuft (z. B. während der Fahrt)."
         NSCalendarsFullAccessUsageDescription: "Meeterz schlägt dir Termine mit Ort als Ziel vor, sobald du losfahren musst. Die Termine bleiben auf deinem iPhone."

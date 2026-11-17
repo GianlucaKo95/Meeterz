@@ -23,6 +23,7 @@ final class AppModel {
     let sounds = SoundStore()
     let favorites = FavoritesStore()
     let recents = RecentsStore()
+    let stories = StoriesStore()
 
     struct Banner: Identifiable, Equatable {
         let id = UUID()
@@ -72,6 +73,8 @@ final class AppModel {
         NavigationLiveActivityController.shared.watch()
         await messages.startListening(userId: profile.id)
         await vehicle.startListening(userId: profile.id)
+        await stories.startListening(userId: profile.id)
+        await ConvoyFeed.shared.startListening(userId: profile.id)
         Task { @MainActor in
             if self.location.authorization == .notDetermined { _ = await Permissions.ask(.location) }
             _ = await Permissions.ask(.notifications)
@@ -104,6 +107,8 @@ final class AppModel {
         await meetups.stopListening()
         await messages.stopListening()
         await vehicle.stopListening()
+        await stories.stopListening()
+        await ConvoyFeed.shared.stopListening()
     }
 
     /// Freunde, Routen, Treffen und Treffpunkte neu laden
@@ -116,6 +121,7 @@ final class AppModel {
         await routes.refresh()
         await meetups.refresh()
         await checkMeetupJourneys()
+        ConvoyFeed.shared.update()
         requestFreshPositions()
     }
 

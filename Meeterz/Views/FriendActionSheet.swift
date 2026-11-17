@@ -28,6 +28,19 @@ struct FriendActionSheet: View {
                     }
 
                     VStack(spacing: 10) {
+                        if app.stories.hasStories(friendId) {
+                            Button {
+                                dismiss()
+                                Task {
+                                    try? await Task.sleep(for: .milliseconds(450))
+                                    app.stories.open(friendId)
+                                }
+                            } label: {
+                                Label("Story ansehen", systemImage: "play.circle.fill")
+                            }
+                            .buttonStyle(PrimaryButtonStyle())
+                        }
+
                         Button { showProfile = true } label: {
                             Label("Profil anzeigen", systemImage: "person.crop.circle")
                         }
@@ -82,7 +95,7 @@ struct FriendActionSheet: View {
                 ProgressView().onAppear { dismiss() }
             }
         }
-        .presentationDetents([.height(lastMessage == nil ? 460 : 520), .large])
+        .presentationDetents([.height((lastMessage == nil ? 460 : 520) + (app.stories.hasStories(friendId) ? 62 : 0)), .large])
         .presentationDragIndicator(.visible)
     }
 

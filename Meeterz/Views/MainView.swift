@@ -29,6 +29,7 @@ struct MainView: View {
     @State private var chromeHidden = false
     /// Per langem Druck auf die Karte gesetzter Pin
     @State private var droppedPin: Place?
+    @State private var showStoryComposer = false
     /// Aktuelle Kamera der Mapbox-Karte (zum Zoomen an Ort und Stelle, wenn sie mir gerade nicht folgt)
     @State private var cameraNow: CameraState?
     @Environment(\.scenePhase) private var scenePhase
@@ -115,6 +116,10 @@ struct MainView: View {
             if let id = app.selectedFriend { FriendActionSheet(friendId: id).environment(app) }
         }
         .sheet(isPresented: $showFriends) { FriendsView() }
+        .sheet(isPresented: $showStoryComposer) { StoryComposer().environment(app) }
+        .fullScreenCover(isPresented: Binding(get: { app.stories.viewing != nil }, set: { if !$0 { app.stories.viewing = nil } })) {
+            if let list = app.stories.viewing { StoryViewer(stories: list).environment(app) }
+        }
         .sheet(isPresented: $showSearch) { SearchView() }
         .sheet(item: $plannedMeetup) { MeetupPlannerView(candidate: $0) }
         .sheet(item: $navigation.preview) { RoutePreviewView(preview: $0) }
@@ -253,12 +258,13 @@ struct MainView: View {
             PointAnnotationGroup(app.friendsOnMap, id: \.id) { item in
                 let stale = item.position.age > 5 * 60
                 let photo = app.avatars.image(for: item.friend.friendId)
+                let story = app.stories.hasUnseen(item.friend.friendId)
                 return PointAnnotation(coordinate: item.position.coordinate)
                     .image(.init(
                         image: AvatarRenderer.image(initials: item.friend.initials,
                                                     color: FriendPalette.uiColor(for: item.friend.friendId),
-                                                    faded: stale, photo: photo),
-                        name: "avatar-\(item.friend.friendId)-\(stale)-\(item.friend.avatarVersion ?? 0)-\(photo != nil)"))
+                                                    faded: stale, photo: photo, story: story),
+                        name: "avatar-\(item.friend.friendId)-\(stale)-\(item.friend.avatarVersion ?? 0)-\(photo != nil)-\(story)"))
                     .iconAnchor(.bottom)
                     .textField("\(item.friend.displayName) · \(Format.age(item.position.age))")
                     .textMaxWidth(30)
@@ -273,6 +279,20 @@ struct MainView: View {
             .iconIgnorePlacement(true)
             .textAllowOverlap(true)
             .textIgnorePlacement(true)
+
+            // Stories an ihrem Ort
+            ForEvery(app.stories.stories) { story in
+                MapViewAnnotation(coordinate: story.coordinate) {
+                    Button { app.stories.open(story.userId) } label: {
+                        Image(systemName: "camera.circle.fill")
+                            .font(.system(size: 28))
+                            .foregroundStyle(Theme.ink, story.seen ? Theme.muted : Theme.accent)
+                            .shadow(radius: 3)
+                    }
+                    .accessibilityLabel("Story von \(story.displayName)")
+                }
+                .allowOverlap(true)
+            }
 
             // Mögliche Treffpunkte
             ForEvery(app.meetups.visibleCandidates) { candidate in
@@ -410,6 +430,10 @@ struct MainView: View {
             }
             .accessibilityLabel("Kartenansicht")
             .accessibilityValue("\(mapStyleKey == "classic" ? "Klassisch" : (flyover ? "Flyover" : "Satellit")), \(threeD ? "3D" : "2D")")
+
+            CircleIconButton(systemName: "camera.fill", label: "Story aufnehmen") {
+                Task { if await Permissions.ask(.camera) { showStoryComposer = true } }
+            }
 
             CircleIconButton(systemName: "location.north.line.fill", label: "Auf meinen Standort zentrieren", tint: Theme.accent) {
                 app.mapFocus = nil
@@ -583,6 +607,7 @@ struct UnterwegsSheet: View {
     }
     @State private var showGroupMeetup = false
     @State private var showMeetups = false
+    @State private var showTrips = false
 
     /// Zugesagte und offene Treffen (Gruppen zählen einmal)
     private var meetupCount: Int {
@@ -606,6 +631,17 @@ struct UnterwegsSheet: View {
                             .background(RoundedRectangle(cornerRadius: 12).fill(Theme.panelRaised))
                         }
                         .accessibilityIdentifier("meetups-overview")
+                    }
+                    Button { showTrips = true } label: {
+                        HStack {
+                            Image(systemName: ConvoyFeed.shared.key != nil ? "car.2.fill" : "clock.arrow.circlepath").foregroundStyle(Theme.accent)
+                            Text(ConvoyFeed.shared.key != nil ? "Konvoi-Feed & Fahrten" : "Fahrten").font(Theme.title(15))
+                            Spacer()
+                            Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                        }
+                        .foregroundStyle(Theme.text)
+                        .padding(12)
+                        .background(RoundedRectangle(cornerRadius: 12).fill(Theme.panelRaised))
                     }
                     if app.friends.accepted.isEmpty {
                         EmptyStateView(symbol: "person.2.fill", title: "Noch keine Freunde",
@@ -658,6 +694,7 @@ struct UnterwegsSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $showGroupMeetup) { GroupMeetupView().environment(app) }
             .sheet(isPresented: $showMeetups) { MeetupsOverviewView().environment(app) }
+            .sheet(isPresented: $showTrips) { TripsView().environment(app) }
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } }
             }

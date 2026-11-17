@@ -92,7 +92,9 @@ internal fun carNavigateTo(carContext: CarContext, name: String, lat: Double, ln
 class FreeDriveScreen(carContext: CarContext, private val carMap: MapboxCarMap) : Screen(carContext) {
     init { lifecycleScope.launch { ChargingSession.view.collect { invalidate() } } }
     private val location = CarLocationRenderer()
-    private val camera = CarNavigationCamera(CarCameraMode.FOLLOWING, null)
+    // Start ohne Folgekamera: erst mich und Freunde einrahmen, beim Losfahren folgen (wie CarPlay)
+    private val camera = CarNavigationCamera(CarCameraMode.IDLE, CarCameraMode.FOLLOWING)
+    private val startFrame = CarStartFrame(camera)
     private val friendRoutes = CarFriendRoutes()
     private val friends = CarFriendMarkers()
     private val mapActions = MapboxMapActionStrip(this, camera)
@@ -101,10 +103,12 @@ class FreeDriveScreen(carContext: CarContext, private val carMap: MapboxCarMap) 
         lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onResume(owner: LifecycleOwner) {
                 carMap.registerObserver(location); carMap.registerObserver(camera); carMap.registerObserver(friendRoutes); carMap.registerObserver(friends)
+                carMap.registerObserver(startFrame)
                 carMap.setGestureHandler(camera.gestureHandler)
             }
             override fun onPause(owner: LifecycleOwner) {
                 carMap.unregisterObserver(location); carMap.unregisterObserver(camera); carMap.unregisterObserver(friendRoutes); carMap.unregisterObserver(friends)
+                carMap.unregisterObserver(startFrame)
                 carMap.setGestureHandler(null)
             }
         })
@@ -473,4 +477,48 @@ class CarBatteryScreen(carContext: CarContext, private val then: () -> Unit) : S
         }
         return ListTemplate.Builder().setTitle(tr("Akkustand jetzt?")).setHeaderAction(Action.BACK).setSingleList(list.build()).build()
     }
+}
+
+/**
+ * Freie Fahrt beim Start (wie CarPlay frameStart): mich und Freunde bis 200 km einrahmen, solange man steht.
+ * Sobald es losgeht (> 10 km/h), übernimmt die Folgekamera. Einmal je Bildschirm.
+ */
+private class CarStartFrame(private val camera: CarNavigationCamera) : com.mapbox.maps.extension.androidauto.MapboxCarMapObserver {
+    private var framed = false
+    private var following = false
+    private var job: kotlinx.coroutines.Job? = null
+
+    override fun onAttached(mapboxCarMapSurface: com.mapbox.maps.extension.androidauto.MapboxCarMapSurface) {
+        if (following) return
+        job = kotlinx.coroutines.MainScope().launch {
+            var me = AppState.lastLocation
+            var tries = 0
+            while (me == null && tries++ < 40) { delay(500); me = AppState.lastLocation }
+            if (me == null) { camera.updateCameraMode(CarCameraMode.FOLLOWING); following = true; return@launch }
+            if (!framed) {
+                framed = true
+                val map = mapboxCarMapSurface.mapSurface.mapboxMap
+                val here = Point.fromLngLat(me.longitude, me.latitude)
+                val live = AppState.hub.positions.value
+                val friends = AppState.friends.value.filter { it.isAccepted }.mapNotNull { f ->
+                    val p = live[f.friendId]
+                    val lat = p?.lat ?: f.lat ?: return@mapNotNull null
+                    val lng = p?.lng ?: f.lng ?: return@mapNotNull null
+                    if (de.koeven.meeterz.ev.ChargePlanner.distance(me.latitude, me.longitude, lat, lng) > 200_000) null
+                    else Point.fromLngLat(lng, lat)
+                }
+                val cam = if (friends.isEmpty()) com.mapbox.maps.CameraOptions.Builder().center(here).zoom(15.5).bearing(0.0).pitch(0.0).build()
+                else map.cameraForCoordinates(listOf(here) + friends, com.mapbox.maps.CameraOptions.Builder().bearing(0.0).pitch(0.0).build(),
+                    com.mapbox.maps.EdgeInsets(80.0, 80.0, 80.0, 80.0), 16.0, null)
+                map.setCamera(cam)
+                de.koeven.meeterz.Diag.log("Android Auto Start: Karte zeigt mich" + if (friends.isEmpty()) "" else " und ${friends.size} Freunde")
+            }
+            while (true) {
+                delay(1000)
+                if ((AppState.lastLocation?.speed ?: 0f) > 3f) { camera.updateCameraMode(CarCameraMode.FOLLOWING); following = true; break }
+            }
+        }
+    }
+
+    override fun onDetached(mapboxCarMapSurface: com.mapbox.maps.extension.androidauto.MapboxCarMapSurface) { job?.cancel() }
 }

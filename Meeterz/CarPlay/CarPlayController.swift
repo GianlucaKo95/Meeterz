@@ -338,6 +338,44 @@ final class CarPlayController: NSObject {
         set { _lastMapInteraction = newValue }
     }
 
+    /// Beim Start: mich und meine Freunde (bis 200 km) im Bild statt des Globus, den Mapbox zeigt, bis die Folgekamera
+    /// einen Standort hat (17.11.). Sobald es losgeht (> 10 km/h), folgt die Karte wie gewohnt.
+    private func frameStart(_ map: NavigationMapView) {
+        startFrame?.cancel()
+        startFrame = Task { @MainActor [weak self, weak map] in
+            var here = AppModel.shared.location.lastLocation
+            for _ in 0..<40 where here == nil {
+                try? await Task.sleep(for: .milliseconds(500))
+                here = AppModel.shared.location.lastLocation
+            }
+            guard let self, let map, let me = here?.coordinate, !Task.isCancelled,
+                  manager.currentActivity == nil || manager.currentActivity == .browsing else { return }
+            let friends = friendsShown
+                ? AppModel.shared.friendsOnMap.map(\.position.coordinate).filter { $0.distance(to: me) < 200_000 } : []
+            map.navigationCamera.stop()
+            let pitch = threeD ? Self.tilt3D : 0
+            if friends.isEmpty {
+                map.mapView.camera.ease(to: CameraOptions(center: me, zoom: browseZoom, bearing: 0, pitch: pitch), duration: 0.8)
+            } else if let camera = try? map.mapView.mapboxMap.camera(
+                for: [me] + friends, camera: CameraOptions(bearing: 0, pitch: 0),
+                coordinatesPadding: UIEdgeInsets(top: 60, left: 60, bottom: 60, right: 60), maxZoom: browseZoom, offset: nil) {
+                map.mapView.camera.ease(to: camera, duration: 0.8)
+            }
+            Diag.log("CarPlay-Start: Karte zeigt mich\(friends.isEmpty ? "" : " und \(friends.count) Freunde")")
+            refreshFollowButton(force: true)
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                guard manager.currentActivity == nil || manager.currentActivity == .browsing else { return }
+                if (AppModel.shared.location.lastLocation?.speed ?? 0) > 3 {
+                    map.navigationCamera.update(cameraState: .following)
+                    refreshFollowButton(force: true)
+                    return
+                }
+            }
+        }
+    }
+    private var startFrame: Task<Void, Never>?
+
     private func startAutoRecenter(_ navigationMapView: NavigationMapView) -> Task<Void, Never> {
         Task { @MainActor [weak self, weak navigationMapView] in
             while !Task.isCancelled {
@@ -1165,9 +1203,7 @@ extension CarPlayController: CarPlayManagerDelegate {
         var target = trip.destination
         if let destination, let address = destination.address, !address.isEmpty,
            destination.coordinate.distance(to: trip.destination.placemark.coordinate) < 200 {
-            let placemark = MKPlacemark(coordinate: trip.destination.placemark.coordinate,
-                                        addressDictionary: [CNPostalAddressStreetKey: address])
-            target = MKMapItem(placemark: placemark)
+            target = MKMapItem(placemark: Self.placemark(trip.destination.placemark.coordinate, address: address))
             target.name = destination.name
         }
         let copy = CPTrip(origin: trip.origin, destination: target, routeChoices: choices)
@@ -1175,11 +1211,21 @@ extension CarPlayController: CarPlayManagerDelegate {
         return copy
     }
 
-    /// Vorschlag: statt „Schnellste“ der Grund („Termin 09:00“ bzw. „Oft um diese Zeit“) und der Termin als Ziel
+    /// Adresse einzeilig als Straße (Termin-Orte kommen oft mehrzeilig: „Straße 2\n47441 Moers“)
+    private static func placemark(_ coordinate: CLLocationCoordinate2D, address: String?) -> MKPlacemark {
+        let line = (address ?? "").split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }.joined(separator: ", ")
+        return line.isEmpty ? MKPlacemark(coordinate: coordinate)
+            : MKPlacemark(coordinate: coordinate, addressDictionary: [CNPostalAddressStreetKey: line])
+    }
+
+    /// Vorschlag: statt „Schnellste“ der Grund („Termin 09:00“ bzw. „Oft um diese Zeit“).
+    /// Beim Termin steht oben der Termin, darunter einmal die Adresse (wie Apple Karten). Vorher war bei Terminen, deren
+    /// Ort nur eine Adresse ist, der Zielname die Adresse – CarPlay zeigte sie dann dreimal (17.11.).
     private static func withSuggestionLabel(_ trip: CPTrip, _ suggestion: RouteSuggestions.Suggestion) -> CPTrip {
         let reason: String
-        if case .calendar(let title, let start) = suggestion.reason {
-            reason = String(localized: "Termin \(ActivityFormat.time(start))") + ": " + title
+        if case .calendar(_, let start) = suggestion.reason {
+            reason = String(localized: "Termin \(ActivityFormat.time(start))")
         } else {
             reason = String(localized: "Oft um diese Zeit")
         }
@@ -1190,9 +1236,14 @@ extension CarPlayController: CarPlayManagerDelegate {
             copy.userInfo = choice.userInfo
             return copy
         }
-        // Ziel bleibt der Ort (vorher stand hier der Termintitel – man sah nicht, wohin es geht)
-        let destination = trip.destination
-        destination.name = suggestion.place.name.isEmpty ? suggestion.title : suggestion.place.name
+        let destination: MKMapItem
+        if case .calendar(let title, _) = suggestion.reason, !title.isEmpty {
+            destination = MKMapItem(placemark: Self.placemark(trip.destination.placemark.coordinate, address: suggestion.place.address))
+            destination.name = title
+        } else {
+            destination = trip.destination
+            destination.name = suggestion.place.name.isEmpty ? suggestion.title : suggestion.place.name
+        }
         let copy = CPTrip(origin: trip.origin, destination: destination, routeChoices: choices)
         copy.userInfo = trip.userInfo
         return copy
@@ -1329,6 +1380,7 @@ extension CarPlayController: CarPlayManagerDelegate {
             browseOverlay = overlay
             navigationMapView.navigationCamera.cameraStateTransition = SmoothCameraTransition(navigationMapView.mapView)
             configureCamera(navigationMapView, navigating: false)
+            frameStart(navigationMapView)
             autoHideButtons()
             browseRecenter?.cancel()
             browseRecenter = startAutoRecenter(navigationMapView)

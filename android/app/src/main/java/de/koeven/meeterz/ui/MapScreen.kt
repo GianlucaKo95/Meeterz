@@ -187,7 +187,13 @@ fun MapScreen() {
             lines.create(PolylineAnnotationOptions().withPoints(points).withLineColor(FriendPalette.routeColor(id).toArgb()).withLineWidth(5.0))
         }
     }
-    val annotations: PointAnnotationManager = remember(mapView, mapStyleRevision) { mapView.annotations.createPointAnnotationManager() }
+    var selectedFriend by remember { mutableStateOf<String?>(null) }
+    val annotations: PointAnnotationManager = remember(mapView, mapStyleRevision) {
+        mapView.annotations.createPointAnnotationManager().apply {
+            // Freund antippen → Aktionen (wie iOS FriendActionSheet)
+            addClickListener { a -> a.getData()?.asString?.let { selectedFriend = it }; true }
+        }
+    }
     val avatars by de.koeven.meeterz.data.AvatarStore.images.collectAsState()
     val passengerVersion by de.koeven.meeterz.social.Passengers.version.collectAsState()
     LaunchedEffect(visibleFriends, live, friendRoutes, avatars, passengerVersion, mapStyleRevision) {
@@ -202,6 +208,7 @@ fun MapScreen() {
                     .withPoint(Point.fromLngLat(lng, lat))
                     .withIconImage(avatars[f.friendId]?.let { de.koeven.meeterz.data.AvatarStore.pin(it) } ?: initialsBubble(f.initials, FriendPalette.color(f.friendId)))
                     .withTextField(friendRoutes[f.friendId]?.let { "${f.firstName} · ${clockAt(it.eta)}" } ?: f.firstName)
+                    .withData(com.google.gson.JsonPrimitive(f.friendId))
                     .withTextOffset(listOf(0.0, 2.2))
                     .withTextSize(12.0)
             )
@@ -451,6 +458,20 @@ fun MapScreen() {
                 onGroupMeetup = { showUnterwegs = false; showGroupMeetup = true },
                 onManage = { showUnterwegs = false; showFriends = true })
             if (showGroupMeetup) GroupMeetupScreen(onClose = { showGroupMeetup = false })
+            selectedFriend?.let { id ->
+                FriendActionSheet(id, onDismiss = { selectedFriend = null },
+                    onShow = { lat, lng, route ->
+                        selectedFriend = null
+                        mapView.viewport.idle()
+                        val points = route?.coordinates?.map { Point.fromLngLat(it.first, it.second) }.orEmpty() + Point.fromLngLat(lng, lat)
+                        if (points.size > 1) {
+                            val d = context.resources.displayMetrics.density.toDouble()
+                            mapView.camera.flyTo(mapView.mapboxMap.cameraForCoordinates(points,
+                                com.mapbox.maps.EdgeInsets(160 * d, 40 * d, 200 * d, 40 * d), null, null))
+                        } else mapView.camera.flyTo(CameraOptions.Builder().center(points.first()).zoom(15.0).build())
+                    },
+                    onNavigate = { name, lat, lng -> selectedFriend = null; planTo(name, null, lat, lng) })
+            }
             // Wie iOS: Einstellungen liegen über „Freunde & Profil“ – Zurück führt dorthin
             if (showFriends) FriendsScreen(onClose = { showFriends = false }, onSettings = { showSettings = true })
             if (showSettings) SettingsScreen(onClose = { showSettings = false })

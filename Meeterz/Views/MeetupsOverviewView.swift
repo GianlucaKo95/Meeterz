@@ -41,7 +41,7 @@ struct MeetupsOverviewView: View {
                                     .buttonStyle(SecondaryButtonStyle())
                             }
                         }
-                        .padding(.top, 30)
+                        .padding(.top, 32)
                     }
                     ForEach(entries) { entry in
                         MeetupCard(entry: entry) { place in

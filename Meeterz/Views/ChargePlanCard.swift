@@ -126,8 +126,8 @@ struct ChargePlanCard: View {
                                 .font(.caption.weight(.semibold).monospacedDigit())
                                 .foregroundStyle(minutes > 0 ? Theme.muted : Theme.go)
                         }
-                        .padding(10)
-                        .background(RoundedRectangle(cornerRadius: 10).fill(Theme.panel))
+                        .padding(12)
+                        .background(RoundedRectangle(cornerRadius: 12).fill(Theme.panel))
                     }
                     .buttonStyle(.plain)
                 }

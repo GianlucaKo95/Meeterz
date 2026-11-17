@@ -137,7 +137,7 @@ private fun Stops(plan: ChargePlanner.Plan, route: NavigationRoute, onChoose: (C
                 Text(s.site.title, fontWeight = FontWeight.SemiBold)
                 s.availability?.let { a ->
                     Text(listOfNotNull(a.text, a.priceText).joinToString(" · "), style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.SemiBold, color = if (a.free > 0) MeeterzColors.mintLight else androidx.compose.ui.graphics.Color(0xFFD92E36))
+                        fontWeight = FontWeight.SemiBold, color = if (a.free > 0) MeeterzColors.mintLight else MaterialTheme.colorScheme.error)
                 }
                 Text(tr("%@ · %@ → %@ % · %@ Min.", ChargeSiteText.power(s.site), Math.round(s.arrivalPercent), Math.round(s.departurePercent), Math.round(s.chargeTime / 60)),
                     style = MaterialTheme.typography.bodySmall)
@@ -156,9 +156,9 @@ private fun Stops(plan: ChargePlanner.Plan, route: NavigationRoute, onChoose: (C
                 }
                 list.isEmpty() -> Text(tr("Keine anderen Schnelllader in der Nähe dieses Stopps."), style = MaterialTheme.typography.bodySmall)
                 else -> for (alt in list) {
-                    androidx.compose.material3.Surface(onClick = { open = null; onChoose(alt) }, shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
+                    androidx.compose.material3.Surface(onClick = { open = null; onChoose(alt) }, shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
                         color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth()) {
-                        Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text(alt.site.title, maxLines = 1)
                                 Text(listOfNotNull(if (alt.site.powerKnown) "${alt.site.maxKW.toInt()} kW" else null,
@@ -268,7 +268,7 @@ fun ChargeNetworksDialog(onClose: () -> Unit) {
                     items(shown.size, key = { shown[it].id + version }) { i ->
                         val n = shown[i]
                         val pref = de.koeven.meeterz.ev.ChargeNetworks.preference(n.id)
-                        Column(Modifier.padding(vertical = 6.dp)) {
+                        Column(Modifier.padding(vertical = 8.dp)) {
                             Text(n.name, fontWeight = FontWeight.SemiBold)
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 for ((value, label) in listOf(null to tr("Egal"), "preferred" to tr("Bevorzugt"), "avoided" to tr("Meiden"))) {

@@ -276,7 +276,7 @@ fun SettingsScreen(onClose: () -> Unit) {
                 val all = remember { EvSettings.vehicles() }
                 OutlinedTextField(search, { search = it }, placeholder = { Text(tr("Marke oder Modell")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 if (search.isBlank()) Group(footer = tr("Dein Auto fehlt? Batterie, Verbrauch und Ladeleistung selbst eintragen.")) {
-                    NavRow(tr("Andere"), if (evVehicle?.isCustom == true) "✓" else null, Icons.Default.Tune) { open(SettingsPage.CUSTOM_VEHICLE) }
+                    NavRow(tr("Andere"), null, Icons.Default.Tune, checked = evVehicle?.isCustom == true) { open(SettingsPage.CUSTOM_VEHICLE) }
                 }
                 val matches = all.filter { v -> search.split(" ").filter { it.isNotBlank() }.all { v.fullName.contains(it, ignoreCase = true) } }.take(80)
                 Group(footer = de.koeven.meeterz.ev.EvData.ATTRIBUTION + tr(" · Fahrzeugdaten: Open EV Data (github.com/KilowattApp/open-ev-data). Werte sind Durchschnittswerte; Meeterz lernt mit der Zeit aus deinen Fahrten.")) {

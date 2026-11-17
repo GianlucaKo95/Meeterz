@@ -160,7 +160,7 @@ fun StoryComposer(onDismiss: () -> Unit) {
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Place, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                        Text(placeName ?: tr("Ort wird ermittelt …"), Modifier.padding(start = 6.dp), style = MaterialTheme.typography.bodyMedium)
+                        Text(placeName ?: tr("Ort wird ermittelt …"), Modifier.padding(start = 8.dp), style = MaterialTheme.typography.bodyMedium)
                     }
                     OutlinedTextField(caption, { caption = it.take(140) }, Modifier.fillMaxWidth(), placeholder = { Text(tr("Text (optional)")) }, maxLines = 3)
                     Button(enabled = !posting && here != null, onClick = {
@@ -346,7 +346,7 @@ private fun ConvoyFeedList(key: String) {
     if (shown == key && entries.isEmpty()) { CircularProgressIndicator(Modifier.padding(24.dp)); return }
     LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         items(if (shown == key) entries else emptyList(), key = { it.id }) { e ->
-            Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(when (e.kind) {
                     "joined" -> Icons.Default.DirectionsCar
                     "pause" -> Icons.Default.Coffee

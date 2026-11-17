@@ -674,7 +674,7 @@ private fun GuidanceBar(g: NavigationController.Guidance, modifier: Modifier) {
                 Text("${minutes(g.remainingSeconds)} · ${km(g.remainingDistance)}", style = MaterialTheme.typography.bodySmall)
                 val forecast by ChargeMonitor.forecast.collectAsState()
                 forecast?.let { Text(it.text, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold,
-                    color = if (it.low) Color(0xFFD92E36) else MaterialTheme.colorScheme.primary) }
+                    color = if (it.low) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary) }
             }
             IconButton(onClick = { showStop = true }) { Icon(Icons.Default.AddLocationAlt, tr("Zwischenstopp")) }
             IconButton(onClick = { showMessage = true }) { Icon(Icons.AutoMirrored.Filled.Chat, tr("Bescheid geben")) }
@@ -1018,7 +1018,7 @@ private fun SearchStart(
     val meetups by AppState.meetups.meetups.collectAsState()
     Surface(Modifier.padding(top = 8.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface,
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-        LazyColumn(Modifier.heightIn(max = 460.dp).padding(vertical = 6.dp)) {
+        LazyColumn(Modifier.heightIn(max = 460.dp).padding(vertical = 8.dp)) {
             item { SearchHeader(tr("Favoriten")) }
             for (kind in listOf("home", "work")) {
                 val fav = favorites.firstOrNull { it.kind == kind }
@@ -1059,7 +1059,7 @@ private fun SearchRow(icon: androidx.compose.ui.graphics.vector.ImageVector, tit
     Row(Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
-        Column(Modifier.padding(start = 14.dp)) {
+        Column(Modifier.padding(start = 12.dp)) {
             Text(title, fontWeight = FontWeight.SemiBold)
             subtitle?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }

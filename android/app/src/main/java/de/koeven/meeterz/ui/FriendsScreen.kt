@@ -95,7 +95,7 @@ fun FriendsScreen(onClose: () -> Unit, onSettings: () -> Unit = {}, onMeetups: (
                 androidx.compose.foundation.text.BasicTextField(handle, { handle = it }, singleLine = true,
                     textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
                     cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
-                    modifier = Modifier.weight(1f).padding(vertical = 14.dp),
+                    modifier = Modifier.weight(1f).padding(vertical = 12.dp),
                     decorationBox = { inner ->
                         if (handle.isEmpty()) Text("@benutzername", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         inner()

@@ -422,7 +422,7 @@ struct MainView: View {
                 }
             } label: {
                 Image(systemName: "square.3.layers.3d")
-                    .font(.system(size: 19, weight: .semibold))
+                    .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(Theme.text)
                     .frame(width: 48, height: 48)
                     .background(Circle().fill(Theme.panel))

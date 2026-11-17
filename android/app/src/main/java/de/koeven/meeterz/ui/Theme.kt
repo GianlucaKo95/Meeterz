@@ -7,7 +7,15 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.material3.Typography
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.ExperimentalTextApi
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontVariation
+import androidx.compose.ui.text.font.FontWeight
+import de.koeven.meeterz.R
 
 /** Farben wie Theme.swift: Mint als Akzent, Petrol als Grund, Bernstein für „unterwegs/da“ */
 object MeeterzColors {
@@ -61,5 +69,25 @@ fun MeeterzTheme(content: @Composable () -> Unit) {
         "light" -> false
         else -> isSystemInDarkTheme()
     }
-    MaterialTheme(colorScheme = if (dark) Dark else Light, content = content)
+    MaterialTheme(colorScheme = if (dark) Dark else Light, typography = MeeterzType, content = content)
+}
+
+/**
+ * Titel, Überschriften und Knöpfe abgerundet und halbfett wie auf iOS (SF Rounded, Theme.display/title);
+ * Fließtext bleibt in der Systemschrift. Nunito (OFL, android/licenses) als Gegenstück zu SF Rounded.
+ */
+@OptIn(ExperimentalTextApi::class)
+private val Rounded = FontFamily(
+    Font(R.font.nunito, FontWeight.SemiBold, variationSettings = FontVariation.Settings(FontVariation.weight(600))),
+    Font(R.font.nunito, FontWeight.Medium, variationSettings = FontVariation.Settings(FontVariation.weight(500))),
+)
+
+private val MeeterzType = Typography().run {
+    fun TextStyle.rounded() = copy(fontFamily = Rounded, fontWeight = FontWeight.SemiBold)
+    copy(
+        displaySmall = displaySmall.rounded(),
+        headlineLarge = headlineLarge.rounded(), headlineMedium = headlineMedium.rounded(), headlineSmall = headlineSmall.rounded(),
+        titleLarge = titleLarge.rounded(), titleMedium = titleMedium.rounded(), titleSmall = titleSmall.rounded(),
+        labelLarge = labelLarge.rounded(),
+    )
 }

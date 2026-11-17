@@ -118,8 +118,9 @@ private fun RowShell(onClick: (() -> Unit)?, icon: ImageVector?, content: @Compo
 
 /** Zeile mit Wert und Pfeil (iOS: NavigationLink mit LabeledContent) */
 @Composable
-fun NavRow(title: String, value: String? = null, icon: ImageVector? = null, onClick: () -> Unit) = RowShell(onClick, icon) {
+fun NavRow(title: String, value: String? = null, icon: ImageVector? = null, checked: Boolean = false, onClick: () -> Unit) = RowShell(onClick, icon) {
     Text(title, Modifier.weight(1f))
+    if (checked) Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(end = 4.dp))
     value?.takeIf { it.isNotBlank() }?.let {
         Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(start = 8.dp).weight(1f, fill = false))
@@ -194,13 +195,13 @@ fun ActionRow(title: String, destructive: Boolean = false, enabled: Boolean = tr
 /** Segmentierte Auswahl (iOS: Picker .segmented) */
 @Composable
 fun SegmentedRow(options: List<String>, selected: Int, onSelect: (Int) -> Unit) {
-    Surface(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), shape = RoundedCornerShape(9.dp),
+    Surface(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), shape = RoundedCornerShape(10.dp),
         color = MaterialTheme.colorScheme.surfaceVariant) {
         Row(Modifier.padding(2.dp)) {
             options.forEachIndexed { i, label ->
                 val on = i == selected
                 Box(Modifier.weight(1f).heightIn(min = 32.dp)
-                    .background(if (on) MaterialTheme.colorScheme.surfaceContainerHighest else Color.Transparent, RoundedCornerShape(7.dp))
+                    .background(if (on) MaterialTheme.colorScheme.surfaceContainerHighest else Color.Transparent, RoundedCornerShape(8.dp))
                     .clickable { onSelect(i) }, contentAlignment = Alignment.Center) {
                     Text(label, style = MaterialTheme.typography.bodySmall, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal)
                 }

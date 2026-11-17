@@ -201,7 +201,7 @@ fun CandidatePlanDialog(candidate: MeetupCandidate, onClose: () -> Unit) {
                 LazyColumn(Modifier.fillMaxWidth().padding(top = 4.dp)) {
                     items(listOf(spot) + places) { p ->
                         Row(Modifier.fillMaxWidth().clickable { selected = p }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(if (p == selected) "◉" else "○", color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(end = 10.dp))
+                            androidx.compose.material3.RadioButton(selected = p == selected, onClick = { selected = p })
                             Column {
                                 Text(p.name, fontWeight = FontWeight.SemiBold)
                                 p.address?.let { Text(it, style = MaterialTheme.typography.bodySmall, maxLines = 1) }

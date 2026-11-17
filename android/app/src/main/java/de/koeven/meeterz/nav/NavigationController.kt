@@ -86,10 +86,15 @@ object NavigationController : MapboxNavigationObserver {
      * Routen zum Ziel planen: schnellste zuerst, dazu bis zu zwei weitere (Kürzeste, Ohne Autobahn – RouteVariety).
      * `via` = Zwischenziele, z. B. Ladestopps (dann nur eine Route). Routenoptionen (Maut/Autobahn/Fähre meiden) gelten immer.
      */
-    suspend fun plan(context: Context, from: Point, to: Destination, via: List<Point> = emptyList()): List<NavigationRoute> {
+    suspend fun plan(context: Context, from: Point, to: Destination, via: List<Point> = emptyList(),
+                     mode: TravelMode = TravelMode.CAR): List<NavigationRoute> {
         val coords = listOf(from) + via + Point.fromLngLat(to.lng, to.lat)
         // Namen der Zwischenstopps mitgeben (Ansage „Sie haben … erreicht“, bleiben beim Neuberechnen erhalten)
         val names = listOf("") + via.map { stopName(it) } + to.name
+        if (mode != TravelMode.CAR) {
+            // Rad/zu Fuß: eigenes Profil, ohne Routenoptionen (Maut/Autobahn) und ohne Auto-Varianten (wie iOS)
+            return request(context, coords, alternatives = via.isEmpty(), null, names, mode)
+        }
         var routes = request(context, coords, alternatives = via.isEmpty(), RoutePreferences.exclude, names)
         if (routes.isEmpty() && RoutePreferences.exclude != null) {
             // Ohne Maut/Autobahn/Fähre nicht erreichbar (z. B. Insel nur per Fähre): dann ohne Einschränkung
@@ -112,10 +117,10 @@ object NavigationController : MapboxNavigationObserver {
             ?: ""
 
     private suspend fun request(context: Context, coordinates: List<Point>, alternatives: Boolean, exclude: String?,
-                                names: List<String>? = null): List<NavigationRoute> {
+                                names: List<String>? = null, mode: TravelMode = TravelMode.CAR): List<NavigationRoute> {
         val nav = navigation ?: return emptyList()
         val options = RouteOptions.builder()
-            .applyDefaultNavigationOptions()
+            .applyDefaultNavigationOptions(mode.profile)
             .applyLanguageAndVoiceUnitOptions(context)
             .coordinatesList(coordinates)
             .alternatives(alternatives)
@@ -253,6 +258,10 @@ object NavigationController : MapboxNavigationObserver {
 
     private var lastShare = 0L
 
+    /** Fortbewegungsart der laufenden Führung (aus der Route; Android Auto: Auto) */
+    val activeMode: TravelMode get() = navigation?.getNavigationRoutes()?.firstOrNull()?.routeOptions?.profile()
+        ?.let { p -> TravelMode.entries.firstOrNull { it.profile == p } } ?: TravelMode.CAR
+
     /** Eigene Route für Freunde (alle 60 s, wie iOS); nicht bei Inkognito oder verborgenen Routen */
     private fun share(progress: RouteProgress, destination: Destination) {
         val now = System.currentTimeMillis()
@@ -271,7 +280,7 @@ object NavigationController : MapboxNavigationObserver {
             put("dest_lng", destination.lng)
             put("eta_unix", now / 1000.0 + progress.durationRemaining)
             put("points", JsonArray(points.map { p -> JsonArray(p.map { JsonPrimitive(it) }) }))
-            put("travel_mode", "car")
+            put("travel_mode", activeMode.key)
         }
         AppState.scope.launch { runCatching { Backend.client.postgrest.rpc("set_active_route", params) } }
     }

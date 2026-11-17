@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -46,6 +47,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -174,7 +176,10 @@ fun CandidatePlanDialog(candidate: MeetupCandidate, onClose: () -> Unit) {
     val scope = rememberCoroutineScope()
     val friend = AppState.friends.value.firstOrNull { it.friendId == candidate.friendId }
     val friendName = friend?.displayName ?: tr("Freund")
-    val categories = PlaceSearch.Category.available(allByCar = (candidate.friendMode ?: "car") == "car")
+    // Raststätte nur, wenn beide mit dem Auto fahren (wie iOS onRouteAllowed)
+    val myMode = if (NavigationController.guidance.value != null) NavigationController.activeMode else de.koeven.meeterz.nav.TravelMode.saved
+    val categories = PlaceSearch.Category.available(allByCar = de.koeven.meeterz.nav.TravelMode.canMeetOnRoute(myMode,
+        de.koeven.meeterz.nav.TravelMode.of(candidate.friendMode)))
     var category by remember { mutableStateOf(categories[1]) }
     var places by remember { mutableStateOf<List<PlaceSearch.Place>>(emptyList()) }
     val spot = PlaceSearch.Place(tr("Treffpunkt auf der Route"), null, candidate.lat, candidate.lng)
@@ -301,6 +306,8 @@ fun GroupMeetupScreen(onClose: () -> Unit) {
     val friends = AppState.friends.value.filter { it.isAccepted }
     val visible = friends.filter { f -> live[f.friendId] != null || f.lat != null }
     val selected = remember { mutableStateListOf<String>() }
+    // Fortbewegungsart je Person (wie iOS GroupMeetupView): Rad/zu Fuß → keine Autobahn-Orte, eigene Fahrzeiten
+    val modes = remember { mutableStateMapOf<String, de.koeven.meeterz.nav.TravelMode>() }
     var options by remember { mutableStateOf<List<FairMeetupFinder.Option>>(emptyList()) }
     var searching by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -317,12 +324,19 @@ fun GroupMeetupScreen(onClose: () -> Unit) {
                     if (visible.isEmpty()) Text(tr("Gerade teilt niemand seinen Standort. Für einen fairen Treffpunkt braucht Meeterz die Standorte."),
                         style = MaterialTheme.typography.bodySmall)
                     Text(tr("Wer kommt mit?"), fontWeight = FontWeight.SemiBold)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(tr("Du"), Modifier.weight(1f))
+                        ModeMenu(modes["me"] ?: de.koeven.meeterz.nav.TravelMode.saved) { modes["me"] = it; options = emptyList() }
+                    }
+                    Text(tr("Die Fortbewegungsart kannst du je Person ändern – zu Fuß oder mit dem Rad kommen nur Orte ohne Autobahn infrage."),
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 items(visible, key = { it.friendId }) { f ->
                     Row(Modifier.fillMaxWidth().clickable { if (f.friendId in selected) selected.remove(f.friendId) else selected.add(f.friendId) },
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Avatar(f.friendId, f.displayName, 36.dp)
                         Text(f.displayName, Modifier.weight(1f))
+                        if (f.friendId in selected) ModeMenu(modes[f.friendId] ?: de.koeven.meeterz.nav.TravelMode.CAR) { modes[f.friendId] = it; options = emptyList() }
                         Checkbox(f.friendId in selected, { on -> if (on) selected.add(f.friendId) else selected.remove(f.friendId) })
                     }
                 }
@@ -332,11 +346,13 @@ fun GroupMeetupScreen(onClose: () -> Unit) {
                         scope.launch {
                             val me = AppState.lastLocation
                             val people = buildList {
-                                if (me != null) add(FairMeetupFinder.Participant("me", "Du", me.latitude, me.longitude))
+                                if (me != null) add(FairMeetupFinder.Participant("me", "Du", me.latitude, me.longitude,
+                                    modes["me"] ?: de.koeven.meeterz.nav.TravelMode.saved))
                                 for (id in selected) {
                                     val f = friends.first { it.friendId == id }
                                     val p = live[id]
-                                    add(FairMeetupFinder.Participant(id, f.displayName, p?.lat ?: f.lat!!, p?.lng ?: f.lng!!))
+                                    add(FairMeetupFinder.Participant(id, f.displayName, p?.lat ?: f.lat!!, p?.lng ?: f.lng!!,
+                                        modes[id] ?: de.koeven.meeterz.nav.TravelMode.CAR))
                                 }
                             }
                             runCatching { FairMeetupFinder.find(people) }
@@ -562,6 +578,21 @@ fun ArrivalTimeline(items: List<TimelineItem>) {
                 Text(if (item.here) tr("da") else item.eta?.let { clock(it) } ?: "–",
                     style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"),
                     color = if (item.here) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+
+/** Auswahl Auto/Rad/zu Fuß je Person (iOS: modeMenu) */
+@Composable
+private fun ModeMenu(mode: de.koeven.meeterz.nav.TravelMode, onChange: (de.koeven.meeterz.nav.TravelMode) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        TextButton(onClick = { open = true }) { Text(mode.title) }
+        androidx.compose.material3.DropdownMenu(open, { open = false }) {
+            for (m in de.koeven.meeterz.nav.TravelMode.entries) {
+                androidx.compose.material3.DropdownMenuItem(text = { Text(m.title) }, onClick = { open = false; onChange(m) })
             }
         }
     }

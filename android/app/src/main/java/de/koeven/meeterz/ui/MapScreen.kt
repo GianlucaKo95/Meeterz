@@ -43,6 +43,9 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
+import androidx.compose.material.icons.automirrored.filled.DirectionsBike
+import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.border
 import androidx.compose.ui.focus.onFocusChanged
@@ -233,13 +236,15 @@ fun MapScreen() {
     val favorites by AppState.favorites.items.collectAsState()
     val car by AppState.vehicle.status.collectAsState()
     var droppedPin by remember { mutableStateOf<DroppedPin?>(null) }
-    fun planTo(name: String, address: String?, lat: Double, lng: Double) {
+    var travelMode by remember { mutableStateOf(de.koeven.meeterz.nav.TravelMode.saved) }
+    fun planTo(name: String, address: String?, lat: Double, lng: Double, mode: de.koeven.meeterz.nav.TravelMode = travelMode) {
         val me = AppState.lastLocation ?: return
         val dest = NavigationController.Destination(name, lat, lng, address)
         planning = true
         results = emptyList()
+        travelMode = mode; de.koeven.meeterz.nav.TravelMode.saved = mode
         scope.launch {
-            val routes = NavigationController.plan(context, Point.fromLngLat(me.longitude, me.latitude), dest)
+            val routes = NavigationController.plan(context, Point.fromLngLat(me.longitude, me.latitude), dest, mode = mode)
             planning = false
             if (routes.isNotEmpty()) { preview = dest to routes; adopted = null; selectedRoute = 0 }
         }
@@ -477,11 +482,14 @@ fun MapScreen() {
             if (showSettings) SettingsScreen(onClose = { showSettings = false })
             preview?.let { (dest, routes) ->
                 PreviewCard(dest, routes, selectedRoute, { selectedRoute = it }, Modifier.align(Alignment.BottomCenter),
+                    mode = travelMode, switching = planning,
+                    onMode = { m -> if (m != travelMode && !planning) planTo(dest.name, dest.address, dest.lat, dest.lng, m) },
                     onSave = { kind, label -> AppState.favorites.save(kind, label, dest.address, dest.lat, dest.lng) },
                     onStart = { NavigationController.start(routes, dest, selectedRoute); preview = null; query = "" },
                     onCancel = { preview = null; adopted = null },
                     onInvite = { inviteTo = dest },
-                    charge = { ChargePlanSection(routes.getOrElse(selectedRoute) { routes.first() }, adopted) { plan -> adopt(dest, plan) } })
+                    charge = { if (travelMode == de.koeven.meeterz.nav.TravelMode.CAR)
+                        ChargePlanSection(routes.getOrElse(selectedRoute) { routes.first() }, adopted) { plan -> adopt(dest, plan) } })
             }
         }
     }
@@ -489,12 +497,34 @@ fun MapScreen() {
 
 @Composable
 private fun PreviewCard(dest: NavigationController.Destination, routes: List<NavigationRoute>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier,
+                        mode: de.koeven.meeterz.nav.TravelMode, switching: Boolean, onMode: (de.koeven.meeterz.nav.TravelMode) -> Unit,
                         onSave: (String, String) -> Unit, onStart: () -> Unit, onCancel: () -> Unit, onInvite: () -> Unit,
                         charge: @Composable () -> Unit = {}) {
     var saved by remember(dest) { mutableStateOf(false) }
     val r = routes.getOrElse(selected) { routes.first() }.directionsRoute
     Surface(modifier.fillMaxWidth().navigationBarsPadding().padding(12.dp), shape = RoundedCornerShape(20.dp), shadowElevation = 2.dp, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Auto / Fahrrad / Zu Fuß (wie iOS; in Android Auto immer Auto)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (m in de.koeven.meeterz.nav.TravelMode.entries) {
+                    val on = m == mode
+                    Surface(onClick = { onMode(m) }, enabled = !switching, shape = RoundedCornerShape(50),
+                        color = if (on) MaterialTheme.colorScheme.onSurface else Color.Transparent,
+                        contentColor = if (on) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurface,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        modifier = Modifier.weight(1f).height(38.dp)) {
+                        Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                            Icon(when (m) {
+                                de.koeven.meeterz.nav.TravelMode.CAR -> Icons.Default.DirectionsCar
+                                de.koeven.meeterz.nav.TravelMode.BIKE -> Icons.AutoMirrored.Filled.DirectionsBike
+                                de.koeven.meeterz.nav.TravelMode.WALK -> Icons.AutoMirrored.Filled.DirectionsWalk
+                            }, tr("Fortbewegungsart %@", m.title), Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(m.title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            }
             Text(dest.name, style = MaterialTheme.typography.titleMedium)
             Text(tr("%@ · %@ · Ankunft %@", minutes(r.duration()), km(r.distance()), clock(r.duration())))
             // Bis zu drei Routen zur Wahl (Schnellste, Kürzeste, Ohne Autobahn) – wie die Routenwahl auf iOS

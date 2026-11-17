@@ -20,7 +20,8 @@ import kotlinx.serialization.json.jsonPrimitive
  * mit der Mapbox Matrix API die Fahrzeit jedes Teilnehmers holen und nach der längsten Anfahrt sortieren.
  */
 object FairMeetupFinder {
-    data class Participant(val id: String, val name: String, val lat: Double, val lng: Double)
+    data class Participant(val id: String, val name: String, val lat: Double, val lng: Double,
+                           val mode: de.koeven.meeterz.nav.TravelMode = de.koeven.meeterz.nav.TravelMode.CAR)
     data class Option(val place: PlaceSearch.Place, val durations: Map<String, Double>) {
         val longest get() = durations.values.maxOrNull() ?: 0.0
         val spread get() = longest - (durations.values.minOrNull() ?: 0.0)
@@ -34,16 +35,23 @@ object FairMeetupFinder {
         val lat = people.map { it.lat }.average()
         val lng = people.map { it.lng }.average()
         val candidates = mutableListOf<PlaceSearch.Place>()
-        for (c in listOf(PlaceSearch.Category.COFFEE, PlaceSearch.Category.RESTAURANT, PlaceSearch.Category.REST_AREA)) {
+        // Raststätte nur, wenn alle mit dem Auto kommen, sonst Parks (wie iOS)
+        val allByCar = people.all { it.mode == de.koeven.meeterz.nav.TravelMode.CAR }
+        for (c in if (allByCar) listOf(PlaceSearch.Category.COFFEE, PlaceSearch.Category.RESTAURANT, PlaceSearch.Category.REST_AREA)
+                  else listOf(PlaceSearch.Category.COFFEE, PlaceSearch.Category.RESTAURANT, PlaceSearch.Category.PARK)) {
             for (p in PlaceSearch.places(c, lat, lng, 4)) {
                 if (candidates.none { ChargePlanner.distance(it.lat, it.lng, p.lat, p.lng) < 40 }) candidates += p
             }
         }
         val near = candidates.sortedBy { ChargePlanner.distance(it.lat, it.lng, lat, lng) }.take(10)
         if (near.isEmpty()) throw FinderException(tr("In der Mitte wurde kein passender Ort gefunden."))
-        val matrix = matrix(people, near)
+        // Fahrzeiten je Fortbewegungsart (eine Matrix-Anfrage pro Art)
+        val rows = mutableMapOf<String, List<Double?>>()
+        for ((mode, group) in people.groupBy { it.mode }) {
+            matrix(group, near, mode).forEachIndexed { i, row -> rows[group[i].id] = row }
+        }
         val options = near.mapIndexedNotNull { j, place ->
-            val per = people.mapIndexed { i, p -> p.id to (matrix.getOrNull(i)?.getOrNull(j) ?: return@mapIndexedNotNull null) }.toMap()
+            val per = people.map { p -> p.id to (rows[p.id]?.getOrNull(j) ?: return@mapIndexedNotNull null) }.toMap()
             Option(place, per)
         }
         if (options.isEmpty()) throw FinderException(tr("In der Mitte wurde kein passender Ort gefunden."))
@@ -51,12 +59,13 @@ object FairMeetupFinder {
     }
 
     /** Zeilen = Teilnehmer, Spalten = Orte (Sekunden, null = nicht erreichbar) */
-    private suspend fun matrix(people: List<Participant>, places: List<PlaceSearch.Place>): List<List<Double?>> {
+    private suspend fun matrix(people: List<Participant>, places: List<PlaceSearch.Place>,
+                               mode: de.koeven.meeterz.nav.TravelMode): List<List<Double?>> {
         val coords = (people.map { "${it.lng},${it.lat}" } + places.map { "${it.lng},${it.lat}" }).joinToString(";")
         val sources = people.indices.joinToString(";")
         val destinations = (people.size until people.size + places.size).joinToString(";")
         val body = runCatching {
-            http.get("https://api.mapbox.com/directions-matrix/v1/mapbox/driving/$coords?sources=$sources&destinations=$destinations" +
+            http.get("https://api.mapbox.com/directions-matrix/v1/${mode.matrixProfile}/$coords?sources=$sources&destinations=$destinations" +
                 "&annotations=duration&access_token=${MapboxOptions.accessToken}").bodyAsText()
         }.getOrNull() ?: throw FinderException(tr("Die Fahrzeiten konnten gerade nicht berechnet werden."))
         val rows = Json.parseToJsonElement(body).jsonObject["durations"]?.jsonArray

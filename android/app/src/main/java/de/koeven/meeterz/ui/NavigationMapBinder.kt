@@ -78,6 +78,23 @@ class NavigationMapBinder(private val mapView: MapView) : MapboxNavigationObserv
     }
     private val camera = NavigationCamera(mapView.mapboxMap, mapView.camera, viewport)
     private var active = false
+    private var previewing = false
+
+    // Routenvorschau: Verschieben/Zoomen lässt die Kamera los (sonst zieht die Übersicht sie bei jedem
+    // Standort zurück). Eine andere Route wählen springt wieder zur Gesamtübersicht (showPreview). Wie iOS.
+    init {
+        val release = { if (previewing && !active) camera.requestNavigationCameraToIdle() }
+        mapView.gestures.addOnMoveListener(object : com.mapbox.maps.plugin.gestures.OnMoveListener {
+            override fun onMoveBegin(detector: com.mapbox.android.gestures.MoveGestureDetector) = release()
+            override fun onMove(detector: com.mapbox.android.gestures.MoveGestureDetector) = false
+            override fun onMoveEnd(detector: com.mapbox.android.gestures.MoveGestureDetector) = Unit
+        })
+        mapView.gestures.addOnScaleListener(object : com.mapbox.maps.plugin.gestures.OnScaleListener {
+            override fun onScaleBegin(detector: com.mapbox.android.gestures.StandardScaleGestureDetector) = release()
+            override fun onScale(detector: com.mapbox.android.gestures.StandardScaleGestureDetector) = Unit
+            override fun onScaleEnd(detector: com.mapbox.android.gestures.StandardScaleGestureDetector) = Unit
+        })
+    }
     private var meetingMode = false
 
     /** Treffen-Navigation: den Positionspfeil oberhalb der dauerhaft eingeblendeten unteren Karten halten. */

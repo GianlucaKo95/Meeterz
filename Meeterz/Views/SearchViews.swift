@@ -294,13 +294,12 @@ struct RoutePreviewView: View {
 
     var body: some View {
         VStack(spacing: 12) {
-          ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-            if !CarPlayController.shared.isConnected { modePicker }
+          // Karte außerhalb der Liste: Verschieben und Zoomen gehen an die Karte statt ans Scrollen (17.11.)
+          if !CarPlayController.shared.isConnected { modePicker }
             RoutePreviewMap(lines: current.lines, selected: selected, destination: current.destination.coordinate,
                             onSelect: { index in if index != selected { select(index) } })
                 .id(current.mode)
-                .frame(height: 190)
+                .frame(height: 260)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
                 .overlay(alignment: .topTrailing) {
                     let saved = app.favorites.contains(current.destination.coordinate)
@@ -319,6 +318,8 @@ struct RoutePreviewView: View {
                     .padding(8)
                     .accessibilityLabel(saved ? String(localized: "Als Favorit gespeichert") : String(localized: "Als Favorit speichern"))
                 }
+          ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
             if current.options.count > 1 { routeChoices }
             if current.mode == .car, let avoid = RoutePreferences.summary {
                 Label("Route \(avoid)", systemImage: "slider.horizontal.3")
@@ -461,6 +462,8 @@ struct RoutePreviewMap: View {
             }
             .mapStyle(.standard)
             .onAppear { fit() }
+            // Andere Route gewählt: zurück zur Gesamtübersicht (nach eigenem Verschieben/Zoomen)
+            .onChange(of: selected) { fit() }
             .onTapGesture { point in
                 guard lines.count > 1, let onSelect, let index = nearestLine(to: point, proxy: proxy) else { return }
                 onSelect(index)

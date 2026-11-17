@@ -205,7 +205,11 @@ fun MapScreen() {
     val annotations: PointAnnotationManager = remember(mapView, mapStyleRevision) {
         mapView.annotations.createPointAnnotationManager().apply {
             // Freund antippen → Aktionen (wie iOS FriendActionSheet)
-            addClickListener { a -> a.getData()?.asString?.let { selectedFriend = it }; true }
+            addClickListener { a ->
+                // Ungesehene Story zuerst abspielen (Ring), sonst das Freundes-Fenster (wie iOS tapFriend)
+                a.getData()?.asString?.let { if (de.koeven.meeterz.data.StoriesStore.hasUnseen(it)) de.koeven.meeterz.data.StoriesStore.open(it) else selectedFriend = it }
+                true
+            }
         }
     }
     val avatars by de.koeven.meeterz.data.AvatarStore.images.collectAsState()

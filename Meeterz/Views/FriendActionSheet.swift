@@ -30,11 +30,7 @@ struct FriendActionSheet: View {
                     VStack(spacing: 10) {
                         if app.stories.hasStories(friendId) {
                             Button {
-                                dismiss()
-                                Task {
-                                    try? await Task.sleep(for: .milliseconds(450))
-                                    app.stories.open(friendId)
-                                }
+                                app.stories.open(friendId)   // erscheint über diesem Fenster
                             } label: {
                                 Label("Story ansehen", systemImage: "play.circle.fill")
                             }

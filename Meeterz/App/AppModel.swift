@@ -216,6 +216,11 @@ final class AppModel {
         if hide { await routes.clearMine() }
     }
 
+    /// Freund auf der Karte angetippt: ungesehene Story zuerst abspielen (Ring), sonst das Freundes-Fenster
+    func tapFriend(_ id: UUID) {
+        if stories.hasUnseen(id) { stories.open(id) } else { selectedFriend = id }
+    }
+
     private func onLocation(_ loc: CLLocation) async {
         guard let profile else { return }
         await hub.publish(loc, userId: profile.id, sharingEnabled: profile.isSharingNow)

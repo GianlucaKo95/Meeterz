@@ -210,7 +210,7 @@ struct StoryViewer: View {
                 Spacer()
                 if story.userId == app.profile?.id {
                     Button {
-                        Task { await app.stories.delete(story); if index >= stories.count - 1 { dismiss() } }
+                        Task { await app.stories.delete(story); step(1) }
                     } label: { Image(systemName: "trash").padding(8) }
                     .accessibilityLabel("Story löschen")
                 }
@@ -342,7 +342,7 @@ struct ConvoyFeedView: View {
                 Spacer()
                 if e.kind == .story, let id = e.storyId {
                     if let story = app.stories.stories.first(where: { $0.id == id }) {
-                        Button("Ansehen") { app.stories.viewing = [story] }.font(.footnote.weight(.semibold))
+                        Button("Ansehen") { app.stories.show([story]) }.font(.footnote.weight(.semibold))
                     } else {
                         Text("abgelaufen").font(.caption).foregroundStyle(Theme.muted)
                     }
@@ -358,9 +358,6 @@ struct ConvoyFeedView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task { await feed.show(key) }
         .onDisappear { Task { await feed.show(nil) } }
-        .fullScreenCover(isPresented: Binding(get: { app.stories.viewing != nil }, set: { if !$0 { app.stories.viewing = nil } })) {
-            if let list = app.stories.viewing { StoryViewer(stories: list).environment(app) }
-        }
     }
 
     private func symbol(_ kind: ConvoyFeed.Kind) -> String {

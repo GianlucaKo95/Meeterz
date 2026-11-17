@@ -117,9 +117,6 @@ struct MainView: View {
         }
         .sheet(isPresented: $showFriends) { FriendsView() }
         .sheet(isPresented: $showStoryComposer) { StoryComposer().environment(app) }
-        .fullScreenCover(isPresented: Binding(get: { app.stories.viewing != nil }, set: { if !$0 { app.stories.viewing = nil } })) {
-            if let list = app.stories.viewing { StoryViewer(stories: list).environment(app) }
-        }
         .sheet(isPresented: $showSearch) { SearchView() }
         .sheet(item: $plannedMeetup) { MeetupPlannerView(candidate: $0) }
         .sheet(item: $navigation.preview) { RoutePreviewView(preview: $0) }
@@ -273,7 +270,7 @@ struct MainView: View {
                     .textColor(StyleColor(.white))
                     .textHaloColor(StyleColor(.black))
                     .textHaloWidth(1.5)
-                    .onTapGesture { app.selectedFriend = item.id }
+                    .onTapGesture { app.tapFriend(item.id) }
             }
             .iconAllowOverlap(true)
             .iconIgnorePlacement(true)

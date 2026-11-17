@@ -4,6 +4,7 @@ import AVFoundation
 import CoreLocation
 import Observation
 import Supabase
+import SwiftUI
 
 /// Stories: Foto oder Video (bis 15 s) an dem Ort, an dem es entstand – 24 Stunden für Freunde sichtbar.
 /// Dateien im privaten Bucket "stories" unter "<user_id>/<story_id>.jpg|mp4"; wer sie sehen darf, regelt die Datenbank.
@@ -47,8 +48,6 @@ final class StoriesStore {
 
     private(set) var stories: [Story] = []
     private(set) var isPosting = false
-    /// Gerade geöffnete Stories (Vollbild)
-    var viewing: [Story]?
 
     @ObservationIgnored private var known = Set<UUID>()
     @ObservationIgnored private var loadedOnce = false
@@ -81,7 +80,6 @@ final class StoriesStore {
         stories = []
         known = []
         loadedOnce = false
-        viewing = nil
         me = nil
     }
 
@@ -126,8 +124,24 @@ final class StoriesStore {
     var myId: UUID? { me }
 
     func open(_ userId: UUID) {
-        let list = of(userId)
-        if !list.isEmpty { viewing = list }
+        show(of(userId))
+    }
+
+    /// Vollbild über allem, was gerade offen ist. Vorher hing das Vollbild an der Hauptansicht und ging nicht auf,
+    /// solange dort ein Fenster (Freund, Unterwegs) offen war – man sah nur den Ring (17.11.).
+    func show(_ list: [Story]) {
+        guard !list.isEmpty, let top = Self.topController() else { return }
+        let host = UIHostingController(rootView: StoryViewer(stories: list).environment(AppModel.shared))
+        host.modalPresentationStyle = .fullScreen
+        top.present(host, animated: true)
+    }
+
+    private static func topController() -> UIViewController? {
+        let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .first { $0.session.role == .windowApplication && $0.activationState == .foregroundActive }
+        var top = scene?.windows.first(where: \.isKeyWindow)?.rootViewController
+        while let next = top?.presentedViewController, !next.isBeingDismissed { top = next }
+        return top
     }
 
     func markSeen(_ story: Story) {
@@ -199,7 +213,6 @@ final class StoriesStore {
         _ = try? await client.storage.from(bucket).remove(paths: [story.mediaPath])
         _ = try? await client.from("stories").delete().eq("id", value: story.id).execute()
         stories.removeAll { $0.id == story.id }
-        if let list = viewing { viewing = list.filter { $0.id != story.id }.nilIfEmpty }
     }
 
     /// Eigene abgelaufene Stories samt Datei entfernen (nur die eigenen sind nach Ablauf noch lesbar)
@@ -246,8 +259,4 @@ final class StoriesStore {
             return nil
         }
     }
-}
-
-private extension Array {
-    var nilIfEmpty: Self? { isEmpty ? nil : self }
 }

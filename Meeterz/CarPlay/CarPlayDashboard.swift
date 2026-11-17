@@ -579,6 +579,7 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
         appliedStyleType = type
         style.applyMapStyle(to: nav)
         Satellite3DBuildings.install(on: nav.mapView, satellite: satellite)
+        TrafficLayer.install(on: nav.mapView)
     }
     private var appliedStyleType: StyleType?
 

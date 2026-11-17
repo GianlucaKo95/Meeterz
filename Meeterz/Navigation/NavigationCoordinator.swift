@@ -262,6 +262,7 @@ final class NavigationCoordinator: NSObject {
                             on: mapView,
                             satellite: UserDefaults.standard.object(forKey: "map.satellite") as? Bool ?? true
                         )
+                        TrafficLayer.install(on: mapView)
                         let o = FriendOverlay(mapView: mapView) { true }
                         o.start()
                         self?.overlay = o
@@ -476,6 +477,7 @@ final class NavigationCoordinator: NSObject {
         controller.styleManager.styles = NavigationStyles.phone()
         if let mapView = controller.navigationMapView?.mapView {
             Satellite3DBuildings.install(on: mapView, satellite: UserDefaults.standard.object(forKey: "map.satellite") as? Bool ?? true)
+            TrafficLayer.install(on: mapView)
         }
         Diag.log("iPhone-Navigation: Kartenstil gewechselt (Satellit=\(UserDefaults.standard.bool(forKey: "map.satellite")))")
     }

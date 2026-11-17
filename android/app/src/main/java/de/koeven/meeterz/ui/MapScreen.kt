@@ -183,6 +183,7 @@ fun MapScreen() {
         mapView.mapboxMap.setCamera(CameraOptions.Builder().pitch(if (map3d) 45.0 else 0.0).build())
     }
     DisposableEffect(Unit) { binder.attach(); onDispose { binder.detach() } }
+    DisposableEffect(mapView) { val t = TrafficLayer.install(mapView.mapboxMap); onDispose { t.cancel() } }
     LaunchedEffect(guidance != null) {
         binder.setActive(guidance != null)
         if (guidance == null) mapView.viewport.transitionTo(mapView.viewport.makeFollowPuckViewportState())

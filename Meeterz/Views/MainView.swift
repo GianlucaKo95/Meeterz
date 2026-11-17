@@ -212,6 +212,20 @@ struct MainView: View {
                     .slot(.middle)
             }
 
+            // Verkehrslage wie Apple Karten (auch freie Fahrt, Klassisch und Satellit): stockend orange, Stau rot
+            VectorSource(id: TrafficLayer.sourceId)
+                .url(TrafficLayer.url)
+            LineLayer(id: TrafficLayer.layerId, source: TrafficLayer.sourceId)
+                .sourceLayer("traffic")
+                .filter(TrafficLayer.filter)
+                .lineColor(TrafficLayer.color)
+                .lineWidth(TrafficLayer.width)
+                .lineOpacity(0.9)
+                .lineCap(.round)
+                .lineJoin(.round)
+                .lineEmissiveStrength(1)
+                .slot(.middle)
+
             // Routen der Freunde: dunkle Umrandung, darüber knallige Farbe (die gezeigte Route etwas breiter)
             ForEvery(Array(app.routes.friendRoutes.values)) { route in
                 PolylineAnnotation(id: "routecase-\(route.friendId)", lineCoordinates: route.coordinates)

@@ -105,6 +105,7 @@ class MeeterzCarSession : Session() {
 
     val carMap = MapboxCarMap()
     private val mapLoader = MapboxCarMapLoader()
+    private val trafficLayer = de.koeven.meeterz.ui.TrafficLayer.Car()
 
     init {
         lifecycle.addObserver(object : DefaultLifecycleObserver {
@@ -113,6 +114,7 @@ class MeeterzCarSession : Session() {
                 MapboxNavigationApp.attach(owner)
                 carMap.setup(carContext, MapInitOptions(carContext))
                 carMap.registerObserver(mapLoader)
+                carMap.registerObserver(trafficLayer)
                 // Freie Fahrt: Standort auf der Straße auch ohne Route (wie CarPlay)
                 if (ContextCompat.checkSelfPermission(carContext, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
                     @Suppress("MissingPermission")
@@ -126,6 +128,7 @@ class MeeterzCarSession : Session() {
                 de.koeven.meeterz.suggest.RouteSuggestions.newDrive()
                 de.koeven.meeterz.suggest.Parking.save(AppState.lastLocation, "Android Auto")
                 carMap.unregisterObserver(mapLoader)
+                carMap.unregisterObserver(trafficLayer)
                 MapboxNavigationApp.detach(owner)
             }
         })

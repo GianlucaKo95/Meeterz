@@ -913,6 +913,7 @@ final class CarPlayController: NSObject {
         manager.styles = NavigationStyles.carPlay()
         for map in [browseMap, navMap].compactMap({ $0 }) {
             Satellite3DBuildings.install(on: map.mapView, satellite: satellite)
+            TrafficLayer.install(on: map.mapView)
         }
         // Die Karte, die gerade wirklich im Fenster ist. Vorher entschied `currentActivity`: meldete CarPlay während der
         // Fahrt etwas anderes als `.navigating`, hängte sich Flyover an die verdeckte Browse-Karte (ohne Fenster) –
@@ -1320,6 +1321,7 @@ extension CarPlayController: CarPlayManagerDelegate {
                 on: navigationMapView.mapView,
                 satellite: UserDefaults.standard.object(forKey: "carplay.satellite") as? Bool ?? true
             )
+            TrafficLayer.install(on: navigationMapView.mapView)
             let overlay = FriendOverlay(mapView: navigationMapView.mapView) { [weak self] in self?.friendsShown ?? true }
             overlay.start()
             browseOverlay = overlay
@@ -1357,6 +1359,7 @@ extension CarPlayController: CarPlayManagerDelegate {
                 on: mapView,
                 satellite: UserDefaults.standard.object(forKey: "carplay.satellite") as? Bool ?? true
             )
+            TrafficLayer.install(on: mapView)
             let overlay = FriendOverlay(mapView: mapView) { [weak self] in self?.friendsShown ?? true }
             overlay.start()
             navigationOverlay = overlay

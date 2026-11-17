@@ -8,6 +8,8 @@ struct ChargePlanCard: View {
     /// Bereits übernommene Stopps (Route führt schon über die Säulen)
     let adopted: ChargePlanner.Plan?
     let adopt: (ChargePlanner.Plan) async -> Void
+    /// Gerechneter Plan nach oben (Ankunft inkl. Ladezeit in der Vorschau)
+    var onPlan: (ChargePlanner.Plan?) -> Void = { _ in }
 
     @State private var result: Result<ChargePlanner.Plan, ChargePlanner.Failure>?
     @State private var adopting = false
@@ -57,9 +59,11 @@ struct ChargePlanCard: View {
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 16).fill(Theme.panelRaised))
         .task(id: route.distance) {
-            guard adopted == nil else { return }
+            guard adopted == nil else { onPlan(adopted); return }
             result = nil
+            onPlan(nil)
             result = await EVSettings.plan(for: route) ?? .failure(.noVehicle)
+            if case .success(let plan) = result { onPlan(plan) }
         }
     }
 

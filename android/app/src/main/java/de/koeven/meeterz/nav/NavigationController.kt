@@ -330,7 +330,7 @@ object NavigationController : MapboxNavigationObserver {
         if (now - lastShare < 60_000) return
         lastShare = now
         // Verspätung zum Treffpunkt automatisch melden (wie iOS: im Takt des Routen-Teilens)
-        AppState.scope.launch { AppState.meetups.checkDelay(destination.lat, destination.lng, now / 1000 + progress.durationRemaining.toLong()) }
+        AppState.scope.launch { AppState.meetups.checkDelay(destination.lat, destination.lng, now / 1000 + (progress.durationRemaining + de.koeven.meeterz.ev.ChargingSession.remainingChargeTime(progress)).toLong()) }
         val profile = (AppState.auth.state.value as? AuthRepository.State.Ready)?.profile ?: return
         if (profile.routesHidden || profile.isIncognito) return
         val samples = RouteSampler.samples(RouteSampler.pieces(progress.navigationRoute.directionsRoute))
@@ -340,7 +340,7 @@ object NavigationController : MapboxNavigationObserver {
             put("destination_name", destination.name)
             put("dest_lat", destination.lat)
             put("dest_lng", destination.lng)
-            put("eta_unix", now / 1000.0 + progress.durationRemaining)
+            put("eta_unix", now / 1000.0 + progress.durationRemaining + de.koeven.meeterz.ev.ChargingSession.remainingChargeTime(progress))
             put("points", JsonArray(points.map { p -> JsonArray(p.map { JsonPrimitive(it) }) }))
             put("travel_mode", activeMode.key)
         }
@@ -356,7 +356,7 @@ object NavigationController : MapboxNavigationObserver {
             instruction = banner,
             distanceToTurn = progress.currentLegProgress?.currentStepProgress?.distanceRemaining?.toDouble() ?: 0.0,
             remainingDistance = progress.distanceRemaining.toDouble(),
-            remainingSeconds = progress.durationRemaining,
+            remainingSeconds = progress.durationRemaining + de.koeven.meeterz.ev.ChargingSession.remainingChargeTime(progress),
         )
         IncidentWatcher.check(progress)
         RightOfWaySigns.update(progress)

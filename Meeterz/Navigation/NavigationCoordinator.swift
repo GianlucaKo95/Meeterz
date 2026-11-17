@@ -678,7 +678,8 @@ final class NavigationCoordinator: NSObject {
             distanceTraveled: progress.distanceTraveled,
             durationRemaining: progress.durationRemaining
         )
-        let arrival = Date().addingTimeInterval(progress.durationRemaining)
+        // Ankunft inkl. noch anstehender Ladezeit (E-Auto mit Ladestopps)
+        let arrival = Date().addingTimeInterval(progress.durationRemaining + ChargingSession.shared.remainingChargeTime(progress))
         eta = arrival
         checkDelay(eta: arrival)
         remaining = (progress.distanceRemaining, progress.durationRemaining)

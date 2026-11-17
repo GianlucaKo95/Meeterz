@@ -247,6 +247,8 @@ fun MapScreen() {
     val car by AppState.vehicle.status.collectAsState()
     var droppedPin by remember { mutableStateOf<DroppedPin?>(null) }
     var travelMode by remember { mutableStateOf(de.koeven.meeterz.nav.TravelMode.saved) }
+    /** Ladezeit des Ladeplans in der Vorschau – Ankunft rechnet sie mit ein (wie iOS) */
+    var previewChargeSeconds by remember { mutableStateOf(0.0) }
     fun planTo(name: String, address: String?, lat: Double, lng: Double, mode: de.koeven.meeterz.nav.TravelMode = travelMode) {
         val me = AppState.lastLocation ?: return
         val dest = NavigationController.Destination(name, lat, lng, address)
@@ -534,8 +536,10 @@ fun MapScreen() {
                     onStart = { NavigationController.start(routes, dest, selectedRoute); preview = null; query = "" },
                     onCancel = { preview = null; adopted = null },
                     onInvite = { inviteTo = dest },
+                    chargeSeconds = if (travelMode == de.koeven.meeterz.nav.TravelMode.CAR && de.koeven.meeterz.ev.EvSettings.enabled) previewChargeSeconds else 0.0,
                     charge = { if (travelMode == de.koeven.meeterz.nav.TravelMode.CAR)
-                        ChargePlanSection(routes.getOrElse(selectedRoute) { routes.first() }, adopted) { plan -> adopt(dest, plan) } })
+                        ChargePlanSection(routes.getOrElse(selectedRoute) { routes.first() }, adopted,
+                            onPlan = { p -> previewChargeSeconds = p?.takeIf { !it.direct }?.totalChargeTime ?: 0.0 }) { plan -> adopt(dest, plan) } })
             }
         }
     }
@@ -544,6 +548,7 @@ fun MapScreen() {
 @Composable
 private fun PreviewCard(dest: NavigationController.Destination, routes: List<NavigationRoute>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier,
                         mode: de.koeven.meeterz.nav.TravelMode, switching: Boolean, onMode: (de.koeven.meeterz.nav.TravelMode) -> Unit,
+                        chargeSeconds: Double = 0.0,
                         onSave: (String, String) -> Unit, onStart: () -> Unit, onCancel: () -> Unit, onInvite: () -> Unit,
                         charge: @Composable () -> Unit = {}) {
     var saved by remember(dest) { mutableStateOf(false) }
@@ -572,7 +577,8 @@ private fun PreviewCard(dest: NavigationController.Destination, routes: List<Nav
                 }
             }
             Text(dest.name, style = MaterialTheme.typography.titleMedium)
-            Text(tr("%@ · %@ · Ankunft %@", minutes(r.duration()), km(r.distance()), clock(r.duration())))
+            Text(if (chargeSeconds > 0) tr("%@ · %@ · Ankunft inkl. Laden %@", minutes(r.duration() + chargeSeconds), km(r.distance()), clock(r.duration() + chargeSeconds))
+                 else tr("%@ · %@ · Ankunft %@", minutes(r.duration()), km(r.distance()), clock(r.duration())))
             // Bis zu drei Routen zur Wahl (Schnellste, Kürzeste, Ohne Autobahn) – wie die Routenwahl auf iOS
             if (routes.size > 1) Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 routes.forEachIndexed { i, route ->

@@ -133,7 +133,7 @@ final class NavigationLiveActivityController {
                                 direction: visual?.maneuverDirection ?? upcoming?.maneuverDirection),
             instruction: visual?.text ?? upcoming?.instructions ?? "",
             distanceToTurn: step.distanceRemaining,
-            arrival: Date().addingTimeInterval(progress.durationRemaining),
+            arrival: Date().addingTimeInterval(progress.durationRemaining + ChargingSession.shared.remainingChargeTime(progress)),
             remainingDistance: progress.distanceRemaining,
             friendName: nil, friendInitials: nil, friendArrival: nil, friendHere: false)
         addFriend(to: &state)

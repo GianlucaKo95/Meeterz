@@ -33,6 +33,24 @@ object ChargingSession {
     /** Zuletzt übernommener Ladeplan – liefert das Ladeziel an der jeweiligen Säule */
     @Volatile var plan: ChargePlanner.Plan? = null
 
+    /**
+     * Noch anstehende Ladezeit auf der laufenden Route (wie iOS): Ladestopps der kommenden Etappen laut Plan,
+     * dazu der Rest des Ladens, das gerade läuft. Fließt in die Ankunftszeit ein.
+     */
+    fun remainingChargeTime(progress: com.mapbox.navigation.base.trip.model.RouteProgress): Double {
+        var total = _view.value?.takeIf { !it.done }?.remainingSeconds ?: 0.0
+        val stops = plan?.stops?.takeIf { it.isNotEmpty() } ?: return total
+        val legs = progress.navigationRoute.directionsRoute.legs() ?: return total
+        val waypoints = progress.navigationRoute.waypoints ?: return total
+        val leg = progress.currentLegProgress?.legIndex ?: 0
+        // Ziel der Etappe i = Wegpunkt i+1; letzte Etappe endet am Ziel (kein Ladestopp)
+        for (i in leg until legs.size - 1) {
+            val p = waypoints.getOrNull(i + 1)?.location ?: continue
+            stops.firstOrNull { ChargePlanner.distance(it.site.lat, it.site.lng, p.latitude(), p.longitude()) < 300 }?.let { total += it.chargeTime }
+        }
+        return total
+    }
+
     private var active = false
     private var startPercent = 0.0
     private var reportedPercent = 0.0

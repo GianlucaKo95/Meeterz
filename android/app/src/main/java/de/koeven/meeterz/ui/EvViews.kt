@@ -46,7 +46,8 @@ import kotlinx.coroutines.launch
 
 /** Ladeplan in der Routenvorschau (wie ChargePlanCard auf iOS) */
 @Composable
-fun ChargePlanSection(route: NavigationRoute, adopted: ChargePlanner.Plan?, onAdopt: suspend (ChargePlanner.Plan) -> Unit) {
+fun ChargePlanSection(route: NavigationRoute, adopted: ChargePlanner.Plan?, onPlan: (ChargePlanner.Plan?) -> Unit = {},
+                      onAdopt: suspend (ChargePlanner.Plan) -> Unit) {
     val version by EvSettings.version.collectAsState()
     if (!EvSettings.enabled || EvSettings.vehicle == null) return
     var outcome by remember(route.id) { mutableStateOf<ChargePlanner.Outcome?>(null) }
@@ -54,10 +55,12 @@ fun ChargePlanSection(route: NavigationRoute, adopted: ChargePlanner.Plan?, onAd
     var adopting by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(route.id, version, adopted) {
-        if (adopted != null) return@LaunchedEffect
+        if (adopted != null) { onPlan(adopted); return@LaunchedEffect }
         loading = true
+        onPlan(null)
         outcome = EvSettings.plan(route)
         loading = false
+        onPlan((outcome as? ChargePlanner.Outcome.Planned)?.plan)
     }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         HorizontalDivider()

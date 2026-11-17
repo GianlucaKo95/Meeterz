@@ -275,6 +275,7 @@ struct FriendsView: View {
                 }
                 .swipeActions {
                     Button("Entfernen", role: .destructive) { Task { await friends.remove(row) } }
+                        .tint(Theme.danger)
                     Button("Einladen") { inviteFriend = row }
                         .tint(Theme.accent)
                     Button(hidden ? String(localized: "Zeigen") : String(localized: "Verbergen")) { Task { await friends.setHidden(row.friendId, !hidden) } }
@@ -286,6 +287,7 @@ struct FriendsView: View {
                            systemImage: hidden ? "eye" : "eye.slash") {
                         Task { await friends.setHidden(row.friendId, !hidden) }
                     }
+                    Button("Entfernen", systemImage: "person.badge.minus", role: .destructive) { Task { await friends.remove(row) } }
                 }
             }
         }
@@ -298,6 +300,7 @@ struct FriendsView: View {
                 FriendLabel(row: row)
                     .swipeActions {
                         Button("Zurückziehen", role: .destructive) { Task { await friends.remove(row) } }
+                            .tint(Theme.danger)
                     }
             }
         }

@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PersonRemove
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material.icons.filled.LocationOn
@@ -155,6 +156,7 @@ fun FriendsScreen(onClose: () -> Unit, onSettings: () -> Unit = {}, onMeetups: (
                             leadingIcon = { Icon(if (muted) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff, null) },
                             onClick = { menu = false; de.koeven.meeterz.sound.SoundStore.setMuted(row.friendId, !muted); mutedVersion++ })
                         DropdownMenuItem(text = { Text(tr("Entfernen"), color = MaterialTheme.colorScheme.error) },
+                            leadingIcon = { Icon(Icons.Default.PersonRemove, null, tint = MaterialTheme.colorScheme.error) },
                             onClick = { menu = false; scope.launch { AppState.removeFriend(row) } })
                     }
                 }

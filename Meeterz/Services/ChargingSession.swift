@@ -1,4 +1,5 @@
 import Foundation
+import MapboxNavigationCore
 import Observation
 import UIKit
 import SwiftUI
@@ -31,6 +32,21 @@ final class ChargingSession {
 
     /// Zuletzt übernommener Ladeplan – liefert das Ladeziel an der jeweiligen Säule
     @ObservationIgnored var plan: ChargePlanner.Plan?
+
+    /// Noch anstehende Ladezeit auf der laufenden Route: Ladestopps der kommenden Etappen laut Plan, dazu der Rest
+    /// des Ladens, das gerade läuft. Fließt in die Ankunftszeit ein (Anzeige, Freunde, Verspätung) – 17.11.
+    func remainingChargeTime(_ progress: RouteProgress) -> TimeInterval {
+        var total: TimeInterval = active ? (done ? 0 : (remaining ?? 0)) : 0
+        guard let plan, !plan.stops.isEmpty else { return total }
+        let legs = progress.route.legs
+        guard progress.legIndex < legs.count - 1 else { return total }
+        for leg in legs[progress.legIndex..<(legs.count - 1)] {
+            guard let c = leg.destination?.coordinate,
+                  let stop = plan.stops.first(where: { $0.site.coordinate.distance(to: c) < 300 }) else { continue }
+            total += stop.chargeTime
+        }
+        return total
+    }
 
     /// Akkustand jetzt (hochgerechnet seit der letzten Meldung, höchstens 3 Minuten weit)
     var percent: Double {

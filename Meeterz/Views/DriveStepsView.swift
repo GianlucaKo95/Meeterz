@@ -39,7 +39,7 @@ final class DriveSteps {
 
     private func update(_ progress: RouteProgress?) {
         guard let progress else { return }
-        arrival = Date().addingTimeInterval(progress.durationRemaining)
+        arrival = Date().addingTimeInterval(progress.durationRemaining + ChargingSession.shared.remainingChargeTime(progress))
         remainingDistance = progress.distanceRemaining
         remainingTime = progress.durationRemaining
         var list: [Row] = []

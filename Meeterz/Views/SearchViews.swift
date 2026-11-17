@@ -232,7 +232,10 @@ struct RoutePreviewView: View {
     #endif
 
     private var shown: Route { current.options[min(selected, current.options.count - 1)] }
-    private var eta: Date { Date().addingTimeInterval(shown.expectedTravelTime) }
+    /// Ladezeit des Ladeplans (E-Auto) – Ankunft und Dauer rechnen sie mit ein
+    @State private var chargeTime: TimeInterval = 0
+    private var charging: TimeInterval { current.mode == .car && EVSettings.enabled ? chargeTime : 0 }
+    private var eta: Date { Date().addingTimeInterval(shown.expectedTravelTime + charging) }
 
     /// Auswahl zwischen der vorgeschlagenen Route und Alternativen
     private var routeChoices: some View {
@@ -334,15 +337,15 @@ struct RoutePreviewView: View {
             }
 
             HStack(spacing: 10) {
-                stat(String(localized: "Ankunft"), ActivityFormat.time(eta), highlight: true)
+                stat(charging > 0 ? String(localized: "Ankunft inkl. Laden") : String(localized: "Ankunft"), ActivityFormat.time(eta), highlight: true)
                 stat(String(localized: "Dauer"), Format.minutes(seconds: eta.timeIntervalSinceNow))
                 stat(String(localized: "Strecke"), ActivityFormat.distance(shown.distance))
             }
 
             if current.mode == .car, EVSettings.enabled {
-                ChargePlanCard(route: shown, adopted: adoptedPlan) { plan in
+                ChargePlanCard(route: shown, adopted: adoptedPlan, adopt: { plan in
                     await adoptCharging(plan)
-                }
+                }, onPlan: { plan in chargeTime = plan.map { $0.direct ? 0 : $0.totalChargeTime } ?? 0 })
             }
 
             Text(current.mode == .car ? String(localized: "Inklusive aktueller Verkehrslage. Deine Freunde sehen deine Route, solange du teilst.") : String(localized: "Deine Freunde sehen deine Route, solange du teilst."))

@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.material.icons.filled.Person
@@ -618,7 +619,8 @@ private fun GuidanceBanner(g: NavigationController.Guidance) {
 
 @Composable
 private fun GuidanceBar(g: NavigationController.Guidance, modifier: Modifier) {
-    var muted by remember { mutableStateOf(NavigationController.muted) }
+    var voice by remember { mutableStateOf(NavigationController.voiceMode) }
+    val context = LocalContext.current
     var showMessage by remember { mutableStateOf(false) }
     var showStop by remember { mutableStateOf(false) }
     if (showMessage) MessageDialog(g, onDismiss = { showMessage = false })
@@ -634,8 +636,19 @@ private fun GuidanceBar(g: NavigationController.Guidance, modifier: Modifier) {
             }
             IconButton(onClick = { showStop = true }) { Icon(Icons.Default.AddLocationAlt, tr("Zwischenstopp")) }
             IconButton(onClick = { showMessage = true }) { Icon(Icons.AutoMirrored.Filled.Chat, tr("Bescheid geben")) }
-            IconButton(onClick = { muted = !muted; NavigationController.muted = muted }) {
-                Icon(if (muted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp, tr("Ton"))
+            // Wie iOS/CarPlay: Alle Ansagen → Nur Warnungen → Aus, kurz anzeigen, was jetzt gilt
+            IconButton(onClick = {
+                voice = when (voice) { de.koeven.meeterz.nav.Speaker.Mode.ALL -> de.koeven.meeterz.nav.Speaker.Mode.ALERTS_ONLY
+                    de.koeven.meeterz.nav.Speaker.Mode.ALERTS_ONLY -> de.koeven.meeterz.nav.Speaker.Mode.OFF
+                    de.koeven.meeterz.nav.Speaker.Mode.OFF -> de.koeven.meeterz.nav.Speaker.Mode.ALL }
+                NavigationController.voiceMode = voice
+                Toast.makeText(context, with(NavigationController) { voice.title }, Toast.LENGTH_SHORT).show()
+            }) {
+                Icon(when (voice) {
+                    de.koeven.meeterz.nav.Speaker.Mode.ALL -> Icons.AutoMirrored.Filled.VolumeUp
+                    de.koeven.meeterz.nav.Speaker.Mode.ALERTS_ONLY -> Icons.Default.Campaign
+                    de.koeven.meeterz.nav.Speaker.Mode.OFF -> Icons.AutoMirrored.Filled.VolumeOff
+                }, with(NavigationController) { voice.title })
             }
             Spacer(Modifier.padding(4.dp))
             Button(onClick = { NavigationController.stop() }) { Text(tr("Beenden")) }

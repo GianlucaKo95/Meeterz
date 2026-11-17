@@ -26,7 +26,12 @@ class Speaker(context: Context) {
         .build()
     private var ready = false
     private val pending = mutableListOf<String>()
-    var muted = false
+    /** Wie iOS VoiceMode: alle Ansagen, nur Warnungen (Unfall, Stau, Sperrung, Hinweise) oder keine */
+    enum class Mode { ALL, ALERTS_ONLY, OFF }
+    var mode = Mode.ALL
+    var muted: Boolean
+        get() = mode != Mode.ALL
+        set(v) { mode = if (v) Mode.OFF else Mode.ALL }
 
     private lateinit var tts: TextToSpeech
 
@@ -59,7 +64,7 @@ class Speaker(context: Context) {
 
     /** Hinweis (z. B. Nachricht eines Freundes): hinten anstellen, keine Abbiegeansage abbrechen */
     fun announce(text: String) {
-        if (muted || !ready) return
+        if (mode == Mode.OFF || !ready) return
         speakNow(text, TextToSpeech.QUEUE_ADD)
     }
 

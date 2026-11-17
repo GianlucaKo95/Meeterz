@@ -33,7 +33,17 @@ data class EvVehicle(
     val estimated: Boolean = false,
 ) {
     val name get() = listOf(model, variant).filter { it.isNotEmpty() }.joinToString(" ")
-    val fullName get() = "$brand $name" + (year?.let { " ($it)" } ?: "")
+    val isCustom get() = id == CUSTOM_ID
+    val fullName get() = if (isCustom) tr("Eigenes Fahrzeug") else "$brand $name" + (year?.let { " ($it)" } ?: "")
+
+    companion object {
+        const val CUSTOM_ID = "custom"
+        /** „Andere“: eigene Werte (wie iOS EVVehicle.custom) – volle Leistung bis 50 %, dann abfallend */
+        fun custom(battery: Double, consumption: Double, dcMax: Double) = EvVehicle(
+            CUSTOM_ID, tr("Andere"), tr("Eigenes Fahrzeug"), battery = battery, consumption = consumption, dcMax = dcMax,
+            curve = listOf(listOf(0.0, dcMax), listOf(50.0, dcMax), listOf(80.0, dcMax * 0.55), listOf(100.0, dcMax * 0.15)),
+            ports = listOf("ccs"), estimated = true)
+    }
 
     /** Ladeleistung (kW) bei einem Akkustand, linear zwischen den Punkten der Ladekurve */
     fun chargingPower(percent: Double): Double {

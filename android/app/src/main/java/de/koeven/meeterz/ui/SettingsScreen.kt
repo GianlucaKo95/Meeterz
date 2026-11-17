@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.PanTool
+import androidx.compose.material.icons.filled.Tune
 import de.koeven.meeterz.ev.EvSettings
 import android.content.Intent
 import android.net.Uri
@@ -75,7 +76,7 @@ import kotlinx.coroutines.launch
 import java.text.DateFormat
 import java.util.Date
 
-private enum class SettingsPage { HOME, SHARING, SOUND, MAP, VOICE, EV, VEHICLE, LIVE, NETWORKS, SUGGESTIONS, PRIVACY, DEVELOPER, FAVORITES }
+private enum class SettingsPage { HOME, SHARING, SOUND, MAP, VOICE, EV, VEHICLE, CUSTOM_VEHICLE, LIVE, NETWORKS, SUGGESTIONS, PRIVACY, DEVELOPER, FAVORITES }
 
 /**
  * Einstellungen wie iOS (FriendsView → Zahnrad): oben Standort teilen und Sound-Pack, dann „App“ mit Unterseiten,
@@ -157,7 +158,7 @@ fun SettingsScreen(onClose: () -> Unit) {
     val title = when (page) {
         SettingsPage.HOME -> tr("Einstellungen"); SettingsPage.SHARING -> tr("Standort teilen"); SettingsPage.SOUND -> tr("Sound-Pack")
         SettingsPage.MAP -> tr("Karte & Navigation"); SettingsPage.VOICE -> tr("Sprachansagen"); SettingsPage.EV -> tr("E-Auto")
-        SettingsPage.VEHICLE -> tr("Fahrzeug"); SettingsPage.LIVE -> tr("Live-Daten"); SettingsPage.NETWORKS -> tr("Ladenetze")
+        SettingsPage.VEHICLE -> tr("Fahrzeug"); SettingsPage.CUSTOM_VEHICLE -> tr("Andere"); SettingsPage.LIVE -> tr("Live-Daten"); SettingsPage.NETWORKS -> tr("Ladenetze")
         SettingsPage.SUGGESTIONS -> tr("Routenvorschläge"); SettingsPage.PRIVACY -> tr("Datenschutz")
         SettingsPage.DEVELOPER -> tr("Für Entwickler"); SettingsPage.FAVORITES -> tr("Gespeicherte Orte")
     }
@@ -183,10 +184,6 @@ fun SettingsScreen(onClose: () -> Unit) {
                     NavRow(tr("E-Auto"), if (evEnabled) (evVehicle?.fullName ?: tr("An")) else tr("Aus"), Icons.Default.ElectricCar) { open(SettingsPage.EV) }
                     GroupDivider()
                     NavRow(tr("Routenvorschläge"), icon = Icons.Default.History) { open(SettingsPage.SUGGESTIONS) }
-                    if (favorites.isNotEmpty()) {
-                        GroupDivider()
-                        NavRow(tr("Gespeicherte Orte"), "${favorites.size}", Icons.Default.Bookmark) { open(SettingsPage.FAVORITES) }
-                    }
                     GroupDivider()
                     NavRow(tr("Datenschutz"), icon = Icons.Default.PanTool) { open(SettingsPage.PRIVACY) }
                     GroupDivider()
@@ -277,9 +274,12 @@ fun SettingsScreen(onClose: () -> Unit) {
             SettingsPage.VEHICLE -> {
                 var search by remember { mutableStateOf("") }
                 val all = remember { EvSettings.vehicles() }
-                OutlinedTextField(search, { search = it }, placeholder = { Text(tr("Fahrzeug suchen")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(search, { search = it }, placeholder = { Text(tr("Marke oder Modell")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                if (search.isBlank()) Group(footer = tr("Dein Auto fehlt? Batterie, Verbrauch und Ladeleistung selbst eintragen.")) {
+                    NavRow(tr("Andere"), if (evVehicle?.isCustom == true) "✓" else null, Icons.Default.Tune) { open(SettingsPage.CUSTOM_VEHICLE) }
+                }
                 val matches = all.filter { v -> search.split(" ").filter { it.isNotBlank() }.all { v.fullName.contains(it, ignoreCase = true) } }.take(80)
-                Group {
+                Group(footer = de.koeven.meeterz.ev.EvData.ATTRIBUTION + tr(" · Fahrzeugdaten: Open EV Data (github.com/KilowattApp/open-ev-data). Werte sind Durchschnittswerte; Meeterz lernt mit der Zeit aus deinen Fahrten.")) {
                     matches.forEachIndexed { i, v ->
                         if (i > 0) GroupDivider()
                         Row(Modifier.fillMaxWidth().clickable { evVehicle = v; EvSettings.vehicle = v; back() }.padding(horizontal = 16.dp, vertical = 10.dp),
@@ -291,6 +291,27 @@ fun SettingsScreen(onClose: () -> Unit) {
                             }
                             if (v.id == evVehicle?.id) Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary)
                         }
+                    }
+                }
+            }
+            SettingsPage.CUSTOM_VEHICLE -> {
+                val current = evVehicle
+                var battery by remember { mutableStateOf(current?.battery ?: 60.0) }
+                var consumption by remember { mutableStateOf(current?.consumption ?: 18.0) }
+                var dcMax by remember { mutableStateOf(current?.dcMax ?: 100.0) }
+                Group(footer = tr("Reichweite bei 100 %: ca. %@ km", (battery / consumption * 100).toInt())) {
+                    StepperRow(tr("Nutzbare Batterie"), "${battery.toInt()} kWh", battery > 10, battery < 200, { battery -= 1 }, { battery += 1 })
+                    GroupDivider()
+                    StepperRow(tr("Verbrauch"), String.format(java.util.Locale.getDefault(), "%.1f kWh/100 km", consumption),
+                        consumption > 10, consumption < 40, { consumption -= 0.5 }, { consumption += 0.5 })
+                    GroupDivider()
+                    StepperRow(tr("Max. Schnellladen (DC)"), "${dcMax.toInt()} kW", dcMax > 20, dcMax < 350, { dcMax -= 5 }, { dcMax += 5 })
+                }
+                Group {
+                    ActionRow(tr("Übernehmen")) {
+                        val v = de.koeven.meeterz.ev.EvVehicle.custom(battery, consumption, dcMax)
+                        evVehicle = v; EvSettings.vehicle = v
+                        stack = stack.dropLast(2)   // zurück zu „E-Auto“ (wie iOS)
                     }
                 }
             }

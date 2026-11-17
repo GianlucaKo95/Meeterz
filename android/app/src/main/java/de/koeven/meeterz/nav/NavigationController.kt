@@ -30,6 +30,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import java.time.Instant
 import kotlinx.coroutines.flow.MutableStateFlow
+import de.koeven.meeterz.tr
 import kotlinx.coroutines.flow.StateFlow
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
@@ -64,7 +65,7 @@ object NavigationController : MapboxNavigationObserver {
 
     fun init(context: Context) {
         appContext = context.applicationContext
-        if (speaker == null) { speaker = Speaker(context.applicationContext).also { it.muted = context.getSharedPreferences("app", 0).getBoolean("voice.muted", false) }; NavigationNotification.start(context) }
+        if (speaker == null) { speaker = Speaker(context.applicationContext).also { it.mode = savedVoiceMode(context) }; NavigationNotification.start(context) }
         MapboxNavigationApp.registerObserver(this)
     }
 
@@ -248,9 +249,28 @@ object NavigationController : MapboxNavigationObserver {
     /** Hinweis vorlesen (Musik wird leiser), ohne laufende Ansagen abzubrechen */
     fun announce(text: String) { speaker?.announce(text) }
 
+    /** Alle Ansagen / Nur Warnungen / Aus (wie iOS; bleibt über Fahrten erhalten) */
+    var voiceMode: Speaker.Mode
+        get() = speaker?.mode ?: savedVoiceMode()
+        set(value) {
+            speaker?.mode = value
+            appContext?.getSharedPreferences("app", 0)?.edit()?.putString("voice.mode", value.name)?.apply()
+            if (value != Speaker.Mode.ALL) speaker?.stop()
+            Diag.log("Sprachansagen: ${value.name}")
+        }
+    val Speaker.Mode.title: String get() = when (this) {
+        Speaker.Mode.ALL -> tr("Alle Ansagen"); Speaker.Mode.ALERTS_ONLY -> tr("Nur Warnungen"); Speaker.Mode.OFF -> tr("Ansagen aus")
+    }
+    private fun savedVoiceMode(context: Context? = appContext): Speaker.Mode {
+        val p = context?.getSharedPreferences("app", 0) ?: return Speaker.Mode.ALL
+        return p.getString("voice.mode", null)?.let { runCatching { Speaker.Mode.valueOf(it) }.getOrNull() }
+            ?: if (p.getBoolean("voice.muted", false)) Speaker.Mode.OFF else Speaker.Mode.ALL
+    }
+
+    /** Einstellungen: Schalter an/aus */
     var muted: Boolean
-        get() = speaker?.muted ?: false
-        set(value) { speaker?.muted = value; appContext?.getSharedPreferences("app", 0)?.edit()?.putBoolean("voice.muted", value)?.apply(); if (value) speaker?.stop() }
+        get() = voiceMode != Speaker.Mode.ALL
+        set(value) { voiceMode = if (value) Speaker.Mode.OFF else Speaker.Mode.ALL }
 
     private val routesObserver = RoutesObserver { result ->
         if (result.navigationRoutes.isEmpty()) { _progress.value = null; _faster.value = null; return@RoutesObserver }

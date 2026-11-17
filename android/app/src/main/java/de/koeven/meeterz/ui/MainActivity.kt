@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -140,16 +142,28 @@ private fun OnboardingScreen(userId: String, suggestedName: String?) {
     var name by remember { mutableStateOf(suggestedName ?: "") }
     var handle by remember { mutableStateOf("") }
     val error by AppState.auth.error.collectAsState()
-    Column(Modifier.fillMaxSize().padding(32.dp), verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically)) {
-        Text(tr("Profil anlegen"), style = MaterialTheme.typography.headlineMedium)
-        OutlinedTextField(name, { name = it }, label = { Text(tr("Name")) }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(handle, { handle = it }, label = { Text(tr("Benutzername")) }, modifier = Modifier.fillMaxWidth())
+    // Wie iOS (RootView): „Wie sollen dich deine Freunde sehen?“, Anzeigename, Benutzername mit Regeln, „Los geht's“
+    val handleValid = Regex("^[a-z0-9_]{3,20}$").matches(handle.lowercase())
+    Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+        Text(tr("Wie sollen dich\ndeine Freunde sehen?"), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 40.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(tr("Anzeigename"), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            OutlinedTextField(name, { name = it }, placeholder = { Text(tr("z. B. Luca")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(tr("Benutzername"), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            OutlinedTextField(handle, { handle = it }, placeholder = { Text("@benutzername") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            Text(tr("Darüber finden dich Freunde. 3–20 Zeichen: a–z, 0–9, _"), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        error?.let { Text(if (it.contains("duplicate")) tr("Dieser Benutzername ist schon vergeben.") else it,
+            color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+        androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
         Button(
             onClick = { scope.launch { AppState.auth.createProfile(userId, handle, name) } },
-            enabled = name.isNotBlank() && handle.length >= 3,
+            enabled = name.isNotBlank() && handleValid,
             modifier = Modifier.fillMaxWidth(),
-        ) { Text(tr("Weiter")) }
-        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        ) { Text(tr("Los geht's")) }
     }
 }
 

@@ -259,7 +259,7 @@ object NavigationController : MapboxNavigationObserver {
     private var lastShare = 0L
 
     /** Fortbewegungsart der laufenden Führung (aus der Route; Android Auto: Auto) */
-    val activeMode: TravelMode get() = navigation?.getNavigationRoutes()?.firstOrNull()?.routeOptions?.profile()
+    val activeMode: TravelMode get() = navigation?.getNavigationRoutes()?.firstOrNull()?.directionsRoute?.routeOptions()?.profile()
         ?.let { p -> TravelMode.entries.firstOrNull { it.profile == p } } ?: TravelMode.CAR
 
     /** Eigene Route für Freunde (alle 60 s, wie iOS); nicht bei Inkognito oder verborgenen Routen */

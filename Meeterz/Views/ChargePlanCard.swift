@@ -13,6 +13,9 @@ struct ChargePlanCard: View {
 
     @State private var result: Result<ChargePlanner.Plan, ChargePlanner.Failure>?
     @State private var adopting = false
+    /// Aufgeklappte Ladealternativen (je Stopp) – wie ABRP
+    @State private var openStop: ChargeSite?
+    @State private var alternatives: [ChargePlanner.Alternative]?
     /// Ohne Live-Daten erst nach dem Akkustand fragen (vorausgefüllt mit dem letzten Wert) – 17.11.
     @State private var batteryConfirmed = false
     @State private var battery = EVSettings.chargePercent.rounded()
@@ -89,6 +92,65 @@ struct ChargePlanCard: View {
         return app.vehicle.liveSoc != nil ? String(localized: "Start \(soc) % (live)") : String(localized: "Start \(soc) %")
     }
 
+    private func toggleAlternatives(_ stop: ChargePlanner.Stop, _ plan: ChargePlanner.Plan) {
+        guard openStop != stop.site else { openStop = nil; return }
+        openStop = stop.site
+        alternatives = nil
+        Task {
+            let found = await EVSettings.alternatives(for: stop, in: plan, route: route)
+            if openStop == stop.site { alternatives = found }
+        }
+    }
+
+    /// Andere Säulen für den Stopp: Leistung, Belegung, Zeit mehr/weniger; Antippen übernimmt sie (Plan neu gerechnet)
+    @ViewBuilder private func alternativeList(_ plan: ChargePlanner.Plan) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if let alternatives {
+                if alternatives.isEmpty {
+                    Text("Keine anderen Schnelllader in der Nähe dieses Stopps.").font(.caption).foregroundStyle(Theme.muted)
+                }
+                ForEach(alternatives) { alt in
+                    Button {
+                        choose(alt)
+                    } label: {
+                        HStack(spacing: 8) {
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(alt.site.title).font(.subheadline).foregroundStyle(Theme.text).lineLimit(1)
+                                Text(verbatim: [alt.site.powerKnown ? "\(Int(alt.site.maxKW)) kW" : nil, alt.site.operatorName.isEmpty ? nil : alt.site.operatorName]
+                                    .compactMap { $0 }.joined(separator: " · "))
+                                    .font(.caption).foregroundStyle(Theme.muted).lineLimit(1)
+                            }
+                            Spacer(minLength: 4)
+                            let minutes = Int((alt.delta / 60).rounded())
+                            Text(minutes == 0 ? String(localized: "gleich schnell") : (minutes > 0 ? "+\(minutes) Min." : "\(minutes) Min."))
+                                .font(.caption.weight(.semibold).monospacedDigit())
+                                .foregroundStyle(minutes > 0 ? Theme.muted : Theme.go)
+                        }
+                        .padding(10)
+                        .background(RoundedRectangle(cornerRadius: 10).fill(Theme.panel))
+                    }
+                    .buttonStyle(.plain)
+                }
+            } else {
+                HStack(spacing: 8) { ProgressView(); Text("Suche Alternativen …").font(.caption).foregroundStyle(Theme.muted) }
+            }
+        }
+        .padding(.leading, 62)
+    }
+
+    private func choose(_ alt: ChargePlanner.Alternative) {
+        openStop = nil
+        alternatives = nil
+        Diag.log("Ladealternative gewählt: \(alt.site.title)")
+        if adopted != nil {
+            adopting = true
+            Task { await adopt(alt.plan); adopting = false }
+        } else {
+            result = .success(alt.plan)
+            onPlan(alt.plan)
+        }
+    }
+
     private func summary(_ plan: ChargePlanner.Plan) -> some View {
         Text(plan.summary).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.text)
     }
@@ -96,6 +158,7 @@ struct ChargePlanCard: View {
     private func stops(_ plan: ChargePlanner.Plan) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             ForEach(plan.stops) { stop in
+              VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .top, spacing: 10) {
                     Text("\(Int(stop.distanceFromStart / 1000)) km")
                         .font(.caption.monospacedDigit()).foregroundStyle(Theme.muted)
@@ -110,7 +173,18 @@ struct ChargePlanCard: View {
                         Text(verbatim: (stop.site.powerKnown ? "\(Int(stop.site.maxKW)) kW" : String(localized: "kW unbekannt")) + " · \(Int(stop.arrivalPercent)) → \(Int(stop.departurePercent.rounded())) % · " + String(localized: "\(Int((stop.chargeTime / 60).rounded())) Min."))
                             .font(.caption).foregroundStyle(Theme.muted)
                     }
+                    Spacer(minLength: 4)
+                    Button {
+                        toggleAlternatives(stop, plan)
+                    } label: {
+                        Image(systemName: openStop == stop.site ? "chevron.up" : "arrow.triangle.swap")
+                            .font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.accent)
+                            .frame(width: 32, height: 32)
+                    }
+                    .accessibilityLabel("Ladealternativen")
                 }
+                if openStop == stop.site { alternativeList(plan) }
+              }
             }
         }
     }

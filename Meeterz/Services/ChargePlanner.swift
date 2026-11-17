@@ -386,6 +386,52 @@ enum ChargePlanner {
     /// Darunter gilt das Ziel als nicht erreichbar (Puffer für Prognosefehler)
     static let hardMinimumPercent: Double = 3
 
+    // MARK: Ladealternativen je Stopp (wie ABRP)
+
+    struct Alternative: Identifiable {
+        let site: ChargeSite
+        /// Neu gerechneter Plan mit dieser Säule statt des Stopps
+        let plan: Plan
+        /// Mehr (+) oder weniger (−) Zeit als der bisherige Plan (Laden, Warten, Umweg)
+        let delta: TimeInterval
+        var id: ChargeSite { site }
+    }
+
+    /// Bis zu `limit` andere Säulen für einen Stopp: Schnelllader bis 25 km vor oder nach ihm, je mit neu gerechnetem
+    /// Plan (die gewählte Säule ist dabei ein fester Halt, der Rest plant drumherum), sortiert nach Zeitverlust.
+    static func alternatives(for stop: Stop, in plan: Plan, profile p: Profile, vehicle: EVVehicle, startPercent: Double,
+                             settings: Settings, sites: [ChargeSite], limit: Int = 3) -> [Alternative] {
+        let usable = settings.avoidedNetworks.isEmpty ? sites
+            : sites.filter { !settings.avoidedNetworks.contains(ChargeNetworks.key($0.operatorName)) }
+        let all = candidates(along: p, sites: usable, preferred: settings.preferredNetworks)
+        let inPlan = Set(plan.stops.map(\.site))
+        let near = all.filter {
+            abs($0.along - stop.distanceFromStart) < 25_000 && !inPlan.contains($0.site) && $0.site.plannedKW >= 50
+                && settings.availability[$0.site]?.allOutOfService != true
+        }
+        // Erst die stärksten, dann die nächsten – höchstens 8 durchrechnen
+        let picks = near.sorted {
+            ($0.site.plannedKW, -abs($0.along - stop.distanceFromStart)) > ($1.site.plannedKW, -abs($1.along - stop.distanceFromStart))
+        }.prefix(8)
+        let offsets = Dictionary(all.map { ($0.site, $0.offset) }, uniquingKeysWith: { a, _ in a })
+        func cost(_ plan: Plan) -> TimeInterval {
+            plan.totalChargeTime + plan.stops.reduce(0) { $0 + (offsets[$1.site] ?? 0) * 2 / 1000 / 40 * 3600 }
+        }
+        let base = cost(plan)
+        var result: [Alternative] = []
+        for c in picks {
+            var s = settings
+            var fixed = c
+            fixed.fixed = true
+            s.fixed.append(fixed)
+            guard case .success(let alt) = Self.plan(profile: p, vehicle: vehicle, startPercent: startPercent, settings: s, sites: sites),
+                  alt.stops.contains(where: { $0.site == c.site }) else { continue }
+            // Feste Halte rechnet der Planer ohne Aufschlag je Stopp (Pause) – hier ist es ein echter Ladestopp
+            result.append(Alternative(site: c.site, plan: alt, delta: cost(alt) + settings.stopOverhead - base))
+        }
+        return Array(result.sorted { $0.delta < $1.delta }.prefix(limit))
+    }
+
     static func plan(route: Route, vehicle: EVVehicle, startPercent: Double, settings: Settings,
                      sites: [ChargeSite]) -> Result<Plan, Failure> {
         plan(profile: profile(of: route, vehicle: vehicle, temperature: settings.temperature, factors: settings.factors,
@@ -547,6 +593,21 @@ extension EVSettings {
     }
 
     /// Ladeplan für eine Route mit den aktuellen Einstellungen (nil, wenn kein E-Auto/Fahrzeug)
+    /// Andere Säulen für einen Stopp des Plans (Ladealternativen in der Vorschau)
+    @MainActor static func alternatives(for stop: ChargePlanner.Stop, in plan: ChargePlanner.Plan, route: Route) async -> [ChargePlanner.Alternative] {
+        guard enabled, let vehicle else { return [] }
+        var settings = plannerSettings
+        settings.availability = await ChargeStatusService.shared.availability(along: route)
+        settings.conditions = await RouteConditionsService.shared.conditions(for: route)
+        let start = plan.startPercent
+        return await Task.detached(priority: .userInitiated) {
+            let profile = ChargePlanner.profile(of: route, vehicle: vehicle, temperature: settings.temperature, factors: settings.factors,
+                                                conditions: settings.conditions)
+            return ChargePlanner.alternatives(for: stop, in: plan, profile: profile, vehicle: vehicle, startPercent: start,
+                                              settings: settings, sites: ChargeSites.all)
+        }.value
+    }
+
     @MainActor static func plan(for route: Route) async -> Result<ChargePlanner.Plan, ChargePlanner.Failure>? {
         guard enabled, let vehicle else { return nil }
         let start = chargePercent

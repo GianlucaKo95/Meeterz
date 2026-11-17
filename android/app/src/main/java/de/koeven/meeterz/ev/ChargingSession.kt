@@ -45,7 +45,7 @@ object ChargingSession {
         val leg = progress.currentLegProgress?.legIndex ?: 0
         // Ziel der Etappe i = Wegpunkt i+1; letzte Etappe endet am Ziel (kein Ladestopp)
         for (i in leg until legs.size - 1) {
-            val p = waypoints.getOrNull(i + 1)?.location ?: continue
+            val p = waypoints.getOrNull(i + 1)?.location() ?: continue
             stops.firstOrNull { ChargePlanner.distance(it.site.lat, it.site.lng, p.latitude(), p.longitude()) < 300 }?.let { total += it.chargeTime }
         }
         return total

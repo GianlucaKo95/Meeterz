@@ -4,6 +4,7 @@ import com.mapbox.maps.EdgeInsets
 import com.mapbox.maps.MapView
 import com.mapbox.maps.plugin.animation.camera
 import com.mapbox.maps.plugin.viewport.viewport
+import com.mapbox.maps.plugin.gestures.gestures
 import com.mapbox.maps.plugin.locationcomponent.LocationProvider
 import com.mapbox.maps.plugin.locationcomponent.location
 import com.mapbox.navigation.base.route.NavigationRoute
@@ -136,6 +137,7 @@ class NavigationMapBinder(private val mapView: MapView) : MapboxNavigationObserv
     fun showPreview(routes: List<NavigationRoute>?, selected: Int = 0) {
         if (active) return
         val style = mapView.mapboxMap.style ?: return
+        previewing = !routes.isNullOrEmpty()
         if (routes.isNullOrEmpty()) {
             lastRenderedRoutes = emptyList()
             routeLineApi.clearRouteLine { routeLineView.renderClearRouteLineValue(style, it) }

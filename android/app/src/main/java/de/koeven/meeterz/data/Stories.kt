@@ -100,6 +100,16 @@ object StoriesStore {
         if (!cleaned) { cleaned = true; removeExpired() }
     }
 
+    @Serializable data class Viewer(val viewer: String, @SerialName("seen_at") val seenAt: String)
+
+    /** Wer eine eigene Story gesehen hat (die Datenbank zeigt nur dem Besitzer die Aufrufe) */
+    suspend fun viewers(story: Story): List<Viewer> = runCatching {
+        Backend.client.from("story_views").select(Columns.raw("viewer,seen_at")) {
+            filter { eq("story_id", story.id) }
+            order("seen_at", Order.DESCENDING)
+        }.decodeList<Viewer>()
+    }.getOrDefault(emptyList())
+
     fun markSeen(story: Story) {
         if (story.seen || story.userId == AppState.myId) return
         _stories.value = _stories.value.map { if (it.id == story.id) it.copy(seen = true) else it }

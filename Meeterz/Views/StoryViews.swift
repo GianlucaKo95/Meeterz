@@ -144,6 +144,8 @@ struct StoryViewer: View {
     @State private var image: UIImage?
     @State private var player: AVPlayer?
     @State private var failed = false
+    @State private var viewers: [StoriesStore.Viewer]?
+    @State private var showViewers = false
 
     private var story: StoriesStore.Story? { stories.indices.contains(index) ? stories[index] : nil }
 
@@ -167,6 +169,27 @@ struct StoryViewer: View {
         }
         .statusBarHidden()
         .task(id: index) { await play() }
+        .task(id: index) {
+            viewers = nil
+            if let story, story.userId == app.profile?.id { viewers = await app.stories.viewers(of: story) }
+        }
+        .sheet(isPresented: $showViewers) {
+            NavigationStack {
+                List(viewers ?? []) { v in
+                    let friend = app.friends.rows.first { $0.friendId == v.viewer }
+                    HStack(spacing: 12) {
+                        Avatar(initials: friend?.initials ?? "?", color: FriendPalette.color(for: v.viewer), size: 36, userId: v.viewer)
+                        Text(friend?.displayName ?? String(localized: "Jemand"))
+                        Spacer()
+                        Text(ActivityFormat.time(v.seenAt)).font(.footnote).foregroundStyle(Theme.muted)
+                    }
+                }
+                .navigationTitle("Gesehen von")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { showViewers = false } } }
+            }
+            .presentationDetents([.medium, .large])
+        }
     }
 
     private func overlay(_ story: StoriesStore.Story) -> some View {
@@ -201,6 +224,13 @@ struct StoryViewer: View {
                     .padding(12)
                     .background(RoundedRectangle(cornerRadius: 12).fill(.black.opacity(0.5)))
                     .frame(maxWidth: .infinity)
+            }
+            if story.userId == app.profile?.id, let viewers {
+                Button { showViewers = true } label: {
+                    Label(viewers.count == 1 ? String(localized: "Gesehen von 1") : String(localized: "Gesehen von \(viewers.count)"), systemImage: "eye")
+                        .font(.subheadline.weight(.semibold))
+                }
+                .disabled(viewers.isEmpty)
             }
             Button {
                 let place = Place(id: "story-\(story.id)", name: story.placeName ?? String(localized: "Story-Ort"), address: nil, coordinate: story.coordinate)

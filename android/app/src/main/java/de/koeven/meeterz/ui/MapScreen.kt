@@ -371,6 +371,28 @@ fun MapScreen() {
                     .withData(com.google.gson.JsonPrimitive(s.userId)))
             }
         }
+        // Eigene Story: Ring um meinen Standortpfeil (wie iOS), Antippen spielt sie ab
+        val myStory = stories.any { it.userId == AppState.myId }
+        val meManager = remember(mapView, mapStyleRevision) {
+            mapView.annotations.createPointAnnotationManager().apply {
+                addClickListener { AppState.myId?.let { de.koeven.meeterz.data.StoriesStore.open(it) }; true }
+            }
+        }
+        DisposableEffect(myStory, meManager) {
+            meManager.deleteAll()
+            if (!myStory) return@DisposableEffect onDispose {}
+            var ring: com.mapbox.maps.plugin.annotation.generated.PointAnnotation? = null
+            val listener = com.mapbox.maps.plugin.locationcomponent.OnIndicatorPositionChangedListener { p ->
+                val r = ring
+                if (r == null) ring = meManager.create(PointAnnotationOptions().withPoint(p).withIconImage(ownStoryRing()))
+                // ponytail: nur bei spürbarer Bewegung (~2 m) neu setzen statt in jedem Bild
+                else if (kotlin.math.abs(r.point.latitude() - p.latitude()) + kotlin.math.abs(r.point.longitude() - p.longitude()) > 0.00002) {
+                    r.point = p; meManager.update(r)
+                }
+            }
+            mapView.location.addOnIndicatorPositionChangedListener(listener)
+            onDispose { mapView.location.removeOnIndicatorPositionChangedListener(listener); meManager.deleteAll() }
+        }
         val pinManager = remember(mapView, mapStyleRevision) { mapView.annotations.createPointAnnotationManager() }
         LaunchedEffect(droppedPin, mapStyleRevision) {
             pinManager.deleteAll()
@@ -881,6 +903,16 @@ private fun StatusPill() {
 }
 
 /** Runder Mint-Kreis mit Initialen (Freundes-Pin ohne Profilbild) */
+/** Leerer Mint-Ring um den eigenen Standortpfeil, solange ich eine Story habe */
+internal fun ownStoryRing(): Bitmap {
+    val size = 120
+    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    Canvas(bitmap).drawCircle(size / 2f, size / 2f, size / 2f - 6, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = MeeterzColors.mint.toArgb(); style = Paint.Style.STROKE; strokeWidth = 8f
+    })
+    return bitmap
+}
+
 /** Kamera-Pin einer Story: Akzentfarbe, grau wenn gesehen */
 internal fun storyBubble(seen: Boolean): Bitmap {
     val size = 96

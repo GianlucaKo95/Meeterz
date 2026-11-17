@@ -110,6 +110,21 @@ final class StoriesStore {
 
     // MARK: Ansehen
 
+    /// Wer eine eigene Story gesehen hat (die Datenbank zeigt nur dem Besitzer die Aufrufe)
+    struct Viewer: Decodable, Identifiable {
+        let viewer: UUID
+        let seenAt: Date
+        var id: UUID { viewer }
+        enum CodingKeys: String, CodingKey { case viewer; case seenAt = "seen_at" }
+    }
+
+    func viewers(of story: Story) async -> [Viewer] {
+        (try? await client.from("story_views").select("viewer,seen_at")
+            .eq("story_id", value: story.id).order("seen_at", ascending: false).execute().value) ?? []
+    }
+
+    var myId: UUID? { me }
+
     func open(_ userId: UUID) {
         let list = of(userId)
         if !list.isEmpty { viewing = list }

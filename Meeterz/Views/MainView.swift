@@ -280,6 +280,19 @@ struct MainView: View {
             .textAllowOverlap(true)
             .textIgnorePlacement(true)
 
+            // Eigene Story: Ring um meinen Standort, Antippen spielt sie ab
+            if let me = app.stories.myId, app.stories.hasStories(me), let here = app.location.lastLocation {
+                MapViewAnnotation(coordinate: here.coordinate) {
+                    Button { app.stories.open(me) } label: {
+                        Circle().stroke(Theme.accent, lineWidth: 3)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Circle())
+                    }
+                    .accessibilityLabel("Meine Story ansehen")
+                }
+                .allowOverlap(true)
+            }
+
             // Stories an ihrem Ort
             ForEvery(app.stories.stories) { story in
                 MapViewAnnotation(coordinate: story.coordinate) {

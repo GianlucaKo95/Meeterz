@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -44,6 +45,7 @@ import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -200,6 +202,13 @@ fun StoryViewer(stories: List<Story>, onDismiss: () -> Unit, onNavigate: (name: 
     val story = stories.getOrNull(index)
     var file by remember { mutableStateOf<File?>(null) }
     var failed by remember { mutableStateOf(false) }
+    var viewers by remember { mutableStateOf<List<StoriesStore.Viewer>?>(null) }
+    var showViewers by remember { mutableStateOf(false) }
+    val friends by AppState.friends.collectAsState()
+    LaunchedEffect(story?.id) {
+        viewers = null; showViewers = false
+        story?.takeIf { it.userId == AppState.myId }?.let { viewers = StoriesStore.viewers(it) }
+    }
     fun step(d: Int) { val n = index + d; if (n < 0) return; if (n >= stories.size) onDismiss() else index = n }
 
     LaunchedEffect(story?.id) {
@@ -252,8 +261,36 @@ fun StoryViewer(stories: List<Story>, onDismiss: () -> Unit, onNavigate: (name: 
                         Text(it, Modifier.fillMaxWidth().background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(12.dp)).padding(12.dp),
                             color = Color.White, fontWeight = FontWeight.Medium)
                     }
+                    viewers?.let { v ->
+                        TextButton(onClick = { showViewers = true }, enabled = v.isNotEmpty()) {
+                            Icon(Icons.Default.Visibility, null, tint = Color.White, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
+                            Text(tr("Gesehen von %lld", v.size), color = Color.White, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
                     OutlinedButton(onClick = { onDismiss(); onNavigate(s.placeName ?: tr("Story-Ort"), s.lat, s.lng) }, Modifier.fillMaxWidth()) {
                         Text(tr("Hin navigieren"), color = Color.White)
+                    }
+                }
+            }
+            if (showViewers) viewers?.let { v ->
+                Surface(Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding(),
+                    shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp), color = MaterialTheme.colorScheme.background) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Box(Modifier.fillMaxWidth()) {
+                            Text(tr("Gesehen von"), Modifier.align(Alignment.Center), style = MaterialTheme.typography.titleMedium)
+                            TextButton(onClick = { showViewers = false }, modifier = Modifier.align(Alignment.CenterEnd)) { Text(tr("Fertig")) }
+                        }
+                        LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                            items(v, key = { it.viewer }) { w ->
+                                val f = friends.firstOrNull { it.friendId == w.viewer }
+                                Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Avatar(w.viewer, f?.displayName ?: "?", 36.dp)
+                                    Text(f?.displayName ?: tr("Jemand"), Modifier.weight(1f).padding(start = 12.dp))
+                                    Text(runCatching { clockAt(java.time.Instant.parse(w.seenAt)) }.getOrDefault(""),
+                                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
                     }
                 }
             }

@@ -96,6 +96,9 @@ import com.mapbox.maps.plugin.annotation.generated.PolylineAnnotationOptions
 import com.mapbox.maps.plugin.locationcomponent.createDefault2DPuck
 import com.mapbox.maps.plugin.locationcomponent.location
 import com.mapbox.maps.plugin.viewport.viewport
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import com.mapbox.maps.plugin.gestures.gestures
 import com.mapbox.maps.plugin.animation.camera
 import com.mapbox.maps.plugin.animation.flyTo
 import com.mapbox.navigation.base.route.NavigationRoute
@@ -214,6 +217,7 @@ fun MapScreen() {
     var adopted by remember { mutableStateOf<ChargePlanner.Plan?>(null) }
     val favorites by AppState.favorites.items.collectAsState()
     val car by AppState.vehicle.status.collectAsState()
+    var droppedPin by remember { mutableStateOf<DroppedPin?>(null) }
     fun planTo(name: String, address: String?, lat: Double, lng: Double) {
         val me = AppState.lastLocation ?: return
         val dest = NavigationController.Destination(name, lat, lng, address)
@@ -285,6 +289,38 @@ fun MapScreen() {
                 Toast.makeText(context, listOfNotNull(a.title, a.subtitle).joinToString(" – "), Toast.LENGTH_LONG).show()
             }
         }
+        // Gedrückt halten setzt einen Pin (wie iOS dropPin): Adresse nachladen, unten „Hierhin navigieren“ / „Entfernen“
+        val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
+        DisposableEffect(mapView) {
+            val listener = com.mapbox.maps.plugin.gestures.OnMapLongClickListener { point ->
+                if (NavigationController.guidance.value != null) return@OnMapLongClickListener false
+                haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                val pin = DroppedPin(point.latitude(), point.longitude(), tr("Gesetzter Pin"), null)
+                droppedPin = pin
+                query = ""; results = emptyList()
+                scope.launch {
+                    val a = withContext(Dispatchers.IO) {
+                        runCatching { android.location.Geocoder(context).getFromLocation(pin.lat, pin.lng, 1)?.firstOrNull() }.getOrNull()
+                    } ?: return@launch
+                    if (droppedPin?.lat != pin.lat || droppedPin?.lng != pin.lng) return@launch
+                    val street = listOfNotNull(a.thoroughfare, a.subThoroughfare).joinToString(" ")
+                    val city = listOfNotNull(a.postalCode, a.locality).joinToString(" ")
+                    val name = a.featureName?.takeIf { it != a.subThoroughfare } ?: street.ifEmpty { pin.name }
+                    droppedPin = pin.copy(name = name, address = listOf(street, city).filter { it.isNotEmpty() }.joinToString(", ").ifEmpty { null })
+                }
+                true
+            }
+            mapView.gestures.addOnMapLongClickListener(listener)
+            onDispose { mapView.gestures.removeOnMapLongClickListener(listener) }
+        }
+        val pinManager = remember(mapView, mapStyleRevision) { mapView.annotations.createPointAnnotationManager() }
+        LaunchedEffect(droppedPin, mapStyleRevision) {
+            pinManager.deleteAll()
+            droppedPin?.let { p ->
+                pinManager.create(PointAnnotationOptions().withPoint(Point.fromLngLat(p.lng, p.lat)).withIconImage(pinBitmap()))
+            }
+        }
+
         // Geparktes Auto (wie ParkedCarMarker auf iOS): Antippen → zu Fuß hin oder vergessen
         val parked by de.koeven.meeterz.suggest.Parking.spot.collectAsState()
         var parkedMenu by remember { mutableStateOf(false) }
@@ -385,6 +421,10 @@ fun MapScreen() {
             }
             if (planning) CircularProgressIndicator(Modifier.align(Alignment.Center))
             if (preview == null && query.isEmpty()) Column(Modifier.align(Alignment.BottomCenter).navigationBarsPadding()) {
+                droppedPin?.let { pin ->
+                    PinCard(pin, onNavigate = { droppedPin = null; planTo(pin.name, pin.address, pin.lat, pin.lng) },
+                        onRemove = { droppedPin = null })
+                }
                 SocialCard { planCandidate = it }
                 MeetingPointCard()
             }
@@ -746,4 +786,42 @@ private fun AddStopDialog(onDismiss: () -> Unit) {
             }
         },
     )
+}
+
+
+/** Per Gedrückthalten gesetzter Pin */
+private data class DroppedPin(val lat: Double, val lng: Double, val name: String, val address: String?)
+
+/** Karte unten wie iOS PinCard: Name, Adresse, „Entfernen“ und „Hierhin navigieren“ */
+@Composable
+private fun PinCard(pin: DroppedPin, onNavigate: () -> Unit, onRemove: () -> Unit) {
+    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surface, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column {
+                Text(pin.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                pin.address?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedButton(onClick = onRemove, Modifier.weight(1f)) { Text(tr("Entfernen")) }
+                Button(onClick = onNavigate, Modifier.weight(1f)) { Text(tr("Hierhin navigieren")) }
+            }
+        }
+    }
+}
+
+/** Roter Pin wie iOS DroppedPinMarker (mappin.circle.fill in Theme.danger) */
+private fun pinBitmap(): android.graphics.Bitmap {
+    val d = android.content.res.Resources.getSystem().displayMetrics.density
+    val size = (38 * d).toInt()
+    val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+    val c = android.graphics.Canvas(bmp)
+    val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+    val r = size / 2f
+    paint.setShadowLayer(4 * d, 0f, 1 * d, 0x55000000)
+    paint.color = 0xFFE5484D.toInt(); c.drawCircle(r, r, r - 4 * d, paint)
+    paint.clearShadowLayer()
+    paint.color = android.graphics.Color.WHITE; c.drawCircle(r, r - 3 * d, 5 * d, paint)
+    paint.strokeWidth = 2.5f * d; c.drawLine(r, r, r, r + 9 * d, paint)
+    return bmp
 }

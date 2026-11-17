@@ -133,6 +133,8 @@ final class CarPlayController: NSObject {
 
     /// Rand der Browse-Karte vor der Routenvorschau (danach wiederherstellen)
     private var previewPaddingBefore: UIEdgeInsets?
+    /// Gerade gezeigte Vorschau (für „Übersicht“)
+    private var previewRoutes: NavigationRoutes?
 
     private var browseMap: NavigationMapView? { manager.carPlayMapViewController?.navigationMapView }
     private var navMap: NavigationMapView? { manager.carPlayNavigationViewController?.navigationMapView }
@@ -1411,7 +1413,9 @@ extension CarPlayController: CarPlayManagerDelegate {
                 return mapButtons()
             case .navigating:
                 return navigationMapButtons()
-            case .previewing, .panningInBrowsingMode, .panningInNavigationMode:
+            case .previewing:
+                return previewMapButtons()
+            case .panningInBrowsingMode, .panningInNavigationMode:
                 return nil
             }
         }
@@ -1462,9 +1466,7 @@ extension CarPlayController: CarPlayManagerDelegate {
                 }
                 let stop = CPBarButton(title: String(localized: "Stopp")) { [weak self] _ in self?.showSearchHub() }
                 return [stop, end]
-            case .previewing:
-                return previewMapButtons()
-            case .panningInBrowsingMode, .panningInNavigationMode:
+            case .previewing, .panningInBrowsingMode, .panningInNavigationMode:
                 return nil
             }
         }
@@ -1547,9 +1549,6 @@ extension CarPlayController: CarPlayManagerDelegate {
 
     /// Routenvorschau so rahmen, dass CarPlays Auswahlkarte (links) die Routen nicht verdeckt. Mapbox rahmte über die
     /// ganze Breite – die Routen lagen zur Hälfte unter der Karte. Dazu „+2 Min“ an den Alternativen wie Apple Karten.
-    /// Gerade gezeigte Vorschau (für „Übersicht“)
-    private var previewRoutes: NavigationRoutes?
-
     private func framePreview(_ routes: NavigationRoutes?) {
         previewRoutes = routes
         guard let map = browseMap else { return }

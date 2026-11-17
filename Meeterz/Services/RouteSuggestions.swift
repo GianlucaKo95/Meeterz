@@ -188,6 +188,8 @@ final class RouteSuggestions {
             guard !isDismissed(place), let travel = await travelTime(to: coordinate, from: here) else { continue }
             let leave = event.startDate.addingTimeInterval(-travel - 5 * 60)
             guard leave.timeIntervalSince(now) <= 30 * 60 else { continue }   // noch zu früh
+            // Käme man über 15 Min. zu spät an, ist der Termin gelaufen (17.11.: „Reformer Balance“ noch 19:06 vorgeschlagen)
+            guard now.addingTimeInterval(travel) <= event.startDate.addingTimeInterval(15 * 60) else { continue }
             return Suggestion(place: place, reason: .calendar(title: event.title ?? name, start: event.startDate), travelTime: travel)
         }
         return nil

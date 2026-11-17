@@ -158,6 +158,7 @@ object RouteSuggestions {
             val travel = Directions.duration(lat, lng, eLat, eLng) ?: continue
             val leave = e.start - (travel * 1000).toLong() - 5 * 60_000
             if (leave - now > 30 * 60_000) continue   // noch zu früh
+            if (now + (travel * 1000).toLong() > e.start + 15 * 60_000) continue   // käme über 15 Min. zu spät – vorbei (wie iOS)
             val name = e.location.substringBefore("\n").substringBefore(",")
             return Suggestion(id, name, e.location, eLat, eLng, e.title.ifEmpty { name }, e.start, travel)
         }

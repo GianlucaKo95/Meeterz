@@ -58,13 +58,6 @@ function pricePerKwh(point: Record<string, unknown>): number | undefined {
     }
   }
 }
-function getPayloadItems(parsed: unknown): Record<string, unknown>[] {
-  if (!isObj(parsed)) return [];
-  const container = isObj(parsed.messageContainer) ? parsed.messageContainer : undefined;
-  const raw = parsed.payload ?? container?.payload;
-  const items = Array.isArray(raw) ? raw : raw && typeof raw === "object" ? [raw] : [];
-  return items.filter(isObj);
-}
 function parseDynamic(json: unknown, now: string) {
   const rows: Record<string, unknown>[] = [];
   for (const site of findAll(json, "energyInfrastructureSiteStatus")) {
@@ -109,6 +102,95 @@ function parseStatic(json: unknown, now: string) {
     }
   }
   return { sites, points, mappings };
+}
+/**
+ * Liest die Mobilithek-Antwort als Strom und gibt nur die gesuchten Listenelemente (Standorte) einzeln weiter.
+ * Vorher wurde die ganze Antwort als Text gelesen und komplett geparst – große Betreiber (über 100 MB entpackt)
+ * sprengten das Speicherlimit der Funktion (WORKER_RESOURCE_LIMIT, 17.11.). So liegt immer nur ein Standort im Speicher.
+ */
+async function scanElements(body: ReadableStream<Uint8Array>, keys: Set<string>, onElement: (key: string, value: unknown) => void) {
+  const reader = body.pipeThrough(new TextDecoderStream()).getReader();
+  let buf = "", inStr = false, strStart = -1, lastString: string | null = null;
+  let depth = 0, armedKey: string | null = null, armedDepth = -1;
+  let arrayKey: string | null = null, arrayDepth = -1;
+  let capKey: string | null = null, capStart = -1, capDepth = -1;
+  const publications = new Set<string>();
+  let elements = 0, start = 0;
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += value;
+    // weiter ab dem Ende des letzten Stücks (Positionen sind relativ zu buf)
+    for (let i = start; i < buf.length; i++) {
+      const c = buf.charCodeAt(i);
+      if (inStr) {
+        // Strings überspringen (der Großteil der Daten) – schnell per indexOf statt Zeichen für Zeichen
+        let j = buf.indexOf('"', i);
+        while (j >= 0) {
+          let b = 0;
+          while (buf.charCodeAt(j - 1 - b) === 92) b++;       // vorangestellte Backslashes
+          if (b % 2 === 0) break;
+          j = buf.indexOf('"', j + 1);
+        }
+        if (j < 0) {                                         // String geht im nächsten Stück weiter
+          if (strStart >= 0 && buf.length - strStart > 200) strStart = -1;
+          break;
+        }
+        inStr = false;
+        if (capStart < 0 && strStart >= 0 && j - strStart <= 200) lastString = buf.slice(strStart, j);
+        strStart = -1;
+        i = j;
+        continue;
+      }
+      if (c === 34) {
+        inStr = true; lastString = null;
+        strStart = capStart < 0 ? i + 1 : -1;
+        if (capStart < 0 && armedKey !== null && depth === armedDepth) armedKey = null;   // Wert ist ein String
+        continue;
+      }
+      if (c === 58) {                                        // :
+        if (capStart < 0 && lastString !== null) {
+          if (keys.has(lastString)) { armedKey = lastString; armedDepth = depth; }
+          else if (/Publication$/.test(lastString)) publications.add(lastString);
+        }
+        lastString = null;
+        continue;
+      }
+      if (c === 123 || c === 91) {                           // { [
+        if (capStart < 0) {
+          if (armedKey !== null && depth === armedDepth) {
+            if (c === 91) { arrayKey = armedKey; arrayDepth = depth + 1; }
+            else { capKey = armedKey; capStart = i; capDepth = depth; }
+            armedKey = null;
+          } else if (c === 123 && arrayKey !== null && depth === arrayDepth) {
+            capKey = arrayKey; capStart = i; capDepth = depth;
+          }
+        }
+        depth++;
+        continue;
+      }
+      if (c === 125 || c === 93) {                           // } ]
+        depth--;
+        if (capStart >= 0 && depth === capDepth && c === 125) {
+          onElement(capKey!, JSON.parse(buf.slice(capStart, i + 1)));
+          elements++;
+          capStart = -1; capKey = null;
+        } else if (c === 93 && arrayKey !== null && depth === arrayDepth - 1) {
+          arrayKey = null; arrayDepth = -1;
+        }
+        continue;
+      }
+      if (c > 32 && c !== 44) { armedKey = null; lastString = null; }   // anderer Wert nach dem Schlüssel
+    }
+    // Rest behalten: laufendes Element bzw. laufender (kurzer) String
+    let keep = capStart >= 0 ? capStart : strStart >= 0 ? strStart - 1 : buf.length;
+    if (inStr) keep = Math.min(keep, Math.max(0, buf.length - 8));   // Backslashes vor dem nächsten " erkennen
+    buf = buf.slice(keep);
+    start = buf.length;
+    if (capStart >= 0) capStart -= keep;
+    if (strStart >= 0) strStart -= keep;
+  }
+  return { publications: [...publications], elements };
 }
 async function upsertChunks(admin: ReturnType<typeof createClient>, table: string, rows: Record<string, unknown>[], key: string) {
   const unique = [...new Map(rows.map(row => [String(row[key]), row])).values()];
@@ -243,16 +325,26 @@ Deno.serve(async (req: Request) => {
             results[i] = { ...baseResult, classification: "HTTP_ERROR", error: detail };
             continue;
           }
-          const body = await upstream.text();
-          let parsed: unknown;
-          try { parsed = JSON.parse(body); }
-          catch { results[i] = { ...baseResult, classification: "NON_JSON", bodyBytes: body.length, written: false }; continue; }
-          const payloadItems = getPayloadItems(parsed);
-          const isDynamic = payloadItems.some(item => Object.keys(item).some(k => /StatusPublication$/i.test(k)));
-          const isStatic = payloadItems.some(item => Object.keys(item).some(k => /TablePublication$/i.test(k)));
           const now = new Date().toISOString();
+          const statusRows: Record<string, unknown>[] = [];
+          const staticParts = { sites: [] as Record<string, unknown>[], points: [] as Record<string, unknown>[], mappings: [] as Record<string, unknown>[] };
+          let scan: { publications: string[]; elements: number };
+          try {
+            scan = await scanElements(upstream.body!, new Set(["energyInfrastructureSiteStatus", "energyInfrastructureSite"]), (key, value) => {
+              if (key === "energyInfrastructureSiteStatus") statusRows.push(...parseDynamic({ energyInfrastructureSiteStatus: value }, now));
+              else {
+                const part = parseStatic({ energyInfrastructureSite: value }, now);
+                staticParts.sites.push(...part.sites); staticParts.points.push(...part.points); staticParts.mappings.push(...part.mappings);
+              }
+            });
+          } catch (e) {
+            results[i] = { ...baseResult, classification: "NON_JSON", error: e instanceof Error ? e.message : String(e), written: false };
+            continue;
+          }
+          const isDynamic = statusRows.length > 0 || scan.publications.some(k => /StatusPublication$/i.test(k));
+          const isStatic = !isDynamic && (staticParts.sites.length > 0 || scan.publications.some(k => /TablePublication$/i.test(k)));
           if (isDynamic) {
-            const rows = parseDynamic(parsed, now);
+            const rows = statusRows;
             const uniquePoints = newestStatusRows(rows);
             const pointsWritten = mode === "commit" && uniquePoints.length ? await upsertStatusRows(admin, uniquePoints) : 0;
             if (mode === "commit") {
@@ -261,7 +353,7 @@ Deno.serve(async (req: Request) => {
             }
             results[i] = { ...baseResult, classification: "DYNAMIC_STATUS", pointsParsed: rows.length, uniquePoints: uniquePoints.length, pointsUpserted: pointsWritten, pricedPoints: uniquePoints.filter(r => r.price_kwh !== null).length, written: mode === "commit" && pointsWritten > 0 };
           } else if (isStatic) {
-            const { sites, points, mappings } = parseStatic(parsed, now);
+            const { sites, points, mappings } = staticParts;
             if (mode === "commit") {
               if (sites.length) await upsertChunks(admin, "charge_site_static", sites, "site_id");
               if (points.length) await upsertChunks(admin, "charge_point_static", points, "point_id");

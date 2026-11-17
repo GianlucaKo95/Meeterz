@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -89,7 +91,7 @@ fun ChargePlanSection(route: NavigationRoute, adopted: ChargePlanner.Plan?, onPl
                 modifier = Modifier.fillMaxWidth()) { Text(tr("Weiter")) }
         } else if (adopted != null) {
             Text(adopted.summary, fontWeight = FontWeight.SemiBold)
-            Stops(adopted)
+            Stops(adopted, route) { alt -> adopting = true; scope.launch { onAdopt(alt.plan); adopting = false } }
             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Default.Check, null,
                     Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
@@ -106,7 +108,7 @@ fun ChargePlanSection(route: NavigationRoute, adopted: ChargePlanner.Plan?, onPl
             is ChargePlanner.Outcome.Planned -> {
                 Text(o.plan.summary, fontWeight = FontWeight.SemiBold)
                 if (!o.plan.direct) {
-                    Stops(o.plan)
+                    Stops(o.plan, route) { alt -> outcome = ChargePlanner.Outcome.Planned(alt.plan); onPlan(alt.plan) }
                     FilledTonalButton(enabled = !adopting, onClick = {
                         adopting = true
                         scope.launch { onAdopt(o.plan); adopting = false }
@@ -119,11 +121,19 @@ fun ChargePlanSection(route: NavigationRoute, adopted: ChargePlanner.Plan?, onPl
 }
 
 @Composable
-private fun Stops(plan: ChargePlanner.Plan) {
+private fun Stops(plan: ChargePlanner.Plan, route: NavigationRoute, onChoose: (ChargePlanner.Alternative) -> Unit) {
+    // Ladealternativen je Stopp (wie ABRP / iOS): aufklappen, Zeit mehr/weniger, Antippen übernimmt
+    var open by remember(plan) { mutableStateOf<de.koeven.meeterz.ev.ChargeSite?>(null) }
+    var alternatives by remember(plan) { mutableStateOf<List<ChargePlanner.Alternative>?>(null) }
+    LaunchedEffect(open) {
+        val stop = plan.stops.firstOrNull { it.site == open } ?: return@LaunchedEffect
+        alternatives = null
+        alternatives = EvSettings.alternatives(route, stop, plan)
+    }
     for (s in plan.stops) {
-        Row {
+        Row(verticalAlignment = Alignment.Top) {
             Text("${(s.distanceFromStart / 1000).toInt()} km", Modifier.width(56.dp), style = MaterialTheme.typography.bodySmall)
-            Column {
+            Column(Modifier.weight(1f)) {
                 Text(s.site.title, fontWeight = FontWeight.SemiBold)
                 s.availability?.let { a ->
                     Text(listOfNotNull(a.text, a.priceText).joinToString(" · "), style = MaterialTheme.typography.bodySmall,
@@ -131,6 +141,36 @@ private fun Stops(plan: ChargePlanner.Plan) {
                 }
                 Text(tr("%@ · %@ → %@ % · %@ Min.", ChargeSiteText.power(s.site), Math.round(s.arrivalPercent), Math.round(s.departurePercent), Math.round(s.chargeTime / 60)),
                     style = MaterialTheme.typography.bodySmall)
+            }
+            androidx.compose.material3.IconButton(onClick = { open = if (open == s.site) null else s.site }) {
+                androidx.compose.material3.Icon(if (open == s.site) androidx.compose.material.icons.Icons.Default.ExpandLess
+                    else androidx.compose.material.icons.Icons.Default.SwapHoriz, tr("Ladealternativen"), tint = MaterialTheme.colorScheme.primary)
+            }
+        }
+        if (open == s.site) Column(Modifier.padding(start = 56.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            val list = alternatives
+            when {
+                list == null -> Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(Modifier.padding(end = 8.dp).size(14.dp), strokeWidth = 2.dp)
+                    Text(tr("Suche Alternativen …"), style = MaterialTheme.typography.bodySmall)
+                }
+                list.isEmpty() -> Text(tr("Keine anderen Schnelllader in der Nähe dieses Stopps."), style = MaterialTheme.typography.bodySmall)
+                else -> for (alt in list) {
+                    androidx.compose.material3.Surface(onClick = { open = null; onChoose(alt) }, shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth()) {
+                        Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(alt.site.title, maxLines = 1)
+                                Text(listOfNotNull(if (alt.site.powerKnown) "${alt.site.maxKW.toInt()} kW" else null,
+                                    alt.site.operatorName.ifEmpty { null }).joinToString(" · "), style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                            }
+                            val minutes = Math.round(alt.delta / 60).toInt()
+                            Text(if (minutes == 0) tr("gleich schnell") else if (minutes > 0) "+$minutes Min." else "$minutes Min.",
+                                fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall,
+                                color = if (minutes > 0) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
             }
         }
     }

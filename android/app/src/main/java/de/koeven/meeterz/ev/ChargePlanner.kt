@@ -201,6 +201,35 @@ object ChargePlanner {
     private data class State(val node: Int, val soc: Int)
     private data class Link(val from: State, val depart: Double, val charge: Double)
 
+    /** Andere Säule für einen Stopp (wie iOS ChargePlanner.Alternative): neuer Plan und Zeit mehr (+) / weniger (−) */
+    data class Alternative(val site: ChargeSite, val plan: Plan, val delta: Double)
+
+    /**
+     * Bis zu [limit] andere Schnelllader bis 25 km vor oder nach dem Stopp, je mit neu gerechnetem Plan (die Säule ist
+     * ein fester Halt, der Rest plant drumherum), sortiert nach Zeitverlust (Laden, Warten, Umweg) – wie ABRP.
+     */
+    fun alternatives(stop: Stop, plan: Plan, p: Profile, vehicle: EvVehicle, startPercent: Double, settings: Settings,
+                     sites: List<ChargeSite>, limit: Int = 3): List<Alternative> {
+        val usable = if (settings.avoidedNetworks.isEmpty()) sites
+            else sites.filter { ChargeNetworks.key(it.operatorName) !in settings.avoidedNetworks }
+        val all = candidates(p, usable, preferred = settings.preferredNetworks)
+        val inPlan = plan.stops.map { it.site }.toSet()
+        val picks = all.filter {
+            kotlin.math.abs(it.along - stop.distanceFromStart) < 25_000 && it.site !in inPlan && it.site.plannedKW >= 50 &&
+                settings.availability[it.site]?.allOutOfService != true
+        }.sortedWith(compareByDescending<Candidate> { it.site.plannedKW }.thenBy { kotlin.math.abs(it.along - stop.distanceFromStart) }).take(8)
+        val offsets = all.associate { it.site to it.offset }
+        fun cost(pl: Plan) = pl.totalChargeTime + pl.stops.sumOf { (offsets[it.site] ?: 0.0) * 2 / 1000 / 40 * 3600 }
+        val base = cost(plan)
+        return picks.mapNotNull { c ->
+            val s = settings.copy(fixed = settings.fixed + c.copy(fixed = true))
+            val alt = (plan(p, vehicle, startPercent, s, sites) as? Outcome.Planned)?.plan ?: return@mapNotNull null
+            if (alt.stops.none { it.site == c.site }) return@mapNotNull null
+            // Feste Halte rechnet der Planer ohne Aufschlag je Stopp (Pause) – hier ist es ein echter Ladestopp
+            Alternative(c.site, alt, cost(alt) + settings.stopOverhead - base)
+        }.sortedBy { it.delta }.take(limit)
+    }
+
     fun plan(p: Profile, vehicle: EvVehicle, startPercent: Double, settings: Settings, sites: List<ChargeSite>): Outcome {
         val total = p.total
         if (total <= 0) return Outcome.Unreachable(0.0)

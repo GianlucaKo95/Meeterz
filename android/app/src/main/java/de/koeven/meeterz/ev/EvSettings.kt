@@ -100,6 +100,18 @@ object EvSettings {
     }
 
     /** Ladeplan für eine Route (null ohne E-Auto/Fahrzeug); ab `fromMeters` mit `startPercent` (Neuplanung unterwegs) */
+    /** Andere Säulen für einen Stopp (Ladealternativen in der Vorschau) */
+    suspend fun alternatives(route: NavigationRoute, stop: ChargePlanner.Stop, plan: ChargePlanner.Plan): List<ChargePlanner.Alternative> {
+        if (!enabled) return emptyList()
+        val vehicle = vehicle ?: return emptyList()
+        val points = points(route)
+        val settings = plannerSettings(route.id, points)
+        return withContext(Dispatchers.Default) {
+            ChargePlanner.alternatives(stop, plan, ChargePlanner.profile(points, vehicle, settings), vehicle, plan.startPercent,
+                settings, EvData.sites(appContext))
+        }
+    }
+
     suspend fun plan(route: NavigationRoute, startPercent: Double = chargePercent, fromMeters: Double = 0.0,
                      fixed: List<ChargePlanner.Candidate> = emptyList()): ChargePlanner.Outcome? {
         if (!enabled) return null

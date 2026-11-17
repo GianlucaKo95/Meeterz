@@ -1462,10 +1462,31 @@ extension CarPlayController: CarPlayManagerDelegate {
                 }
                 let stop = CPBarButton(title: String(localized: "Stopp")) { [weak self] _ in self?.showSearchHub() }
                 return [stop, end]
-            case .previewing, .panningInBrowsingMode, .panningInNavigationMode:
+            case .previewing:
+                return previewMapButtons()
+            case .panningInBrowsingMode, .panningInNavigationMode:
                 return nil
             }
         }
+    }
+
+    /// Routenvorschau: heranzoomen/verschieben, um die Strecke genau anzusehen; „Übersicht“ rahmt wieder alles ein
+    /// (eine andere Route wählen tut das auch – framePreview). 17.11.
+    private func previewMapButtons() -> [CPMapButton] {
+        let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold)
+        let overview = CPMapButton { [weak self] _ in self?.framePreview(self?.previewRoutes) }
+        overview.image = UIImage(systemName: "point.topleft.down.to.point.bottomright.curvepath", withConfiguration: config)
+        let plus = CPMapButton { [weak self] _ in self?.zoomPreview(by: 1) }
+        plus.image = UIImage(systemName: "plus", withConfiguration: config)
+        let minus = CPMapButton { [weak self] _ in self?.zoomPreview(by: -1) }
+        minus.image = UIImage(systemName: "minus", withConfiguration: config)
+        return [overview, plus, minus]
+    }
+
+    private func zoomPreview(by delta: Double) {
+        guard let map = browseMap?.mapView, let zoom = map.mapboxMap?.cameraState.zoom else { return }
+        lastMapInteraction = Date()
+        map.camera.ease(to: CameraOptions(zoom: min(max(zoom + delta, 3), maxZoom)), duration: 0.3)
     }
 
     nonisolated func carPlayManager(
@@ -1526,7 +1547,11 @@ extension CarPlayController: CarPlayManagerDelegate {
 
     /// Routenvorschau so rahmen, dass CarPlays Auswahlkarte (links) die Routen nicht verdeckt. Mapbox rahmte über die
     /// ganze Breite – die Routen lagen zur Hälfte unter der Karte. Dazu „+2 Min“ an den Alternativen wie Apple Karten.
+    /// Gerade gezeigte Vorschau (für „Übersicht“)
+    private var previewRoutes: NavigationRoutes?
+
     private func framePreview(_ routes: NavigationRoutes?) {
+        previewRoutes = routes
         guard let map = browseMap else { return }
         if previewPaddingBefore == nil { previewPaddingBefore = map.viewportPadding }
         guard let routes else {

@@ -13,6 +13,10 @@ struct ChargePlanCard: View {
 
     @State private var result: Result<ChargePlanner.Plan, ChargePlanner.Failure>?
     @State private var adopting = false
+    /// Ohne Live-Daten erst nach dem Akkustand fragen (vorausgefüllt mit dem letzten Wert) – 17.11.
+    @State private var batteryConfirmed = false
+    @State private var battery = EVSettings.chargePercent.rounded()
+    private var needsBattery: Bool { adopted == nil && app.vehicle.liveSoc == nil && !batteryConfirmed }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -22,7 +26,19 @@ struct ChargePlanCard: View {
                 Spacer()
                 Text(startLabel).font(.caption).foregroundStyle(Theme.muted)
             }
-            if let plan = adopted {
+            if needsBattery {
+                Text("Akkustand jetzt?").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.text)
+                Stepper(value: $battery, in: 5...100, step: 5) {
+                    LabeledContent(String(localized: "Akku"), value: "\(Int(battery)) %")
+                }
+                Text("Ohne Live-Daten vom Auto rechnet der Ladeplan mit diesem Wert.").font(.caption).foregroundStyle(Theme.muted)
+                Button("Weiter") {
+                    EVSettings.chargePercent = battery
+                    batteryConfirmed = true
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .accessibilityIdentifier("charge-battery-confirm")
+            } else if let plan = adopted {
                 summary(plan)
                 ChargeTimeline(plan: plan)
                 stops(plan)
@@ -58,8 +74,9 @@ struct ChargePlanCard: View {
         }
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 16).fill(Theme.panelRaised))
-        .task(id: route.distance) {
+        .task(id: "\(route.distance)-\(batteryConfirmed)") {
             guard adopted == nil else { onPlan(adopted); return }
+            guard !needsBattery else { onPlan(nil); return }
             result = nil
             onPlan(nil)
             result = await EVSettings.plan(for: route) ?? .failure(.noVehicle)

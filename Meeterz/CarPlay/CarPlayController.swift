@@ -1566,7 +1566,7 @@ extension CarPlayController: CarPlayManagerDelegate {
             // E-Auto: kurz warten, bis Restweg berechnet ist, dann prüfen, ob der Akku reicht
             Task { @MainActor [weak self] in
                 try? await Task.sleep(for: .seconds(4))
-                self?.checkCharge()
+                self?.checkCharge(askBattery: true)
             }
         }
     }

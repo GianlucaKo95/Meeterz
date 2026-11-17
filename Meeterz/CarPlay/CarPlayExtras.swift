@@ -421,8 +421,13 @@ enum EVSettings {
     /// Akkustand in Prozent: live aus dem Auto, sonst der zuletzt gewählte Wert
     @MainActor static var chargePercent: Double {
         get { AppModel.shared.vehicle.liveSoc ?? UserDefaults.standard.object(forKey: "ev.charge") as? Double ?? 80 }
-        set { UserDefaults.standard.set(newValue, forKey: "ev.charge") }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "ev.charge")
+            UserDefaults.standard.set(Date(), forKey: "ev.chargeSetAt")
+        }
     }
+    /// Wann der Akkustand zuletzt von Hand eingegeben wurde (nicht doppelt fragen: Vorschau auf dem iPhone, dann CarPlay)
+    static var chargeSetAt: Date { UserDefaults.standard.object(forKey: "ev.chargeSetAt") as? Date ?? .distantPast }
     /// Kilometer je Prozent Akku (nach der Reichweite des Autos, sonst berechnet)
     @MainActor static var kmPerPercent: Double {
         if let car = AppModel.shared.vehicle.liveRangeKm, chargePercent > 1 { return car / chargePercent }
@@ -436,7 +441,14 @@ enum EVSettings {
 
 extension CarPlayController {
     /// Nach dem Start der Navigation: reicht der Akku bis zum Ziel? Sonst Hinweis mit Ladesäulen.
-    func checkCharge() {
+    /// `askBattery`: beim Start ohne Live-Daten zuerst den Akkustand abfragen (vorausgewählt der letzte Wert),
+    /// danach rechnet der Plan damit (17.11.)
+    func checkCharge(askBattery: Bool = false) {
+        if askBattery, EVSettings.enabled, AppModel.shared.vehicle.liveSoc == nil, Date().timeIntervalSince(EVSettings.chargeSetAt) > 600 {
+            Diag.log("E-Auto ohne Live-Daten: Akkustand abfragen")
+            showChargePicker(title: String(localized: "Akkustand jetzt?"))
+            return
+        }
         // Mit gewähltem Fahrzeug: richtiger Ladeplan (wie ABRP) statt grober Reichweitenprüfung
         if EVSettings.enabled, EVSettings.vehicle != nil {
             Task { @MainActor in await self.offerChargePlan() }
@@ -524,19 +536,20 @@ extension CarPlayController {
     }
 
     /// Akkustand beim Losfahren einstellen (CarPlay-Liste)
-    func showChargePicker() {
+    func showChargePicker(title: String = String(localized: "Akkustand")) {
         let items: [CPListItem] = stride(from: 100, through: 10, by: -10).map { value in
             let current = Int(EVSettings.chargePercent) == value
             let item = CPListItem(text: "\(value) %", detailText: current ? "aktuell" : String(localized: "ca. \(Int(EVSettings.kmPerPercent * Double(value))) km"))
             item.handler = { [weak self] _, done in
                 EVSettings.chargePercent = Double(value)
+                if AppModel.shared.navigation.isNavigating { ChargeMonitor.shared.manualSoc(Double(value)) }
                 CarPlayUI.shared.pop(animated: true)
                 done()
                 self?.checkCharge()
             }
             return item
         }
-        CarPlayUI.shared.push(CPListTemplate(title: String(localized: "Akkustand"), sections: [CPListSection(items: items)]), animated: true)
+        CarPlayUI.shared.push(CPListTemplate(title: title, sections: [CPListSection(items: items)]), animated: true)
     }
 
     /// Abschnitt „E-Auto“ für die „Mehr“-Liste

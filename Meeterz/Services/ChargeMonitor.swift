@@ -69,6 +69,14 @@ final class ChargeMonitor {
     }
 
     /// Prognose für das Akku-Kästchen in CarPlay: Akkustand am nächsten Zwischenziel (Ladestopp) bzw. am Ziel
+    /// Akkustand von Hand eingegeben (ohne Live-Daten, z. B. „Akkustand jetzt?“ beim Start): ab hier damit rechnen
+    func manualSoc(_ percent: Double) {
+        anchorSoc = percent
+        anchorTraveled = navigationProvider.mapboxNavigation.navigation().currentRouteProgress?.routeProgress.distanceTraveled ?? 0
+        lastEstimate = nil
+        updateForecast()
+    }
+
     func updateForecast() {
         guard EVSettings.enabled, let vehicle = EVSettings.vehicle,
               let routes = navigationProvider.mapboxNavigation.tripSession().currentNavigationRoutes,

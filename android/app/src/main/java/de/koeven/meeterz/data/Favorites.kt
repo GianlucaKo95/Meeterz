@@ -38,6 +38,8 @@ class FavoritesStore(context: Context) {
         persist()
     }
 
+    fun rename(id: String, label: String) { _items.value = _items.value.map { if (it.id == id) it.copy(label = label) else it }; persist() }
+
     fun remove(id: String) { _items.value = _items.value.filter { it.id != id }; persist() }
 
     private fun key(id: String) = "favorites.${id.lowercase()}"

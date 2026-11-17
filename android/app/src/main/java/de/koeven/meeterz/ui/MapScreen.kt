@@ -43,6 +43,13 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.AddCircleOutline
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Work
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.automirrored.filled.DirectionsBike
 import androidx.compose.material.icons.filled.DirectionsCar
@@ -115,6 +122,7 @@ import java.text.DateFormat
 import java.util.Date
 
 /** Hauptkarte: Freunde, Suche, Routenvorschau und Führung */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun MapScreen() {
     val context = LocalContext.current
@@ -388,22 +396,56 @@ fun MapScreen() {
             // Aufbau wie iOS (MainView): oben „Wohin?“ und Freunde, darunter links die Status-Pille, rechts
             // Kartenansicht und Standort. Einstellungen und Treffen liegen wie auf iOS im Freunde-Bildschirm.
             var searchFocused by remember { mutableStateOf(false) }
+            val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+            // Wie iOS SearchView: Auswahl als Zuhause/Arbeit/Favorit speichern statt zur Route
+            var assigning by remember { mutableStateOf<String?>(null) }
+            var naming by remember { mutableStateOf<PlaceSearch.Place?>(null) }
+            var renaming by remember { mutableStateOf<de.koeven.meeterz.data.Favorite?>(null) }
+            fun choose(name: String, address: String?, lat: Double, lng: Double) {
+                when (assigning) {
+                    "home" -> { AppState.favorites.save("home", tr("Zuhause"), address ?: name, lat, lng); assigning = null; query = ""; results = emptyList() }
+                    "work" -> { AppState.favorites.save("work", tr("Arbeit"), address ?: name, lat, lng); assigning = null; query = ""; results = emptyList() }
+                    "other" -> naming = PlaceSearch.Place(name, address, lat, lng)
+                    else -> { focusManager.clearFocus(); planTo(name, address, lat, lng) }
+                }
+            }
+            naming?.let { place ->
+                var label by remember(place) { mutableStateOf(place.name) }
+                AlertDialog(onDismissRequest = { naming = null; assigning = null },
+                    title = { Text(tr("Favorit speichern")) },
+                    text = { Column { Text(place.address ?: place.name, style = MaterialTheme.typography.bodySmall)
+                        OutlinedTextField(label, { label = it }, placeholder = { Text(tr("Name, z. B. Oma")) }, singleLine = true) } },
+                    confirmButton = { TextButton(enabled = label.isNotBlank(), onClick = {
+                        AppState.favorites.save("other", label.trim(), place.address, place.lat, place.lng)
+                        naming = null; assigning = null; query = ""; results = emptyList()
+                    }) { Text(tr("Speichern")) } },
+                    dismissButton = { TextButton(onClick = { naming = null; assigning = null }) { Text(tr("Abbrechen")) } })
+            }
+            renaming?.let { fav ->
+                var label by remember(fav) { mutableStateOf(fav.label) }
+                AlertDialog(onDismissRequest = { renaming = null }, title = { Text(tr("Favorit umbenennen")) },
+                    text = { OutlinedTextField(label, { label = it }, placeholder = { Text(tr("Name")) }, singleLine = true) },
+                    confirmButton = { TextButton(enabled = label.isNotBlank(), onClick = { AppState.favorites.rename(fav.id, label.trim()); renaming = null }) { Text(tr("Speichern")) } },
+                    dismissButton = { TextButton(onClick = { renaming = null }) { Text(tr("Abbrechen")) } })
+            }
             Column(Modifier.statusBarsPadding().padding(horizontal = 16.dp).padding(top = 8.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                     SearchCapsule(query, { query = it; preview = null }, { query = ""; results = emptyList() },
-                        Modifier.weight(1f).onFocusChanged { searchFocused = it.isFocused })
+                        Modifier.weight(1f).onFocusChanged { searchFocused = it.isFocused },
+                        placeholder = when (assigning) {
+                            "home" -> tr("Adresse für „Zuhause“ suchen"); "work" -> tr("Adresse für „Arbeit“ suchen")
+                            "other" -> tr("Ort für neuen Favoriten suchen"); else -> tr("Wohin?")
+                        })
                     MapCircleButton(Icons.Default.People, tr("Freunde"),
                         badge = friends.any { !it.isAccepted && it.incoming }, activeDot = friendRoutes.isNotEmpty()) { showUnterwegs = true }
                 }
-                if (query.isEmpty() && preview == null && searchFocused) {
-                    // Gespeicherte Orte beim Suchen (iOS: oben in der Suche)
-                    Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        for (fav in favorites.sortedBy { listOf("home", "work", "other").indexOf(it.kind) }.take(3)) {
-                            AssistChip(onClick = { planTo(fav.label, fav.address, fav.lat, fav.lng) }, label = { Text(fav.label) })
-                        }
-                    }
+                if (query.isEmpty() && preview == null && searchFocused && assigning == null) {
+                    SearchStart(favorites, visibleFriends, live,
+                        onChoose = { n, a, la, ln -> choose(n, a, la, ln) },
+                        onAssign = { assigning = it },
+                        onRename = { renaming = it })
                 }
-                if (query.isEmpty() && preview == null) {
+                if (query.isEmpty() && preview == null && !searchFocused) {
                     Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.Top) {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             StatusPill()
@@ -428,7 +470,9 @@ fun MapScreen() {
                     Surface(shape = RoundedCornerShape(16.dp), shadowElevation = 2.dp, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), modifier = Modifier.padding(top = 8.dp)) {
                         LazyColumn(Modifier.heightIn(max = 360.dp)) {
                             items(results) { place ->
-                                Column(Modifier.fillMaxWidth().clickable { planTo(place.name, place.address, place.lat, place.lng) }
+                                Column(Modifier.fillMaxWidth().combinedClickable(
+                                    onClick = { choose(place.name, place.address, place.lat, place.lng) },
+                                    onLongClick = { naming = place })   // iOS: Kontextmenü „Als Favorit speichern“
                                     .padding(horizontal = 16.dp, vertical = 12.dp)) {
                                     Text(place.name, fontWeight = FontWeight.SemiBold)
                                     place.address?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
@@ -677,14 +721,14 @@ private fun clock(secondsFromNow: Double): String =
 
 /** Suchfeld als Kapsel wie iOS („Wohin?“, 52 dp) */
 @Composable
-private fun SearchCapsule(query: String, onChange: (String) -> Unit, onClear: () -> Unit, modifier: Modifier) {
+private fun SearchCapsule(query: String, onChange: (String) -> Unit, onClear: () -> Unit, modifier: Modifier, placeholder: String) {
     Surface(modifier.height(52.dp), shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.surface,
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Row(Modifier.padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.width(10.dp))
             Box(Modifier.weight(1f)) {
-                if (query.isEmpty()) Text(tr("Wohin?"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
+                if (query.isEmpty()) Text(placeholder, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
                 androidx.compose.foundation.text.BasicTextField(query, onChange, singleLine = true,
                     textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
                     cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
@@ -883,4 +927,87 @@ private fun pinBitmap(): android.graphics.Bitmap {
     paint.color = android.graphics.Color.WHITE; c.drawCircle(r, r - 3 * d, 5 * d, paint)
     paint.strokeWidth = 2.5f * d; c.drawLine(r, r, r, r + 9 * d, paint)
     return bmp
+}
+
+
+/**
+ * Suche ohne Eingabe (wie iOS SearchView): Favoriten mit Zuhause/Arbeit (sonst „… festlegen“), eigene Orte,
+ * „Favorit hinzufügen“; darunter Schnellziele (vereinbarte Treffpunkte, Freunde). Gedrückt halten: umbenennen,
+ * Adresse ändern, löschen.
+ */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+private fun SearchStart(
+    favorites: List<de.koeven.meeterz.data.Favorite>,
+    friends: List<de.koeven.meeterz.data.FriendRow>,
+    live: Map<String, de.koeven.meeterz.data.LivePosition>,
+    onChoose: (String, String?, Double, Double) -> Unit,
+    onAssign: (String) -> Unit,
+    onRename: (de.koeven.meeterz.data.Favorite) -> Unit,
+) {
+    val meetups by AppState.meetups.meetups.collectAsState()
+    Surface(Modifier.padding(top = 8.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface,
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+        LazyColumn(Modifier.heightIn(max = 460.dp).padding(vertical = 6.dp)) {
+            item { SearchHeader(tr("Favoriten")) }
+            for (kind in listOf("home", "work")) {
+                val fav = favorites.firstOrNull { it.kind == kind }
+                item(kind) {
+                    if (fav != null) FavoriteRow(fav, onChoose, onAssign, onRename)
+                    else SearchRow(if (kind == "home") Icons.Default.Home else Icons.Default.Work,
+                        if (kind == "home") tr("Zuhause festlegen") else tr("Arbeit festlegen"), tr("Adresse suchen und speichern")) { onAssign(kind) }
+                }
+            }
+            items(favorites.filter { it.kind == "other" }, key = { it.id }) { FavoriteRow(it, onChoose, onAssign, onRename) }
+            item { SearchRow(Icons.Default.AddCircleOutline, tr("Favorit hinzufügen"), tr("Ort suchen und mit Namen speichern")) { onAssign("other") } }
+            val meetupPlaces = meetups.filter { it.isAccepted }.distinctBy { it.groupId ?: it.id }
+            val friendPlaces = friends.filter { it.isAccepted }.mapNotNull { f ->
+                val p = live[f.friendId]; val lat = p?.lat ?: f.lat; val lng = p?.lng ?: f.lng
+                if (lat != null && lng != null) Triple(f, lat, lng) else null
+            }
+            if (meetupPlaces.isNotEmpty() || friendPlaces.isNotEmpty()) {
+                item { SearchHeader(tr("Schnellziele")) }
+                items(meetupPlaces, key = { "m" + it.id }) { m ->
+                    SearchRow(Icons.Default.Event, m.placeName, m.withText) { onChoose(m.placeName, null, m.lat, m.lng) }
+                }
+                items(friendPlaces, key = { "f" + it.first.friendId }) { (f, lat, lng) ->
+                    SearchRow(Icons.Default.Person, f.displayName, tr("Aktueller Standort")) { onChoose(f.displayName, null, lat, lng) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchHeader(text: String) = Text(text, Modifier.padding(start = 16.dp, top = 10.dp, bottom = 4.dp),
+    style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+private fun SearchRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String?,
+                      onLongClick: (() -> Unit)? = null, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+        Column(Modifier.padding(start = 14.dp)) {
+            Text(title, fontWeight = FontWeight.SemiBold)
+            subtitle?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
+    }
+}
+
+@Composable
+private fun FavoriteRow(fav: de.koeven.meeterz.data.Favorite, onChoose: (String, String?, Double, Double) -> Unit,
+                        onAssign: (String) -> Unit, onRename: (de.koeven.meeterz.data.Favorite) -> Unit) {
+    var menu by remember { mutableStateOf(false) }
+    Box {
+        SearchRow(when (fav.kind) { "home" -> Icons.Default.Home; "work" -> Icons.Default.Work; else -> Icons.Default.Star },
+            fav.label, fav.address, onLongClick = { menu = true }) { onChoose(fav.label, fav.address, fav.lat, fav.lng) }
+        androidx.compose.material3.DropdownMenu(menu, { menu = false }) {
+            if (fav.kind == "other") androidx.compose.material3.DropdownMenuItem(text = { Text(tr("Umbenennen")) }, onClick = { menu = false; onRename(fav) })
+            else androidx.compose.material3.DropdownMenuItem(text = { Text(tr("Adresse ändern")) }, onClick = { menu = false; onAssign(fav.kind) })
+            androidx.compose.material3.DropdownMenuItem(text = { Text(tr("Löschen"), color = MaterialTheme.colorScheme.error) },
+                onClick = { menu = false; AppState.favorites.remove(fav.id) })
+        }
+    }
 }

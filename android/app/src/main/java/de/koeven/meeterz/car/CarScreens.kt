@@ -169,13 +169,49 @@ class GuidanceScreen(carContext: CarContext, private val carMap: MapboxCarMap) :
         .setActionStrip(
             ActionStrip.Builder()
                 .apply { batteryAction(carContext)?.let { addAction(it) } }
-                .addAction(Action.Builder().setTitle(tr("Bescheid")).setOnClickListener { screenManager.push(messageScreen(carContext)) }.build())
-                .addAction(Action.Builder().setTitle(tr("Stopp")).setOnClickListener { screenManager.push(CarStopScreen(carContext)) }.build())
+                // Ansagen wie CarPlay: Alle → Nur Warnungen → Aus; „Bescheid“ und „Stopp“ unter „Mehr“ (Leiste hat nur 4 Plätze)
+                .addAction(voiceAction())
+                .addAction(Action.Builder().setTitle(tr("Mehr")).setOnClickListener { screenManager.push(CarMoreScreen(carContext)) }.build())
                 .addAction(Action.Builder().setTitle(tr("Beenden")).setOnClickListener { NavigationController.stop() }.build())
                 .build(),
         )
         .setMapActionStrip(mapActions.build())
         .apply { info.setNavigationInfo(this) }
+        .build()
+
+    private fun voiceAction(): Action {
+        val mode = NavigationController.voiceMode
+        val icon = when (mode) {
+            de.koeven.meeterz.nav.Speaker.Mode.ALL -> de.koeven.meeterz.R.drawable.ic_car_volume_up
+            de.koeven.meeterz.nav.Speaker.Mode.ALERTS_ONLY -> de.koeven.meeterz.R.drawable.ic_car_volume_alerts
+            de.koeven.meeterz.nav.Speaker.Mode.OFF -> de.koeven.meeterz.R.drawable.ic_car_volume_off
+        }
+        return Action.Builder()
+            .setIcon(androidx.car.app.model.CarIcon.Builder(androidx.core.graphics.drawable.IconCompat.createWithResource(carContext, icon)).build())
+            .setOnClickListener {
+                NavigationController.voiceMode = when (mode) {
+                    de.koeven.meeterz.nav.Speaker.Mode.ALL -> de.koeven.meeterz.nav.Speaker.Mode.ALERTS_ONLY
+                    de.koeven.meeterz.nav.Speaker.Mode.ALERTS_ONLY -> de.koeven.meeterz.nav.Speaker.Mode.OFF
+                    de.koeven.meeterz.nav.Speaker.Mode.OFF -> de.koeven.meeterz.nav.Speaker.Mode.ALL
+                }
+                // Kurz anzeigen, was jetzt gilt (das Symbol allein ist im Auto schwer zu lesen)
+                CarToast.makeText(carContext, with(NavigationController) { NavigationController.voiceMode.title }, CarToast.LENGTH_SHORT).show()
+                invalidate()
+            }.build()
+    }
+}
+
+/** „Mehr“ während der Führung: Kurz Bescheid geben, Stopp hinzufügen */
+class CarMoreScreen(carContext: CarContext) : Screen(carContext) {
+    override fun onGetTemplate(): Template = ListTemplate.Builder()
+        .setTitle(tr("Mehr"))
+        .setHeaderAction(Action.BACK)
+        .setSingleList(ItemList.Builder()
+            .addItem(Row.Builder().setTitle(tr("Kurz Bescheid geben")).setBrowsable(true)
+                .setOnClickListener { screenManager.push(messageScreen(carContext)) }.build())
+            .addItem(Row.Builder().setTitle(tr("Stopp hinzufügen")).setBrowsable(true)
+                .setOnClickListener { screenManager.push(CarStopScreen(carContext)) }.build())
+            .build())
         .build()
 }
 

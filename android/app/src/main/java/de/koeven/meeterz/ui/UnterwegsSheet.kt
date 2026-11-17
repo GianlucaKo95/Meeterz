@@ -16,7 +16,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -50,6 +52,7 @@ fun UnterwegsSheet(
     onDismiss: () -> Unit,
     onFocus: (FriendRow) -> Unit,
     onMeetups: () -> Unit,
+    onTrips: () -> Unit,
     onGroupMeetup: () -> Unit,
     onManage: () -> Unit,
 ) {
@@ -78,6 +81,14 @@ fun UnterwegsSheet(
                         fontWeight = FontWeight.SemiBold)
                     Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+            }
+            val convoy by de.koeven.meeterz.data.ConvoyFeed.key.collectAsState()
+            Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(12.dp))
+                .clickable(onClick = onTrips).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(if (convoy != null) Icons.Default.DirectionsCar else Icons.Default.History, null, tint = MaterialTheme.colorScheme.primary)
+                Text(if (convoy != null) tr("Konvoi-Feed & Fahrten") else tr("Fahrten"), Modifier.weight(1f).padding(start = 10.dp),
+                    fontWeight = FontWeight.SemiBold)
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (accepted.isEmpty()) {
                 EmptyState(tr("Noch keine Freunde"), tr("Lade jemanden ein oder füge ihn über den Benutzernamen hinzu. Dann seht ihr euch hier auf der Karte."))

@@ -196,6 +196,13 @@ class MeeterzCarSession : Session() {
                 NavigationController.announce(tr("%@ schreibt: %@", m.firstName, m.body))
             }
         }
+        // Story eines Freundes: im Auto nur ein kurzer Hinweis, nie das Bild (wie CarPlay)
+        lifecycleScope.launch {
+            de.koeven.meeterz.data.StoriesStore.received.collect { st ->
+                CarToast.makeText(carContext, listOfNotNull(tr("%@ hat eine Story geteilt", st.firstName), st.placeName).joinToString(" · "),
+                    CarToast.LENGTH_LONG).show()
+            }
+        }
         // Sound-Pack-Momente: kurzer Hinweis (CarPlay: friendNotice)
         lifecycleScope.launch {
             de.koeven.meeterz.sound.SoundMoments.notices.collect { n -> CarToast.makeText(carContext, n.text, CarToast.LENGTH_LONG).show() }

@@ -58,6 +58,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.border
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.material.icons.filled.NearMe
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.height
@@ -209,7 +210,8 @@ fun MapScreen() {
     }
     val avatars by de.koeven.meeterz.data.AvatarStore.images.collectAsState()
     val passengerVersion by de.koeven.meeterz.social.Passengers.version.collectAsState()
-    LaunchedEffect(visibleFriends, live, friendRoutes, avatars, passengerVersion, mapStyleRevision) {
+    val stories by de.koeven.meeterz.data.StoriesStore.stories.collectAsState()
+    LaunchedEffect(visibleFriends, live, friendRoutes, avatars, passengerVersion, mapStyleRevision, stories) {
         annotations.deleteAll()
         val riding = de.koeven.meeterz.social.Passengers.riding
         for (f in visibleFriends.filter { it.isAccepted && it.friendId !in riding }) {
@@ -219,7 +221,8 @@ fun MapScreen() {
             annotations.create(
                 PointAnnotationOptions()
                     .withPoint(Point.fromLngLat(lng, lat))
-                    .withIconImage(avatars[f.friendId]?.let { de.koeven.meeterz.data.AvatarStore.pin(it) } ?: initialsBubble(f.initials, FriendPalette.color(f.friendId)))
+                    .withIconImage((avatars[f.friendId]?.let { de.koeven.meeterz.data.AvatarStore.pin(it) } ?: initialsBubble(f.initials, FriendPalette.color(f.friendId)))
+                        .let { if (de.koeven.meeterz.data.StoriesStore.hasUnseen(f.friendId)) storyRing(it) else it })
                     .withTextField(friendRoutes[f.friendId]?.let { "${f.firstName} · ${clockAt(it.eta)}" } ?: f.firstName)
                     .withData(com.google.gson.JsonPrimitive(f.friendId))
                     .withTextOffset(listOf(0.0, 2.2))
@@ -239,6 +242,15 @@ fun MapScreen() {
     var showMeetups by remember { mutableStateOf(false) }
     var showUnterwegs by remember { mutableStateOf(false) }
     var showGroupMeetup by remember { mutableStateOf(false) }
+    var showStoryComposer by remember { mutableStateOf(false) }
+    var showTrips by remember { mutableStateOf(false) }
+    // Neue Story eines Freundes: auf dem Handy kurzer Hinweis (iOS: Banner), im Auto übernimmt Android Auto
+    LaunchedEffect(Unit) {
+        de.koeven.meeterz.data.StoriesStore.received.collect { st ->
+            if (!NavigationController.carConnected)
+                android.widget.Toast.makeText(context, tr("%@ hat eine Story geteilt", st.firstName), android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
     var planCandidate by remember { mutableStateOf<de.koeven.meeterz.data.MeetupCandidate?>(null) }
     var inviteTo by remember { mutableStateOf<NavigationController.Destination?>(null) }
     /** Übernommener Ladeplan: Vorschau-Route führt schon über die Säulen */
@@ -344,6 +356,20 @@ fun MapScreen() {
             }
             mapView.gestures.addOnMapLongClickListener(listener)
             onDispose { mapView.gestures.removeOnMapLongClickListener(listener) }
+        }
+        // Stories an ihrem Ort (wie iOS): Antippen spielt die Stories der Person ab
+        val storyManager = remember(mapView, mapStyleRevision) {
+            mapView.annotations.createPointAnnotationManager().apply {
+                addClickListener { a -> a.getData()?.asString?.let { de.koeven.meeterz.data.StoriesStore.open(it) }; true }
+            }
+        }
+        LaunchedEffect(stories, mapStyleRevision) {
+            storyManager.deleteAll()
+            for (s in stories) {
+                storyManager.create(PointAnnotationOptions().withPoint(Point.fromLngLat(s.lng, s.lat))
+                    .withIconImage(storyBubble(s.seen)).withIconSize(0.6)
+                    .withData(com.google.gson.JsonPrimitive(s.userId)))
+            }
         }
         val pinManager = remember(mapView, mapStyleRevision) { mapView.annotations.createPointAnnotationManager() }
         LaunchedEffect(droppedPin, mapStyleRevision) {
@@ -464,6 +490,7 @@ fun MapScreen() {
                         Spacer(Modifier.weight(1f))
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             MapStyleMenu(mapStyle, map3d)
+                            MapCircleButton(Icons.Default.PhotoCamera, tr("Story aufnehmen")) { showStoryComposer = true }
                             MapCircleButton(Icons.Default.NearMe, tr("Auf meinen Standort zentrieren"), tint = MaterialTheme.colorScheme.primary) {
                                 mapView.viewport.transitionTo(mapView.viewport.makeFollowPuckViewportState())
                             }
@@ -508,9 +535,17 @@ fun MapScreen() {
                     }
                 },
                 onMeetups = { showUnterwegs = false; showMeetups = true },
+                onTrips = { showUnterwegs = false; showTrips = true },
                 onGroupMeetup = { showUnterwegs = false; showGroupMeetup = true },
                 onManage = { showUnterwegs = false; showFriends = true })
             if (showGroupMeetup) GroupMeetupScreen(onClose = { showGroupMeetup = false })
+            if (showTrips) TripsSheet(onDismiss = { showTrips = false })
+            if (showStoryComposer) StoryComposer(onDismiss = { showStoryComposer = false })
+            val viewing by de.koeven.meeterz.data.StoriesStore.viewing.collectAsState()
+            viewing?.let { list ->
+                StoryViewer(list, onDismiss = { de.koeven.meeterz.data.StoriesStore.viewing.value = null },
+                    onNavigate = { name, lat, lng -> showTrips = false; planTo(name, null, lat, lng) })
+            }
             selectedFriend?.let { id ->
                 FriendActionSheet(id, onDismiss = { selectedFriend = null },
                     onShow = { lat, lng, route ->
@@ -846,6 +881,21 @@ private fun StatusPill() {
 }
 
 /** Runder Mint-Kreis mit Initialen (Freundes-Pin ohne Profilbild) */
+/** Kamera-Pin einer Story: Akzentfarbe, grau wenn gesehen */
+internal fun storyBubble(seen: Boolean): Bitmap {
+    val size = 96
+    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    canvas.drawCircle(size / 2f, size / 2f, size / 2f - 4, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = if (seen) android.graphics.Color.GRAY else MeeterzColors.mint.toArgb()
+    })
+    val body = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = MeeterzColors.petrol.toArgb() }
+    canvas.drawRoundRect(24f, 34f, 72f, 68f, 6f, 6f, body)
+    canvas.drawRect(38f, 28f, 56f, 36f, body)
+    canvas.drawCircle(48f, 51f, 10f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = if (seen) android.graphics.Color.GRAY else MeeterzColors.mint.toArgb() })
+    return bitmap
+}
+
 internal fun initialsBubble(initials: String, fillColor: Color = MeeterzColors.mint): Bitmap {
     val size = 96
     val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)

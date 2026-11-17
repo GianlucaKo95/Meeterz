@@ -76,6 +76,7 @@ class MessagesStore {
                 sent++
             }
         }
+        if (sent > 0) ConvoyFeed.messageSent(body, to)
         refresh()
         return sent
     }

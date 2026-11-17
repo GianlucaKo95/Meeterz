@@ -227,6 +227,7 @@ object NavigationController : MapboxNavigationObserver {
     }
 
     fun stop() {
+        if (_guidance.value != null) de.koeven.meeterz.data.ConvoyFeed.navigationEnded()
         fixedStops = emptyList()
         stopNames.clear()
         if (_guidance.value != null) AppState.scope.launch {

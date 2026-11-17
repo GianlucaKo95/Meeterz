@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Directions
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -127,6 +128,11 @@ fun FriendActionSheet(
                 }
             }
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (de.koeven.meeterz.data.StoriesStore.hasStories(friendId)) {
+                    Button(onClick = { onDismiss(); de.koeven.meeterz.data.StoriesStore.open(friendId) }, Modifier.fillMaxWidth()) {
+                        Icon(Icons.Default.PlayCircle, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(tr("Story ansehen"))
+                    }
+                }
                 SheetButton(tr("Profil anzeigen"), Icons.Default.AccountCircle) { showProfile = true }
                 SheetButton(if (route == null) tr("Auf Karte anzeigen") else tr("Route anzeigen"),
                     if (route == null) Icons.Default.Place else Icons.Default.Route) { onShow(lat, lng, route) }

@@ -81,6 +81,8 @@ object AppState {
                 refreshFriends()
                 // ponytail: Nachrichten alle 30 s und bei jedem Push statt Live-Kanal wie auf iOS
                 messages.refresh()
+                de.koeven.meeterz.data.StoriesStore.refresh()
+                de.koeven.meeterz.data.ConvoyFeed.update()
                 refreshHidden()
                 de.koeven.meeterz.data.AvatarStore.sync(friends.value, profile)
                 meetups.refresh()
@@ -99,6 +101,7 @@ object AppState {
         session?.cancel(); session = null
         vehicle.stop()
         messages.reset(); meetups.reset()
+        de.koeven.meeterz.data.StoriesStore.reset(); de.koeven.meeterz.data.ConvoyFeed.reset()
         de.koeven.meeterz.sound.SoundStore.reset(); de.koeven.meeterz.sound.SoundMoments.reset()
         de.koeven.meeterz.suggest.Recents.reset()
         if (::appContext.isInitialized) {

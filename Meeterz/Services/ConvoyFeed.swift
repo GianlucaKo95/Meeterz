@@ -117,7 +117,7 @@ final class ConvoyFeed {
     // ponytail: Ziel auf 2 Nachkommastellen – liegt es genau auf einer Rundungsgrenze, bekommen Mitfahrende verschiedene Feeds
     static func key(for destination: CLLocationCoordinate2D, meetups: [Meetup]) -> String {
         if let meetup = meetups.first(where: { $0.coordinate.distance(to: destination) < 300 }) {
-            return "m-\(meetup.id.uuidString.lowercased())"
+            return "m-\((meetup.groupId ?? meetup.id).uuidString.lowercased())"
         }
         let day = Date().formatted(.iso8601.year().month().day())
         return String(format: "d-%.2f,%.2f-", destination.latitude, destination.longitude) + day

@@ -70,6 +70,7 @@ object ChargingSession {
         if (!EvSettings.enabled || soc == null || status.ageSeconds >= 15 * 60 || status.charging != true) { end(); return }
         if (!active) {
             active = true
+            de.koeven.meeterz.data.ConvoyFeed.post("charge")
             startPercent = soc
             chosenByUser = false
             announcedDone = false

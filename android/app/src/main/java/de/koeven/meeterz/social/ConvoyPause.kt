@@ -79,6 +79,7 @@ object ConvoyPause {
             AppState.hub.broadcast("pause", json.encodeToJsonElement(p).jsonObject)
             Diag.log("Konvoi-Pause vorgeschlagen: ${pick.name} an ${members.size} Mitfahrende")
             notice(tr("Pause vorgeschlagen: %@", pick.name))
+            de.koeven.meeterz.data.ConvoyFeed.post("pause", pick.name)
             stopHere(p)
         } finally { proposing = false }
     }

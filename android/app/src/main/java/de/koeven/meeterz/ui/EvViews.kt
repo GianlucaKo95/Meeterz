@@ -54,8 +54,12 @@ fun ChargePlanSection(route: NavigationRoute, adopted: ChargePlanner.Plan?, onPl
     var loading by remember(route.id) { mutableStateOf(true) }
     var adopting by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(route.id, version, adopted) {
+    // Ohne Live-Daten erst nach dem Akkustand fragen (vorausgefüllt mit dem letzten Wert) – wie iOS
+    var batteryConfirmed by remember { mutableStateOf(!EvSettings.needsBatteryInput) }
+    var battery by remember { mutableStateOf((Math.round(EvSettings.manualPercent / 5.0) * 5).toDouble()) }
+    LaunchedEffect(route.id, version, adopted, batteryConfirmed) {
         if (adopted != null) { onPlan(adopted); return@LaunchedEffect }
+        if (!batteryConfirmed) { onPlan(null); return@LaunchedEffect }
         loading = true
         onPlan(null)
         outcome = EvSettings.plan(route)
@@ -70,7 +74,18 @@ fun ChargePlanSection(route: NavigationRoute, adopted: ChargePlanner.Plan?, onPl
             val soc = Math.round(EvSettings.chargePercent)
             Text(if (EvSettings.liveSoc != null) tr("Start %@ % (live)", soc) else tr("Start %@ %", soc), style = MaterialTheme.typography.bodySmall)
         }
-        if (adopted != null) {
+        if (adopted == null && !batteryConfirmed) {
+            Text(tr("Akkustand jetzt?"), fontWeight = FontWeight.SemiBold)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(tr("Akku"), Modifier.weight(1f))
+                androidx.compose.material3.IconButton(onClick = { battery = maxOf(5.0, battery - 5) }) { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Default.Remove, tr("Weniger")) }
+                Text("${battery.toInt()} %", fontWeight = FontWeight.SemiBold)
+                androidx.compose.material3.IconButton(onClick = { battery = minOf(100.0, battery + 5) }) { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Default.Add, tr("Mehr")) }
+            }
+            Text(tr("Ohne Live-Daten vom Auto rechnet der Ladeplan mit diesem Wert."), style = MaterialTheme.typography.bodySmall)
+            androidx.compose.material3.OutlinedButton(onClick = { EvSettings.manualPercent = battery; batteryConfirmed = true },
+                modifier = Modifier.fillMaxWidth()) { Text(tr("Weiter")) }
+        } else if (adopted != null) {
             Text(adopted.summary, fontWeight = FontWeight.SemiBold)
             Stops(adopted)
             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {

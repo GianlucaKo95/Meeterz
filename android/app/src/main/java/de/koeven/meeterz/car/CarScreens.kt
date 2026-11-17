@@ -59,6 +59,13 @@ private suspend fun origin(): Point? {
 private fun Screen.navigateTo(name: String, lat: Double, lng: Double) = carNavigateTo(carContext, name, lat, lng)
 
 internal fun carNavigateTo(carContext: CarContext, name: String, lat: Double, lng: Double) {
+    // E-Auto ohne Live-Daten: zuerst den Akkustand abfragen, dann mit diesem Wert planen (wie CarPlay)
+    if (EvSettings.needsBatteryInput) {
+        carContext.getCarService(androidx.car.app.ScreenManager::class.java).push(CarBatteryScreen(carContext) {
+            carNavigateTo(carContext, name, lat, lng)
+        })
+        return
+    }
     // Nicht im Bildschirm-Lebenszyklus: der Bildschirm wird gleich nach dem Antippen geschlossen
     AppState.scope.launch {
         val from = origin() ?: return@launch
@@ -446,3 +453,24 @@ private fun carViewport(camera: CarNavigationCamera): MapboxNavigationViewportDa
     CarNavigationCamera::class.java.getDeclaredField("viewportDataSource").apply { isAccessible = true }
         .get(camera) as? MapboxNavigationViewportDataSource
 }.getOrNull()
+
+
+/** „Akkustand jetzt?“ – 100 % bis 10 %, der zuletzt eingestellte Wert ist markiert (CarPlay: showChargePicker) */
+class CarBatteryScreen(carContext: CarContext, private val then: () -> Unit) : Screen(carContext) {
+    override fun onGetTemplate(): Template {
+        val current = Math.round(EvSettings.manualPercent / 10.0) * 10
+        val vehicle = EvSettings.vehicle
+        val list = ItemList.Builder()
+        for (value in 100 downTo 10 step 10) {
+            list.addItem(Row.Builder().setTitle("$value %")
+                .addText(if (value.toLong() == current) tr("aktuell") else vehicle?.let { tr("ca. %lld km", (it.battery / it.consumption * value).toInt()) } ?: "")
+                .setOnClickListener {
+                    EvSettings.manualPercent = value.toDouble()
+                    if (NavigationController.guidance.value != null) de.koeven.meeterz.ev.ChargeMonitor.manualSoc(value.toDouble())
+                    screenManager.pop()
+                    then()
+                }.build())
+        }
+        return ListTemplate.Builder().setTitle(tr("Akkustand jetzt?")).setHeaderAction(Action.BACK).setSingleList(list.build()).build()
+    }
+}

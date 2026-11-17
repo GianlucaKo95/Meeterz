@@ -45,6 +45,13 @@ object ChargeMonitor {
     /** Zuletzt gesehener Abschnitt (für „Ladestopp passiert“ ohne Live-Daten) */
     private var legMark = "" to 0
 
+    /** Akkustand von Hand eingegeben (ohne Live-Daten): ab hier damit rechnen */
+    fun manualSoc(percent: Double) {
+        anchorSoc = percent
+        anchorTraveled = NavigationController.progress.value?.distanceTraveled?.toDouble() ?: 0.0
+        lastEstimate = null
+    }
+
     fun start(context: Context) {
         stop()
         if (!EvSettings.enabled || EvSettings.vehicle == null) return

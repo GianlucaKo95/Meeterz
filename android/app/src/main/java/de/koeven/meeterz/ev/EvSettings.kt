@@ -47,7 +47,11 @@ object EvSettings {
     /** Akkustand von Hand (wenn das Auto keine Live-Daten liefert) */
     var manualPercent: Double
         get() = prefs.getFloat("charge", 80f).toDouble()
-        set(v) { prefs.edit().putFloat("charge", v.toFloat()).apply(); changed() }
+        set(v) { prefs.edit().putFloat("charge", v.toFloat()).putLong("chargeSetAt", System.currentTimeMillis()).apply(); changed() }
+
+    /** Ohne Live-Daten vor dem Planen nach dem Akkustand fragen – außer er wurde gerade erst eingegeben (wie iOS) */
+    val needsBatteryInput: Boolean
+        get() = enabled && vehicle != null && liveSoc == null && System.currentTimeMillis() - prefs.getLong("chargeSetAt", 0) > 600_000
 
     /** Live-Akkustand vom Auto (wie iOS: Meldung höchstens 7 Tage alt) */
     val liveSoc: Double? get() = AppState.vehicle.status.value?.takeIf { it.ageSeconds < 7 * 86_400 }?.soc?.takeIf { it in 0.0..100.0 }

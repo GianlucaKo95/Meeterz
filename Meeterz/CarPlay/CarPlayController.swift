@@ -748,7 +748,7 @@ final class CarPlayController: NSObject {
     static let placeInfoKey = "carplay.placeInfo"
 
     /// Ortskarte wie in Apple Karten (ohne Bilder): Adresse, Öffnungsstatus, Telefon; „Losfahren“ und „Anrufen“.
-    /// Angaben aus Mapbox und OpenStreetMap (Apples Öffnungszeiten gibt es nicht als Daten).
+    /// Telefon von Apple, sonst Mapbox/OpenStreetMap; Öffnungszeiten aus Mapbox/OpenStreetMap (Apple gibt sie nicht als Daten heraus).
     private func showPlaceInfo(_ place: Place) {
         Diag.log("CarPlay-Ortskarte: \(place.name)")
         func items(_ d: SearchService.Details?) -> [CPInformationItem] {
@@ -776,7 +776,13 @@ final class CarPlayController: NSObject {
         let template = CPInformationTemplate(title: place.name, layout: .leading, items: items(nil), actions: actions(nil))
         CarPlayUI.shared.push(template, animated: true)
         Task { @MainActor [weak template] in
-            let d = await SearchService.details(name: place.name, at: place.coordinate)
+            // Apple gibt Telefon (und Website) als Daten heraus, Öffnungszeiten nicht – die kommen aus Mapbox/OSM
+            async let apple = ApplePlaces.mapItem(for: place)
+            var d = await SearchService.details(name: place.name, at: place.coordinate)
+            if let phone = await apple?.phoneNumber, !phone.isEmpty {
+                if d == nil { d = SearchService.Details(category: nil, address: nil, phone: nil, website: nil, rating: nil, reviews: nil, hours: nil) }
+                d?.phone = phone
+            }
             guard let template else { return }
             template.items = items(d)
             template.actions = actions(d)

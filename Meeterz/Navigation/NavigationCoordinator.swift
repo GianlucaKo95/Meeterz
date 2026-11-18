@@ -384,7 +384,7 @@ final class NavigationCoordinator: NSObject {
             sheet.sheetPresentationController?.prefersGrabberVisible = true
             host?.present(sheet, animated: true)
         }
-        buttons.append(make("fuelpump.fill", String(localized: "Stopp entlang der Route")) { present(StopSearchSheet()) })
+        buttons.append(make("magnifyingglass", String(localized: "Stopp entlang der Route")) { present(StopSearchSheet()) })
         buttons.append(make("exclamationmark.triangle.fill", String(localized: "Gefahr melden")) { present(HazardReportSheet()) })
         controller.floatingButtons = buttons
     }

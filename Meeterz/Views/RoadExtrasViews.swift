@@ -14,6 +14,7 @@ struct StopSearchSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(app.navigation.isNavigating ? "Entlang der Route" : "In der Nähe").font(Theme.display(22))
+            // Chips laufen bis an den Fensterrand (statt am Innenabstand hart abgeschnitten zu werden)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(SearchService.Stopover.allCases) { k in
@@ -26,7 +27,9 @@ struct StopSearchSheet: View {
                         }
                     }
                 }
+                .padding(.horizontal, 20)
             }
+            .padding(.horizontal, -20)
             ScrollView {
                 VStack(spacing: 8) {
                     if let errorText { Text(errorText).font(.footnote).foregroundStyle(Theme.muted) }
@@ -92,7 +95,7 @@ struct HazardReportSheet: View {
             Text("Andere Meeterz-Fahrer hinter dir werden eine Stunde lang gewarnt.")
                 .font(.footnote).foregroundStyle(Theme.muted)
           ScrollView {
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 2), spacing: 8) {
                 ForEach(HazardStore.Kind.allCases) { kind in
                     Button {
                         dismiss()
@@ -101,10 +104,11 @@ struct HazardReportSheet: View {
                         VStack(spacing: 8) {
                             Image(systemName: kind.symbol).font(.system(size: 24, weight: .semibold))
                             Text(kind.title).font(.footnote.weight(.semibold)).multilineTextAlignment(.center)
-                                .lineLimit(3).minimumScaleFactor(0.8)
+                                .lineLimit(2).minimumScaleFactor(0.85)
                         }
                         .padding(8)
-                        .frame(maxWidth: .infinity, minHeight: 96)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 96)   // alle Kacheln gleich hoch, auch bei zweizeiligem Text
                         .background(RoundedRectangle(cornerRadius: 16).fill(Theme.panel))
                         .foregroundStyle(Theme.text)
                     }
@@ -137,7 +141,7 @@ struct ArriveBySheet: View {
             Group {
                 if calculating { ProgressView() }
                 else if let departure {
-                    Text("Losfahren um \(Meetup.timeText(departure))").font(.headline).foregroundStyle(Theme.accent)
+                    Text("Losfahren: \(Meetup.timeText(departure))").font(.headline).foregroundStyle(Theme.accent)
                 } else {
                     Text("Fahrzeit konnte nicht berechnet werden.").font(.footnote).foregroundStyle(Theme.muted)
                 }
@@ -157,7 +161,7 @@ struct ArriveBySheet: View {
         }
         .padding(20)
         .background(Theme.ink)
-        .presentationDetents([.medium])
+        .presentationDetents([.height(400)])
         .task(id: arrival) {
             calculating = true
             try? await Task.sleep(for: .milliseconds(400))   // beim Drehen am Rad nicht jede Minute rechnen

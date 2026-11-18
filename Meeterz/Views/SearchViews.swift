@@ -376,26 +376,20 @@ struct RoutePreviewView: View {
             }
 
             HStack(spacing: 10) {
-                stat(charging > 0 ? String(localized: "Ankunft inkl. Laden") : String(localized: "Ankunft"), ActivityFormat.time(eta), highlight: true)
+                // Ankunft antippen = „Ankunft um …“ planen (Uhr-Symbol zeigt es an; eine eigene Zeile lag unter dem sichtbaren Bereich)
+                if current.mode == .car {
+                    Button { showArriveBy = true } label: {
+                        stat(charging > 0 ? String(localized: "Ankunft inkl. Laden") : String(localized: "Ankunft"), ActivityFormat.time(eta), highlight: true, symbol: "clock")
+                    }
+                    .accessibilityIdentifier("arrive-by")
+                    .accessibilityHint(Text("Ankunft um …"))
+                } else {
+                    stat(charging > 0 ? String(localized: "Ankunft inkl. Laden") : String(localized: "Ankunft"), ActivityFormat.time(eta), highlight: true)
+                }
                 stat(String(localized: "Dauer"), Format.minutes(seconds: eta.timeIntervalSinceNow))
                 stat(String(localized: "Strecke"), ActivityFormat.distance(shown.distance))
             }
 
-            // „Ankunft um …“: im Inhalt unter Ankunft/Dauer statt als weiterer Knopf unten (die Knopfleiste bleibt kurz)
-            if current.mode == .car {
-                Button { showArriveBy = true } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: "clock").foregroundStyle(Theme.muted)
-                        Text("Ankunft um …").foregroundStyle(Theme.text)
-                        Spacer()
-                        Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
-                    }
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    .padding(.horizontal, 12).frame(height: 44)
-                    .background(RoundedRectangle(cornerRadius: 16).fill(Theme.panelRaised))
-                }
-                .accessibilityIdentifier("arrive-by")
-            }
 
             if current.mode == .car, EVSettings.enabled {
                 ChargePlanCard(route: shown, adopted: adoptedPlan, adopt: { plan in
@@ -485,9 +479,12 @@ struct RoutePreviewView: View {
         Diag.log("Ladeplan übernommen: \(plan.summary)")
     }
 
-    private func stat(_ title: String, _ value: String, highlight: Bool = false) -> some View {
+    private func stat(_ title: String, _ value: String, highlight: Bool = false, symbol: String? = nil) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(title).font(.caption).foregroundStyle(Theme.muted)
+            HStack(spacing: 4) {
+                Text(title).font(.caption).foregroundStyle(Theme.muted)
+                if let symbol { Image(systemName: symbol).font(.caption2.weight(.semibold)).foregroundStyle(Theme.muted) }
+            }
             Text(value).font(Theme.display(20)).foregroundStyle(highlight ? Theme.accent : Theme.text)
                 .minimumScaleFactor(0.7).lineLimit(1)
         }

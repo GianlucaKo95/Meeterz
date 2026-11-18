@@ -738,7 +738,7 @@ private fun GuidanceBar(g: NavigationController.Guidance, modifier: Modifier) {
     // In der Leiste selbst war dafür kein Platz – auf 360-dp-Geräten blieb für die Ankunftszeit fast nichts.
     Column(modifier.fillMaxWidth().padding(end = 12.dp), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         for ((icon, label, action) in listOf(
-            Triple(Icons.Default.AddLocationAlt, tr("Stopp entlang der Route")) { showStop = true },
+            Triple(Icons.Default.Search, tr("Stopp entlang der Route")) { showStop = true },
             Triple(Icons.Default.Warning, tr("Gefahr melden")) { showHazard = true },
         )) {
             Surface(onClick = action, shape = androidx.compose.foundation.shape.CircleShape, color = MaterialTheme.colorScheme.surface,
@@ -1094,7 +1094,7 @@ private fun ArriveByDialog(name: String, address: String?, lat: Double, lng: Dou
                 TimeInput(state)
                 when {
                     calculating -> CircularProgressIndicator()
-                    depart != null -> Text(tr("Losfahren um %@", de.koeven.meeterz.ui.meetupTime(depart!! / 1000)),
+                    depart != null -> Text(tr("Losfahren: %@", de.koeven.meeterz.ui.meetupTime(depart!! / 1000)),
                         fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
                     else -> Text(tr("Fahrzeit konnte nicht berechnet werden."), style = MaterialTheme.typography.bodySmall)
                 }

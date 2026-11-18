@@ -110,8 +110,11 @@ final class VehicleStore {
     func refresh() async {
         guard let uid = AppModel.shared.auth.profile?.id else { return }
         struct Link: Decodable { let token: String }
-        let links: [Link] = (try? await client.from("vehicle_links").select("token").eq("user_id", value: uid).execute().value) ?? []
-        token = links.first?.token
+        // Verknüpfung ändert sich nur über connect/disconnect – einmal je Sitzung laden statt bei jedem Fahrzeugwert
+        if !loaded {
+            let links: [Link] = (try? await client.from("vehicle_links").select("token").eq("user_id", value: uid).execute().value) ?? []
+            token = links.first?.token
+        }
         let rows: [Status] = (try? await client.from("vehicle_status").select().eq("user_id", value: uid).execute().value) ?? []
         let new = rows.first
         // Nur bei geändertem Akkustand oder Ladezustand – sonst alle 40 s eine Zeile, die das Log füllte

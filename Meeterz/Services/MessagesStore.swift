@@ -47,7 +47,7 @@ final class MessagesStore {
     func startListening(userId: UUID) async {
         guard feed == nil else { return }
         // refresh() kennt schon gesehene Nachrichten – auch bei Änderungen statt nur neuen Zeilen harmlos
-        let feed = RealtimeFeed(topic: "messages-\(userId.uuidString.lowercased())", table: "messages") { [weak self] in
+        let feed = RealtimeFeed(topic: "messages-\(userId.uuidString.lowercased())", table: "messages", catchUpAfter: 0) { [weak self] in
             await self?.refresh()
         }
         self.feed = feed

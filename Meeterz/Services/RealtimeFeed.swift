@@ -16,8 +16,14 @@ final class RealtimeFeed {
     private var tasks: [Task<Void, Never>] = []
     private var wanted = false
     private var reconnecting = false
+    /// Seit wann die Verbindung weg ist – kurze Unterbrechungen (Server schließt den Kanal alle ~20 Min.) laden nicht
+    /// alles neu; das waren je Wiederverbindung mehrere Anfragen (18.11.). Nachrichten: `catchUpAfter: 0`.
+    private var lostAt: Date?
+    private let catchUpAfter: TimeInterval
 
-    init(topic: String, table: String, filter: RealtimePostgresFilter? = nil, onChange: @escaping @MainActor () async -> Void) {
+    init(topic: String, table: String, filter: RealtimePostgresFilter? = nil, catchUpAfter: TimeInterval = 60,
+         onChange: @escaping @MainActor () async -> Void) {
+        self.catchUpAfter = catchUpAfter
         self.topic = topic
         self.table = table
         self.filter = filter
@@ -49,9 +55,13 @@ final class RealtimeFeed {
                     switch status {
                     case .subscribed:
                         // Nach einer Wiederverbindung des Sockets (rejoin): Verpasstes nachladen
-                        if joined { Diag.log("Live-Verbindung \(topic) wieder da"); await self?.onChange() }
+                        if joined { Diag.log("Live-Verbindung \(topic) wieder da"); await self?.catchUp() }
                         joined = true
+                        self?.lostAt = nil
+                    case .subscribing, .unsubscribing:
+                        if joined, self?.lostAt == nil { self?.lostAt = Date() }
                     case .unsubscribed where joined:
+                        if self?.lostAt == nil { self?.lostAt = Date() }
                         Diag.log("Live-Verbindung \(topic) vom Server beendet – verbinde neu")
                         self?.scheduleReconnect()
                         return
@@ -80,8 +90,15 @@ final class RealtimeFeed {
             self.reconnecting = false
             guard self.wanted, self.channel == nil else { return }
             await self.connect()
-            await self.onChange()
+            await self.catchUp()
+            self.lostAt = nil
         }
+    }
+
+    /// Verpasstes nachladen – nur wenn die Verbindung länger als `catchUpAfter` weg war
+    private func catchUp() async {
+        let gap = lostAt.map { Date().timeIntervalSince($0) } ?? .infinity
+        if gap >= catchUpAfter { await onChange() }
     }
 
     private func teardown() async {

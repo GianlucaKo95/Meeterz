@@ -127,8 +127,8 @@ final class AppModel {
 
     func refreshSocial() async {
         guard sessionUser != nil else { return }
-        // Selten Geändertes (ausgeblendete Freunde, Sounds) nur alle 5 Min.
-        let slow = Date().timeIntervalSince(slowSyncAt) >= 300
+        // Selten Geändertes (ausgeblendete Freunde, Sounds): alle 5 Min., im Hintergrund alle 30 Min.
+        let slow = Date().timeIntervalSince(slowSyncAt) >= (socialActive ? 300 : 1800)
         if slow { slowSyncAt = Date() }
         await friends.refresh(hidden: slow)
         await avatars.sync(friends: friends.rows, me: auth.profile)

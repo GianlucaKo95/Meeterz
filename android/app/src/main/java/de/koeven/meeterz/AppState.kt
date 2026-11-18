@@ -86,7 +86,7 @@ object AppState {
                 val now = System.currentTimeMillis()
                 if (!socialActive && now - last < 300_000) { delay(30_000); continue }
                 last = now
-                val slow = now - slowAt >= 300_000
+                val slow = now - slowAt >= (if (socialActive) 300_000 else 1_800_000)   // im Hintergrund alle 30 Min. (wie iOS)
                 if (slow) slowAt = now
                 refreshFriends()
                 // ponytail: Nachrichten alle 30 s und bei jedem Push statt Live-Kanal wie auf iOS

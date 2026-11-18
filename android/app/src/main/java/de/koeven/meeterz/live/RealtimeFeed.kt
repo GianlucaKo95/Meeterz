@@ -23,8 +23,16 @@ class RealtimeFeed(
     private val table: String,
     private val filterColumn: String? = null,
     private val filterValue: String? = null,
+    /** Kurze Unterbrechungen laden nicht alles neu (wie iOS); Nachrichten: 0 */
+    private val catchUpAfterMs: Long = 60_000,
     private val onChange: suspend () -> Unit,
 ) {
+    private var lostAt: Long? = null
+    private suspend fun catchUp() {
+        val gap = lostAt?.let { System.currentTimeMillis() - it } ?: Long.MAX_VALUE
+        if (gap >= catchUpAfterMs) onChange()
+    }
+
     private var channel: RealtimeChannel? = null
     private var jobs: List<Job> = emptyList()
     private var wanted = false
@@ -48,10 +56,12 @@ class RealtimeFeed(
                 ch.status.collect { status ->
                     when (status) {
                         RealtimeChannel.Status.SUBSCRIBED -> {
-                            if (joined) { Diag.log("Live-Verbindung $topic wieder da"); onChange() }
+                            if (joined) { Diag.log("Live-Verbindung $topic wieder da"); catchUp() }
                             joined = true
+                            lostAt = null
                         }
                         RealtimeChannel.Status.UNSUBSCRIBED -> if (joined) {
+                            if (lostAt == null) lostAt = System.currentTimeMillis()
                             Diag.log("Live-Verbindung $topic vom Server beendet – verbinde neu")
                             joined = false
                             scope.launch { teardown(); delay(3_000); connect() }
@@ -62,7 +72,8 @@ class RealtimeFeed(
             },
         )
         runCatching { ch.subscribe() }.onFailure { Diag.log("Live-Verbindung $topic: ${it.message}") }
-        onChange()   // Anfangsstand
+        if (lostAt == null) onChange() else catchUp()   // Anfangsstand bzw. nach Neuverbindung nur bei längerer Lücke
+        lostAt = null
     }
 
     private suspend fun teardown() {

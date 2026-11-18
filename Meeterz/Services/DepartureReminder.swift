@@ -27,13 +27,15 @@ final class DepartureReminder {
         set { UserDefaults.standard.set(newValue.map(\.uuidString), forKey: "depart.fired") }
     }
 
-    /// Selbst geplante Ankunft („Ankunft um …“ in der Routenvorschau) – nur auf dem Gerät
+    /// Selbst geplante Fahrt („Ankunft um …“ / „Abfahrt ab …“ in der Routenvorschau) – nur auf dem Gerät.
+    /// `at` = gewünschte Ankunft, bei `leave` die gewählte Abfahrt
     struct PlannedArrival: Codable, Identifiable {
         var id = UUID()
         let name: String
         let address: String?
         let lat: Double, lng: Double
         let at: Date
+        var leave: Bool? = nil
         var place: Place { Place(id: "arrive-\(id)", name: name, address: address, coordinate: .init(latitude: lat, longitude: lng)) }
     }
 
@@ -42,10 +44,12 @@ final class DepartureReminder {
         set { UserDefaults.standard.set(try? JSONEncoder().encode(newValue), forKey: "depart.planned") }
     }
 
-    /// „Ankunft um …“: Ziel merken und die Losfahren-Erinnerung planen (ersetzt eine frühere Planung zum selben Ziel)
-    func plan(_ place: Place, arriveAt: Date) async {
+    /// „Ankunft um …“ bzw. „Abfahrt ab …“ (`leave`): Ziel merken und die Losfahren-Erinnerung planen
+    /// (ersetzt eine frühere Planung zum selben Ziel)
+    func plan(_ place: Place, at: Date, leave: Bool) async {
         planned = planned.filter { $0.at > Date() && $0.place.coordinate.distance(to: place.coordinate) > 150 }
-            + [PlannedArrival(name: place.name, address: place.address, lat: place.coordinate.latitude, lng: place.coordinate.longitude, at: arriveAt)]
+            + [PlannedArrival(name: place.name, address: place.address, lat: place.coordinate.latitude, lng: place.coordinate.longitude,
+                              at: at, leave: leave)]
         await refresh()
     }
 
@@ -59,7 +63,10 @@ final class DepartureReminder {
         let id: UUID
         let place: Place
         let at: Date
-        let text: (_ minutes: Int, _ extra: String) -> String
+        /// `at` ist die Abfahrt (statt der Ankunft)
+        var leave = false
+        /// `other`: berechnete Abfahrt bzw. bei `leave` die Ankunft
+        let text: (_ minutes: Int, _ extra: String, _ other: Date) -> String
     }
 
     func refresh() async {
@@ -69,13 +76,17 @@ final class DepartureReminder {
             return at > Date() && at < Date().addingTimeInterval(24 * 3600)
         }
         let upcoming = meetups.map { m in
-            Target(id: m.id, place: m.place, at: m.meetAt!) { minutes, extra in
+            Target(id: m.id, place: m.place, at: m.meetAt!) { minutes, extra, _ in
                 String(localized: "Um \(Meetup.timeText(m.meetAt!)) bei \(m.withText) (\(m.placeName)) · ca. \(minutes) Min. Fahrt\(extra)")
             }
         } + planned.filter { $0.at < Date().addingTimeInterval(24 * 3600) }.map { p in
-            Target(id: p.id, place: p.place, at: p.at) { minutes, extra in
-                String(localized: "Ankunft um \(Meetup.timeText(p.at)) in \(p.name) · ca. \(minutes) Min. Fahrt\(extra)")
-            }
+            p.leave == true
+                ? Target(id: p.id, place: p.place, at: p.at, leave: true) { minutes, extra, arrival in
+                    String(localized: "Abfahrt \(Meetup.timeText(p.at)) nach \(p.name) · Ankunft ca. \(arrival.formatted(date: .omitted, time: .shortened)) (\(minutes) Min.\(extra))")
+                }
+                : Target(id: p.id, place: p.place, at: p.at) { minutes, extra, _ in
+                    String(localized: "Ankunft um \(Meetup.timeText(p.at)) in \(p.name) · ca. \(minutes) Min. Fahrt\(extra)")
+                }
         }
         let ids = Set(upcoming.map(\.id))
         let setChanged = ids != lastIds
@@ -102,13 +113,14 @@ final class DepartureReminder {
                 center.removePendingNotificationRequests(withIdentifiers: ["depart-\(target.id)"])
                 continue
             }
-            guard let trip = await travel(to: target.place.coordinate, departingBy: at) else { continue }
+            guard let trip = target.leave ? await travel(to: target.place.coordinate, departingAt: at)
+                                          : await travel(to: target.place.coordinate, arrivingBy: at) else { continue }
             lastCalc[target.id] = Date()
-            let depart = at.addingTimeInterval(-trip.duration - Self.buffer)
+            let depart = target.leave ? at : at.addingTimeInterval(-trip.duration - Self.buffer)
             let fire = depart.addingTimeInterval(-Self.lead)
             let minutes = Int((trip.duration / 60).rounded())
             let extra = trip.chargeStops > 0 ? (trip.chargeStops == 1 ? String(localized: " inkl. 1 Ladestopp") : String(localized: " inkl. \(trip.chargeStops) Ladestopps")) : ""
-            let body = target.text(minutes, extra)
+            let body = target.text(minutes, extra, target.leave ? at.addingTimeInterval(trip.duration) : depart)
 
             if fire > Date().addingTimeInterval(30) {
                 schedule(target, title: String(localized: "In 10 Min. losfahren"), body: body, at: fire)
@@ -125,21 +137,25 @@ final class DepartureReminder {
         firedNow = firedNow.intersection(Set(AppModel.shared.meetups.meetups.map(\.id) + planned.map(\.id)))
     }
 
-    /// Abfahrtszeit für „Ankunft um …“ (Fahrzeit mit Verkehrsprognose, beim E-Auto mit Ladestopps, plus Puffer)
+    /// Abfahrtszeit für „Ankunft um …“ (übliche Verkehrslage zu dieser Zeit, beim E-Auto mit Ladestopps, plus Puffer)
     func departure(to place: Place, arriveAt: Date) async -> Date? {
-        guard let trip = await travel(to: place.coordinate, departingBy: arriveAt) else { return nil }
+        guard let trip = await travel(to: place.coordinate, arrivingBy: arriveAt) else { return nil }
         return arriveAt.addingTimeInterval(-trip.duration - Self.buffer)
+    }
+
+    /// Ankunftszeit für „Abfahrt ab …“ (übliche Verkehrslage zur gewählten Abfahrt, beim E-Auto mit Ladestopps)
+    func arrival(to place: Place, departAt: Date) async -> Date? {
+        guard let trip = await travel(to: place.coordinate, departingAt: departAt) else { return nil }
+        return departAt.addingTimeInterval(trip.duration)
     }
 
     private struct Trip { let duration: TimeInterval; let chargeStops: Int }
 
-    /// Fahrzeit mit Verkehr zur Abfahrtszeit (geschätzt), beim E-Auto plus Ladezeit
-    private func travel(to coordinate: CLLocationCoordinate2D, departingBy at: Date) async -> Trip? {
-        // Grobe Abfahrt für die Verkehrsprognose: 30 Min. vorher (genauer wird es beim Nachrechnen)
-        let departure = at.addingTimeInterval(-30 * 60)
-        guard let route = await AppModel.shared.navigation.driveRoute(to: coordinate,
-                                                                     departing: departure > Date().addingTimeInterval(15 * 60) ? departure : nil)
-        else { return nil }
+    /// Fahrzeit bei Abfahrt `at` mit der für diese Uhrzeit üblichen Verkehrslage (Mapbox `depart_at`, Prognose aus
+    /// historischen Daten); liegt `at` in den nächsten Minuten, der aktuelle Verkehr. Beim E-Auto plus Ladezeit.
+    private func travel(to coordinate: CLLocationCoordinate2D, departingAt at: Date) async -> Trip? {
+        let when = at > Date().addingTimeInterval(5 * 60) ? at : nil
+        guard let route = await AppModel.shared.navigation.driveRoute(to: coordinate, departing: when) else { return nil }
         var duration = route.expectedTravelTime
         var stops = 0
         if EVSettings.enabled, EVSettings.vehicle != nil, case .success(let plan)? = await EVSettings.plan(for: route), !plan.direct {
@@ -147,6 +163,20 @@ final class DepartureReminder {
             duration += plan.totalChargeTime + Double(stops) * 5 * 60   // An- und Abfahrt an der Säule
         }
         return Trip(duration: duration, chargeStops: stops)
+    }
+
+    /// Fahrzeit für Ankunft um `at`: Die Abfahrt hängt vom Verkehr ab und der Verkehr von der Abfahrt – darum mit
+    /// einer Schätzung beginnen und mit der Prognose für die so berechnete Abfahrt höchstens zweimal nachrechnen.
+    private func travel(to coordinate: CLLocationCoordinate2D, arrivingBy at: Date) async -> Trip? {
+        guard var trip = await travel(to: coordinate, departingAt: at.addingTimeInterval(-30 * 60)) else { return nil }
+        for _ in 0..<2 {
+            let depart = at.addingTimeInterval(-trip.duration - Self.buffer)
+            guard let next = await travel(to: coordinate, departingAt: depart) else { break }
+            let settled = abs(next.duration - trip.duration) < 60
+            trip = next
+            if settled { break }
+        }
+        return trip
     }
 
     private func schedule(_ target: Target, title: String, body: String, at date: Date?) {

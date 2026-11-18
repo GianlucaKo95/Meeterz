@@ -121,52 +121,61 @@ struct HazardReportSheet: View {
     }
 }
 
-// MARK: - Ankunft um …
+// MARK: - Ankunft um … / Abfahrt ab …
 
-/// Ankunftszeit wählen: Meeterz rechnet die Abfahrt (Verkehrsprognose, ggf. Ladestopps) und erinnert 10 Min. vorher
+/// Fahrt zeitlich planen: Ankunftszeit wählen (Meeterz rechnet die Abfahrt) oder Abfahrtszeit wählen (Meeterz rechnet
+/// die Ankunft) – jeweils mit der für diese Uhrzeit üblichen Verkehrslage. Erinnerung 10 Min. vor der Abfahrt.
 struct ArriveBySheet: View {
     let place: Place
     @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
-    @State private var arrival = Calendar.current.date(byAdding: .hour, value: 1, to: .now)!
-    @State private var departure: Date?
+    @State private var leave = false
+    @State private var time = Calendar.current.date(byAdding: .hour, value: 1, to: .now)!
+    /// Berechnete Abfahrt bzw. (bei `leave`) Ankunft
+    @State private var result: Date?
     @State private var calculating = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Ankunft um …").font(Theme.display(22))
-            Text(place.name).foregroundStyle(Theme.muted)
-            DatePicker("Ankunft", selection: $arrival, in: Date().addingTimeInterval(15 * 60)...Date().addingTimeInterval(24 * 3600))
+            Text(place.name).font(Theme.display(22)).lineLimit(1)
+            Picker("", selection: $leave) {
+                Text("Ankunft um …").tag(false)
+                Text("Abfahrt ab …").tag(true)
+            }
+            .pickerStyle(.segmented)
+            DatePicker(leave ? "Abfahrt" : "Ankunft", selection: $time, in: Date().addingTimeInterval(leave ? 5 * 60 : 15 * 60)...Date().addingTimeInterval(24 * 3600))
                 .datePickerStyle(.compact)
             Group {
                 if calculating { ProgressView() }
-                else if let departure {
-                    Text("Losfahren: \(Meetup.timeText(departure))").font(.headline).foregroundStyle(Theme.accent)
+                else if let result {
+                    Text(leave ? "Ankunft: \(Meetup.timeText(result))" : "Losfahren: \(Meetup.timeText(result))")
+                        .font(.headline).foregroundStyle(Theme.accent)
                 } else {
                     Text("Fahrzeit konnte nicht berechnet werden.").font(.footnote).foregroundStyle(Theme.muted)
                 }
             }
-            Text("Du bekommst 10 Minuten vorher eine Erinnerung; die Fahrzeit wird bis dahin mit dem Verkehr nachgerechnet.")
+            Text("Mit dem zu dieser Uhrzeit üblichen Verkehr. Du bekommst 10 Minuten vor der Abfahrt eine Erinnerung.")
                 .font(.footnote).foregroundStyle(Theme.muted)
             Button("Erinnern") {
                 Task {
-                    await DepartureReminder.shared.plan(place, arriveAt: arrival)
+                    await DepartureReminder.shared.plan(place, at: time, leave: leave)
                     app.show(String(localized: "Erinnerung für \(place.name) geplant."), isError: false)
                     dismiss()
                 }
             }
             .buttonStyle(PrimaryButtonStyle())
-            .disabled(departure == nil)
+            .disabled(result == nil)
             Spacer(minLength: 0)
         }
         .padding(20)
         .background(Theme.ink)
-        .presentationDetents([.height(400)])
-        .task(id: arrival) {
+        .presentationDetents([.height(420)])
+        .task(id: "\(leave)|\(time.timeIntervalSince1970)") {
             calculating = true
             try? await Task.sleep(for: .milliseconds(400))   // beim Drehen am Rad nicht jede Minute rechnen
             guard !Task.isCancelled else { return }
-            departure = await DepartureReminder.shared.departure(to: place, arriveAt: arrival)
+            result = leave ? await DepartureReminder.shared.arrival(to: place, departAt: time)
+                           : await DepartureReminder.shared.departure(to: place, arriveAt: time)
             calculating = false
         }
     }

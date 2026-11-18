@@ -37,7 +37,9 @@ object DepartureReminder {
 
     /** Selbst geplante Ankunft („Ankunft um …“ in der Routenvorschau) – nur auf dem Gerät */
     @kotlinx.serialization.Serializable
-    data class PlannedArrival(val id: String, val name: String, val address: String? = null, val lat: Double, val lng: Double, val at: Long)
+    data class PlannedArrival(val id: String, val name: String, val address: String? = null, val lat: Double, val lng: Double, val at: Long,
+                              /** `at` ist die gewählte Abfahrt („Abfahrt ab …“) statt der Ankunft */
+                              val leave: Boolean = false)
 
     private fun planned(c: Context): List<PlannedArrival> = runCatching {
         kotlinx.serialization.json.Json.decodeFromString<List<PlannedArrival>>(prefs(c).getString("depart.planned", "[]")!!)
@@ -46,24 +48,48 @@ object DepartureReminder {
     private fun savePlanned(c: Context, list: List<PlannedArrival>) =
         prefs(c).edit().putString("depart.planned", kotlinx.serialization.json.Json.encodeToString(list)).apply()
 
-    /** „Ankunft um …“: Ziel merken und die Losfahren-Erinnerung planen (ersetzt eine frühere Planung zum selben Ziel) */
-    suspend fun plan(c: Context, name: String, address: String?, lat: Double, lng: Double, at: Long) {
+    /** „Ankunft um …“ bzw. „Abfahrt ab …“ (`leave`): Ziel merken und die Losfahren-Erinnerung planen (ersetzt eine frühere Planung zum selben Ziel) */
+    suspend fun plan(c: Context, name: String, address: String?, lat: Double, lng: Double, at: Long, leave: Boolean) {
         val now = System.currentTimeMillis()
         savePlanned(c, planned(c).filter { it.at > now && de.koeven.meeterz.ev.ChargePlanner.distance(it.lat, it.lng, lat, lng) > 150 } +
-            PlannedArrival(java.util.UUID.randomUUID().toString(), name, address, lat, lng, at))
+            PlannedArrival(java.util.UUID.randomUUID().toString(), name, address, lat, lng, at, leave))
         lastRun = 0
         refresh(c)
     }
 
-    /** Abfahrtszeit für „Ankunft um …“ (Fahrzeit mit aktuellem Verkehr plus Puffer) */
+    /**
+     * Fahrzeit für Ankunft um `at` mit der üblichen Verkehrslage (wie iOS): Die Abfahrt hängt vom Verkehr ab und der
+     * Verkehr von der Abfahrt – mit einer Schätzung beginnen und für die so berechnete Abfahrt höchstens zweimal nachrechnen.
+     */
+    private suspend fun travelArriving(fromLat: Double, fromLng: Double, lat: Double, lng: Double, at: Long): Double? {
+        var travel = Directions.duration(fromLat, fromLng, lat, lng, at - 30 * 60_000) ?: return null
+        repeat(2) {
+            val next = Directions.duration(fromLat, fromLng, lat, lng, at - (travel * 1000).toLong() - BUFFER) ?: return travel
+            val settled = Math.abs(next - travel) < 60
+            travel = next
+            if (settled) return travel
+        }
+        return travel
+    }
+
+    /** Abfahrtszeit für „Ankunft um …“ (übliche Verkehrslage zu dieser Zeit, plus Puffer) */
     suspend fun departure(lat: Double, lng: Double, at: Long): Long? {
         val here = AppState.lastLocation ?: return null
-        val travel = Directions.duration(here.latitude, here.longitude, lat, lng) ?: return null
+        val travel = travelArriving(here.latitude, here.longitude, lat, lng, at) ?: return null
         return at - (travel * 1000).toLong() - BUFFER
     }
 
+    /** Ankunftszeit für „Abfahrt ab …“ (übliche Verkehrslage zur gewählten Abfahrt) */
+    suspend fun arrival(lat: Double, lng: Double, departAt: Long): Long? {
+        val here = AppState.lastLocation ?: return null
+        val travel = Directions.duration(here.latitude, here.longitude, lat, lng, departAt) ?: return null
+        return departAt + (travel * 1000).toLong()
+    }
+
     /** Was erinnert wird: Treffen mit Uhrzeit und selbst geplante Ankünfte */
-    private data class Target(val id: String, val name: String, val lat: Double, val lng: Double, val at: Long, val body: (Long) -> String)
+    /** `leave`: `at` ist die Abfahrt; `body(minutes, other)` – other = berechnete Abfahrt bzw. bei `leave` die Ankunft */
+    private data class Target(val id: String, val name: String, val lat: Double, val lng: Double, val at: Long,
+                              val leave: Boolean = false, val body: (Long, Long) -> String)
 
     suspend fun refresh(context: Context) {
         val now = System.currentTimeMillis()
@@ -71,11 +97,14 @@ object DepartureReminder {
         savePlanned(context, plans)
         val meetups = AppState.meetups.accepted.filter { m -> m.meetAtSeconds?.let { it * 1000 in now..(now + 24 * 3_600_000) } == true }
         val upcoming = meetups.map { m ->
-            Target(m.id, m.placeName, m.lat, m.lng, m.meetAtSeconds!! * 1000) { minutes ->
+            Target(m.id, m.placeName, m.lat, m.lng, m.meetAtSeconds!! * 1000) { minutes, _ ->
                 tr("Um %@ bei %@ (%@) · ca. %@ Min. Fahrt", meetupTime(m.meetAtSeconds!!), m.withText, m.placeName, minutes)
             }
         } + plans.filter { it.at < now + 24 * 3_600_000 }.map { p ->
-            Target(p.id, p.name, p.lat, p.lng, p.at) { minutes -> tr("Ankunft um %@ in %@ · ca. %@ Min. Fahrt", meetupTime(p.at / 1000), p.name, minutes) }
+            if (p.leave) Target(p.id, p.name, p.lat, p.lng, p.at, leave = true) { minutes, arrival ->
+                tr("Abfahrt %@ nach %@ · Ankunft ca. %@ (%@ Min.)", meetupTime(p.at / 1000), p.name, DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(arrival)), minutes)
+            }
+            else Target(p.id, p.name, p.lat, p.lng, p.at) { minutes, _ -> tr("Ankunft um %@ in %@ · ca. %@ Min. Fahrt", meetupTime(p.at / 1000), p.name, minutes) }
         }
         val ids = upcoming.map { it.id }.toSet()
         val setChanged = ids != lastIds
@@ -93,12 +122,13 @@ object DepartureReminder {
             NavigationController.guidance.value?.let { g ->
                 if (de.koeven.meeterz.ev.ChargePlanner.distance(t.lat, t.lng, g.destination.lat, g.destination.lng) < 300) { cancel(context, t.id); return@let true } else null
             }?.let { continue }
-            val travel = Directions.duration(here.latitude, here.longitude, t.lat, t.lng) ?: continue
+            val travel = (if (t.leave) Directions.duration(here.latitude, here.longitude, t.lat, t.lng, at)
+                          else travelArriving(here.latitude, here.longitude, t.lat, t.lng, at)) ?: continue
             lastCalc[t.id] = now
-            val depart = at - (travel * 1000).toLong() - BUFFER
+            val depart = if (t.leave) at else at - (travel * 1000).toLong() - BUFFER
             val fire = depart - LEAD
             val minutes = Math.round(travel / 60)
-            val body = t.body(minutes)
+            val body = t.body(minutes, if (t.leave) at + (travel * 1000).toLong() else depart)
             if (fire > now + 30_000) {
                 schedule(context, t.id, tr("In 10 Min. losfahren"), body, t.name, t.lat, t.lng, fire)
             } else if (t.id !in fired) {

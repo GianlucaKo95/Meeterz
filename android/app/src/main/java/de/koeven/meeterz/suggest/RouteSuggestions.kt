@@ -33,11 +33,18 @@ private fun clock(ms: Long) = DateFormat.getTimeInstance(DateFormat.SHORT).forma
 object Directions {
     private val http by lazy { HttpClient(OkHttp) }
 
-    /** Sekunden oder null */
-    suspend fun duration(fromLat: Double, fromLng: Double, toLat: Double, toLng: Double): Double? = runCatching {
+    /**
+     * Sekunden oder null. Mit `departAt` (ms) die für diese Abfahrtszeit übliche Verkehrslage (Mapbox `depart_at`,
+     * Prognose aus historischen Daten) statt des aktuellen Verkehrs – nur für Zeiten mehr als 5 Min. in der Zukunft.
+     */
+    suspend fun duration(fromLat: Double, fromLng: Double, toLat: Double, toLng: Double, departAt: Long? = null): Double? = runCatching {
         val exclude = RoutePreferences.exclude?.let { "&exclude=$it" } ?: ""
+        val depart = departAt?.takeIf { it > System.currentTimeMillis() + 5 * 60_000 }?.let {
+            "&depart_at=" + java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mmXXX", java.util.Locale.US).format(java.util.Date(it))
+                .replace("+", "%2B")
+        } ?: ""
         val body = http.get("https://api.mapbox.com/directions/v5/mapbox/driving-traffic/$fromLng,$fromLat;$toLng,$toLat" +
-            "?overview=false&alternatives=false$exclude&access_token=${MapboxOptions.accessToken}").bodyAsText()
+            "?overview=false&alternatives=false$exclude$depart&access_token=${MapboxOptions.accessToken}").bodyAsText()
         Json.parseToJsonElement(body).jsonObject["routes"]?.jsonArray?.firstOrNull()?.jsonObject?.get("duration")?.jsonPrimitive?.double
     }.getOrNull()
 }

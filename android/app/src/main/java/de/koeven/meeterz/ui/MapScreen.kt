@@ -688,7 +688,7 @@ private fun PreviewCard(dest: NavigationController.Destination, routes: List<Nav
             de.koeven.meeterz.nav.RoutePreferences.summary?.let { Text(tr("Route %@", it), style = MaterialTheme.typography.bodySmall) }
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AssistChip(onClick = onInvite, label = { Text(tr("Freunde einladen")) })
-                if (mode == de.koeven.meeterz.nav.TravelMode.CAR) AssistChip(onClick = { arriveBy = true }, label = { Text(tr("Ankunft um …")) })
+                if (mode == de.koeven.meeterz.nav.TravelMode.CAR) AssistChip(onClick = { arriveBy = true }, label = { Text(tr("Ankunft / Abfahrt")) })
                 AssistChip(onClick = { saveToList = true }, label = { Text(tr("In Liste")) })
                 if (!saved) {
                     AssistChip(onClick = { onSave("home", tr("Zuhause")); saved = true }, label = { Text(tr("Als Zuhause")) })
@@ -1063,50 +1063,59 @@ private fun AddStopDialog(onDismiss: () -> Unit) {
 }
 
 
-/** „Ankunft um …“ (wie iOS ArriveBySheet): Uhrzeit wählen, Abfahrt mit Verkehr anzeigen, 10 Min. vorher erinnern */
+/**
+ * „Ankunft um …“ / „Abfahrt ab …“ (wie iOS ArriveBySheet): Uhrzeit wählen, Abfahrt bzw. Ankunft mit der für diese
+ * Uhrzeit üblichen Verkehrslage anzeigen, 10 Min. vor der Abfahrt erinnern
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ArriveByDialog(name: String, address: String?, lat: Double, lng: Double, onDismiss: () -> Unit) {
     val context = LocalContext.current
+    var leave by remember { mutableStateOf(false) }
     val inOneHour = java.util.Calendar.getInstance().apply { add(java.util.Calendar.HOUR_OF_DAY, 1) }
     val state = rememberTimePickerState(inOneHour.get(java.util.Calendar.HOUR_OF_DAY), 0, android.text.format.DateFormat.is24HourFormat(context))
     // Gewählte Uhrzeit heute – liegt sie (fast) vorbei, morgen
-    val at = remember(state.hour, state.minute) {
+    val at = remember(state.hour, state.minute, leave) {
         java.util.Calendar.getInstance().apply {
             set(java.util.Calendar.HOUR_OF_DAY, state.hour); set(java.util.Calendar.MINUTE, state.minute); set(java.util.Calendar.SECOND, 0)
-            if (timeInMillis < System.currentTimeMillis() + 15 * 60_000) add(java.util.Calendar.DAY_OF_MONTH, 1)
+            if (timeInMillis < System.currentTimeMillis() + (if (leave) 5 else 15) * 60_000) add(java.util.Calendar.DAY_OF_MONTH, 1)
         }.timeInMillis
     }
-    var depart by remember { mutableStateOf<Long?>(null) }
+    /** Berechnete Abfahrt bzw. (bei `leave`) Ankunft */
+    var result by remember { mutableStateOf<Long?>(null) }
     var calculating by remember { mutableStateOf(true) }
-    LaunchedEffect(at) {
+    LaunchedEffect(at, leave) {
         calculating = true
         delay(400)
-        depart = de.koeven.meeterz.suggest.DepartureReminder.departure(lat, lng, at)
+        result = if (leave) de.koeven.meeterz.suggest.DepartureReminder.arrival(lat, lng, at)
+                 else de.koeven.meeterz.suggest.DepartureReminder.departure(lat, lng, at)
         calculating = false
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(tr("Ankunft um …")) },
+        title = { Text(name, maxLines = 1) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(name, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(selected = !leave, onClick = { leave = false }, label = { Text(tr("Ankunft um …")) })
+                    FilterChip(selected = leave, onClick = { leave = true }, label = { Text(tr("Abfahrt ab …")) })
+                }
                 TimeInput(state)
                 when {
                     calculating -> CircularProgressIndicator()
-                    depart != null -> Text(tr("Losfahren: %@", de.koeven.meeterz.ui.meetupTime(depart!! / 1000)),
+                    result != null -> Text(tr(if (leave) "Ankunft: %@" else "Losfahren: %@", de.koeven.meeterz.ui.meetupTime(result!! / 1000)),
                         fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
                     else -> Text(tr("Fahrzeit konnte nicht berechnet werden."), style = MaterialTheme.typography.bodySmall)
                 }
-                Text(tr("Du bekommst 10 Minuten vorher eine Erinnerung; die Fahrzeit wird bis dahin mit dem Verkehr nachgerechnet."),
+                Text(tr("Mit dem zu dieser Uhrzeit üblichen Verkehr. Du bekommst 10 Minuten vor der Abfahrt eine Erinnerung."),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
         confirmButton = {
-            Button(enabled = depart != null, onClick = {
+            Button(enabled = result != null, onClick = {
                 onDismiss()
                 AppState.scope.launch {
-                    de.koeven.meeterz.suggest.DepartureReminder.plan(context, name, address, lat, lng, at)
+                    de.koeven.meeterz.suggest.DepartureReminder.plan(context, name, address, lat, lng, at, leave)
                     Toast.makeText(context, tr("Erinnerung für %@ geplant.", name), Toast.LENGTH_SHORT).show()
                 }
             }) { Text(tr("Erinnern")) }

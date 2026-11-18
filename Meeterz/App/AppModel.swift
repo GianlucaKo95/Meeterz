@@ -134,6 +134,8 @@ final class AppModel {
         await friends.refresh(hidden: slow)
         await avatars.sync(friends: friends.rows, me: auth.profile)
         if slow { await sounds.sync() }
+        // Stories kommen live; zur Sicherheit alle 5 Min. bzw. beim Öffnen der App (eigene Story fehlte, 18.11.)
+        if slow { await stories.refresh() }
         await hub.sync(with: friends.rows)
         await routes.refresh()
         await meetups.refresh(candidates: socialActive)

@@ -30,9 +30,11 @@ final class RealtimeFeed {
         self.onChange = onChange
     }
 
+    /// Wartet nicht, bis der Kanal steht: `subscribeWithError` kann bei schlechtem Netz lange hängen, und die Stores
+    /// starten nacheinander (AppModel.startSession) – dann luden die danach (Stories, Konvoi) gar nicht erst (18.11.).
     func start() async {
         wanted = true
-        await connect()
+        Task { await connect() }
     }
 
     func stop() async {

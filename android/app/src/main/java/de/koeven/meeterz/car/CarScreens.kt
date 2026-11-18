@@ -432,7 +432,7 @@ class CarStopScreen(carContext: CarContext, private val category: PlaceSearch.Ca
             list.setNoItemsMessage(tr("Nichts gefunden"))
             places?.take(6)?.forEach { s ->
                 val p = s.place
-                val away = s.ahead?.let { tr("nach %@", km(it)) } ?: me?.let { km(ChargePlanner.distance(it.latitude, it.longitude, p.lat, p.lng)) }
+                val away = s.aheadText ?: me?.let { km(ChargePlanner.distance(it.latitude, it.longitude, p.lat, p.lng)) }
                 list.addItem(Row.Builder().setTitle(p.name)
                     .apply { listOfNotNull(away, s.price?.text?.takeIf { it.isNotEmpty() }).joinToString(" · ").takeIf { it.isNotEmpty() }?.let { addText(it) } }
                     .apply { p.hours?.let { addText(de.koeven.meeterz.nav.OsmPlaces.status(it)) } }

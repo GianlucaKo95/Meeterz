@@ -264,7 +264,7 @@ extension CarPlayController {
             var shown = Array(found.prefix(CPListTemplate.maximumItemCount))
             @MainActor func render() {
                 let items: [CPListItem] = shown.map { s in
-                    let away = s.ahead.map { String(localized: "nach \(ActivityFormat.distance($0))") }   // entlang der Route
+                    let away = s.aheadText   // entlang der Route
                         ?? ActivityFormat.distance(s.place.coordinate.distance(to: me))
                     // Öffnungsstatus vorn (wichtiger als die Adresse), Spritpreise bzw. Adresse dahinter
                     let detail = [away, s.place.hours.map { OsmPlaces.status($0) }, s.price?.text ?? s.place.address]

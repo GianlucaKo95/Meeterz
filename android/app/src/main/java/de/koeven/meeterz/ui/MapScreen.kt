@@ -1046,7 +1046,7 @@ private fun AddStopDialog(onDismiss: () -> Unit) {
                             }
                         }.padding(vertical = 10.dp)) {
                             Text(p.name, fontWeight = FontWeight.SemiBold)
-                            val away = s.ahead?.let { tr("nach %@", km(it)) } ?: me?.let { km(de.koeven.meeterz.ev.ChargePlanner.distance(it.latitude, it.longitude, p.lat, p.lng)) }
+                            val away = s.aheadText ?: me?.let { km(de.koeven.meeterz.ev.ChargePlanner.distance(it.latitude, it.longitude, p.lat, p.lng)) }
                             Text(listOfNotNull(away, p.address).joinToString(" · "), style = MaterialTheme.typography.bodySmall, maxLines = 1)
                             s.price?.text?.takeIf { it.isNotEmpty() }?.let {
                                 Text(it, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)

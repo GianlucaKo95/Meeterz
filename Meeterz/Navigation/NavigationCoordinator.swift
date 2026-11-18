@@ -492,12 +492,27 @@ final class NavigationCoordinator: NSObject {
         let place: Place
         let ahead: Double?
         var price: FuelPrices.Price?
+
+        /// „nach 12 km“, unter 200 m „Direkt hier“ (statt „nach 0 m“)
+        var aheadText: String? {
+            ahead.map { $0 < 200 ? String(localized: "Direkt hier") : String(localized: "nach \(ActivityFormat.distance($0))") }
+        }
     }
+
+    /// Wie weit voraus gesucht wird, wenn nichts anderes verlangt ist: Treffer in 400 km nützen beim Tanken nichts
+    static let stopoverHorizon: Double = 80_000
 
     /// Orte einer Kategorie für unterwegs (iPhone und CarPlay): während der Fahrt entlang der restlichen Route
     /// (Mapbox „Search along route“, höchstens 5 Min. Umweg), in Reihenfolge auf der Strecke; sonst in der Nähe.
     /// `limitMeters`: nur bis zu diesem Punkt der Route (z. B. so weit der Akku reicht)
     func stopovers(_ kind: SearchService.Stopover, near me: CLLocationCoordinate2D, limitMeters: Double? = nil) async throws -> [Stopover] {
+        let found = try await stopovers(kind, near: me, limit: limitMeters ?? Self.stopoverHorizon)
+        // Auf den nächsten 80 km nichts: dann die ganze restliche Strecke
+        if found.isEmpty, limitMeters == nil, isNavigating { return try await stopovers(kind, near: me, limit: nil) }
+        return found
+    }
+
+    private func stopovers(_ kind: SearchService.Stopover, near me: CLLocationCoordinate2D, limit limitMeters: Double?) async throws -> [Stopover] {
         var ahead = isNavigating ? routeAhead(from: me) : nil
         // Strecke entlang der Route je Routenpunkt
         var along: [Double] = [0]

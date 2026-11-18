@@ -1,7 +1,7 @@
 // Meeterz – Spritpreise für Tankstellen (Markttransparenzstelle für Kraftstoffe über Tankerkönig, CC BY 4.0).
 // Aufruf aus der App: functions.invoke("fuel-prices", { points: [{ lat, lng }, …] })   (höchstens 10)
 // Antwort: { prices: [{ e5, e10, diesel, open, brand } | null, …] } in derselben Reihenfolge – null, wenn im
-// Umkreis von 150 m keine gemeldete Tankstelle liegt. Ohne Secret TANKERKOENIG_API_KEY: { prices: [] }.
+// Umkreis von 300 m keine gemeldete Tankstelle liegt (Mapbox und MTS-K setzen große Tankstellen bis ~200 m versetzt). Ohne Secret TANKERKOENIG_API_KEY: { prices: [] }.
 // Schreibt nichts in die Datenbank.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
       const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
       const body = await res.json();
       const s: Station | undefined = body?.ok ? body.stations?.[0] : undefined;
-      if (!s || s.dist > 0.15) return null;
+      if (!s || s.dist > 0.3) return null;
       return { e5: num(s.e5), e10: num(s.e10), diesel: num(s.diesel), open: s.isOpen ?? null, brand: s.brand || null };
     } catch {
       return null;

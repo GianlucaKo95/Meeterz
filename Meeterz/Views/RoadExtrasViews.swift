@@ -62,7 +62,7 @@ struct StopSearchSheet: View {
 
     private func detail(_ s: NavigationCoordinator.Stopover) -> String {
         let me = app.location.lastLocation?.coordinate
-        let away = s.ahead.map { String(localized: "nach \(ActivityFormat.distance($0))") }
+        let away = s.aheadText
             ?? me.map { ActivityFormat.distance(s.place.coordinate.distance(to: $0)) }
         return [away, s.place.address].compactMap { $0 }.joined(separator: " · ")
     }

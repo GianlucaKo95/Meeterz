@@ -144,14 +144,36 @@ object PlaceSearch {
     private fun minutes(hhmm: String) = hhmm.take(2).toInt() * 60 + hhmm.drop(2).toInt()
 
     /** Ort für einen Zwischenstopp: `ahead` = Strecke entlang der Route (nur während der Fahrt), `price` = Spritpreise */
-    data class Stopover(val place: Place, val ahead: Double?, val price: de.koeven.meeterz.data.FuelPrices.Price? = null)
+    data class Stopover(val place: Place, val ahead: Double?, val price: de.koeven.meeterz.data.FuelPrices.Price? = null) {
+        /** „nach 12 km“, unter 200 m „Direkt hier“ (statt „nach 0 m“) */
+        val aheadText: String? get() = ahead?.let { if (it < 200) tr("Direkt hier") else tr("nach %@", de.koeven.meeterz.ui.km(it)) }
+    }
+
+    /** Wie weit voraus gesucht wird (wie iOS): Treffer in 400 km nützen beim Tanken nichts */
+    private const val HORIZON = 80_000.0
 
     /**
      * Orte einer Kategorie für unterwegs (wie NavigationCoordinator.stopovers auf iOS): während der Fahrt entlang der
      * restlichen Route (Mapbox „Search along route“, höchstens 5 Min. Umweg) in Reihenfolge auf der Strecke, sonst in der Nähe.
      */
     suspend fun stopovers(category: Category, lat: Double, lng: Double): List<Stopover> {
-        val ahead = NavigationController.routeAhead(lat, lng)
+        val full = NavigationController.routeAhead(lat, lng)
+        // Nur die nächsten 80 km; findet sich dort nichts, die ganze restliche Strecke
+        return stopovers(category, lat, lng, full?.let { cut(it, HORIZON) }).ifEmpty {
+            if (full != null) stopovers(category, lat, lng, full) else emptyList()
+        }
+    }
+
+    private fun cut(route: List<com.mapbox.geojson.Point>, meters: Double): List<com.mapbox.geojson.Point> {
+        var sum = 0.0
+        for (i in 1 until route.size) {
+            sum += distance(route[i - 1].latitude(), route[i - 1].longitude(), route[i].latitude(), route[i].longitude())
+            if (sum > meters) return route.subList(0, maxOf(2, i))
+        }
+        return route
+    }
+
+    private suspend fun stopovers(category: Category, lat: Double, lng: Double, ahead: List<com.mapbox.geojson.Point>?): List<Stopover> {
         val along = ahead?.let { r -> r.indices.runningFold(0.0) { acc, i -> if (i == 0) acc else acc + distance(r[i - 1].latitude(), r[i - 1].longitude(), r[i].latitude(), r[i].longitude()) }.drop(1) }
         var found = request(category.path, category.query, lat, lng, 10) {
             if (ahead != null && category.path.startsWith("category/")) {

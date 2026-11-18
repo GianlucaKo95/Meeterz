@@ -15,6 +15,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -135,7 +137,9 @@ fun StoryComposer(onDismiss: () -> Unit) {
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            Column(Modifier.statusBarsPadding().navigationBarsPadding().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            val focus = androidx.compose.ui.platform.LocalFocusManager.current
+            // imePadding: mit Tastatur schrumpft das Bild, Textfeld und „Story teilen“ bleiben sichtbar (wie iOS)
+            Column(Modifier.statusBarsPadding().navigationBarsPadding().imePadding().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Box(Modifier.fillMaxWidth()) {
                     TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.CenterStart)) { Text(tr("Abbrechen")) }
                     Text(tr("Neue Story"), Modifier.align(Alignment.Center), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -151,7 +155,8 @@ fun StoryComposer(onDismiss: () -> Unit) {
                     }
                     Spacer(Modifier.weight(1f))
                 } else {
-                    Box(Modifier.weight(1f).fillMaxWidth().background(Color.Black, RoundedCornerShape(16.dp))) {
+                    Box(Modifier.weight(1f).fillMaxWidth().background(Color.Black, RoundedCornerShape(16.dp))
+                        .clip(RoundedCornerShape(16.dp)).clickable { focus.clearFocus() }) {
                         if (c.second) LoopingVideo(c.first)
                         else {
                             val bmp = remember(c.first) {
@@ -164,7 +169,9 @@ fun StoryComposer(onDismiss: () -> Unit) {
                         Icon(Icons.Default.Place, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                         Text(placeName ?: tr("Ort wird ermittelt …"), Modifier.padding(start = 8.dp), style = MaterialTheme.typography.bodyMedium)
                     }
-                    OutlinedTextField(caption, { caption = it.take(140) }, Modifier.fillMaxWidth(), placeholder = { Text(tr("Text (optional)")) }, maxLines = 3)
+                    OutlinedTextField(caption, { caption = it.take(140) }, Modifier.fillMaxWidth(), placeholder = { Text(tr("Text (optional)")) }, maxLines = 3,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+                        keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { focus.clearFocus() }))
                     Button(enabled = !posting && here != null, onClick = {
                         val loc = here ?: return@Button
                         scope.launch {

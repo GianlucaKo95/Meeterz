@@ -47,14 +47,20 @@ struct StoryComposer: View {
     @State private var caption = ""
     @State private var placeName: String?
     @State private var coordinate: CLLocationCoordinate2D?
+    @FocusState private var typing: Bool
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 16) {
                 if let media {
-                    preview(media)
+                    // Bild in einem festen Rahmen (beschnitten): Vorher ragte das Foto beim Tippen unter die Leiste mit
+                    // „Abbrechen“, weil es sich nicht verkleinern ließ. Antippen schließt die Tastatur.
+                    Color.clear
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .overlay { preview(media) }
                         .clipShape(RoundedRectangle(cornerRadius: 16))
+                        .contentShape(Rectangle())
+                        .onTapGesture { typing = false }
                     HStack(spacing: 6) {
                         Image(systemName: "mappin.and.ellipse").foregroundStyle(Theme.accent)
                         Text(placeName ?? String(localized: "Ort wird ermittelt …")).font(.subheadline)
@@ -62,6 +68,7 @@ struct StoryComposer: View {
                     }
                     TextField("Text (optional)", text: $caption, axis: .vertical)
                         .lineLimit(1...3)
+                        .focused($typing)
                         .padding(12)
                         .background(RoundedRectangle(cornerRadius: 12).fill(Theme.panel))
                         .onChange(of: caption) { _, new in if new.count > 140 { caption = String(new.prefix(140)) } }
@@ -85,7 +92,14 @@ struct StoryComposer: View {
             .background(Theme.ink.ignoresSafeArea())
             .navigationTitle("Neue Story")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } } }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } }
+                // Über der Tastatur: „Fertig“ schließt sie (mehrzeiliges Feld – die Eingabetaste macht eine neue Zeile)
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Fertig") { typing = false }
+                }
+            }
             .fullScreenCover(isPresented: $showCamera) {
                 StoryCamera { media = $0 }.ignoresSafeArea()
             }

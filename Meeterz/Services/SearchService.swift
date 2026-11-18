@@ -180,6 +180,69 @@ enum SearchService {
         return "mappin.circle.fill"
     }
 
+    /// Details eines Karten-POI (Ortskarte, wenn Apple den Ort nicht kennt; wie Android PlaceSearch.Details)
+    struct Details: Equatable {
+        var category: String?, address: String?, phone: String?, website: URL?
+        var rating: Double?, reviews: Int?
+        /// Öffnungszeiten je Tag (0 = Montag … 6 = Sonntag) als Minuten-Spannen; nil = unbekannt
+        var hours: [[Range<Int>]]?
+
+        static func weekday(_ date: Date = .now) -> Int { (Calendar.current.component(.weekday, from: date) + 5) % 7 }
+
+        /// true/false = jetzt geöffnet/geschlossen, nil = unbekannt
+        func openNow(_ date: Date = .now) -> Bool? {
+            guard let h = hours else { return nil }
+            let day = Self.weekday(date)
+            let c = Calendar.current.dateComponents([.hour, .minute], from: date)
+            let min = (c.hour ?? 0) * 60 + (c.minute ?? 0)
+            // Spannen über Mitternacht sind am Folgetag als > 1440 eingetragen
+            return h[day].contains { $0.contains(min) } || h[(day + 6) % 7].contains { $0.contains(min + 1440) }
+        }
+    }
+
+    /// Mapbox-Treffer zum angetippten POI: gleicher Name in der Nähe (≤ 150 m). Ein Forward-Request, keine Session.
+    static func details(name: String, at c: CLLocationCoordinate2D) async -> Details? {
+        var comps = URLComponents(string: "https://api.mapbox.com/search/searchbox/v1/forward")!
+        comps.queryItems = [
+            URLQueryItem(name: "q", value: name), URLQueryItem(name: "types", value: "poi"), URLQueryItem(name: "limit", value: "5"),
+            proximity(c), URLQueryItem(name: "language", value: Bundle.main.preferredLocalizations.first ?? "en"),
+            URLQueryItem(name: "access_token", value: AppConfig.mapboxToken),
+        ]
+        guard let (data, _) = try? await URLSession.shared.data(from: comps.url!),
+              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let features = root["features"] as? [[String: Any]] else { return nil }
+        let near = features.compactMap { $0["properties"] as? [String: Any] }.compactMap { p -> ([String: Any], Double)? in
+            guard let co = p["coordinates"] as? [String: Any], let lat = co["latitude"] as? Double, let lng = co["longitude"] as? Double else { return nil }
+            let d = CLLocationCoordinate2D(latitude: lat, longitude: lng).distance(to: c)
+            return d < 150 ? (p, d) : nil
+        }.min { $0.1 < $1.1 }?.0
+        guard let p = near else { return nil }
+        let meta = p["metadata"] as? [String: Any]
+        let periods = (meta?["open_hours"] as? [String: Any])?["periods"] as? [[String: Any]]
+        if let periods { Diag.log("POI-Öffnungszeiten \(name): \(periods)") }
+        let hours: [[Range<Int>]]? = periods.map { list in
+            var days = Array(repeating: [Range<Int>](), count: 7)
+            func minutes(_ s: String) -> Int { (Int(s.prefix(2)) ?? 0) * 60 + (Int(s.dropFirst(2)) ?? 0) }
+            for e in list {
+                guard let o = e["open"] as? [String: Any], let od = o["day"] as? Int, let ot = o["time"] as? String else { continue }
+                let start = minutes(ot)
+                // ohne „close“ = rund um die Uhr
+                var end = 1440
+                if let cl = e["close"] as? [String: Any], let cd = cl["day"] as? Int, let ct = cl["time"] as? String {
+                    end = ((cd - od + 7) % 7) * 1440 + minutes(ct)
+                }
+                days[od % 7].append(start..<max(end, start + 1))
+            }
+            return days
+        }
+        let website = (meta?["website"] as? String).flatMap { URL(string: $0.hasPrefix("http") ? $0 : "https://\($0)") }
+        return Details(
+            category: (p["poi_category"] as? [String])?.first.map { $0.prefix(1).uppercased() + $0.dropFirst() },
+            address: (p["full_address"] ?? p["address"]) as? String,
+            phone: (meta?["phone"] as? String).flatMap { $0.isEmpty ? nil : $0 }, website: website,
+            rating: meta?["rating"] as? Double, reviews: meta?["review_count"] as? Int, hours: hours)
+    }
+
     private static func proximity(_ c: CLLocationCoordinate2D) -> URLQueryItem {
         URLQueryItem(name: "proximity", value: "\(c.longitude),\(c.latitude)")
     }

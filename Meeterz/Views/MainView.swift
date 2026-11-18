@@ -32,6 +32,8 @@ struct MainView: View {
     @State private var showStoryComposer = false
     @State private var lastPoiTap = Date.distantPast
     @State private var poiDetail: PlaceDetailItem?
+    /// Mapbox-Ortsdetails, wenn Apple den POI nicht kennt
+    @State private var poiInfo: SearchService.Details?
     /// Aktuelle Kamera der Mapbox-Karte (zum Zoomen an Ort und Stelle, wenn sie mir gerade nicht folgt)
     @State private var cameraNow: CameraState?
     @Environment(\.scenePhase) private var scenePhase
@@ -80,7 +82,7 @@ struct MainView: View {
             VStack(spacing: 10) {
                 Spacer()
                 if let pin = droppedPin {
-                    PinCard(pin: pin) {
+                    PinCard(pin: pin, details: poiInfo) {
                         droppedPin = nil
                         Task { await app.navigation.planRoute(to: pin) }
                     } onRemove: { droppedPin = nil }
@@ -385,9 +387,15 @@ struct MainView: View {
         guard let name else { return }
         let id = droppedPin?.id
         Task {
-            let item = await ApplePlaces.mapItem(for: Place(id: "poi", name: name, address: nil, coordinate: coordinate))
-            guard let item, droppedPin?.id == id else { return }
-            poiDetail = PlaceDetailItem(mapItem: item)
+            if let item = await ApplePlaces.mapItem(for: Place(id: "poi", name: name, address: nil, coordinate: coordinate)) {
+                guard droppedPin?.id == id else { return }
+                poiDetail = PlaceDetailItem(mapItem: item)
+                return
+            }
+            // Apple kennt den Ort nicht: Details von Mapbox in der eigenen Karte (wie Android)
+            let info = await SearchService.details(name: name, at: coordinate)
+            guard droppedPin?.id == id else { return }
+            poiInfo = info
         }
     }
 
@@ -395,6 +403,7 @@ struct MainView: View {
     private func dropPin(at coordinate: CLLocationCoordinate2D, name poiName: String? = nil, haptic: Bool = true) {
         let id = "pin-\(coordinate.latitude),\(coordinate.longitude)"
         droppedPin = Place(id: id, name: poiName ?? String(localized: "Gesetzter Pin"), address: nil, coordinate: coordinate)
+        poiInfo = nil
         setChrome(hidden: false)
         if haptic { UIImpactFeedbackGenerator(style: .medium).impactOccurred() }
         Task {
@@ -845,14 +854,50 @@ struct DroppedPinMarker: View {
 /// Karte unten: Navigation zum gesetzten Pin oder Pin entfernen
 struct PinCard: View {
     let pin: Place
+    var details: SearchService.Details? = nil
     let onNavigate: () -> Void
     let onRemove: () -> Void
+    @State private var week = false
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(pin.name).font(.headline)
-                if let address = pin.address { Text(address).font(.footnote).foregroundStyle(Theme.muted) }
+                let sub = [details?.category, details?.rating.map { r in
+                    "★ " + r.formatted(.number.precision(.fractionLength(1))) + (details?.reviews.map { " (\($0))" } ?? "")
+                }].compactMap { $0 }
+                if !sub.isEmpty { Text(sub.joined(separator: " · ")).font(.footnote).foregroundStyle(Theme.muted) }
+                if let address = details?.address ?? pin.address { Text(address).font(.footnote).foregroundStyle(Theme.muted) }
+                if let d = details, let open = d.openNow(), let hours = d.hours {
+                    let today = hours[SearchService.Details.weekday()]
+                    Button {
+                        week.toggle()
+                    } label: {
+                        Text((open ? String(localized: "Jetzt geöffnet") : String(localized: "Geschlossen"))
+                             + (today.isEmpty ? "" : " · " + Self.text(today)) + (week ? " ▴" : " ▾"))
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(open ? Theme.accent : Theme.danger)
+                    }
+                    .buttonStyle(.plain)
+                    if week {
+                        let names = Calendar.current.shortWeekdaySymbols // 0 = Sonntag
+                        ForEach(0..<7, id: \.self) { i in
+                            Text("\(names[(i + 1) % 7])  " + (hours[i].isEmpty ? String(localized: "Geschlossen") : Self.text(hours[i])))
+                                .font(.footnote).foregroundStyle(Theme.muted)
+                        }
+                    }
+                }
+            }
+            if details?.phone != nil || details?.website != nil {
+                HStack(spacing: 10) {
+                    if let phone = details?.phone, let url = URL(string: "tel:" + phone.filter { !$0.isWhitespace }) {
+                        Button("Anrufen") { openURL(url) }.buttonStyle(SecondaryButtonStyle())
+                    }
+                    if let web = details?.website {
+                        Button("Website") { openURL(web) }.buttonStyle(SecondaryButtonStyle())
+                    }
+                }
             }
             HStack(spacing: 10) {
                 Button("Entfernen", action: onRemove).buttonStyle(SecondaryButtonStyle())
@@ -862,6 +907,13 @@ struct PinCard: View {
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 20).fill(Theme.panel))
         .overlay(RoundedRectangle(cornerRadius: 20).stroke(Theme.stroke, lineWidth: 1))
+    }
+
+    private static func text(_ spans: [Range<Int>]) -> String {
+        spans.map { r in
+            if r.lowerBound == 0 && r.upperBound >= 1440 { return String(localized: "24 Stunden") }
+            return String(format: "%02d:%02d–%02d:%02d", r.lowerBound / 60, r.lowerBound % 60, r.upperBound / 60 % 24, r.upperBound % 60)
+        }.joined(separator: ", ")
     }
 }
 

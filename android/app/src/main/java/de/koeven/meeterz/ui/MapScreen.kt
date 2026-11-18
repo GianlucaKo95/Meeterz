@@ -353,7 +353,13 @@ fun MapScreen() {
                 val street = listOfNotNull(a.thoroughfare, a.subThoroughfare).joinToString(" ")
                 val city = listOfNotNull(a.postalCode, a.locality).joinToString(" ")
                 val title = name ?: a.featureName?.takeIf { it != a.subThoroughfare } ?: street.ifEmpty { pin.name }
-                droppedPin = pin.copy(name = title, address = listOf(street, city).filter { it.isNotEmpty() }.joinToString(", ").ifEmpty { null })
+                droppedPin = droppedPin?.copy(name = title, address = droppedPin?.address ?: listOf(street, city).filter { it.isNotEmpty() }.joinToString(", ").ifEmpty { null })
+            }
+            // POI: Kategorie, Öffnungszeiten, Telefon, Website, Bewertung von Mapbox nachladen (wie Apples Ortskarte)
+            if (name != null) scope.launch {
+                val d = PlaceSearch.details(name, lat, lng) ?: return@launch
+                if (droppedPin?.lat != pin.lat || droppedPin?.lng != pin.lng) return@launch
+                droppedPin = droppedPin?.copy(details = d, address = d.address ?: droppedPin?.address)
             }
         }
         DisposableEffect(mapView) {
@@ -1017,17 +1023,48 @@ private fun AddStopDialog(onDismiss: () -> Unit) {
 
 
 /** Per Gedrückthalten gesetzter Pin */
-private data class DroppedPin(val lat: Double, val lng: Double, val name: String, val address: String?)
+private data class DroppedPin(val lat: Double, val lng: Double, val name: String, val address: String?,
+    val details: PlaceSearch.Details? = null)
 
-/** Karte unten wie iOS PinCard: Name, Adresse, „Entfernen“ und „Hierhin navigieren“ */
+/** Karte unten wie iOS PinCard bzw. Apples Ortskarte: Name, Kategorie, Adresse, Öffnungszeiten, Bewertung,
+ *  Anrufen/Website, „Entfernen“ und „Hierhin navigieren“ */
 @Composable
 private fun PinCard(pin: DroppedPin, onNavigate: () -> Unit, onRemove: () -> Unit) {
+    val context = LocalContext.current
+    val d = pin.details
+    var week by remember(pin.lat, pin.lng) { mutableStateOf(false) }
     Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surface, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Column {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(pin.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                val sub = listOfNotNull(d?.category, d?.rating?.let { r -> "★ " + String.format(java.util.Locale.getDefault(), "%.1f", r) + (d.reviews?.let { " ($it)" } ?: "") })
+                if (sub.isNotEmpty()) Text(sub.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 pin.address?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                d?.openNow()?.let { open ->
+                    val today = d.hours!![(java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_WEEK) + 5) % 7]
+                    Text((if (open) tr("Jetzt geöffnet") else tr("Geschlossen")) + (if (today.isEmpty()) "" else " · " + hoursText(today)) + if (week) " ▴" else " ▾",
+                        style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold,
+                        color = if (open) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                        modifier = Modifier.clickable { week = !week })
+                    if (week) {
+                        val names = java.text.DateFormatSymbols.getInstance().shortWeekdays // 1 = Sonntag
+                        d.hours.forEachIndexed { i, spans ->
+                            Text("${names[(i + 1) % 7 + 1]}  " + if (spans.isEmpty()) tr("Geschlossen") else hoursText(spans),
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+            if (d?.phone != null || d?.website != null) Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                d.phone?.let { phone ->
+                    OutlinedButton(onClick = { runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_DIAL, android.net.Uri.parse("tel:$phone"))) } },
+                        Modifier.weight(1f)) { Text(tr("Anrufen")) }
+                }
+                d.website?.let { web ->
+                    OutlinedButton(onClick = { runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,
+                        android.net.Uri.parse(if (web.startsWith("http")) web else "https://$web"))) } }, Modifier.weight(1f)) { Text(tr("Website")) }
+                }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedButton(onClick = onRemove, Modifier.weight(1f)) { Text(tr("Entfernen")) }
@@ -1035,6 +1072,11 @@ private fun PinCard(pin: DroppedPin, onNavigate: () -> Unit, onRemove: () -> Uni
             }
         }
     }
+}
+
+private fun hoursText(spans: List<IntRange>) = spans.joinToString(", ") { r ->
+    if (r.first == 0 && r.last >= 1439) tr("24 Stunden")
+    else "%02d:%02d–%02d:%02d".format(r.first / 60, r.first % 60, (r.last + 1) / 60 % 24, (r.last + 1) % 60)
 }
 
 /** Roter Pin wie iOS DroppedPinMarker (mappin.circle.fill in Theme.danger) */

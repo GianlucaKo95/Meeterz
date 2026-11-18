@@ -3,6 +3,7 @@ package de.koeven.meeterz
 import android.content.Context
 import de.koeven.meeterz.auth.AuthRepository
 import de.koeven.meeterz.data.Backend
+import io.github.jan.supabase.auth.auth
 import de.koeven.meeterz.data.FavoritesStore
 import de.koeven.meeterz.data.FriendRow
 import de.koeven.meeterz.data.VehicleStore
@@ -86,6 +87,7 @@ object AppState {
                 val now = System.currentTimeMillis()
                 if (!socialActive && now - last < 300_000) { delay(30_000); continue }
                 last = now
+                ensureFreshSession()
                 val slow = now - slowAt >= (if (socialActive) 300_000 else 1_800_000)   // im Hintergrund alle 30 Min. (wie iOS)
                 if (slow) slowAt = now
                 refreshFriends()
@@ -127,6 +129,18 @@ object AppState {
     }
 
     private val lastPoke = mutableMapOf<String, Long>()
+    /**
+     * Anmeldung vor dem Abgleich erneuern, falls sie in der nächsten Minute abläuft. supabase-kt erneuert nur,
+     * solange die App sichtbar ist – im Hintergrund (Standortdienst) liefen danach alle Anfragen mit 401 ins Leere:
+     * ein Gerät zwei Tage lang ~6 500 Fehlanfragen pro Tag, ohne Freunde zu sehen (18.11.).
+     */
+    private suspend fun ensureFreshSession() {
+        val session = Backend.client.auth.currentSessionOrNull() ?: return
+        if (session.expiresAt.toEpochMilliseconds() - System.currentTimeMillis() > 60_000) return
+        runCatching { Backend.client.auth.refreshCurrentSession() }
+            .onFailure { Diag.log("Anmeldung erneuern fehlgeschlagen: ${it.message}") }
+    }
+
     /** App sichtbar? (nur dann Freunde wecken – wie iOS bei offener App) */
     @Volatile var foreground = false
     /** Jemand schaut hin: App sichtbar, Navigation oder Android Auto (wie iOS socialActive) */

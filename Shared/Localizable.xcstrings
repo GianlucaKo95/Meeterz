@@ -41191,6 +41191,236 @@
           }
         }
       }
+    },
+    "Ortskarte in CarPlay (Test)": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ortskarte in CarPlay (Test)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Place card in CarPlay (test)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fiche du lieu dans CarPlay (test)"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ficha del lugar en CarPlay (prueba)"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ficha do local no CarPlay (teste)"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CarPlay’de yer kartı (test)"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scheda luogo in CarPlay (test)"
+          }
+        }
+      }
+    },
+    "Zeigt in CarPlay vor der Route eine Karte mit Adresse, Öffnungszeiten und „Anrufen“. Noch im Test: Ob CarPlay diese Ansicht für Navigations-Apps erlaubt, zeigt sich erst im Auto. Bricht CarPlay ab, hier wieder ausschalten.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zeigt in CarPlay vor der Route eine Karte mit Adresse, Öffnungszeiten und „Anrufen“. Noch im Test: Ob CarPlay diese Ansicht für Navigations-Apps erlaubt, zeigt sich erst im Auto. Bricht CarPlay ab, hier wieder ausschalten."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shows a card with address, opening hours and “Call” in CarPlay before the route. Still a test: whether CarPlay allows this view for navigation apps only shows in the car. If CarPlay quits, turn it off here."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Affiche dans CarPlay, avant l’itinéraire, une fiche avec adresse, horaires et « Appeler ». Encore en test : seul l’essai en voiture montre si CarPlay l’autorise pour les apps de navigation. Si CarPlay plante, désactivez-la ici."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Muestra en CarPlay, antes de la ruta, una ficha con dirección, horario y «Llamar». Aún en prueba: si CarPlay lo permite a apps de navegación solo se ve en el coche. Si CarPlay se cierra, desactívalo aquí."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra no CarPlay, antes da rota, uma ficha com morada, horário e “Ligar”. Ainda em teste: só no carro se vê se o CarPlay o permite a apps de navegação. Se o CarPlay fechar, desligue aqui."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rotadan önce CarPlay’de adres, çalışma saatleri ve “Ara” içeren bir kart gösterir. Henüz test: CarPlay’in navigasyon uygulamalarına izin verip vermediği ancak araçta görülür. CarPlay kapanırsa buradan kapat."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra in CarPlay, prima del percorso, una scheda con indirizzo, orari e «Chiama». Ancora in prova: solo in auto si vede se CarPlay lo consente alle app di navigazione. Se CarPlay si chiude, disattivala qui."
+          }
+        }
+      }
+    },
+    "Adresse": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adresse"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Address"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adresse"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dirección"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Morada"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adres"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Indirizzo"
+          }
+        }
+      }
+    },
+    "Öffnungszeiten": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öffnungszeiten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opening hours"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Horaires"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Horario"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Horário"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Çalışma saatleri"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orari"
+          }
+        }
+      }
+    },
+    "Telefon": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Telefon"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Phone"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Téléphone"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Teléfono"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Telefone"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Telefon"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Telefono"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

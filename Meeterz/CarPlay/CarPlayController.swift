@@ -727,11 +727,59 @@ final class CarPlayController: NSObject {
             }
             return
         }
-        CarPlayUI.shared.popToRoot(animated: true)
+        if UserDefaults.standard.bool(forKey: Self.placeInfoKey) {
+            done()
+            showPlaceInfo(place)
+            return
+        }
+        startPreview(place)
         done()
+    }
+
+    private func startPreview(_ place: Place) {
+        CarPlayUI.shared.popToRoot(animated: true)
         showLoading(at: place)
         preview(to: place.coordinate, name: place.name, address: place.address, hours: place.hours, fromMap: true) { [weak self] in
             MainActor.assumeIsolated { self?.hideLoading() }
+        }
+    }
+
+    /// Schalter in den Einstellungen: Ortskarte vor der Route (Test, ob CarPlay die Vorlage Navigations-Apps erlaubt)
+    static let placeInfoKey = "carplay.placeInfo"
+
+    /// Ortskarte wie in Apple Karten (ohne Bilder): Adresse, Öffnungsstatus, Telefon; „Losfahren“ und „Anrufen“.
+    /// Angaben aus Mapbox und OpenStreetMap (Apples Öffnungszeiten gibt es nicht als Daten).
+    private func showPlaceInfo(_ place: Place) {
+        Diag.log("CarPlay-Ortskarte: \(place.name)")
+        func items(_ d: SearchService.Details?) -> [CPInformationItem] {
+            var list = [CPInformationItem(title: String(localized: "Adresse"), detail: d?.address ?? place.address ?? "–")]
+            if let hours = d?.hours ?? place.hours {
+                list.append(CPInformationItem(title: String(localized: "Öffnungszeiten"), detail: OsmPlaces.status(hours)))
+            } else if let text = d?.hoursText {
+                list.append(CPInformationItem(title: String(localized: "Öffnungszeiten"), detail: text))
+            }
+            if let category = d?.category { list.insert(CPInformationItem(title: nil, detail: category), at: 0) }
+            if let phone = d?.phone { list.append(CPInformationItem(title: String(localized: "Telefon"), detail: phone)) }
+            return list
+        }
+        func actions(_ d: SearchService.Details?) -> [CPTextButton] {
+            var list = [CPTextButton(title: String(localized: "Losfahren"), textStyle: .confirm) { [weak self] _ in
+                MainActor.assumeIsolated { self?.startPreview(place) }
+            }]
+            if let phone = d?.phone, let url = URL(string: "tel:" + phone.filter { !$0.isWhitespace }) {
+                list.append(CPTextButton(title: String(localized: "Anrufen"), textStyle: .normal) { _ in
+                    MainActor.assumeIsolated { UIApplication.shared.open(url) }
+                })
+            }
+            return list
+        }
+        let template = CPInformationTemplate(title: place.name, layout: .leading, items: items(nil), actions: actions(nil))
+        CarPlayUI.shared.push(template, animated: true)
+        Task { @MainActor [weak template] in
+            let d = await SearchService.details(name: place.name, at: place.coordinate)
+            guard let template else { return }
+            template.items = items(d)
+            template.actions = actions(d)
         }
     }
 

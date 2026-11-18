@@ -22,6 +22,7 @@ struct FriendsView: View {
     @State private var staleHours = StaleFriends.hours
     @State private var suggestFrequent = RouteSuggestions.frequentEnabled
     @State private var suggestCalendar = RouteSuggestions.calendarEnabled && RouteSuggestions.shared.calendarAuthorized
+    @AppStorage(CarPlayController.placeInfoKey) private var carPlayPlaceInfo = false
     @State private var learnedPlaces = FrequentPlaces.shared.spots.count
     @State private var appearance = AppAppearance.current
     @State private var evRange = EVSettings.rangeKm
@@ -601,6 +602,12 @@ struct FriendsView: View {
             .tint(Theme.accent)
         } footer: {
             Text("Wie bei Apple Karten schlägt CarPlay beim Einsteigen ein Ziel vor: einen Termin mit Ort, zu dem du bald losfahren musst, oder einen Ort, den du um diese Zeit oft ansteuerst. Die gelernten Orte bleiben nur auf diesem iPhone.")
+        }
+        .listRowBackground(Theme.panel)
+        Section {
+            Toggle("Ortskarte in CarPlay (Test)", isOn: $carPlayPlaceInfo).tint(Theme.accent)
+        } footer: {
+            Text("Zeigt in CarPlay vor der Route eine Karte mit Adresse, Öffnungszeiten und „Anrufen“. Noch im Test: Ob CarPlay diese Ansicht für Navigations-Apps erlaubt, zeigt sich erst im Auto. Bricht CarPlay ab, hier wieder ausschalten.")
         }
         .listRowBackground(Theme.panel)
         if learnedPlaces > 0 {

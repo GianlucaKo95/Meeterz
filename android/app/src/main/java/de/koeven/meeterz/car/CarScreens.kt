@@ -336,7 +336,7 @@ class CarSearchScreen(carContext: CarContext) : Screen(carContext) {
                 Row.Builder().setTitle(place.name)
                     .apply { place.address?.let { addText(it) } }
                     .apply { place.hours?.let { addText(de.koeven.meeterz.nav.OsmPlaces.status(it)) } }
-                    .setOnClickListener { navigateTo(place.name, place.lat, place.lng); screenManager.pop() }
+                    .setOnClickListener { screenManager.push(CarPlaceScreen(carContext, place)) }
                     .build(),
             )
         }
@@ -362,6 +362,38 @@ class CarSearchScreen(carContext: CarContext) : Screen(carContext) {
             results = PlaceSearch.withHours(results.take(6)) + results.drop(6)
             invalidate()
         }
+    }
+}
+
+/**
+ * Ortskarte vor der Fahrt (wie die CarPlay-Ortskarte, ohne Bilder): Adresse, Öffnungsstatus, Telefon;
+ * „Losfahren“ und „Anrufen“. Angaben aus Mapbox und OpenStreetMap.
+ */
+class CarPlaceScreen(carContext: CarContext, private val place: PlaceSearch.Place) : Screen(carContext) {
+    private var details: PlaceSearch.Details? = null
+
+    init {
+        lifecycleScope.launch { details = PlaceSearch.details(place.name, place.lat, place.lng); invalidate() }
+    }
+
+    override fun onGetTemplate(): Template {
+        val d = details
+        val pane = androidx.car.app.model.Pane.Builder()
+        fun row(title: String, text: String) = pane.addRow(Row.Builder().setTitle(title).addText(text).build())
+        row(d?.category ?: tr("Adresse"), d?.address ?: place.address ?: "–")
+        (d?.hours ?: place.hours)?.let { row(tr("Öffnungszeiten"), de.koeven.meeterz.nav.OsmPlaces.status(it)) }
+            ?: d?.hoursText?.let { row(tr("Öffnungszeiten"), it) }
+        d?.phone?.let { row(tr("Telefon"), it) }
+        pane.addAction(Action.Builder().setTitle(tr("Losfahren")).setOnClickListener {
+            navigateTo(place.name, place.lat, place.lng); screenManager.popToRoot()
+        }.build())
+        d?.phone?.let { phone ->
+            pane.addAction(Action.Builder().setTitle(tr("Anrufen")).setOnClickListener {
+                runCatching { carContext.startCarApp(android.content.Intent(android.content.Intent.ACTION_DIAL,
+                    android.net.Uri.parse("tel:" + phone.filterNot { it.isWhitespace() }))) }
+            }.build())
+        }
+        return androidx.car.app.model.PaneTemplate.Builder(pane.build()).setTitle(place.name).setHeaderAction(Action.BACK).build()
     }
 }
 

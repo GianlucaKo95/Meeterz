@@ -261,15 +261,26 @@ extension CarPlayController {
                 ])])
                 return
             }
-            let items: [CPListItem] = found.prefix(CPListTemplate.maximumItemCount).map { s in
-                let away = s.ahead.map { String(localized: "nach \(ActivityFormat.distance($0))") }   // entlang der Route
-                    ?? ActivityFormat.distance(s.place.coordinate.distance(to: me))
-                let item = CPListItem(text: s.place.name, detailText: [away, s.price?.text ?? s.place.address].compactMap { $0 }.joined(separator: " · "))
-                item.handler = { [weak self] _, done in self?.select(s.place, done: done) }
-                return item
+            var shown = Array(found.prefix(CPListTemplate.maximumItemCount))
+            func render() {
+                let items: [CPListItem] = shown.map { s in
+                    let away = s.ahead.map { String(localized: "nach \(ActivityFormat.distance($0))") }   // entlang der Route
+                        ?? ActivityFormat.distance(s.place.coordinate.distance(to: me))
+                    // Öffnungsstatus vorn (wichtiger als die Adresse), Spritpreise bzw. Adresse dahinter
+                    let detail = [away, s.place.hours.map { OsmPlaces.status($0) }, s.price?.text ?? s.place.address]
+                    let item = CPListItem(text: s.place.name, detailText: detail.compactMap { $0 }.joined(separator: " · "))
+                    item.handler = { [weak self] _, done in self?.select(s.place, done: done) }
+                    return item
+                }
+                template.updateSections([CPListSection(items: items.isEmpty
+                    ? [CPListItem(text: String(localized: "Nichts gefunden"), detailText: nil)] : items)])
             }
-            template.updateSections([CPListSection(items: items.isEmpty
-                ? [CPListItem(text: String(localized: "Nichts gefunden"), detailText: nil)] : items)])
+            render()
+            // Öffnungszeiten nachreichen (eine Abfrage für die ganze Liste)
+            guard !shown.isEmpty else { return }
+            let withHours = await OsmPlaces.withHours(shown.map(\.place))
+            for i in shown.indices { shown[i] = NavigationCoordinator.Stopover(place: withHours[i], ahead: shown[i].ahead, price: shown[i].price) }
+            render()
         }
     }
 }

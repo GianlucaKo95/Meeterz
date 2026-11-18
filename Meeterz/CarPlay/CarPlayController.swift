@@ -624,7 +624,7 @@ final class CarPlayController: NSObject {
     }
 
     private func preview(to coordinate: CLLocationCoordinate2D, name: String, address: String? = nil,
-                         fromMap: Bool = false, completion: @escaping () -> Void) {
+                         hours: [[Range<Int>]]? = nil, fromMap: Bool = false, completion: @escaping () -> Void) {
         let waypoint = Waypoint(coordinate: coordinate, name: name)
         activeSuggestion = nil
         // Jede neue Auswahl macht eine noch laufende Planung ungültig (harter Abbruch)
@@ -633,7 +633,7 @@ final class CarPlayController: NSObject {
         let generation = previewGeneration
         // Von wo aus gewählt wurde: Ist diese Ansicht weg (Zurück/Verlassen), wird die Planung verworfen
         let origin: CPTemplate? = fromMap ? manager.interfaceController?.rootTemplate : manager.interfaceController?.topTemplate
-        pendingDestination = Place(id: UUID().uuidString, name: name, address: address, coordinate: coordinate)
+        pendingDestination = Place(id: UUID().uuidString, name: name, address: address, coordinate: coordinate, hours: hours)
         // Eigene Routenoptionen: Deutsch (sonst gilt die Systemsprache des iPhones, z. B. Englisch) und Auto
         // Mapbox meldet den Abschluss aus einem Hintergrund-Task; CarPlay bekommt ihn auf dem Hauptthread
         let completion = { DispatchQueue.main.async(execute: completion) }
@@ -730,7 +730,7 @@ final class CarPlayController: NSObject {
         CarPlayUI.shared.popToRoot(animated: true)
         done()
         showLoading(at: place)
-        preview(to: place.coordinate, name: place.name, address: place.address, fromMap: true) { [weak self] in
+        preview(to: place.coordinate, name: place.name, address: place.address, hours: place.hours, fromMap: true) { [weak self] in
             MainActor.assumeIsolated { self?.hideLoading() }
         }
     }
@@ -1156,10 +1156,13 @@ extension CarPlayController: CPSearchTemplateDelegate {
                 try? await Task.sleep(for: .milliseconds(350))   // Tippen bzw. Diktat abwarten
                 guard !Task.isCancelled else { return }
                 let near = AppModel.shared.location.lastLocation?.coordinate
-                let places = (try? await SearchService.search(query, near: near)) ?? []
+                let found = (try? await SearchService.search(query, near: near)) ?? []
+                // Öffnungszeiten der Treffer (eine Abfrage, höchstens 4 s)
+                let places = await OsmPlaces.withHours(Array(found.prefix(CPListTemplate.maximumItemCount)))
                 guard !Task.isCancelled, let self else { return }
-                let items: [CPListItem] = places.prefix(CPListTemplate.maximumItemCount).map { place in
-                    let item = CPListItem(text: place.name, detailText: place.address)
+                let items: [CPListItem] = places.map { place in
+                    let detail = [place.hours.map { OsmPlaces.status($0) }, place.address].compactMap { $0 }.joined(separator: " · ")
+                    let item = CPListItem(text: place.name, detailText: detail)
                     item.userInfo = place
                     return item
                 }
@@ -1220,7 +1223,9 @@ extension CarPlayController: CarPlayManagerDelegate {
         var target = trip.destination
         if let destination, let address = destination.address, !address.isEmpty,
            destination.coordinate.distance(to: trip.destination.placemark.coordinate) < 200 {
-            target = MKMapItem(placemark: Self.placemark(trip.destination.placemark.coordinate, address: address))
+            // Mit Öffnungsstatus („Geöffnet bis 23:00“), falls die Liste ihn kannte
+            let line = [destination.hours.map { OsmPlaces.status($0) }, address].compactMap { $0 }.joined(separator: " · ")
+            target = MKMapItem(placemark: Self.placemark(trip.destination.placemark.coordinate, address: line))
             target.name = destination.name
         }
         let copy = CPTrip(origin: trip.origin, destination: target, routeChoices: choices)

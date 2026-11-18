@@ -27,6 +27,54 @@ enum OsmPlaces {
                     openingHours: value(t, "opening_hours"))
     }
 
+    /// Öffnungszeiten für mehrere Orte mit EINER Abfrage (Listen in CarPlay): je Ort derselbe Name im Umkreis von 80 m.
+    /// Gibt die Orte zurück, wo bekannt mit `hours`.
+    static func withHours(_ places: [Place]) async -> [Place] {
+        func clean(_ n: String) -> String {
+            n.replacingOccurrences(of: #"[\\^$.|?*+()\[\]{}"]"#, with: "", options: .regularExpression).trimmingCharacters(in: .whitespaces)
+        }
+        let parts = places.filter { !clean($0.name).isEmpty }.map {
+            #"nwr(around:80,\#($0.coordinate.latitude),\#($0.coordinate.longitude))["name"~"\#(clean($0.name))",i]["opening_hours"];"#
+        }
+        guard !parts.isEmpty else { return places }
+        var comps = URLComponents(string: "https://overpass-api.de/api/interpreter")!
+        comps.queryItems = [URLQueryItem(name: "data", value: "[out:json][timeout:8];(\(parts.joined()));out tags center;")]
+        var request = URLRequest(url: comps.url!, timeoutInterval: 4)
+        request.setValue("Meeterz/1.0 (iOS)", forHTTPHeaderField: "User-Agent")
+        guard let (data, _) = try? await URLSession.shared.data(for: request),
+              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let elements = root["elements"] as? [[String: Any]] else { return places }
+        return places.map { place in
+            let hit = elements.first { e in
+                let c = (e["center"] as? [String: Any]) ?? e
+                guard let lat = c["lat"] as? Double, let lng = c["lon"] as? Double,
+                      let name = (e["tags"] as? [String: String])?["name"] else { return false }
+                return CLLocationCoordinate2D(latitude: lat, longitude: lng).distance(to: place.coordinate) < 150
+                    && (name.localizedCaseInsensitiveContains(place.name) || place.name.localizedCaseInsensitiveContains(name))
+            }
+            guard let text = (hit?["tags"] as? [String: String])?["opening_hours"], let hours = parse(text) else { return place }
+            var copy = place
+            copy.hours = hours
+            return copy
+        }
+    }
+
+    /// „Geöffnet bis 23:00“, „Geschlossen · öffnet 17:00“, „Geschlossen“ bzw. „24 Stunden geöffnet“ – für Listen im Auto
+    static func status(_ hours: [[Range<Int>]], now: Date = .now) -> String {
+        let day = SearchService.Details.weekday(now)
+        let c = Calendar.current.dateComponents([.hour, .minute], from: now)
+        let min = (c.hour ?? 0) * 60 + (c.minute ?? 0)
+        func hhmm(_ m: Int) -> String { String(format: "%02d:%02d", (m / 60) % 24, m % 60) }
+        if hours[day].contains(where: { $0.lowerBound == 0 && $0.upperBound >= 1440 }) { return String(localized: "24 Stunden geöffnet") }
+        // offen seit gestern (über Mitternacht) oder jetzt
+        if let r = hours[(day + 6) % 7].first(where: { $0.contains(min + 1440) }) { return String(localized: "Geöffnet bis \(hhmm(r.upperBound))") }
+        if let r = hours[day].first(where: { $0.contains(min) }) { return String(localized: "Geöffnet bis \(hhmm(r.upperBound))") }
+        if let r = hours[day].filter({ $0.lowerBound > min }).min(by: { $0.lowerBound < $1.lowerBound }) {
+            return String(localized: "Geschlossen · öffnet \(hhmm(r.lowerBound))")
+        }
+        return String(localized: "Geschlossen")
+    }
+
     private static let dayNames = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
 
     /// OSM-`opening_hours` in Minuten-Spannen je Tag (0 = Montag) wie SearchService.Details.hours. Versteht den üblichen

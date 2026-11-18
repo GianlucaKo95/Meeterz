@@ -21,7 +21,15 @@ import kotlinx.serialization.json.jsonPrimitive
 
 /** Orte und Adressen suchen (iOS: MKLocalSearch) – hier über Mapbox' Search Box API */
 object PlaceSearch {
-    data class Place(val name: String, val address: String?, val lat: Double, val lng: Double)
+    /** `hours`: Öffnungszeiten je Tag (0 = Montag), falls bekannt (OpenStreetMap, für Listen im Auto) */
+    data class Place(val name: String, val address: String?, val lat: Double, val lng: Double,
+                     val hours: List<List<IntRange>>? = null)
+
+    /** Öffnungszeiten aus OpenStreetMap an die Orte hängen – eine Abfrage für die ganze Liste */
+    suspend fun withHours(places: List<Place>): List<Place> {
+        val hours = OsmPlaces.hours(places)
+        return places.mapIndexed { i, p -> hours[i]?.let { p.copy(hours = it) } ?: p }
+    }
 
     private val http by lazy { HttpClient(OkHttp) }
     private val json = Json { ignoreUnknownKeys = true }

@@ -197,6 +197,8 @@ struct Place: Identifiable, Hashable {
     let coordinate: CLLocationCoordinate2D
     /// SF-Symbol für die Ortsart (Bahnhof, Café …), aus der Suche
     var symbol: String? = nil
+    /// Öffnungszeiten je Tag (0 = Montag), falls bekannt (OpenStreetMap, für Listen in CarPlay)
+    var hours: [[Range<Int>]]? = nil
 
     static func == (a: Place, b: Place) -> Bool { a.id == b.id }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }

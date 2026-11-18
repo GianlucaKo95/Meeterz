@@ -335,6 +335,7 @@ class CarSearchScreen(carContext: CarContext) : Screen(carContext) {
             list.addItem(
                 Row.Builder().setTitle(place.name)
                     .apply { place.address?.let { addText(it) } }
+                    .apply { place.hours?.let { addText(de.koeven.meeterz.nav.OsmPlaces.status(it)) } }
                     .setOnClickListener { navigateTo(place.name, place.lat, place.lng); screenManager.pop() }
                     .build(),
             )
@@ -357,6 +358,9 @@ class CarSearchScreen(carContext: CarContext) : Screen(carContext) {
             val me = AppState.lastLocation
             results = PlaceSearch.search(text, me?.latitude, me?.longitude)
             invalidate()
+            // Öffnungszeiten nachreichen (eine Abfrage für alle Treffer)
+            results = PlaceSearch.withHours(results.take(6)) + results.drop(6)
+            invalidate()
         }
     }
 }
@@ -371,6 +375,13 @@ class CarStopScreen(carContext: CarContext, private val category: PlaceSearch.Ca
             val me = AppState.lastLocation
             places = if (me == null) emptyList() else PlaceSearch.stopovers(category, me.latitude, me.longitude)
             invalidate()
+            // Öffnungszeiten nachreichen (eine Abfrage für die gezeigten Orte)
+            val shown = places.orEmpty().take(6)
+            if (shown.isNotEmpty()) {
+                val withHours = PlaceSearch.withHours(shown.map { it.place })
+                places = shown.zip(withHours) { s, p -> s.copy(place = p) } + places.orEmpty().drop(6)
+                invalidate()
+            }
         }
     }
 
@@ -392,6 +403,7 @@ class CarStopScreen(carContext: CarContext, private val category: PlaceSearch.Ca
                 val away = s.ahead?.let { tr("nach %@", km(it)) } ?: me?.let { km(ChargePlanner.distance(it.latitude, it.longitude, p.lat, p.lng)) }
                 list.addItem(Row.Builder().setTitle(p.name)
                     .apply { listOfNotNull(away, s.price?.text?.takeIf { it.isNotEmpty() }).joinToString(" · ").takeIf { it.isNotEmpty() }?.let { addText(it) } }
+                    .apply { p.hours?.let { addText(de.koeven.meeterz.nav.OsmPlaces.status(it)) } }
                     .setOnClickListener {
                         AppState.scope.launch { NavigationController.addStop(carContext, p.name, p.lat, p.lng) }
                         screenManager.popToRoot()

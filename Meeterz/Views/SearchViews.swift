@@ -22,6 +22,8 @@ struct SearchView: View {
     @State private var namingPlace: Place?
     @State private var favoriteName = ""
     @State private var renaming: Favorite?
+    @State private var savingToList: Place?
+    @State private var openList: UUID?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -42,7 +44,7 @@ struct SearchView: View {
 
             ScrollView {
                 VStack(spacing: 8) {
-                    if query.isEmpty && assigning == nil { favorites; suggestions }
+                    if query.isEmpty && assigning == nil { favorites; lists; suggestions }
                     if loading { ProgressView().padding() }
                     if let errorText { Text(errorText).font(.footnote).foregroundStyle(Theme.muted) }
                     ForEach(results) { place in
@@ -59,6 +61,7 @@ struct SearchView: View {
                         }) { choose(place) }
                             .contextMenu {
                                 Button("Als Favorit speichern", systemImage: "star") { askName(for: place) }
+                                Button("In Liste speichern", systemImage: "list.bullet") { savingToList = place }
                             }
                     }
                 }
@@ -70,6 +73,11 @@ struct SearchView: View {
         .presentationDragIndicator(.visible)   // zeigt, dass man das Fenster nach unten wegwischen kann
         .onAppear { focused = true }
         .task(id: query) { await search() }
+        .task { if !app.lists.loaded { await app.lists.refresh() } }
+        .sheet(item: $savingToList) { SaveToListSheet(place: $0).presentationDetents([.medium, .large]) }
+        .sheet(item: Binding(get: { openList.map(ListID.init) }, set: { openList = $0?.id })) { item in
+            PlaceListView(listId: item.id) { choose($0) }.presentationDetents([.medium, .large])
+        }
         .sheet(item: $detail) { item in
             PlaceDetailSheet(item: item) { place in choose(place) }
         }
@@ -149,6 +157,21 @@ struct SearchView: View {
             }
     }
 
+    /// Eigene und von Freunden geteilte Ortslisten
+    @ViewBuilder private var lists: some View {
+        if !app.lists.lists.isEmpty {
+            Text("Listen").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            ForEach(app.lists.lists) { list in
+                let owner = list.owner == app.lists.me ? nil : app.friend(list.owner)?.displayName
+                PlaceRow(place: Place(id: "list-\(list.id)", name: list.name,
+                                      address: [owner, String(localized: "\(list.items.count) Orte")].compactMap { $0 }.joined(separator: " · "),
+                                      coordinate: .init()),
+                         distance: nil, selected: false, icon: list.shared ? "person.2.fill" : "list.bullet") { openList = list.id }
+            }
+        }
+    }
+
     /// Ohne Eingabe: Freunde und vereinbarte Treffpunkte als schnelle Ziele
     @ViewBuilder private var suggestions: some View {
         let meetupPlaces = app.meetups.accepted.map(\.place)
@@ -205,6 +228,8 @@ struct SearchView: View {
 
 // MARK: - Routenvorschau
 
+private struct ListID: Identifiable { let id: UUID }
+
 struct RoutePreviewView: View {
     @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
@@ -219,6 +244,8 @@ struct RoutePreviewView: View {
     @State private var selected = 0
     @State private var chosen: NavigationRoutes?
     @State private var showInvite = false
+    @State private var showArriveBy = false
+    @State private var showSaveToList = false
     @State private var showFavoriteAlert = false
     @State private var favoriteName = ""
     /// Übernommener Ladeplan (Route führt dann über die Säulen)
@@ -385,6 +412,14 @@ struct RoutePreviewView: View {
                     }
                     .buttonStyle(SecondaryButtonStyle())
                 }
+                HStack(spacing: 10) {
+                    if current.mode == .car {
+                        Button { showArriveBy = true } label: { Label("Ankunft um …", systemImage: "clock") }
+                            .buttonStyle(SecondaryButtonStyle())
+                    }
+                    Button { showSaveToList = true } label: { Label("In Liste", systemImage: "list.bullet") }
+                        .buttonStyle(SecondaryButtonStyle())
+                }
                 Button("Abbrechen") { dismiss() }
                     .buttonStyle(SecondaryButtonStyle())
             }
@@ -402,6 +437,8 @@ struct RoutePreviewView: View {
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)   // zeigt, dass man das Fenster nach unten wegwischen kann
         .sheet(isPresented: $showInvite) { InviteFriendsView(place: current.destination) }
+        .sheet(isPresented: $showArriveBy) { ArriveBySheet(place: current.destination) }
+        .sheet(isPresented: $showSaveToList) { SaveToListSheet(place: current.destination).presentationDetents([.medium, .large]) }
         .alert("Favorit speichern", isPresented: $showFavoriteAlert) {
             TextField("Name, z. B. Oma", text: $favoriteName)
             Button("Speichern") {

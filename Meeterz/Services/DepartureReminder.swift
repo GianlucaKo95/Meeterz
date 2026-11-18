@@ -27,10 +27,55 @@ final class DepartureReminder {
         set { UserDefaults.standard.set(newValue.map(\.uuidString), forKey: "depart.fired") }
     }
 
+    /// Selbst geplante Ankunft („Ankunft um …“ in der Routenvorschau) – nur auf dem Gerät
+    struct PlannedArrival: Codable, Identifiable {
+        var id = UUID()
+        let name: String
+        let address: String?
+        let lat: Double, lng: Double
+        let at: Date
+        var place: Place { Place(id: "arrive-\(id)", name: name, address: address, coordinate: .init(latitude: lat, longitude: lng)) }
+    }
+
+    var planned: [PlannedArrival] {
+        get { (UserDefaults.standard.data(forKey: "depart.planned")).flatMap { try? JSONDecoder().decode([PlannedArrival].self, from: $0) } ?? [] }
+        set { UserDefaults.standard.set(try? JSONEncoder().encode(newValue), forKey: "depart.planned") }
+    }
+
+    /// „Ankunft um …“: Ziel merken und die Losfahren-Erinnerung planen (ersetzt eine frühere Planung zum selben Ziel)
+    func plan(_ place: Place, arriveAt: Date) async {
+        planned = planned.filter { $0.at > Date() && $0.place.coordinate.distance(to: place.coordinate) > 150 }
+            + [PlannedArrival(name: place.name, address: place.address, lat: place.coordinate.latitude, lng: place.coordinate.longitude, at: arriveAt)]
+        await refresh()
+    }
+
+    func cancelPlan(_ id: UUID) {
+        planned.removeAll { $0.id == id }
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["depart-\(id)"])
+    }
+
+    /// Was erinnert wird: Treffen mit Uhrzeit und selbst geplante Ankünfte
+    private struct Target {
+        let id: UUID
+        let place: Place
+        let at: Date
+        let text: (_ minutes: Int, _ extra: String) -> String
+    }
+
     func refresh() async {
-        let upcoming = AppModel.shared.meetups.accepted.filter {
+        planned = planned.filter { $0.at > Date() }
+        let meetups = AppModel.shared.meetups.accepted.filter {
             guard let at = $0.meetAt else { return false }
             return at > Date() && at < Date().addingTimeInterval(24 * 3600)
+        }
+        let upcoming = meetups.map { m in
+            Target(id: m.id, place: m.place, at: m.meetAt!) { minutes, extra in
+                String(localized: "Um \(Meetup.timeText(m.meetAt!)) bei \(m.withText) (\(m.placeName)) · ca. \(minutes) Min. Fahrt\(extra)")
+            }
+        } + planned.filter { $0.at < Date().addingTimeInterval(24 * 3600) }.map { p in
+            Target(id: p.id, place: p.place, at: p.at) { minutes, extra in
+                String(localized: "Ankunft um \(Meetup.timeText(p.at)) in \(p.name) · ca. \(minutes) Min. Fahrt\(extra)")
+            }
         }
         let ids = Set(upcoming.map(\.id))
         let setChanged = ids != lastIds
@@ -46,47 +91,53 @@ final class DepartureReminder {
         let keep = Set(upcoming.map { "depart-\($0.id)" })
         center.removePendingNotificationRequests(withIdentifiers: pending.filter { !keep.contains($0) })
 
-        for meetup in upcoming {
-            guard let at = meetup.meetAt else { continue }
+        for target in upcoming {
+            let at = target.at
             // Weit entfernte Treffen nur stündlich nachrechnen (spart Routenanfragen)
             let far = at.timeIntervalSinceNow > 4 * 3600
-            if far, let last = lastCalc[meetup.id], Date().timeIntervalSince(last) < 3600, !setChanged { continue }
+            if far, let last = lastCalc[target.id], Date().timeIntervalSince(last) < 3600, !setChanged { continue }
             // Schon unterwegs dorthin: keine Erinnerung
             if let dest = AppModel.shared.navigation.destination, AppModel.shared.navigation.isNavigating,
-               dest.coordinate.distance(to: meetup.coordinate) < 300 {
-                center.removePendingNotificationRequests(withIdentifiers: ["depart-\(meetup.id)"])
+               dest.coordinate.distance(to: target.place.coordinate) < 300 {
+                center.removePendingNotificationRequests(withIdentifiers: ["depart-\(target.id)"])
                 continue
             }
-            guard let trip = await travel(to: meetup, departingBy: at) else { continue }
-            lastCalc[meetup.id] = Date()
+            guard let trip = await travel(to: target.place.coordinate, departingBy: at) else { continue }
+            lastCalc[target.id] = Date()
             let depart = at.addingTimeInterval(-trip.duration - Self.buffer)
             let fire = depart.addingTimeInterval(-Self.lead)
             let minutes = Int((trip.duration / 60).rounded())
             let extra = trip.chargeStops > 0 ? (trip.chargeStops == 1 ? String(localized: " inkl. 1 Ladestopp") : String(localized: " inkl. \(trip.chargeStops) Ladestopps")) : ""
-            let body = String(localized: "Um \(Meetup.timeText(at)) bei \(meetup.withText) (\(meetup.placeName)) · ca. \(minutes) Min. Fahrt\(extra)")
+            let body = target.text(minutes, extra)
 
             if fire > Date().addingTimeInterval(30) {
-                schedule(meetup, title: String(localized: "In 10 Min. losfahren"), body: body, at: fire)
-            } else if !firedNow.contains(meetup.id) {
+                schedule(target, title: String(localized: "In 10 Min. losfahren"), body: body, at: fire)
+            } else if !firedNow.contains(target.id) {
                 // Zu spät für den Vorlauf: sofort melden
                 let late = Date() > depart ? Int((Date().timeIntervalSince(depart) / 60).rounded()) : 0
                 let title = late > 2 ? String(localized: "Jetzt losfahren – ca. \(late) Min. zu spät") : String(localized: "Jetzt losfahren")
-                schedule(meetup, title: title, body: body, at: nil)
-                firedNow.insert(meetup.id)
+                schedule(target, title: title, body: body, at: nil)
+                firedNow.insert(target.id)
             }
-            Diag.log("Losfahren-Erinnerung \(meetup.placeName): Abfahrt \(depart.formatted(date: .omitted, time: .shortened)) (\(minutes) Min.\(extra))")
+            Diag.log("Losfahren-Erinnerung \(target.place.name): Abfahrt \(depart.formatted(date: .omitted, time: .shortened)) (\(minutes) Min.\(extra))")
         }
         // Alte „schon gemeldet“-Einträge aufräumen
-        firedNow = firedNow.intersection(Set(AppModel.shared.meetups.meetups.map(\.id)))
+        firedNow = firedNow.intersection(Set(AppModel.shared.meetups.meetups.map(\.id) + planned.map(\.id)))
+    }
+
+    /// Abfahrtszeit für „Ankunft um …“ (Fahrzeit mit Verkehrsprognose, beim E-Auto mit Ladestopps, plus Puffer)
+    func departure(to place: Place, arriveAt: Date) async -> Date? {
+        guard let trip = await travel(to: place.coordinate, departingBy: arriveAt) else { return nil }
+        return arriveAt.addingTimeInterval(-trip.duration - Self.buffer)
     }
 
     private struct Trip { let duration: TimeInterval; let chargeStops: Int }
 
     /// Fahrzeit mit Verkehr zur Abfahrtszeit (geschätzt), beim E-Auto plus Ladezeit
-    private func travel(to meetup: Meetup, departingBy at: Date) async -> Trip? {
+    private func travel(to coordinate: CLLocationCoordinate2D, departingBy at: Date) async -> Trip? {
         // Grobe Abfahrt für die Verkehrsprognose: 30 Min. vorher (genauer wird es beim Nachrechnen)
         let departure = at.addingTimeInterval(-30 * 60)
-        guard let route = await AppModel.shared.navigation.driveRoute(to: meetup.coordinate,
+        guard let route = await AppModel.shared.navigation.driveRoute(to: coordinate,
                                                                      departing: departure > Date().addingTimeInterval(15 * 60) ? departure : nil)
         else { return nil }
         var duration = route.expectedTravelTime
@@ -98,23 +149,27 @@ final class DepartureReminder {
         return Trip(duration: duration, chargeStops: stops)
     }
 
-    private func schedule(_ meetup: Meetup, title: String, body: String, at date: Date?) {
+    private func schedule(_ target: Target, title: String, body: String, at date: Date?) {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
         content.sound = .default
         content.interruptionLevel = .timeSensitive
-        content.userInfo = ["type": "depart", "meetup": meetup.id.uuidString]
+        content.userInfo = ["type": "depart", "meetup": target.id.uuidString]
         let trigger = date.map {
             UNCalendarNotificationTrigger(dateMatching: Calendar.current.dateComponents([.year, .month, .day, .hour, .minute, .second], from: $0),
                                           repeats: false)
         }
         // Gleiche ID: ersetzt die bisher geplante Erinnerung mit der neuen Zeit
-        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "depart-\(meetup.id)", content: content, trigger: trigger))
+        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "depart-\(target.id)", content: content, trigger: trigger))
     }
 
     /// Tipp auf die Mitteilung: Route zum Treffpunkt öffnen
     func open(meetupId: String) async {
+        if let p = planned.first(where: { $0.id.uuidString == meetupId }) {
+            await AppModel.shared.navigation.planRoute(to: p.place, mode: .car)
+            return
+        }
         guard let meetup = AppModel.shared.meetups.meetups.first(where: { $0.id.uuidString == meetupId }) else { return }
         await AppModel.shared.navigation.planRoute(to: meetup.place, mode: .car)
     }

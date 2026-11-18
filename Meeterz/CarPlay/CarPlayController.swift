@@ -1031,6 +1031,20 @@ final class CarPlayController: NSObject {
         AppModel.shared.navigation.destination ?? pendingDestination
     }
 
+    /// Gefahr melden (wie iPhone HazardReportSheet): Art wählen, dann zurück zur Karte
+    private func showHazardReport() {
+        let items: [CPListItem] = HazardStore.Kind.allCases.map { kind in
+            let item = CPListItem(text: kind.title, detailText: nil, image: UIImage(systemName: kind.symbol))
+            item.handler = { _, done in
+                CarPlayUI.shared.popToRoot(animated: true)
+                Task { await HazardStore.shared.report(kind) }
+                done()
+            }
+            return item
+        }
+        CarPlayUI.shared.push(CPListTemplate(title: String(localized: "Gefahr melden"), sections: [CPListSection(items: items)]), animated: true)
+    }
+
     /// Während der Fahrt: Stopp hinzufügen und Freunde zum Fahrtziel einladen
     private func showInviteList() {
         let model = AppModel.shared
@@ -1062,7 +1076,10 @@ final class CarPlayController: NSObject {
         }
         if let convoy = convoySection() { sections.append(convoy) }
         if let charge = chargeSection() { sections.append(charge) }
-        sections.append(CPListSection(items: [stop]))
+        let hazard = CPListItem(text: String(localized: "Gefahr melden"), detailText: String(localized: "Warnt andere Meeterz-Fahrer"),
+                                image: UIImage(systemName: "exclamationmark.triangle.fill"))
+        hazard.handler = { [weak self] _, done in self?.showHazardReport(); done() }
+        sections.append(CPListSection(items: [stop, hazard]))
 
         var items: [CPListItem] = []
         if friends.count > 1 {

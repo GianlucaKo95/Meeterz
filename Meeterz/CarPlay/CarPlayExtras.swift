@@ -252,67 +252,25 @@ extension CarPlayController {
                 template.updateSections([CPListSection(items: [CPListItem(text: String(localized: "Standort unbekannt"), detailText: nil)])])
                 return
             }
-            var ahead = AppModel.shared.navigation.isNavigating ? routeAhead(from: me) : nil
-            // Kilometer entlang der Strecke je Routenpunkt
-            var along: [Double] = [0]
-            if let route = ahead {
-                for (a, b) in zip(route, route.dropFirst()) { along.append(along.last! + a.distance(to: b)) }
-                if let limitMeters, let cut = along.firstIndex(where: { $0 > limitMeters }), cut > 1 {
-                    ahead = Array(route[..<cut])
-                    along = Array(along[..<cut])
-                }
-            }
-            var places: [Place]
+            let found: [NavigationCoordinator.Stopover]
             do {
-                places = try await SearchService.stopovers(kind, near: me, route: ahead)
+                found = try await AppModel.shared.navigation.stopovers(kind, near: me, limitMeters: limitMeters)
             } catch {
                 template.updateSections([CPListSection(items: [
                     CPListItem(text: (error as? LocalizedError)?.errorDescription ?? String(localized: "Die Suche ist gerade nicht erreichbar."), detailText: nil),
                 ])])
                 return
             }
-            // Entlang der Route: nur, was noch vor mir liegt – nach Reihenfolge auf der Strecke
-            if let ahead {
-                let ranked = places.compactMap { place -> (Place, Int)? in
-                    guard let index = Self.nearestIndex(of: place.coordinate, in: ahead),
-                          ahead[index].distance(to: place.coordinate) < 3_000 else { return nil }
-                    return (place, index)
-                }
-                places = ranked.sorted { $0.1 < $1.1 }.map(\.0)
-            } else {
-                places.sort { $0.coordinate.distance(to: me) < $1.coordinate.distance(to: me) }
-            }
-            let items: [CPListItem] = places.prefix(CPListTemplate.maximumItemCount).map { place in
-                var away = ActivityFormat.distance(place.coordinate.distance(to: me))
-                if let route = ahead, let i = Self.nearestIndex(of: place.coordinate, in: route), i < along.count {
-                    away = String(localized: "nach \(ActivityFormat.distance(along[i]))")   // entlang der Route
-                }
-                let item = CPListItem(text: place.name, detailText: [away, place.address].compactMap { $0 }.joined(separator: " · "))
-                item.handler = { [weak self] _, done in self?.select(place, done: done) }
+            let items: [CPListItem] = found.prefix(CPListTemplate.maximumItemCount).map { s in
+                let away = s.ahead.map { String(localized: "nach \(ActivityFormat.distance($0))") }   // entlang der Route
+                    ?? ActivityFormat.distance(s.place.coordinate.distance(to: me))
+                let item = CPListItem(text: s.place.name, detailText: [away, s.price?.text ?? s.place.address].compactMap { $0 }.joined(separator: " · "))
+                item.handler = { [weak self] _, done in self?.select(s.place, done: done) }
                 return item
             }
             template.updateSections([CPListSection(items: items.isEmpty
                 ? [CPListItem(text: String(localized: "Nichts gefunden"), detailText: nil)] : items)])
         }
-    }
-
-    /// Restliche Strecke ab der aktuellen Position, auf höchstens 300 Punkte ausgedünnt
-    private func routeAhead(from me: CLLocationCoordinate2D) -> [CLLocationCoordinate2D]? {
-        guard let coords = navigationProvider.mapboxNavigation.tripSession().currentNavigationRoutes?
-                .mainRoute.route.shape?.coordinates,
-              coords.count > 1,
-              let start = Self.nearestIndex(of: me, in: coords)
-        else { return nil }
-        let rest = Array(coords[start...])
-        guard rest.count > 1 else { return nil }
-        let step = max(1, rest.count / 300)
-        var thinned = stride(from: 0, to: rest.count, by: step).map { rest[$0] }
-        if let last = rest.last, thinned.last.map({ $0.distance(to: last) > 1 }) ?? true { thinned.append(last) }
-        return thinned
-    }
-
-    private static func nearestIndex(of point: CLLocationCoordinate2D, in coords: [CLLocationCoordinate2D]) -> Int? {
-        coords.indices.min { coords[$0].distance(to: point) < coords[$1].distance(to: point) }
     }
 }
 

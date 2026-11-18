@@ -254,6 +254,7 @@ final class NavigationCoordinator: NSObject {
                 top.present(controller, animated: true) {
                     Self.installMuteButton(on: controller)
                     self?.installOverviewButton(on: controller)
+                    Self.installDriveButtons(on: controller)
                     self?.startAutoRecenter(controller)
                     NavigationZoom.closer(controller.navigationMapView)
                     self?.phoneMap = controller.navigationMapView
@@ -358,6 +359,36 @@ final class NavigationCoordinator: NSObject {
         }
     }
 
+    /// Zusätzliche Knöpfe während der Fahrt: Stopp entlang der Route suchen, Gefahr melden
+    private static func installDriveButtons(on controller: NavigationViewController) {
+        guard var buttons = controller.floatingButtons else { return }
+        func make(_ symbol: String, _ label: String, _ action: @escaping () -> Void) -> UIButton {
+            let button = UIButton(type: .system)
+            button.setImage(UIImage(systemName: symbol), for: .normal)
+            button.tintColor = .label
+            button.backgroundColor = .systemBackground
+            button.layer.cornerRadius = 25
+            button.layer.shadowOpacity = 0.25
+            button.layer.shadowRadius = 4
+            button.layer.shadowOffset = CGSize(width: 0, height: 2)
+            button.accessibilityLabel = label
+            button.widthAnchor.constraint(equalToConstant: 50).isActive = true
+            button.heightAnchor.constraint(equalToConstant: 50).isActive = true
+            button.addAction(UIAction { _ in action() }, for: .touchUpInside)
+            return button
+        }
+        weak var host = controller
+        func present<V: View>(_ view: V) {
+            let sheet = UIHostingController(rootView: view.environment(AppModel.shared))
+            sheet.sheetPresentationController?.detents = [.medium(), .large()]
+            sheet.sheetPresentationController?.prefersGrabberVisible = true
+            host?.present(sheet, animated: true)
+        }
+        buttons.append(make("fuelpump.fill", String(localized: "Stopp entlang der Route")) { present(StopSearchSheet()) })
+        buttons.append(make("exclamationmark.triangle.fill", String(localized: "Gefahr melden")) { present(HazardReportSheet()) })
+        controller.floatingButtons = buttons
+    }
+
     /// Eigener, gut sichtbarer Stumm-Knopf anstelle des kleinen Mapbox-Knopfs
     private static func installMuteButton(on controller: NavigationViewController) {
         guard var buttons = controller.floatingButtons, buttons.count >= 2 else { return }
@@ -453,6 +484,66 @@ final class NavigationCoordinator: NSObject {
             return Place(id: "stop-\(w.coordinate.latitude),\(w.coordinate.longitude)", name: w.name ?? "",
                          address: nil, coordinate: w.coordinate, symbol: "bolt.car.fill")
         }
+    }
+
+    /// Ort für einen Zwischenstopp: `ahead` = Strecke entlang der Route bis dorthin (nur während der Fahrt),
+    /// `price` = Spritpreise (nur Tankstellen in Deutschland, wenn bekannt)
+    struct Stopover {
+        let place: Place
+        let ahead: Double?
+        var price: FuelPrices.Price?
+    }
+
+    /// Orte einer Kategorie für unterwegs (iPhone und CarPlay): während der Fahrt entlang der restlichen Route
+    /// (Mapbox „Search along route“, höchstens 5 Min. Umweg), in Reihenfolge auf der Strecke; sonst in der Nähe.
+    /// `limitMeters`: nur bis zu diesem Punkt der Route (z. B. so weit der Akku reicht)
+    func stopovers(_ kind: SearchService.Stopover, near me: CLLocationCoordinate2D, limitMeters: Double? = nil) async throws -> [Stopover] {
+        var ahead = isNavigating ? routeAhead(from: me) : nil
+        // Strecke entlang der Route je Routenpunkt
+        var along: [Double] = [0]
+        if let route = ahead {
+            for (a, b) in zip(route, route.dropFirst()) { along.append(along.last! + a.distance(to: b)) }
+            if let limitMeters, let cut = along.firstIndex(where: { $0 > limitMeters }), cut > 1 {
+                ahead = Array(route[..<cut])
+                along = Array(along[..<cut])
+            }
+        }
+        let places = try await SearchService.stopovers(kind, near: me, route: ahead)
+        var result: [Stopover]
+        if let ahead {
+            // nur, was noch vor mir liegt – nach Reihenfolge auf der Strecke
+            result = places.compactMap { place -> (Stopover, Int)? in
+                guard let i = Self.nearestIndex(of: place.coordinate, in: ahead),
+                      ahead[i].distance(to: place.coordinate) < 3_000 else { return nil }
+                return (Stopover(place: place, ahead: along[i]), i)
+            }.sorted { $0.1 < $1.1 }.map(\.0)
+        } else {
+            result = places.sorted { $0.coordinate.distance(to: me) < $1.coordinate.distance(to: me) }
+                .map { Stopover(place: $0, ahead: nil) }
+        }
+        if kind == .gas {
+            let prices = await FuelPrices.prices(for: result.prefix(10).map(\.place.coordinate))
+            for (i, p) in prices.enumerated() { result[i].price = p }
+        }
+        return result
+    }
+
+    /// Restliche Strecke ab der aktuellen Position, auf höchstens 300 Punkte ausgedünnt
+    private func routeAhead(from me: CLLocationCoordinate2D) -> [CLLocationCoordinate2D]? {
+        guard let coords = core.tripSession().currentNavigationRoutes?.mainRoute.route.shape?.coordinates,
+              coords.count > 1,
+              let start = Self.nearestIndex(of: me, in: coords)
+        else { return nil }
+        let rest = Array(coords[start...])
+        guard rest.count > 1 else { return nil }
+        let step = max(1, rest.count / 300)
+        var thinned = stride(from: 0, to: rest.count, by: step).map { rest[$0] }
+        if let last = rest.last, thinned.last.map({ $0.distance(to: last) > 1 }) ?? true { thinned.append(last) }
+        return thinned
+    }
+
+    private static func nearestIndex(of point: CLLocationCoordinate2D, in coords: [CLLocationCoordinate2D]) -> Int? {
+        coords.indices.min { coords[$0].distance(to: point) < coords[$1].distance(to: point) }
     }
 
     /// Ist dieser Halt ein selbst gewählter Stopp (nicht vom Ladeplan)?
@@ -662,11 +753,15 @@ final class NavigationCoordinator: NSObject {
 
         // Unfälle, Sperrungen, schwere Staus voraus (einmal je Ereignis)
         IncidentWatcher.shared.reset()
+        HazardStore.shared.reset()
         core.navigation().routeProgress
             .compactMap { $0?.routeProgress }
             .throttle(for: .seconds(5), scheduler: RunLoop.main, latest: true)
             .sink { progress in
-                Task { @MainActor in IncidentWatcher.shared.check(progress) }
+                Task { @MainActor in
+                    IncidentWatcher.shared.check(progress)
+                    HazardStore.shared.check(progress)   // von Fahrern gemeldete Gefahren
+                }
             }
             .store(in: &subscriptions)
 

@@ -24,6 +24,7 @@ final class AppModel {
     let favorites = FavoritesStore()
     let recents = RecentsStore()
     let stories = StoriesStore()
+    let lists = PlaceListsStore()
 
     struct Banner: Identifiable, Equatable {
         let id = UUID()

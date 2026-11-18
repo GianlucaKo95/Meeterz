@@ -39,6 +39,14 @@ final class IncidentWatcher {
         }
     }
 
+    /// Von Fahrern gemeldete Gefahr voraus (HazardStore): Hinweis und Ansage wie bei Verkehrsmeldungen
+    func announceReported(title: String, subtitle: String, symbol: String, distance: Double) {
+        let text = String(localized: "\(title) in \(ActivityFormat.distance(distance))")
+        guard present(title: text, subtitle: subtitle, symbol: symbol) else { return }
+        Diag.log("Gemeldete Gefahr: \(text)")
+        MeeterzSpeechSynthesizer.shared.announce(String(localized: "Achtung, \(title) in \(VoiceCatalog.language == "de" ? Self.spoken(distance) : ActivityFormat.distance(distance))."))
+    }
+
     /// Hinweis in CarPlay (über die Warteschlange), ohne CarPlay auf dem iPhone. Gibt zurück, ob er erschien.
     private func present(title: String, subtitle: String?, symbol: String) -> Bool {
         let carPlay = CarPlayController.shared

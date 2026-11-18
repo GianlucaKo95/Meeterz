@@ -858,6 +858,8 @@ struct PinCard: View {
     let onNavigate: () -> Void
     let onRemove: () -> Void
     @State private var week = false
+    @State private var fuel: FuelPrices.Price?
+    @State private var saving = false
     @Environment(\.openURL) private var openURL
 
     var body: some View {
@@ -889,15 +891,22 @@ struct PinCard: View {
                     }
                 }
             }
-            if details?.phone != nil || details?.website != nil {
-                HStack(spacing: 10) {
+            if let fuel, !fuel.text.isEmpty {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(fuel.text).font(.footnote.weight(.semibold)).foregroundStyle(Theme.accent)
+                    Text(FuelPrices.attribution).font(.caption2).foregroundStyle(Theme.muted)
+                }
+            }
+            HStack(spacing: 10) {
+                    Button { saving = true } label: { Image(systemName: "list.bullet") }
+                        .buttonStyle(SecondaryButtonStyle()).frame(width: 64)
+                        .accessibilityLabel("In Liste speichern")
                     if let phone = details?.phone, let url = URL(string: "tel:" + phone.filter { !$0.isWhitespace }) {
                         Button("Anrufen") { openURL(url) }.buttonStyle(SecondaryButtonStyle())
                     }
                     if let web = details?.website {
                         Button("Website") { openURL(web) }.buttonStyle(SecondaryButtonStyle())
                     }
-                }
             }
             HStack(spacing: 10) {
                 Button("Entfernen", action: onRemove).buttonStyle(SecondaryButtonStyle())
@@ -907,6 +916,12 @@ struct PinCard: View {
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 20).fill(Theme.panel))
         .overlay(RoundedRectangle(cornerRadius: 20).stroke(Theme.stroke, lineWidth: 1))
+        .sheet(isPresented: $saving) { SaveToListSheet(place: pin).presentationDetents([.medium, .large]) }
+        .task(id: "\(pin.id)|\(details?.category ?? "")") {
+            fuel = nil
+            guard FuelPrices.isGasStation(category: details?.category, name: pin.name) else { return }
+            fuel = await FuelPrices.prices(for: [pin.coordinate]).first ?? nil
+        }
     }
 
     private static func text(_ spans: [Range<Int>]) -> String {

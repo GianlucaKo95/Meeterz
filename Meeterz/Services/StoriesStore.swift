@@ -39,6 +39,44 @@ final class StoriesStore {
             case createdAt = "created_at"
             case expiresAt = "expires_at"
         }
+
+        /// Zeitstempel selbst lesen: Postgres liefert 4–6 Nachkommastellen („…57.8161+00:00“), die nicht jeder
+        /// ISO-8601-Leser annimmt. Scheiterte eine Story daran, fiel die ganze Liste weg – keine Ringe, keine Pins (18.11.).
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            id = try c.decode(UUID.self, forKey: .id)
+            userId = try c.decode(UUID.self, forKey: .userId)
+            displayName = try c.decode(String.self, forKey: .displayName)
+            kind = try c.decode(String.self, forKey: .kind)
+            mediaPath = try c.decode(String.self, forKey: .mediaPath)
+            lat = try c.decode(Double.self, forKey: .lat)
+            lng = try c.decode(Double.self, forKey: .lng)
+            placeName = try c.decodeIfPresent(String.self, forKey: .placeName)
+            caption = try c.decodeIfPresent(String.self, forKey: .caption)
+            convoyKey = try c.decodeIfPresent(String.self, forKey: .convoyKey)
+            createdAt = try Self.date(c, .createdAt)
+            expiresAt = try Self.date(c, .expiresAt)
+            seen = try c.decodeIfPresent(Bool.self, forKey: .seen) ?? false
+        }
+
+        private static func date(_ c: KeyedDecodingContainer<CodingKeys>, _ key: CodingKeys) throws -> Date {
+            if let d = try? c.decode(Date.self, forKey: key) { return d }
+            let text = try c.decode(String.self, forKey: key)
+            guard let d = parse(text) else {
+                throw DecodingError.dataCorruptedError(forKey: key, in: c, debugDescription: "Zeit nicht lesbar: \(text)")
+            }
+            return d
+        }
+
+        /// „2026-11-17T21:11:57.8161+00:00“ → Date (Nachkommastellen auf Millisekunden gekürzt)
+        static func parse(_ text: String) -> Date? {
+            let f = ISO8601DateFormatter()
+            f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            let trimmed = text.replacingOccurrences(of: #"(\.\d{3})\d+"#, with: "$1", options: .regularExpression)
+            if let d = f.date(from: trimmed) { return d }
+            f.formatOptions = [.withInternetDateTime]
+            return f.date(from: text)
+        }
     }
 
     enum Media {
@@ -84,7 +122,14 @@ final class StoriesStore {
     }
 
     func refresh() async {
-        guard let rows: [Story] = try? await client.rpc("friend_stories").execute().value else { return }
+        let rows: [Story]
+        do {
+            rows = try await client.rpc("friend_stories").execute().value
+        } catch {
+            Diag.log("Stories laden fehlgeschlagen: \(error)")
+            return
+        }
+        Diag.log("Stories geladen: \(rows.count) (eigene: \(rows.filter { $0.userId == me }.count))")
         let fresh = rows.filter { !known.contains($0.id) && $0.userId != me }
         rows.forEach { known.insert($0.id) }
         stories = rows

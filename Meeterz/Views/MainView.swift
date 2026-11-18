@@ -865,7 +865,17 @@ struct PinCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(pin.name).font(.headline)
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(pin.name).font(.headline)
+                    Spacer(minLength: 0)
+                    // In Liste speichern: als kleines Symbol neben dem Namen, keine eigene Zeile
+                    Button { saving = true } label: {
+                        Image(systemName: "bookmark").font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.text)
+                            .frame(width: 32, height: 32)
+                            .background(Circle().fill(Theme.panelRaised))
+                    }
+                    .accessibilityLabel("In Liste speichern")
+                }
                 let sub = [details?.category, details?.rating.map { r in
                     "★ " + r.formatted(.number.precision(.fractionLength(1))) + (details?.reviews.map { " (\($0))" } ?? "")
                 }].compactMap { $0 }
@@ -897,16 +907,15 @@ struct PinCard: View {
                     Text(FuelPrices.attribution).font(.caption2).foregroundStyle(Theme.muted)
                 }
             }
-            HStack(spacing: 10) {
-                    Button { saving = true } label: { Image(systemName: "list.bullet") }
-                        .buttonStyle(SecondaryButtonStyle()).frame(width: 64)
-                        .accessibilityLabel("In Liste speichern")
+            if details?.phone != nil || details?.website != nil {
+                HStack(spacing: 10) {
                     if let phone = details?.phone, let url = URL(string: "tel:" + phone.filter { !$0.isWhitespace }) {
                         Button("Anrufen") { openURL(url) }.buttonStyle(SecondaryButtonStyle())
                     }
                     if let web = details?.website {
                         Button("Website") { openURL(web) }.buttonStyle(SecondaryButtonStyle())
                     }
+                }
             }
             HStack(spacing: 10) {
                 Button("Entfernen", action: onRemove).buttonStyle(SecondaryButtonStyle())

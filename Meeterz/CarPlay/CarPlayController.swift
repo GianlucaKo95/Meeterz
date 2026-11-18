@@ -1091,7 +1091,7 @@ final class CarPlayController: NSObject {
             }
             items.append(all)
         }
-        for friend in friends.prefix(max(0, CPListTemplate.maximumItemCount - items.count - 4)) {
+        for friend in friends.prefix(max(0, CPListTemplate.maximumItemCount - items.count - 5)) {
             let detail = friendArrival(friend.friendId, at: place).map { String(localized: "Kommt auch hierher · an \(ActivityFormat.time($0))") } ?? String(localized: "Einladen")
             let item = CPListItem(text: friend.displayName, detailText: detail)
             item.handler = { [weak self] _, done in

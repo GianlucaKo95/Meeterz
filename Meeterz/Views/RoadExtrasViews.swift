@@ -91,23 +91,26 @@ struct HazardReportSheet: View {
             Text("Gefahr melden").font(Theme.display(22))
             Text("Andere Meeterz-Fahrer hinter dir werden eine Stunde lang gewarnt.")
                 .font(.footnote).foregroundStyle(Theme.muted)
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+          ScrollView {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
                 ForEach(HazardStore.Kind.allCases) { kind in
                     Button {
                         dismiss()
                         Task { await HazardStore.shared.report(kind) }
                     } label: {
                         VStack(spacing: 8) {
-                            Image(systemName: kind.symbol).font(.system(size: 26, weight: .semibold))
-                            Text(kind.title).font(.subheadline.weight(.semibold)).multilineTextAlignment(.center)
+                            Image(systemName: kind.symbol).font(.system(size: 24, weight: .semibold))
+                            Text(kind.title).font(.footnote.weight(.semibold)).multilineTextAlignment(.center)
+                                .lineLimit(3).minimumScaleFactor(0.8)
                         }
-                        .frame(maxWidth: .infinity, minHeight: 92)
+                        .padding(8)
+                        .frame(maxWidth: .infinity, minHeight: 96)
                         .background(RoundedRectangle(cornerRadius: 16).fill(Theme.panel))
                         .foregroundStyle(Theme.text)
                     }
                 }
             }
-            Spacer(minLength: 0)
+          }
         }
         .padding(20)
         .background(Theme.ink)

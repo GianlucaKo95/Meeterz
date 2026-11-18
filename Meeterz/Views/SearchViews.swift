@@ -332,6 +332,8 @@ struct RoutePreviewView: View {
                 .frame(height: 260)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
                 .overlay(alignment: .topTrailing) {
+                  // Merken als Favorit und in einer Liste: übereinander oben rechts auf der Karte
+                  VStack(spacing: 8) {
                     let saved = app.favorites.contains(current.destination.coordinate)
                     Button {
                         favoriteName = current.destination.name
@@ -345,8 +347,18 @@ struct RoutePreviewView: View {
                             .overlay(Circle().stroke(Theme.stroke, lineWidth: 1))
                     }
                     .disabled(saved)
-                    .padding(8)
                     .accessibilityLabel(saved ? String(localized: "Als Favorit gespeichert") : String(localized: "Als Favorit speichern"))
+                    Button { showSaveToList = true } label: {
+                        Image(systemName: "bookmark")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(Theme.text)
+                            .frame(width: 42, height: 42)
+                            .background(Circle().fill(Theme.panel))
+                            .overlay(Circle().stroke(Theme.stroke, lineWidth: 1))
+                    }
+                    .accessibilityLabel("In Liste speichern")
+                  }
+                  .padding(8)
                 }
           ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -367,6 +379,22 @@ struct RoutePreviewView: View {
                 stat(charging > 0 ? String(localized: "Ankunft inkl. Laden") : String(localized: "Ankunft"), ActivityFormat.time(eta), highlight: true)
                 stat(String(localized: "Dauer"), Format.minutes(seconds: eta.timeIntervalSinceNow))
                 stat(String(localized: "Strecke"), ActivityFormat.distance(shown.distance))
+            }
+
+            // „Ankunft um …“: im Inhalt unter Ankunft/Dauer statt als weiterer Knopf unten (die Knopfleiste bleibt kurz)
+            if current.mode == .car {
+                Button { showArriveBy = true } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "clock").foregroundStyle(Theme.muted)
+                        Text("Ankunft um …").foregroundStyle(Theme.text)
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                    }
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .padding(.horizontal, 12).frame(height: 44)
+                    .background(RoundedRectangle(cornerRadius: 16).fill(Theme.panelRaised))
+                }
+                .accessibilityIdentifier("arrive-by")
             }
 
             if current.mode == .car, EVSettings.enabled {
@@ -411,14 +439,6 @@ struct RoutePreviewView: View {
                         Label("Freunde einladen", systemImage: "person.2.fill")
                     }
                     .buttonStyle(SecondaryButtonStyle())
-                }
-                HStack(spacing: 10) {
-                    if current.mode == .car {
-                        Button { showArriveBy = true } label: { Label("Ankunft um …", systemImage: "clock") }
-                            .buttonStyle(SecondaryButtonStyle())
-                    }
-                    Button { showSaveToList = true } label: { Label("In Liste", systemImage: "list.bullet") }
-                        .buttonStyle(SecondaryButtonStyle())
                 }
                 Button("Abbrechen") { dismiss() }
                     .buttonStyle(SecondaryButtonStyle())

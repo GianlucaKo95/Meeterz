@@ -114,8 +114,17 @@ final class MeeterzZLiveNavTests: MeeterzTestBase {
         pause(8)
         shot("karte-klassisch-naher-freund")
 
+        // Ortskarte: Pin per Gedrückthalten (Darstellung der Karte unten mit Listen-Symbol)
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.42)).press(forDuration: 1.3)
+        pause(5)
+        shot("pin-karte")
+        if app.buttons["Entfernen"].exists { app.buttons["Entfernen"].tap(); pause(1) }
+
         // Navigation: Route zum Düsseldorfer Hbf, Losfahren (Simulation)
+        showChrome()
         app.buttons["Ziel suchen"].tap()
+        pause(2)
+        shot("suche-leer")
         type("Düsseldorf Hauptbahnhof", into: need(app.textFields["Adresse oder Ort"], "suchfeld"))
         let result = app.buttons.containing(NSPredicate(format: "label CONTAINS 'Hauptbahnhof'")).firstMatch
         need(result, "suchergebnis", timeout: 30).tap()
@@ -129,6 +138,20 @@ final class MeeterzZLiveNavTests: MeeterzTestBase {
             pause(8)
             shot("route-vorschau-\(label)")
         }
+        // Neue Funktionen der Vorschau: „Ankunft um …“ und „In Liste speichern“ (Fenster öffnen, ansehen, schließen)
+        let arrive = app.buttons["arrive-by"]
+        if arrive.waitForExistence(timeout: 5) {
+            arrive.tap(); pause(6)
+            shot("ankunft-um")
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.12)).tap(); pause(2)
+        } else { shot("FEHLT-ankunft-um") }
+        let save = app.buttons["In Liste speichern"]
+        if save.waitForExistence(timeout: 5) {
+            save.tap(); pause(4)
+            shot("in-liste-speichern")
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.12)).tap(); pause(2)
+        } else { shot("FEHLT-in-liste") }
+        shot("route-vorschau-unten")
         app.buttons["Losfahren"].tap()
 
         // Beobachten: Fehlerhinweis der App oder Navigationsansicht (Karte mit Suchleiste verschwindet)
@@ -149,5 +172,20 @@ final class MeeterzZLiveNavTests: MeeterzTestBase {
         shot("navigation-a")
         pause(12)
         shot("navigation-b")
+
+        // Knöpfe am Rand während der Fahrt: Stopp entlang der Route, Gefahr melden
+        let stop = app.buttons["Stopp entlang der Route"]
+        if stop.waitForExistence(timeout: 5) {
+            stop.tap(); pause(10)
+            shot("stopp-entlang-der-route")
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.1)).tap(); pause(2)
+        } else { shot("FEHLT-stopp-knopf") }
+        let hazard = app.buttons["Gefahr melden"]
+        if hazard.waitForExistence(timeout: 5) {
+            hazard.tap(); pause(3)
+            shot("gefahr-melden")
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.1)).tap(); pause(2)
+        } else { shot("FEHLT-gefahr-knopf") }
+        shot("navigation-c")
     }
 }

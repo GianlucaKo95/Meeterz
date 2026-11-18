@@ -3,6 +3,10 @@ package de.koeven.meeterz.ui
 import androidx.compose.material.icons.filled.Check
 import de.koeven.meeterz.tr
 import androidx.compose.material.icons.filled.AddLocationAlt
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.graphics.asImageBitmap
@@ -730,6 +734,20 @@ private fun GuidanceBar(g: NavigationController.Guidance, modifier: Modifier) {
     if (showStop) AddStopDialog(onDismiss = { showStop = false })
     var showHazard by remember { mutableStateOf(false) }
     if (showHazard) HazardDialog(onDismiss = { showHazard = false })
+    // Stopp entlang der Route und Gefahr melden: runde Knöpfe rechts über der Leiste (wie die Knöpfe am Rand auf iOS).
+    // In der Leiste selbst war dafür kein Platz – auf 360-dp-Geräten blieb für die Ankunftszeit fast nichts.
+    Column(modifier.fillMaxWidth().padding(end = 12.dp), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        for ((icon, label, action) in listOf(
+            Triple(Icons.Default.AddLocationAlt, tr("Stopp entlang der Route")) { showStop = true },
+            Triple(Icons.Default.Warning, tr("Gefahr melden")) { showHazard = true },
+        )) {
+            Surface(onClick = action, shape = androidx.compose.foundation.shape.CircleShape, color = MaterialTheme.colorScheme.surface,
+                shadowElevation = 2.dp, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                modifier = Modifier.size(48.dp)) {
+                Box(contentAlignment = Alignment.Center) { Icon(icon, label) }
+            }
+        }
+    }
     Surface(modifier.fillMaxWidth().navigationBarsPadding().padding(12.dp), shape = RoundedCornerShape(20.dp), shadowElevation = 2.dp, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -739,8 +757,6 @@ private fun GuidanceBar(g: NavigationController.Guidance, modifier: Modifier) {
                 forecast?.let { Text(it.text, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold,
                     color = if (it.low) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary) }
             }
-            IconButton(onClick = { showStop = true }) { Icon(Icons.Default.AddLocationAlt, tr("Stopp entlang der Route")) }
-            IconButton(onClick = { showHazard = true }) { Icon(Icons.Default.Warning, tr("Gefahr melden")) }
             IconButton(onClick = { showMessage = true }) { Icon(Icons.AutoMirrored.Filled.Chat, tr("Bescheid geben")) }
             // Wie iOS/CarPlay: Alle Ansagen → Nur Warnungen → Aus, kurz anzeigen, was jetzt gilt
             IconButton(onClick = {
@@ -1187,7 +1203,13 @@ private fun PinCard(pin: DroppedPin, onNavigate: () -> Unit, onRemove: () -> Uni
         color = MaterialTheme.colorScheme.surface, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(pin.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(pin.name, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    // In Liste speichern: kleines Symbol neben dem Namen (wie iOS), keine eigene Zeile
+                    IconButton(onClick = { saving = true }, Modifier.size(32.dp)) {
+                        Icon(Icons.Default.BookmarkBorder, tr("In Liste speichern"), Modifier.size(20.dp))
+                    }
+                }
                 val sub = listOfNotNull(d?.category, d?.rating?.let { r -> "★ " + String.format(java.util.Locale.getDefault(), "%.1f", r) + (d.reviews?.let { " ($it)" } ?: "") })
                 if (sub.isNotEmpty()) Text(sub.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 pin.address?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -1212,13 +1234,12 @@ private fun PinCard(pin: DroppedPin, onNavigate: () -> Unit, onRemove: () -> Uni
                     Text(de.koeven.meeterz.data.FuelPrices.ATTRIBUTION, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedButton(onClick = { saving = true }) { Text(tr("In Liste")) }
-                d?.phone?.let { phone ->
+            if (d?.phone != null || d?.website != null) Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                d.phone?.let { phone ->
                     OutlinedButton(onClick = { runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_DIAL, android.net.Uri.parse("tel:$phone"))) } },
                         Modifier.weight(1f)) { Text(tr("Anrufen")) }
                 }
-                d?.website?.let { web ->
+                d.website?.let { web ->
                     OutlinedButton(onClick = { runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,
                         android.net.Uri.parse(if (web.startsWith("http")) web else "https://$web"))) } }, Modifier.weight(1f)) { Text(tr("Website")) }
                 }
@@ -1292,7 +1313,7 @@ private fun SearchStart(
                 item { SearchHeader(tr("Listen")) }
                 items(lists, key = { "l" + it.id }) { l ->
                     val owner = if (l.owner == AppState.myId) null else friends.firstOrNull { it.friendId == l.owner }?.displayName
-                    SearchRow(if (l.shared) Icons.Default.Person else Icons.Default.Star, l.name,
+                    SearchRow(if (l.shared) Icons.Default.Groups else Icons.AutoMirrored.Filled.List, l.name,
                         listOfNotNull(owner, tr("%lld Orte", l.items.size)).joinToString(" · ")) { openList = l.id }
                 }
             }
@@ -1333,7 +1354,7 @@ private fun PlaceListDialog(id: String, onChoose: (String, String?, Double, Doub
                 if (list.items.isEmpty()) Text(tr("Noch keine Orte. Tippe auf einen Ort und dann auf „In Liste speichern“."), style = MaterialTheme.typography.bodySmall)
                 LazyColumn(Modifier.heightIn(max = 360.dp)) {
                     items(list.items, key = { it.id }) { item ->
-                        SearchRow(Icons.Default.Star, item.name, item.address,
+                        SearchRow(Icons.Default.Place, item.name, item.address,
                             onLongClick = if (mine) ({ AppState.scope.launch { de.koeven.meeterz.data.PlaceLists.remove(item) } }) else null) {
                             onDismiss(); onChoose(item.name, item.address, item.lat, item.lng)
                         }

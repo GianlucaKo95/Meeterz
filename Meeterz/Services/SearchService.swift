@@ -186,6 +186,10 @@ enum SearchService {
         var rating: Double?, reviews: Int?
         /// Öffnungszeiten je Tag (0 = Montag … 6 = Sonntag) als Minuten-Spannen; nil = unbekannt
         var hours: [[Range<Int>]]?
+        /// OSM-Öffnungszeiten, die sich nicht in Spannen übersetzen ließen – dann als Text zeigen
+        var hoursText: String? = nil
+        /// Angaben (auch) aus OpenStreetMap – Hinweis „© OpenStreetMap“ zeigen
+        var osm = false
 
         static func weekday(_ date: Date = .now) -> Int { (Calendar.current.component(.weekday, from: date) + 5) % 7 }
 
@@ -200,8 +204,26 @@ enum SearchService {
         }
     }
 
-    /// Mapbox-Treffer zum angetippten POI: gleicher Name in der Nähe (≤ 150 m). Ein Forward-Request, keine Session.
+    /// Details zum angetippten POI: Mapbox, und was dort fehlt (Website, Telefon, Öffnungszeiten), aus OpenStreetMap.
+    /// Mapbox hat in Deutschland zu vielen kleineren Orten nur Name und Adresse (18.11., z. B. Restaurant in Duisburg).
     static func details(name: String, at c: CLLocationCoordinate2D) async -> Details? {
+        async let mapbox = mapboxDetails(name: name, at: c)
+        async let osm = OsmPlaces.info(name: name, at: c)
+        let m = await mapbox
+        guard let o = await osm else { return m }
+        let osmHours = o.openingHours.flatMap(OsmPlaces.parse)
+        let base = m ?? Details(category: nil, address: nil, phone: nil, website: nil, rating: nil, reviews: nil, hours: nil)
+        var merged = base
+        merged.phone = base.phone ?? o.phone
+        merged.website = base.website ?? o.website.flatMap { URL(string: $0.hasPrefix("http") ? $0 : "https://\($0)") }
+        merged.hours = base.hours ?? osmHours
+        merged.hoursText = base.hours == nil && osmHours == nil ? o.openingHours : nil
+        merged.osm = merged != base
+        return merged
+    }
+
+    /// Mapbox-Treffer zum angetippten POI: gleicher Name in der Nähe (≤ 150 m). Ein Forward-Request, keine Session.
+    private static func mapboxDetails(name: String, at c: CLLocationCoordinate2D) async -> Details? {
         var comps = URLComponents(string: "https://api.mapbox.com/search/searchbox/v1/forward")!
         comps.queryItems = [
             URLQueryItem(name: "q", value: name), URLQueryItem(name: "types", value: "poi"), URLQueryItem(name: "limit", value: "5"),

@@ -912,6 +912,12 @@ struct PinCard: View {
                     }
                 }
             }
+            if details?.hours == nil, let text = details?.hoursText {
+                Text(text).font(.footnote).foregroundStyle(Theme.muted)
+            }
+            if details?.osm == true {
+                Text("© OpenStreetMap").font(.caption2).foregroundStyle(Theme.muted)
+            }
             if let fuel, !fuel.text.isEmpty {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(fuel.text).font(.footnote.weight(.semibold)).foregroundStyle(Theme.accent)

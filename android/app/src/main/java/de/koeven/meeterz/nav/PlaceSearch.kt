@@ -7,6 +7,7 @@ import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsText
+import kotlinx.coroutines.async
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -59,6 +60,10 @@ object PlaceSearch {
         val rating: Double?, val reviews: Int?,
         /** Öffnungszeiten je Tag (0 = Montag … 6 = Sonntag) als Minuten-Spannen; null = unbekannt */
         val hours: List<List<IntRange>>?,
+        /** OSM-Öffnungszeiten, die sich nicht in Spannen übersetzen ließen – dann als Text zeigen */
+        val hoursText: String? = null,
+        /** Angaben (auch) aus OpenStreetMap – Hinweis „© OpenStreetMap“ zeigen */
+        val osm: Boolean = false,
     ) {
         /** true/false = jetzt geöffnet/geschlossen, null = unbekannt */
         fun openNow(now: java.util.Calendar = java.util.Calendar.getInstance()): Boolean? {
@@ -70,8 +75,27 @@ object PlaceSearch {
         }
     }
 
+    /**
+     * Details zum angetippten POI: Mapbox, und was dort fehlt (Website, Telefon, Öffnungszeiten), aus OpenStreetMap.
+     * Mapbox hat in Deutschland zu vielen kleineren Orten nur Name und Adresse (18.11., z. B. Restaurant in Duisburg).
+     */
+    suspend fun details(name: String, lat: Double, lng: Double): Details? = kotlinx.coroutines.coroutineScope {
+        val mapbox = async { mapboxDetails(name, lat, lng) }
+        val osm = async { OsmPlaces.info(name, lat, lng) }
+        val m = mapbox.await(); val o = osm.await()
+        if (o == null) return@coroutineScope m
+        val osmHours = o.openingHours?.let { OsmPlaces.parse(it) }
+        val base = m ?: Details(null, null, null, null, null, null, null)
+        val merged = base.copy(
+            phone = base.phone ?: o.phone, website = base.website ?: o.website,
+            hours = base.hours ?: osmHours,
+            hoursText = if (base.hours == null && osmHours == null) o.openingHours else null,
+        )
+        merged.copy(osm = merged != base)
+    }
+
     /** Mapbox-Treffer zum angetippten POI: gleicher Name in der Nähe (≤ 150 m). Ein Forward-Request, keine Session. */
-    suspend fun details(name: String, lat: Double, lng: Double): Details? = runCatching {
+    private suspend fun mapboxDetails(name: String, lat: Double, lng: Double): Details? = runCatching {
         val body = http.get("https://api.mapbox.com/search/searchbox/v1/forward") {
             parameter("q", name); parameter("language", "de"); parameter("limit", 5); parameter("types", "poi")
             parameter("proximity", "$lng,$lat"); parameter("access_token", MapboxOptions.accessToken)

@@ -262,14 +262,14 @@ extension CarPlayController {
                 return
             }
             var shown = Array(found.prefix(CPListTemplate.maximumItemCount))
-            func render() {
+            @MainActor func render() {
                 let items: [CPListItem] = shown.map { s in
                     let away = s.ahead.map { String(localized: "nach \(ActivityFormat.distance($0))") }   // entlang der Route
                         ?? ActivityFormat.distance(s.place.coordinate.distance(to: me))
                     // Öffnungsstatus vorn (wichtiger als die Adresse), Spritpreise bzw. Adresse dahinter
                     let detail = [away, s.place.hours.map { OsmPlaces.status($0) }, s.price?.text ?? s.place.address]
                     let item = CPListItem(text: s.place.name, detailText: detail.compactMap { $0 }.joined(separator: " · "))
-                    item.handler = { [weak self] _, done in self?.select(s.place, done: done) }
+                    item.handler = { [weak self] _, done in MainActor.assumeIsolated { self?.select(s.place, done: done) } }
                     return item
                 }
                 template.updateSections([CPListSection(items: items.isEmpty

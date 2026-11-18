@@ -90,7 +90,7 @@ class MainActivity : ComponentActivity() {
         lifecycle.addObserver(object : androidx.lifecycle.DefaultLifecycleObserver {
             override fun onStart(owner: androidx.lifecycle.LifecycleOwner) {
                 AppState.foreground = true
-                AppState.scope.launch { AppState.refreshFriends() }
+                AppState.scope.launch { AppState.refreshFriends(); AppState.messages.refresh(); AppState.meetups.refresh() }   // im Hintergrund nur alle 5 Min.
             }
             override fun onStop(owner: androidx.lifecycle.LifecycleOwner) { AppState.foreground = false }
         })

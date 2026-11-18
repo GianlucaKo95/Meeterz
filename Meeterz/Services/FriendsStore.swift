@@ -15,11 +15,11 @@ final class FriendsStore {
 
     private var client: SupabaseClient { Backend.client }
 
-    func refresh() async {
+    func refresh(hidden: Bool = true) async {
         do {
             let before = accepted.map { "\($0.friendId)\($0.displayName)" }
             rows = try await client.rpc("my_friends").execute().value
-            if let hidden: [UUID] = try? await client.rpc("my_hidden_friends").execute().value {
+            if hidden, let hidden: [UUID] = try? await client.rpc("my_hidden_friends").execute().value {
                 hiddenFrom = Set(hidden)
             }
             // Siri kennt die Namen der Freunde („Navigiere mit Meeterz zu Lisa“) – nur bei Änderung melden.

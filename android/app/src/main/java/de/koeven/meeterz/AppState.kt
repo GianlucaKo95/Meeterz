@@ -77,16 +77,26 @@ object AppState {
             vehicle.start(scope, userId)
             PushService.registerCurrent(appContext)
             launch { meetups.acceptedByFriend.collect { de.koeven.meeterz.sound.SoundMoments.accepted(it.otherId, it.id) } }
+            // Abgleich alle 30 s nur, solange man hinschaut (App sichtbar, Navigation, Android Auto) – sonst alle 5 Min.
+            // Vorher rund um die Uhr: ~17 000 Anfragen pro App und Tag im Log-Kontingent (wie iOS, 18.11.).
+            // Freundespositionen kommen davon unabhängig live über den Kanal.
+            var last = 0L
+            var slowAt = 0L
             while (isActive) {
+                val now = System.currentTimeMillis()
+                if (!socialActive && now - last < 300_000) { delay(30_000); continue }
+                last = now
+                val slow = now - slowAt >= 300_000
+                if (slow) slowAt = now
                 refreshFriends()
                 // ponytail: Nachrichten alle 30 s und bei jedem Push statt Live-Kanal wie auf iOS
                 messages.refresh()
                 de.koeven.meeterz.data.StoriesStore.refresh()
                 de.koeven.meeterz.data.ConvoyFeed.update()
-                refreshHidden()
+                if (slow) refreshHidden()
                 de.koeven.meeterz.data.AvatarStore.sync(friends.value, profile)
-                meetups.refresh()
-                de.koeven.meeterz.sound.SoundStore.sync()
+                meetups.refresh(candidates = socialActive)
+                if (slow) de.koeven.meeterz.sound.SoundStore.sync()
                 de.koeven.meeterz.sound.SoundMoments.checkJourneys()
                 de.koeven.meeterz.suggest.RouteSuggestions.refresh()
                 de.koeven.meeterz.suggest.DepartureReminder.refresh(appContext)
@@ -119,6 +129,8 @@ object AppState {
     private val lastPoke = mutableMapOf<String, Long>()
     /** App sichtbar? (nur dann Freunde wecken – wie iOS bei offener App) */
     @Volatile var foreground = false
+    /** Jemand schaut hin: App sichtbar, Navigation oder Android Auto (wie iOS socialActive) */
+    val socialActive get() = foreground || de.koeven.meeterz.nav.NavigationController.guidance.value != null || de.koeven.meeterz.nav.NavigationController.carConnected
 
     /** Freunde mit veralteter Position (> 45 s) bitten, kurz ihren Standort zu senden – je Freund höchstens alle 2 Min. */
     private fun requestFreshPositions(rows: List<FriendRow>) {

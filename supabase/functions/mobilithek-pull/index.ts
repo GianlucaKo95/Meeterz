@@ -269,7 +269,7 @@ Deno.serve(async (req: Request) => {
     if (!Number.isInteger(batch) || batch < 0 || batch > 6) return Response.json({ ok: false, error: "INVALID_BATCH", validBatches: "0-6" }, { status: 400 });
     slice = IDS.slice(batch * BATCH_SIZE, (batch + 1) * BATCH_SIZE);
   }
-  if (mode !== "dry-run" && mode !== "commit") return Response.json({ ok: false, error: "INVALID_MODE", allowed: ["dry-run", "commit"] }, { status: 400 });
+  if (mode !== "dry-run" && mode !== "commit" && mode !== "peek") return Response.json({ ok: false, error: "INVALID_MODE", allowed: ["dry-run", "commit", "peek"] }, { status: 400 });
 
   const cert = Deno.env.get("MOBILITHEK_CLIENT_CERT_PEM"), key = Deno.env.get("MOBILITHEK_CLIENT_KEY_PEM");
   const supabaseUrl = Deno.env.get("SUPABASE_URL"), serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -323,6 +323,25 @@ Deno.serve(async (req: Request) => {
           if (upstream.status !== 200) {
             const detail = (await upstream.text()).slice(0, 300);
             results[i] = { ...baseResult, classification: "HTTP_ERROR", error: detail };
+            continue;
+          }
+          if (mode === "peek") {
+            // Nur nachsehen, welche Betreiber ein Abo liefert: die ersten Standorte lesen, dann abbrechen
+            const operators = new Set<string>();
+            const siteIds: string[] = [];
+            let seen = 0;
+            const stop = new Error("peek");
+            const started = Date.now();
+            try {
+              await scanElements(upstream.body!, new Set(["energyInfrastructureSiteStatus", "energyInfrastructureSite"]), (key, value) => {
+                const op = isObj(value) ? textValue(value.operator ?? {}, "name") : undefined;
+                if (op) operators.add(op);
+                const site = idOf(value);
+                if (site && siteIds.length < 5) siteIds.push(site);
+                if (++seen >= 50 || Date.now() - started > 800) throw stop;
+              });
+            } catch (e) { if (e !== stop) throw e; }
+            results[i] = { ...baseResult, classification: "PEEK", operators: [...operators], siteIds, sitesRead: seen, contentLength: upstream.headers.get("content-length") };
             continue;
           }
           const now = new Date().toISOString();

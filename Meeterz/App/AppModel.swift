@@ -82,10 +82,17 @@ final class AppModel {
         }
 
         refreshLoop?.cancel()
+        // Abgleich alle 30 s nur, solange man hinschaut (App offen, Navigation, CarPlay) – sonst alle 5 Min.
+        // Vorher lief er rund um die Uhr: ~17 000 Anfragen pro App und Tag, der größte Posten im Log-Kontingent (18.11.).
+        // Freundespositionen kommen davon unabhängig live über den Kanal (LiveLocationHub).
         refreshLoop = Task { [weak self] in
+            var last = Date.distantPast
             while !Task.isCancelled {
-                await self?.refreshSocial()
-                _ = await RouteSuggestions.shared.refresh()   // für das Widget „Nächstes Ziel“ (höchstens alle 5 Min.)
+                if let self, self.socialActive || Date().timeIntervalSince(last) >= 300 {
+                    last = Date()
+                    await self.refreshSocial()
+                    _ = await RouteSuggestions.shared.refresh()   // für das Widget „Nächstes Ziel“ (höchstens alle 5 Min.)
+                }
                 try? await Task.sleep(for: .seconds(30))
             }
         }
@@ -112,14 +119,23 @@ final class AppModel {
     }
 
     /// Freunde, Routen, Treffen und Treffpunkte neu laden
+    /// Jemand schaut hin: App im Vordergrund, Navigation oder CarPlay
+    var socialActive: Bool {
+        UIApplication.shared.applicationState == .active || navigation.isNavigating || CarPlayController.shared.isConnected
+    }
+    @ObservationIgnored private var slowSyncAt = Date.distantPast
+
     func refreshSocial() async {
         guard sessionUser != nil else { return }
-        await friends.refresh()
+        // Selten Geändertes (ausgeblendete Freunde, Sounds) nur alle 5 Min.
+        let slow = Date().timeIntervalSince(slowSyncAt) >= 300
+        if slow { slowSyncAt = Date() }
+        await friends.refresh(hidden: slow)
         await avatars.sync(friends: friends.rows, me: auth.profile)
-        await sounds.sync()
+        if slow { await sounds.sync() }
         await hub.sync(with: friends.rows)
         await routes.refresh()
-        await meetups.refresh()
+        await meetups.refresh(candidates: socialActive)
         await checkMeetupJourneys()
         ConvoyFeed.shared.update()
         requestFreshPositions()

@@ -42,6 +42,7 @@ struct RootView: View {
             // Nach einer beendeten Route lief Mapbox im Vordergrund weiter (freie Fahrt) – im Hintergrund wieder anhalten
             if phase == .background { AppModel.shared.navigation.idleIfUnused() }
             if phase == .active {
+                Task { await AppModel.shared.refreshSocial() }   // im Hintergrund nur alle 5 Min. abgeglichen
                 Task { @MainActor in
                     try? await Task.sleep(for: .milliseconds(600))   // Hauptansicht erst aufbauen lassen
                     AppModel.shared.navigation.showCarPlayDriveOnPhoneIfNeeded()

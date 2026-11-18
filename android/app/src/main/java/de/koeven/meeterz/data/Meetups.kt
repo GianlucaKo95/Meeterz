@@ -104,8 +104,9 @@ class MeetupsStore {
 
     fun reset() { _meetups.value = emptyList(); groupPartners = emptyMap(); fetched = false; arrivalReported.clear() }
 
-    suspend fun refresh() {
-        runCatching { Backend.client.postgrest.rpc("find_meetups").decodeList<MeetupCandidate>() }.onSuccess { _candidates.value = it }
+    /** `candidates`: mögliche Treffpunkte nur suchen, wenn jemand hinschaut (wie iOS) */
+    suspend fun refresh(candidates: Boolean = true) {
+        if (candidates) runCatching { Backend.client.postgrest.rpc("find_meetups").decodeList<MeetupCandidate>() }.onSuccess { _candidates.value = it }
         val rows = runCatching { Backend.client.postgrest.rpc("my_meetups").decodeList<Meetup>() }.getOrNull() ?: return
         val wasPending = _meetups.value.filter { !it.incoming && it.isPending }.map { it.id }.toSet()
         if (fetched) rows.filter { !it.incoming && it.isAccepted && it.id in wasPending }.forEach { _acceptedByFriend.tryEmit(it) }

@@ -3,9 +3,14 @@ package de.koeven.meeterz.ui
 import androidx.compose.material.icons.filled.Check
 import de.koeven.meeterz.tr
 import androidx.compose.material.icons.filled.AddLocationAlt
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Switch
+import androidx.compose.material3.TimeInput
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
@@ -637,6 +642,10 @@ private fun PreviewCard(dest: NavigationController.Destination, routes: List<Nav
                         onSave: (String, String) -> Unit, onStart: () -> Unit, onCancel: () -> Unit, onInvite: () -> Unit,
                         charge: @Composable () -> Unit = {}) {
     var saved by remember(dest) { mutableStateOf(false) }
+    var arriveBy by remember { mutableStateOf(false) }
+    var saveToList by remember { mutableStateOf(false) }
+    if (arriveBy) ArriveByDialog(dest.name, dest.address, dest.lat, dest.lng, onDismiss = { arriveBy = false })
+    if (saveToList) SaveToListDialog(dest.name, dest.address, dest.lat, dest.lng, onDismiss = { saveToList = false })
     val r = routes.getOrElse(selected) { routes.first() }.directionsRoute
     Surface(modifier.fillMaxWidth().navigationBarsPadding().padding(12.dp), shape = RoundedCornerShape(20.dp), shadowElevation = 2.dp, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -675,6 +684,8 @@ private fun PreviewCard(dest: NavigationController.Destination, routes: List<Nav
             de.koeven.meeterz.nav.RoutePreferences.summary?.let { Text(tr("Route %@", it), style = MaterialTheme.typography.bodySmall) }
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AssistChip(onClick = onInvite, label = { Text(tr("Freunde einladen")) })
+                if (mode == de.koeven.meeterz.nav.TravelMode.CAR) AssistChip(onClick = { arriveBy = true }, label = { Text(tr("Ankunft um …")) })
+                AssistChip(onClick = { saveToList = true }, label = { Text(tr("In Liste")) })
                 if (!saved) {
                     AssistChip(onClick = { onSave("home", tr("Zuhause")); saved = true }, label = { Text(tr("Als Zuhause")) })
                     AssistChip(onClick = { onSave("work", tr("Arbeit")); saved = true }, label = { Text(tr("Als Arbeit")) })
@@ -717,6 +728,8 @@ private fun GuidanceBar(g: NavigationController.Guidance, modifier: Modifier) {
     var showStop by remember { mutableStateOf(false) }
     if (showMessage) MessageDialog(g, onDismiss = { showMessage = false })
     if (showStop) AddStopDialog(onDismiss = { showStop = false })
+    var showHazard by remember { mutableStateOf(false) }
+    if (showHazard) HazardDialog(onDismiss = { showHazard = false })
     Surface(modifier.fillMaxWidth().navigationBarsPadding().padding(12.dp), shape = RoundedCornerShape(20.dp), shadowElevation = 2.dp, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -726,7 +739,8 @@ private fun GuidanceBar(g: NavigationController.Guidance, modifier: Modifier) {
                 forecast?.let { Text(it.text, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold,
                     color = if (it.low) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary) }
             }
-            IconButton(onClick = { showStop = true }) { Icon(Icons.Default.AddLocationAlt, tr("Zwischenstopp")) }
+            IconButton(onClick = { showStop = true }) { Icon(Icons.Default.AddLocationAlt, tr("Stopp entlang der Route")) }
+            IconButton(onClick = { showHazard = true }) { Icon(Icons.Default.Warning, tr("Gefahr melden")) }
             IconButton(onClick = { showMessage = true }) { Icon(Icons.AutoMirrored.Filled.Chat, tr("Bescheid geben")) }
             // Wie iOS/CarPlay: Alle Ansagen → Nur Warnungen → Aus, kurz anzeigen, was jetzt gilt
             IconButton(onClick = {
@@ -981,28 +995,33 @@ private fun AddStopDialog(onDismiss: () -> Unit) {
     val scope = rememberCoroutineScope()
     var category by remember { mutableStateOf<PlaceSearch.Category?>(PlaceSearch.Category.GAS) }
     var query by remember { mutableStateOf("") }
-    var places by remember { mutableStateOf<List<PlaceSearch.Place>>(emptyList()) }
+    var places by remember { mutableStateOf<List<PlaceSearch.Stopover>?>(null) }
     LaunchedEffect(category, query) {
         val me = AppState.lastLocation ?: return@LaunchedEffect
-        places = if (query.isNotBlank()) { delay(300); PlaceSearch.search(query, me.latitude, me.longitude) }
-        else category?.let { PlaceSearch.places(it, me.latitude, me.longitude, 8) }.orEmpty()
+        places = null
+        // Kategorien entlang der Route (Strecke bis dorthin, bei Tankstellen Spritpreise), Freitext in der Nähe
+        places = if (query.isNotBlank()) { delay(300); PlaceSearch.search(query, me.latitude, me.longitude).map { PlaceSearch.Stopover(it, null) } }
+        else category?.let { PlaceSearch.stopovers(it, me.latitude, me.longitude) }.orEmpty()
     }
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {},
         dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Abbrechen")) } },
-        title = { Text(tr("Zwischenstopp")) },
+        title = { Text(tr("Entlang der Route")) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextField(query, { query = it }, placeholder = { Text(tr("Suchen")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    for (c in listOf(PlaceSearch.Category.GAS, PlaceSearch.Category.REST_AREA, PlaceSearch.Category.COFFEE, PlaceSearch.Category.RESTAURANT)) {
+                    for (c in PlaceSearch.Category.stopovers) {
                         FilterChip(selected = query.isBlank() && category == c, onClick = { category = c; query = "" }, label = { Text(c.title) })
                     }
                 }
                 val me = AppState.lastLocation
+                if (places == null) CircularProgressIndicator(Modifier.align(Alignment.CenterHorizontally))
+                else if (places!!.isEmpty()) Text(tr("Nichts gefunden"), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 LazyColumn(Modifier.heightIn(max = 360.dp)) {
-                    items(places) { p ->
+                    items(places.orEmpty()) { s ->
+                        val p = s.place
                         Column(Modifier.fillMaxWidth().clickable {
                             onDismiss()
                             scope.launch {
@@ -1011,9 +1030,15 @@ private fun AddStopDialog(onDismiss: () -> Unit) {
                             }
                         }.padding(vertical = 10.dp)) {
                             Text(p.name, fontWeight = FontWeight.SemiBold)
-                            Text(listOfNotNull(me?.let { km(de.koeven.meeterz.ev.ChargePlanner.distance(it.latitude, it.longitude, p.lat, p.lng)) }, p.address)
-                                .joinToString(" · "), style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                            val away = s.ahead?.let { tr("nach %@", km(it)) } ?: me?.let { km(de.koeven.meeterz.ev.ChargePlanner.distance(it.latitude, it.longitude, p.lat, p.lng)) }
+                            Text(listOfNotNull(away, p.address).joinToString(" · "), style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                            s.price?.text?.takeIf { it.isNotEmpty() }?.let {
+                                Text(it, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                            }
                         }
+                    }
+                    if (places.orEmpty().any { it.price != null }) item {
+                        Text(de.koeven.meeterz.data.FuelPrices.ATTRIBUTION, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -1021,6 +1046,124 @@ private fun AddStopDialog(onDismiss: () -> Unit) {
     )
 }
 
+
+/** „Ankunft um …“ (wie iOS ArriveBySheet): Uhrzeit wählen, Abfahrt mit Verkehr anzeigen, 10 Min. vorher erinnern */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ArriveByDialog(name: String, address: String?, lat: Double, lng: Double, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val inOneHour = java.util.Calendar.getInstance().apply { add(java.util.Calendar.HOUR_OF_DAY, 1) }
+    val state = rememberTimePickerState(inOneHour.get(java.util.Calendar.HOUR_OF_DAY), 0, android.text.format.DateFormat.is24HourFormat(context))
+    // Gewählte Uhrzeit heute – liegt sie (fast) vorbei, morgen
+    val at = remember(state.hour, state.minute) {
+        java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, state.hour); set(java.util.Calendar.MINUTE, state.minute); set(java.util.Calendar.SECOND, 0)
+            if (timeInMillis < System.currentTimeMillis() + 15 * 60_000) add(java.util.Calendar.DAY_OF_MONTH, 1)
+        }.timeInMillis
+    }
+    var depart by remember { mutableStateOf<Long?>(null) }
+    var calculating by remember { mutableStateOf(true) }
+    LaunchedEffect(at) {
+        calculating = true
+        delay(400)
+        depart = de.koeven.meeterz.suggest.DepartureReminder.departure(lat, lng, at)
+        calculating = false
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(tr("Ankunft um …")) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(name, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                TimeInput(state)
+                when {
+                    calculating -> CircularProgressIndicator()
+                    depart != null -> Text(tr("Losfahren um %@", de.koeven.meeterz.ui.meetupTime(depart!! / 1000)),
+                        fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                    else -> Text(tr("Fahrzeit konnte nicht berechnet werden."), style = MaterialTheme.typography.bodySmall)
+                }
+                Text(tr("Du bekommst 10 Minuten vorher eine Erinnerung; die Fahrzeit wird bis dahin mit dem Verkehr nachgerechnet."),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        },
+        confirmButton = {
+            Button(enabled = depart != null, onClick = {
+                onDismiss()
+                AppState.scope.launch {
+                    de.koeven.meeterz.suggest.DepartureReminder.plan(context, name, address, lat, lng, at)
+                    Toast.makeText(context, tr("Erinnerung für %@ geplant.", name), Toast.LENGTH_SHORT).show()
+                }
+            }) { Text(tr("Erinnern")) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Abbrechen")) } },
+    )
+}
+
+/** Ort in eine eigene Liste speichern oder neue Liste anlegen (wie iOS SaveToListSheet) */
+@Composable
+private fun SaveToListDialog(name: String, address: String?, lat: Double, lng: Double, onDismiss: () -> Unit) {
+    val lists by de.koeven.meeterz.data.PlaceLists.lists.collectAsState()
+    var newName by remember { mutableStateOf("") }
+    var shared by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { if (!de.koeven.meeterz.data.PlaceLists.loaded) de.koeven.meeterz.data.PlaceLists.refresh() }
+    val own = lists.filter { it.owner == AppState.myId }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(tr("In Liste speichern")) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(name, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                LazyColumn(Modifier.heightIn(max = 240.dp)) {
+                    items(own) { list ->
+                        Row(Modifier.fillMaxWidth().clickable {
+                            onDismiss()
+                            AppState.scope.launch { de.koeven.meeterz.data.PlaceLists.add(name, address, lat, lng, list) }
+                        }.padding(vertical = 12.dp)) {
+                            Text(list.name, Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+                            Text("${list.items.size}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+                TextField(newName, { newName = it }, placeholder = { Text(tr("Neue Liste, z. B. Lieblingscafés")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(tr("Mit Freunden teilen"), Modifier.weight(1f))
+                    Switch(shared, { shared = it })
+                }
+            }
+        },
+        confirmButton = {
+            Button(enabled = newName.isNotBlank(), onClick = {
+                onDismiss()
+                AppState.scope.launch {
+                    de.koeven.meeterz.data.PlaceLists.create(newName.trim(), shared)?.let { de.koeven.meeterz.data.PlaceLists.add(name, address, lat, lng, it) }
+                }
+            }) { Text(tr("Anlegen und speichern")) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Abbrechen")) } },
+    )
+}
+
+/** Gefahr melden (wie iOS HazardReportSheet) */
+@Composable
+private fun HazardDialog(onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Abbrechen")) } },
+        title = { Text(tr("Gefahr melden")) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(tr("Andere Meeterz-Fahrer hinter dir werden eine Stunde lang gewarnt."), style = MaterialTheme.typography.bodySmall)
+                for (k in de.koeven.meeterz.data.HazardStore.Kind.entries) {
+                    OutlinedButton(onClick = {
+                        onDismiss()
+                        AppState.scope.launch { de.koeven.meeterz.data.HazardStore.report(k) }
+                    }, Modifier.fillMaxWidth()) { Text(k.title) }
+                }
+            }
+        },
+    )
+}
 
 /** Per Gedrückthalten gesetzter Pin */
 private data class DroppedPin(val lat: Double, val lng: Double, val name: String, val address: String?,
@@ -1033,6 +1176,13 @@ private fun PinCard(pin: DroppedPin, onNavigate: () -> Unit, onRemove: () -> Uni
     val context = LocalContext.current
     val d = pin.details
     var week by remember(pin.lat, pin.lng) { mutableStateOf(false) }
+    var saving by remember { mutableStateOf(false) }
+    if (saving) SaveToListDialog(pin.name, pin.address, pin.lat, pin.lng, onDismiss = { saving = false })
+    var fuel by remember(pin.lat, pin.lng) { mutableStateOf<de.koeven.meeterz.data.FuelPrices.Price?>(null) }
+    LaunchedEffect(pin.lat, pin.lng, d?.category) {
+        if (de.koeven.meeterz.data.FuelPrices.isGasStation(d?.category, pin.name))
+            fuel = de.koeven.meeterz.data.FuelPrices.prices(listOf(pin.lat to pin.lng)).firstOrNull()
+    }
     Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surface, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -1056,12 +1206,19 @@ private fun PinCard(pin: DroppedPin, onNavigate: () -> Unit, onRemove: () -> Uni
                     }
                 }
             }
-            if (d?.phone != null || d?.website != null) Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                d.phone?.let { phone ->
+            fuel?.text?.takeIf { it.isNotEmpty() }?.let {
+                Column {
+                    Text(it, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                    Text(de.koeven.meeterz.data.FuelPrices.ATTRIBUTION, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedButton(onClick = { saving = true }) { Text(tr("In Liste")) }
+                d?.phone?.let { phone ->
                     OutlinedButton(onClick = { runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_DIAL, android.net.Uri.parse("tel:$phone"))) } },
                         Modifier.weight(1f)) { Text(tr("Anrufen")) }
                 }
-                d.website?.let { web ->
+                d?.website?.let { web ->
                     OutlinedButton(onClick = { runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,
                         android.net.Uri.parse(if (web.startsWith("http")) web else "https://$web"))) } }, Modifier.weight(1f)) { Text(tr("Website")) }
                 }
@@ -1112,6 +1269,10 @@ private fun SearchStart(
     onRename: (de.koeven.meeterz.data.Favorite) -> Unit,
 ) {
     val meetups by AppState.meetups.meetups.collectAsState()
+    val lists by de.koeven.meeterz.data.PlaceLists.lists.collectAsState()
+    var openList by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) { if (!de.koeven.meeterz.data.PlaceLists.loaded) de.koeven.meeterz.data.PlaceLists.refresh() }
+    openList?.let { id -> PlaceListDialog(id, onChoose, onDismiss = { openList = null }) }
     Surface(Modifier.padding(top = 8.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface,
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         LazyColumn(Modifier.heightIn(max = 460.dp).padding(vertical = 8.dp)) {
@@ -1126,6 +1287,15 @@ private fun SearchStart(
             }
             items(favorites.filter { it.kind == "other" }, key = { it.id }) { FavoriteRow(it, onChoose, onAssign, onRename) }
             item { SearchRow(Icons.Default.AddCircleOutline, tr("Favorit hinzufügen"), tr("Ort suchen und mit Namen speichern")) { onAssign("other") } }
+            // Eigene und von Freunden geteilte Ortslisten (wie iOS)
+            if (lists.isNotEmpty()) {
+                item { SearchHeader(tr("Listen")) }
+                items(lists, key = { "l" + it.id }) { l ->
+                    val owner = if (l.owner == AppState.myId) null else friends.firstOrNull { it.friendId == l.owner }?.displayName
+                    SearchRow(if (l.shared) Icons.Default.Person else Icons.Default.Star, l.name,
+                        listOfNotNull(owner, tr("%lld Orte", l.items.size)).joinToString(" · ")) { openList = l.id }
+                }
+            }
             val meetupPlaces = meetups.filter { it.isAccepted }.distinctBy { it.groupId ?: it.id }
             val friendPlaces = friends.filter { it.isAccepted }.mapNotNull { f ->
                 val p = live[f.friendId]; val lat = p?.lat ?: f.lat; val lng = p?.lng ?: f.lng
@@ -1142,6 +1312,43 @@ private fun SearchStart(
             }
         }
     }
+}
+
+/** Eine Liste (wie iOS PlaceListView): Ort antippen = auswählen; eigene: gedrückt halten entfernt, Teilen umschalten, löschen */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+private fun PlaceListDialog(id: String, onChoose: (String, String?, Double, Double) -> Unit, onDismiss: () -> Unit) {
+    val lists by de.koeven.meeterz.data.PlaceLists.lists.collectAsState()
+    val list = lists.firstOrNull { it.id == id } ?: return onDismiss()
+    val mine = list.owner == AppState.myId
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(list.name) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (mine) Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(tr("Mit Freunden teilen"), Modifier.weight(1f))
+                    Switch(list.shared, { v -> AppState.scope.launch { de.koeven.meeterz.data.PlaceLists.setShared(list, v) } })
+                }
+                if (list.items.isEmpty()) Text(tr("Noch keine Orte. Tippe auf einen Ort und dann auf „In Liste speichern“."), style = MaterialTheme.typography.bodySmall)
+                LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                    items(list.items, key = { it.id }) { item ->
+                        SearchRow(Icons.Default.Star, item.name, item.address,
+                            onLongClick = if (mine) ({ AppState.scope.launch { de.koeven.meeterz.data.PlaceLists.remove(item) } }) else null) {
+                            onDismiss(); onChoose(item.name, item.address, item.lat, item.lng)
+                        }
+                    }
+                }
+                if (mine) Text(tr("Gedrückt halten entfernt einen Ort."), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(tr("Fertig")) } },
+        dismissButton = {
+            if (mine) TextButton(onClick = { onDismiss(); AppState.scope.launch { de.koeven.meeterz.data.PlaceLists.delete(list) } }) {
+                Text(tr("Liste löschen"), color = MaterialTheme.colorScheme.error)
+            }
+        },
+    )
 }
 
 @Composable

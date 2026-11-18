@@ -29,6 +29,14 @@ object IncidentWatcher {
 
     private data class Message(val title: String, val subtitle: String?, val closure: Boolean)
 
+    /** Von Fahrern gemeldete Gefahr voraus (HazardStore): Hinweis und Ansage wie bei Verkehrsmeldungen */
+    fun announceReported(title: String, subtitle: String, distance: Double) {
+        val text = "$title in ${km(distance)}"
+        Diag.log("Gemeldete Gefahr: $text")
+        _alerts.tryEmit(Alert(text, subtitle))
+        NavigationController.announce(tr("Achtung, %@ in %@.", title, if (de.koeven.meeterz.L10n.language == "de") spoken(distance) else km(distance)))
+    }
+
     fun check(progress: RouteProgress) {
         for (upcoming in progress.upcomingRoadObjects) {
             val incident = upcoming.roadObject as? Incident ?: continue

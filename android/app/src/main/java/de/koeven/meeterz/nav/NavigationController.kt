@@ -168,6 +168,18 @@ object NavigationController : MapboxNavigationObserver {
 
     fun isFixedStop(lat: Double, lng: Double) = fixedStops.any { ChargePlanner.distance(it.latitude(), it.longitude(), lat, lng) < 150 }
 
+    /** Restliche Strecke ab der aktuellen Position (höchstens 300 Punkte) – für die Suche entlang der Route */
+    fun routeAhead(lat: Double, lng: Double): List<Point>? {
+        val geometry = progress.value?.navigationRoute?.directionsRoute?.geometry() ?: return null
+        val coords = com.mapbox.geojson.LineString.fromPolyline(geometry, 6).coordinates()
+        if (coords.size < 2) return null
+        val start = coords.indices.minBy { ChargePlanner.distance(coords[it].latitude(), coords[it].longitude(), lat, lng) }
+        val rest = coords.subList(start, coords.size)
+        if (rest.size < 2) return null
+        val step = maxOf(1, rest.size / 300)
+        return (rest.indices step step).map { rest[it] } + listOfNotNull(rest.last().takeIf { (rest.size - 1) % step != 0 })
+    }
+
     /** Noch vor mir liegende Zwischenziele der laufenden Route */
     fun remainingStops(): List<Point> {
         val p = progress.value ?: return emptyList()
@@ -242,6 +254,7 @@ object NavigationController : MapboxNavigationObserver {
         de.koeven.meeterz.ev.ChargeMonitor.stop()
         AppState.meetups.navigationEnded()
         IncidentWatcher.reset()
+        de.koeven.meeterz.data.HazardStore.reset()
         RightOfWaySigns.clear()
         _guidance.value = null
         _progress.value = null
@@ -360,6 +373,7 @@ object NavigationController : MapboxNavigationObserver {
             remainingSeconds = progress.durationRemaining + de.koeven.meeterz.ev.ChargingSession.remainingChargeTime(progress),
         )
         IncidentWatcher.check(progress)
+        de.koeven.meeterz.data.HazardStore.check(progress)   // von Fahrern gemeldete Gefahren
         RightOfWaySigns.update(progress)
         if (progress.currentState == RouteProgressState.COMPLETE) stop()
         // Verschobene Autobahnansage bei 2 km sprechen

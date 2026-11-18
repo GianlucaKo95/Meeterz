@@ -31,10 +31,14 @@ object PlaceSearch {
         COFFEE(tr("Café"), "category/coffee"),
         RESTAURANT(tr("Essen"), "category/restaurant"),
         GAS(tr("Tanken"), "category/gas_station"),
-        PARK(tr("Park"), "category/park");
+        PARK(tr("Park"), "category/park"),
+        CHARGING(tr("Laden"), "category/charging_station"),
+        PARKING(tr("Parken"), "category/parking_lot");
 
         companion object {
             /** Raststätte/Tankstelle nur, wenn alle mit dem Auto kommen; sonst Parks */
+            /** Für unterwegs (wie SearchService.Stopover auf iOS) */
+            val stopovers = listOf(GAS, CHARGING, PARKING, RESTAURANT, COFFEE)
             fun available(allByCar: Boolean) = if (allByCar) listOf(REST_AREA, COFFEE, RESTAURANT, GAS) else listOf(COFFEE, RESTAURANT, PARK)
         }
     }
@@ -107,9 +111,42 @@ object PlaceSearch {
 
     private fun minutes(hhmm: String) = hhmm.take(2).toInt() * 60 + hhmm.drop(2).toInt()
 
+    /** Ort für einen Zwischenstopp: `ahead` = Strecke entlang der Route (nur während der Fahrt), `price` = Spritpreise */
+    data class Stopover(val place: Place, val ahead: Double?, val price: de.koeven.meeterz.data.FuelPrices.Price? = null)
+
+    /**
+     * Orte einer Kategorie für unterwegs (wie NavigationCoordinator.stopovers auf iOS): während der Fahrt entlang der
+     * restlichen Route (Mapbox „Search along route“, höchstens 5 Min. Umweg) in Reihenfolge auf der Strecke, sonst in der Nähe.
+     */
+    suspend fun stopovers(category: Category, lat: Double, lng: Double): List<Stopover> {
+        val ahead = NavigationController.routeAhead(lat, lng)
+        val along = ahead?.let { r -> r.indices.runningFold(0.0) { acc, i -> if (i == 0) acc else acc + distance(r[i - 1].latitude(), r[i - 1].longitude(), r[i].latitude(), r[i].longitude()) }.drop(1) }
+        var found = request(category.path, category.query, lat, lng, 10) {
+            if (ahead != null && category.path.startsWith("category/")) {
+                parameter("sar_type", "isochrone")
+                parameter("route", com.mapbox.geojson.utils.PolylineUtils.encode(ahead, 5))
+                parameter("route_geometry", "polyline")
+                parameter("time_deviation", 5)
+            }
+        }
+        if (found.isEmpty()) found = search(category.title, lat, lng)   // unbekannte Kategorie o. Ä.
+        var result = if (ahead != null && along != null) {
+            found.mapNotNull { p ->
+                val i = ahead.indices.minBy { distance(ahead[it].latitude(), ahead[it].longitude(), p.lat, p.lng) }
+                if (distance(ahead[i].latitude(), ahead[i].longitude(), p.lat, p.lng) < 3_000) Triple(p, along[i], i) else null
+            }.sortedBy { it.third }.map { Stopover(it.first, it.second) }
+        } else found.sortedBy { distance(it.lat, it.lng, lat, lng) }.map { Stopover(it, null) }
+        if (category == Category.GAS) {
+            val prices = de.koeven.meeterz.data.FuelPrices.prices(result.take(10).map { it.place.lat to it.place.lng })
+            result = result.mapIndexed { i, s -> if (i < prices.size) s.copy(price = prices[i]) else s }
+        }
+        return result
+    }
+
     private fun distance(a: Double, b: Double, c: Double, d: Double) = de.koeven.meeterz.ev.ChargePlanner.distance(a, b, c, d)
 
-    private suspend fun request(path: String, query: String?, nearLat: Double?, nearLng: Double?, limit: Int): List<Place> {
+    private suspend fun request(path: String, query: String?, nearLat: Double?, nearLng: Double?, limit: Int,
+                                extra: io.ktor.client.request.HttpRequestBuilder.() -> Unit = {}): List<Place> {
         return runCatching {
             val body = http.get("https://api.mapbox.com/search/searchbox/v1/$path") {
                 if (query != null) parameter("q", query)
@@ -117,6 +154,7 @@ object PlaceSearch {
                 parameter("limit", limit)
                 if (nearLat != null && nearLng != null) parameter("proximity", "$nearLng,$nearLat")
                 parameter("access_token", MapboxOptions.accessToken)
+                extra()
             }.bodyAsText()
             json.parseToJsonElement(body).jsonObject["features"]?.jsonArray.orEmpty().mapNotNull { f ->
                 val props = f.jsonObject["properties"] as? JsonObject ?: return@mapNotNull null

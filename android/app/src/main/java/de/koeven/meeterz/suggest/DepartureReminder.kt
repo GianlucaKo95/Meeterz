@@ -18,6 +18,7 @@ import de.koeven.meeterz.ui.MainActivity
 import de.koeven.meeterz.ui.meetupTime
 import java.text.DateFormat
 import java.util.Date
+import kotlinx.serialization.encodeToString
 
 /**
  * „In 10 Min. losfahren“ (wie DepartureReminder.swift): Für angenommene Treffen mit Uhrzeit die Abfahrtszeit aus
@@ -34,9 +35,48 @@ object DepartureReminder {
 
     private fun prefs(c: Context) = c.getSharedPreferences("app", 0)
 
+    /** Selbst geplante Ankunft („Ankunft um …“ in der Routenvorschau) – nur auf dem Gerät */
+    @kotlinx.serialization.Serializable
+    data class PlannedArrival(val id: String, val name: String, val address: String? = null, val lat: Double, val lng: Double, val at: Long)
+
+    private fun planned(c: Context): List<PlannedArrival> = runCatching {
+        kotlinx.serialization.json.Json.decodeFromString<List<PlannedArrival>>(prefs(c).getString("depart.planned", "[]")!!)
+    }.getOrDefault(emptyList())
+
+    private fun savePlanned(c: Context, list: List<PlannedArrival>) =
+        prefs(c).edit().putString("depart.planned", kotlinx.serialization.json.Json.encodeToString(list)).apply()
+
+    /** „Ankunft um …“: Ziel merken und die Losfahren-Erinnerung planen (ersetzt eine frühere Planung zum selben Ziel) */
+    suspend fun plan(c: Context, name: String, address: String?, lat: Double, lng: Double, at: Long) {
+        val now = System.currentTimeMillis()
+        savePlanned(c, planned(c).filter { it.at > now && de.koeven.meeterz.ev.ChargePlanner.distance(it.lat, it.lng, lat, lng) > 150 } +
+            PlannedArrival(java.util.UUID.randomUUID().toString(), name, address, lat, lng, at))
+        lastRun = 0
+        refresh(c)
+    }
+
+    /** Abfahrtszeit für „Ankunft um …“ (Fahrzeit mit aktuellem Verkehr plus Puffer) */
+    suspend fun departure(lat: Double, lng: Double, at: Long): Long? {
+        val here = AppState.lastLocation ?: return null
+        val travel = Directions.duration(here.latitude, here.longitude, lat, lng) ?: return null
+        return at - (travel * 1000).toLong() - BUFFER
+    }
+
+    /** Was erinnert wird: Treffen mit Uhrzeit und selbst geplante Ankünfte */
+    private data class Target(val id: String, val name: String, val lat: Double, val lng: Double, val at: Long, val body: (Long) -> String)
+
     suspend fun refresh(context: Context) {
         val now = System.currentTimeMillis()
-        val upcoming = AppState.meetups.accepted.filter { m -> m.meetAtSeconds?.let { it * 1000 in now..(now + 24 * 3_600_000) } == true }
+        val plans = planned(context).filter { it.at > now }
+        savePlanned(context, plans)
+        val meetups = AppState.meetups.accepted.filter { m -> m.meetAtSeconds?.let { it * 1000 in now..(now + 24 * 3_600_000) } == true }
+        val upcoming = meetups.map { m ->
+            Target(m.id, m.placeName, m.lat, m.lng, m.meetAtSeconds!! * 1000) { minutes ->
+                tr("Um %@ bei %@ (%@) · ca. %@ Min. Fahrt", meetupTime(m.meetAtSeconds!!), m.withText, m.placeName, minutes)
+            }
+        } + plans.filter { it.at < now + 24 * 3_600_000 }.map { p ->
+            Target(p.id, p.name, p.lat, p.lng, p.at) { minutes -> tr("Ankunft um %@ in %@ · ca. %@ Min. Fahrt", meetupTime(p.at / 1000), p.name, minutes) }
+        }
         val ids = upcoming.map { it.id }.toSet()
         val setChanged = ids != lastIds
         if (!setChanged && now - lastRun < 10 * 60_000) return
@@ -46,29 +86,29 @@ object DepartureReminder {
         val here = AppState.lastLocation ?: return
         val fired = prefs(context).getStringSet("depart.fired", emptySet()).orEmpty().toMutableSet()
 
-        for (m in upcoming) {
-            val at = m.meetAtSeconds!! * 1000
-            if (at - now > 4 * 3_600_000 && !setChanged && now - (lastCalc[m.id] ?: 0) < 3_600_000) continue
+        for (t in upcoming) {
+            val at = t.at
+            if (at - now > 4 * 3_600_000 && !setChanged && now - (lastCalc[t.id] ?: 0) < 3_600_000) continue
             // Schon unterwegs dorthin: keine Erinnerung
             NavigationController.guidance.value?.let { g ->
-                if (m.distanceTo(g.destination.lat, g.destination.lng) < 300) { cancel(context, m.id); return@let true } else null
+                if (de.koeven.meeterz.ev.ChargePlanner.distance(t.lat, t.lng, g.destination.lat, g.destination.lng) < 300) { cancel(context, t.id); return@let true } else null
             }?.let { continue }
-            val travel = Directions.duration(here.latitude, here.longitude, m.lat, m.lng) ?: continue
-            lastCalc[m.id] = now
+            val travel = Directions.duration(here.latitude, here.longitude, t.lat, t.lng) ?: continue
+            lastCalc[t.id] = now
             val depart = at - (travel * 1000).toLong() - BUFFER
             val fire = depart - LEAD
             val minutes = Math.round(travel / 60)
-            val body = tr("Um %@ bei %@ (%@) · ca. %@ Min. Fahrt", meetupTime(m.meetAtSeconds!!), m.withText, m.placeName, minutes)
+            val body = t.body(minutes)
             if (fire > now + 30_000) {
-                schedule(context, m.id, tr("In 10 Min. losfahren"), body, m.placeName, m.lat, m.lng, fire)
-            } else if (m.id !in fired) {
+                schedule(context, t.id, tr("In 10 Min. losfahren"), body, t.name, t.lat, t.lng, fire)
+            } else if (t.id !in fired) {
                 val late = if (now > depart) Math.round((now - depart) / 60_000.0) else 0
-                show(context, m.id, if (late > 2) tr("Jetzt losfahren – ca. %lld Min. zu spät", late) else tr("Jetzt losfahren"), body, m.placeName, m.lat, m.lng)
-                fired += m.id
+                show(context, t.id, if (late > 2) tr("Jetzt losfahren – ca. %lld Min. zu spät", late) else tr("Jetzt losfahren"), body, t.name, t.lat, t.lng)
+                fired += t.id
             }
-            Diag.log("Losfahren-Erinnerung ${m.placeName}: Abfahrt ${DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(depart))} ($minutes Min.)")
+            Diag.log("Losfahren-Erinnerung ${t.name}: Abfahrt ${DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(depart))} ($minutes Min.)")
         }
-        prefs(context).edit().putStringSet("depart.fired", fired.intersect(AppState.meetups.meetups.value.map { it.id }.toSet())).apply()
+        prefs(context).edit().putStringSet("depart.fired", fired.intersect(AppState.meetups.meetups.value.map { it.id }.toSet() + plans.map { it.id })).apply()
     }
 
     private fun intent(c: Context, id: String, title: String, body: String, name: String, lat: Double, lng: Double) =

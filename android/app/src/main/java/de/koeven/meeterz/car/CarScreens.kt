@@ -222,6 +222,8 @@ class CarMoreScreen(carContext: CarContext) : Screen(carContext) {
                 .setOnClickListener { screenManager.push(messageScreen(carContext)) }.build())
             .addItem(Row.Builder().setTitle(tr("Stopp hinzufügen")).setBrowsable(true)
                 .setOnClickListener { screenManager.push(CarStopScreen(carContext)) }.build())
+            .addItem(Row.Builder().setTitle(tr("Gefahr melden")).addText(tr("Warnt andere Meeterz-Fahrer")).setBrowsable(true)
+                .setOnClickListener { screenManager.push(CarHazardScreen(carContext)) }.build())
             .build())
         .build()
 }
@@ -359,14 +361,15 @@ class CarSearchScreen(carContext: CarContext) : Screen(carContext) {
     }
 }
 
-/** Zwischenstopp unterwegs (CarPlay: Suche mit Kategorien während der Fahrt): Kategorie wählen, Ort antippen */
+/** Zwischenstopp unterwegs (CarPlay: Suche mit Kategorien während der Fahrt): Kategorie wählen, Ort antippen.
+ *  Während der Fahrt entlang der Route (Strecke bis dorthin), bei Tankstellen mit Spritpreisen. */
 class CarStopScreen(carContext: CarContext, private val category: PlaceSearch.Category? = null) : Screen(carContext) {
-    private var places: List<PlaceSearch.Place>? = null
+    private var places: List<PlaceSearch.Stopover>? = null
 
     init {
         if (category != null) lifecycleScope.launch {
             val me = AppState.lastLocation
-            places = if (me == null) emptyList() else PlaceSearch.places(category, me.latitude, me.longitude, 6)
+            places = if (me == null) emptyList() else PlaceSearch.stopovers(category, me.latitude, me.longitude)
             invalidate()
         }
     }
@@ -374,17 +377,21 @@ class CarStopScreen(carContext: CarContext, private val category: PlaceSearch.Ca
     override fun onGetTemplate(): Template {
         val list = ItemList.Builder()
         if (category == null) {
-            for (c in listOf(PlaceSearch.Category.GAS, PlaceSearch.Category.REST_AREA, PlaceSearch.Category.COFFEE, PlaceSearch.Category.RESTAURANT)) {
-                list.addItem(Row.Builder().setTitle(c.title).setBrowsable(true)
+            for (c in PlaceSearch.Category.stopovers) {
+                list.addItem(Row.Builder().setTitle(c.title)
+                    .apply { if (NavigationController.guidance.value != null) addText(tr("Entlang der Route")) }
+                    .setBrowsable(true)
                     .setOnClickListener { screenManager.push(CarStopScreen(carContext, c)) }.build())
             }
             list.addItem(Row.Builder().setTitle(tr("Suchen")).setBrowsable(true).setOnClickListener { screenManager.push(CarSearchScreen(carContext)) }.build())
         } else {
             val me = AppState.lastLocation
-            list.setNoItemsMessage(tr("Nichts in der Nähe gefunden."))
-            places?.forEach { p ->
+            list.setNoItemsMessage(tr("Nichts gefunden"))
+            places?.take(6)?.forEach { s ->
+                val p = s.place
+                val away = s.ahead?.let { tr("nach %@", km(it)) } ?: me?.let { km(ChargePlanner.distance(it.latitude, it.longitude, p.lat, p.lng)) }
                 list.addItem(Row.Builder().setTitle(p.name)
-                    .apply { me?.let { addText(km(ChargePlanner.distance(it.latitude, it.longitude, p.lat, p.lng))) } }
+                    .apply { listOfNotNull(away, s.price?.text?.takeIf { it.isNotEmpty() }).joinToString(" · ").takeIf { it.isNotEmpty() }?.let { addText(it) } }
                     .setOnClickListener {
                         AppState.scope.launch { NavigationController.addStop(carContext, p.name, p.lat, p.lng) }
                         screenManager.popToRoot()
@@ -393,6 +400,20 @@ class CarStopScreen(carContext: CarContext, private val category: PlaceSearch.Ca
         }
         return ListTemplate.Builder().setTitle(category?.title ?: tr("Zwischenstopp")).setHeaderAction(Action.BACK)
             .apply { if (category != null && places == null) setLoading(true) else setSingleList(list.build()) }.build()
+    }
+}
+
+/** Gefahr melden (CarPlay: „Gefahr melden“ in „Mehr“): Art wählen, dann zurück zur Karte */
+class CarHazardScreen(carContext: CarContext) : Screen(carContext) {
+    override fun onGetTemplate(): Template {
+        val list = ItemList.Builder()
+        for (k in de.koeven.meeterz.data.HazardStore.Kind.entries) {
+            list.addItem(Row.Builder().setTitle(k.title).setOnClickListener {
+                AppState.scope.launch { de.koeven.meeterz.data.HazardStore.report(k) }
+                screenManager.popToRoot()
+            }.build())
+        }
+        return ListTemplate.Builder().setTitle(tr("Gefahr melden")).setHeaderAction(Action.BACK).setSingleList(list.build()).build()
     }
 }
 

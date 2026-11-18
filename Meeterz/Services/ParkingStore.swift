@@ -2,6 +2,7 @@ import Foundation
 import CoreLocation
 import Observation
 import SwiftUI
+import UIKit
 
 /// Parkplatz merken: Beim Trennen von CarPlay wird die Position gespeichert (nur auf dem Gerät).
 @MainActor @Observable
@@ -14,11 +15,33 @@ final class ParkingStore {
         var place: Place { Place(id: "parked-car", name: String(localized: "Dein Auto"), address: nil, coordinate: coordinate) }
     }
 
-    private(set) var spot: Spot? = {
+    private(set) var spot: Spot? = ParkingStore.load()
+
+    private static func load() -> Spot? {
         guard UserDefaults.standard.bool(forKey: "parking.enabled"),
               let data = UserDefaults.standard.data(forKey: "parking.spot") else { return nil }
         return try? JSONDecoder().decode(Spot.self, from: data)
-    }()
+    }
+
+    /// Startet iOS die App im Hintergrund, solange das iPhone gesperrt ist (laut Protokoll oft, z. B. nachts oder beim
+    /// Einsteigen), liefert UserDefaults teils noch nichts – der Platz blieb dann für die ganze Laufzeit leer und das
+    /// Auto „verschwand“ (18.11.). Darum nach dem Entsperren und beim Öffnen der App nachladen.
+    init() {
+        if spot == nil, !UIApplication.shared.isProtectedDataAvailable {
+            Diag.log("Parkplatz: Daten beim Start gesperrt – lade nach dem Entsperren nach")
+        }
+        NotificationCenter.default.addObserver(forName: UIApplication.protectedDataDidBecomeAvailableNotification,
+                                               object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.reloadIfMissing() }
+        }
+    }
+
+    func reloadIfMissing() {
+        ParkingDetector.shared.start()   // war beim gesperrten Start evtl. „aus“ gelesen; startet nur einmal
+        guard spot == nil, let loaded = Self.load() else { return }
+        spot = loaded
+        Diag.log("Parkplatz nachgeladen (war beim Start nicht lesbar)")
+    }
 
     /// Einstellung „Geparktes Auto merken“ (Standard: aus)
     static var enabled: Bool {

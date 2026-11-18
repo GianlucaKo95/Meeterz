@@ -43,6 +43,7 @@ struct RootView: View {
             if phase == .background { AppModel.shared.navigation.idleIfUnused() }
             if phase == .active {
                 Task { await AppModel.shared.refreshSocial() }   // im Hintergrund nur alle 5 Min. abgeglichen
+                AppModel.shared.parking.reloadIfMissing()
                 Task { @MainActor in
                     try? await Task.sleep(for: .milliseconds(600))   // Hauptansicht erst aufbauen lassen
                     AppModel.shared.navigation.showCarPlayDriveOnPhoneIfNeeded()

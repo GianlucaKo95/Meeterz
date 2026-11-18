@@ -59,9 +59,17 @@ enum ApplePlaces {
                 .map { ($0, CLLocation(latitude: $0.coordinate.latitude, longitude: $0.coordinate.longitude).distance(from: target)) }
                 .filter { $0.1 < radius / 2 }
                 .min { $0.1 < $1.1 }
-            if let best { return best.0 }
+            if let best { return await complete(best.0) }
         }
         return nil
+    }
+
+    /// Treffer der Ortssuche tragen nur einen Teil der Angaben. Über die Kennung lädt Apple den vollständigen Ort –
+    /// erst damit zeigt die Ortskarte Website, Bewertungen (Tripadvisor), Fotos usw. wie in Apple Karten (18.11.).
+    private static func complete(_ item: MKMapItem) async -> MKMapItem {
+        guard let id = item.identifier,
+              let full = try? await MKMapItemRequest(mapItemIdentifier: id).mapItem else { return item }
+        return full
     }
 }
 

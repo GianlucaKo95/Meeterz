@@ -20,6 +20,7 @@ private struct AppleDetailView: UIViewControllerRepresentable {
 
 struct PlaceDetailSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
     let item: PlaceDetailItem
     /// Wird nach dem Schließen aufgerufen
     let navigate: (Place) -> Void
@@ -27,15 +28,27 @@ struct PlaceDetailSheet: View {
     var body: some View {
         VStack(spacing: 0) {
             AppleDetailView(mapItem: item.mapItem)
-            Button {
-                let coordinate = item.mapItem.coordinate
-                let place = Place(id: "apple-\(UUID().uuidString)", name: item.mapItem.name ?? String(localized: "Ziel"), address: nil, coordinate: coordinate)
-                dismiss()
-                navigate(place)
-            } label: {
-                Label("Hierhin navigieren", systemImage: "arrow.triangle.turn.up.right.diamond")
+            VStack(spacing: 10) {
+                Button {
+                    let coordinate = item.mapItem.coordinate
+                    let place = Place(id: "apple-\(UUID().uuidString)", name: item.mapItem.name ?? String(localized: "Ziel"), address: nil, coordinate: coordinate)
+                    dismiss()
+                    navigate(place)
+                } label: {
+                    Label("Hierhin navigieren", systemImage: "arrow.triangle.turn.up.right.diamond")
+                }
+                .buttonStyle(PrimaryButtonStyle())
+                // Apples Ortskarte zeigt in Apps keine Bewertungen und nur Fotos, die das Geschäft selbst hochgeladen hat;
+                // Tripadvisor & Co. gibt es nur in Apple Karten. Darum: dort öffnen – und die Website, falls Apple sie kennt.
+                HStack(spacing: 10) {
+                    if let url = item.mapItem.url {
+                        Button { openURL(url) } label: { Label("Website", systemImage: "safari") }
+                            .buttonStyle(SecondaryButtonStyle())
+                    }
+                    Button { item.mapItem.openInMaps() } label: { Label("Bewertungen & Fotos", systemImage: "map") }
+                        .buttonStyle(SecondaryButtonStyle())
+                }
             }
-            .buttonStyle(PrimaryButtonStyle())
             .padding(.horizontal, 20).padding(.vertical, 12)
             .background(.regularMaterial)
         }

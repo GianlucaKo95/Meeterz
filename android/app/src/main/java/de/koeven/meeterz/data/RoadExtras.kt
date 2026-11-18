@@ -88,7 +88,7 @@ object HazardStore {
     fun reset() { items = emptyList(); loadedAt = 0; lastCheck = 0; announced.clear() }
 
     suspend fun report(kind: Kind) {
-        val loc = AppState.lastLocation ?: return toast(tr("Standort unbekannt"))
+        val loc = AppState.lastLocation ?: run { toast(tr("Standort unbekannt")); return }
         runCatching {
             Backend.client.postgrest.rpc("report_hazard", buildJsonObject {
                 put("kind", kind.key); put("lat", loc.latitude); put("lng", loc.longitude)

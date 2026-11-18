@@ -305,6 +305,9 @@ struct MainView: View {
                     .accessibilityLabel("Meine Story ansehen")
                 }
                 .allowOverlap(true)
+                // Ohne das blendet Mapbox Markierungen über dem eigenen Standortpunkt aus – Ring und Story-Pins
+                // am eigenen Ort waren deshalb nie zu sehen (18.11., Protokoll: „Stories geladen: 2“)
+                .allowOverlapWithPuck(true)
             }
 
             // Stories an ihrem Ort
@@ -319,6 +322,7 @@ struct MainView: View {
                     .accessibilityLabel("Story von \(story.displayName)")
                 }
                 .allowOverlap(true)
+                .allowOverlapWithPuck(true)
             }
 
             // Mögliche Treffpunkte

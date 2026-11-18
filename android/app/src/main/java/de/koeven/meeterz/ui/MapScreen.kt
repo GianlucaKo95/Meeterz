@@ -397,6 +397,9 @@ fun MapScreen() {
         // Stories an ihrem Ort (wie iOS): Antippen spielt die Stories der Person ab
         val storyManager = remember(mapView, mapStyleRevision) {
             mapView.annotations.createPointAnnotationManager().apply {
+                // Nie ausblenden, auch wenn sie andere Symbole überdecken (wie iOS: Pins am eigenen Ort fehlten)
+                iconAllowOverlap = true
+                iconIgnorePlacement = true
                 addClickListener { a -> a.getData()?.asString?.let { de.koeven.meeterz.data.StoriesStore.open(it) }; true }
             }
         }

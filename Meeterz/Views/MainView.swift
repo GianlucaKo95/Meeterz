@@ -32,6 +32,9 @@ struct MainView: View {
     @State private var showStoryComposer = false
     @State private var lastPoiTap = Date.distantPast
     @State private var poiDetail: PlaceDetailItem?
+    /// POI angetippt, Apple-Suche läuft bzw. Apples Ortskarte ist offen: eigene Karte unten noch nicht zeigen
+    /// (sonst lagen beide übereinander und man musste zweimal schließen)
+    @State private var poiResolving = false
     /// Mapbox-Ortsdetails, wenn Apple den POI nicht kennt
     @State private var poiInfo: SearchService.Details?
     /// Aktuelle Kamera der Mapbox-Karte (zum Zoomen an Ort und Stelle, wenn sie mir gerade nicht folgt)
@@ -81,7 +84,7 @@ struct MainView: View {
 
             VStack(spacing: 10) {
                 Spacer()
-                if let pin = droppedPin {
+                if let pin = droppedPin, !poiResolving {
                     PinCard(pin: pin, details: poiInfo) {
                         droppedPin = nil
                         Task { await app.navigation.planRoute(to: pin) }
@@ -121,7 +124,11 @@ struct MainView: View {
         }
         .sheet(isPresented: $showFriends) { FriendsView() }
         .sheet(isPresented: $showStoryComposer) { StoryComposer().environment(app) }
-        .sheet(item: $poiDetail) { item in
+        .sheet(item: $poiDetail, onDismiss: {
+            // Apples Ortskarte geschlossen: auch der Pin dazu verschwindet – nichts Zweites zum Schließen
+            droppedPin = nil
+            poiResolving = false
+        }) { item in
             PlaceDetailSheet(item: item) { place in
                 droppedPin = nil
                 Task { await app.navigation.planRoute(to: place) }
@@ -385,14 +392,17 @@ struct MainView: View {
         Diag.log("POI getippt: \(name ?? "ohne Namen")")
         dropPin(at: coordinate, name: name, haptic: false)
         guard let name else { return }
+        poiResolving = true
         let id = droppedPin?.id
         Task {
             if let item = await ApplePlaces.mapItem(for: Place(id: "poi", name: name, address: nil, coordinate: coordinate)) {
                 guard droppedPin?.id == id else { return }
-                poiDetail = PlaceDetailItem(mapItem: item)
+                poiDetail = PlaceDetailItem(mapItem: item)   // nur Apples Ortskarte, die eigene bleibt verborgen
                 return
             }
-            // Apple kennt den Ort nicht: Details von Mapbox in der eigenen Karte (wie Android)
+            // Apple kennt den Ort nicht: eigene Karte mit Mapbox-Details (wie Android)
+            guard droppedPin?.id == id else { return }
+            poiResolving = false
             let info = await SearchService.details(name: name, at: coordinate)
             guard droppedPin?.id == id else { return }
             poiInfo = info
@@ -404,6 +414,7 @@ struct MainView: View {
         let id = "pin-\(coordinate.latitude),\(coordinate.longitude)"
         droppedPin = Place(id: id, name: poiName ?? String(localized: "Gesetzter Pin"), address: nil, coordinate: coordinate)
         poiInfo = nil
+        poiResolving = false
         setChrome(hidden: false)
         if haptic { UIImpactFeedbackGenerator(style: .medium).impactOccurred() }
         Task {

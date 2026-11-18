@@ -871,6 +871,7 @@ struct PinCard: View {
     @State private var week = false
     @State private var fuel: FuelPrices.Price?
     @State private var saving = false
+    @State private var website: URL?
     @Environment(\.openURL) private var openURL
 
     var body: some View {
@@ -930,7 +931,7 @@ struct PinCard: View {
                         Button("Anrufen") { openURL(url) }.buttonStyle(SecondaryButtonStyle())
                     }
                     if let web = details?.website {
-                        Button("Website") { openURL(web) }.buttonStyle(SecondaryButtonStyle())
+                        Button("Website") { website = web }.buttonStyle(SecondaryButtonStyle())
                     }
                 }
             }
@@ -943,6 +944,7 @@ struct PinCard: View {
         .background(RoundedRectangle(cornerRadius: 20).fill(Theme.panel))
         .overlay(RoundedRectangle(cornerRadius: 20).stroke(Theme.stroke, lineWidth: 1))
         .sheet(isPresented: $saving) { SaveToListSheet(place: pin).presentationDetents([.medium, .large]) }
+        .sheet(item: $website) { SafariView(url: $0).ignoresSafeArea() }
         .task(id: "\(pin.id)|\(details?.category ?? "")") {
             fuel = nil
             guard FuelPrices.isGasStation(category: details?.category, name: pin.name) else { return }

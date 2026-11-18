@@ -1,5 +1,6 @@
 import SwiftUI
 import MapKit
+import SafariServices
 import CoreLocation
 
 /// Apples Ortsdetail-Ansicht (Öffnungszeiten, Bewertungen, Fotos, Anrufen …) – ab iOS 18.
@@ -20,7 +21,7 @@ private struct AppleDetailView: UIViewControllerRepresentable {
 
 struct PlaceDetailSheet: View {
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.openURL) private var openURL
+    @State private var website: URL?
     let item: PlaceDetailItem
     /// Wird nach dem Schließen aufgerufen
     let navigate: (Place) -> Void
@@ -38,25 +39,31 @@ struct PlaceDetailSheet: View {
                     Label("Hierhin navigieren", systemImage: "arrow.triangle.turn.up.right.diamond")
                 }
                 .buttonStyle(PrimaryButtonStyle())
-                // Apples Ortskarte zeigt in Apps keine Bewertungen und nur Fotos, die das Geschäft selbst hochgeladen hat;
-                // Tripadvisor & Co. gibt es nur in Apple Karten. Darum: dort öffnen – und die Website, falls Apple sie kennt.
-                HStack(spacing: 10) {
-                    if let url = item.mapItem.url {
-                        Button { openURL(url) } label: { Label("Website", systemImage: "safari") }
-                            .buttonStyle(SecondaryButtonStyle())
-                    }
-                    Button { item.mapItem.openInMaps() } label: { Label("Bewertungen & Fotos", systemImage: "map") }
+                // Website in Meeterz öffnen (In-App-Safari), nicht in Safari oder Apple Karten – man soll in der App bleiben.
+                // Bewertungen/Tripadvisor-Fotos zeigt Apples Ortskarte in Apps nicht; dafür bewusst kein Sprung zu Apple Karten.
+                if let url = item.mapItem.url {
+                    Button { website = url } label: { Label("Website", systemImage: "safari") }
                         .buttonStyle(SecondaryButtonStyle())
                 }
             }
             .padding(.horizontal, 20).padding(.vertical, 12)
             .background(.regularMaterial)
         }
+        .sheet(item: $website) { SafariView(url: $0).ignoresSafeArea() }
         .presentationDetents([.height(480), .large])
         .presentationDragIndicator(.visible)
         .onAppear { Diag.log("Ortskarte geöffnet: \(item.mapItem.name ?? "?")") }
     }
 }
+
+/// Webseite in der App (In-App-Safari)
+struct SafariView: UIViewControllerRepresentable {
+    let url: URL
+    func makeUIViewController(context: Context) -> SFSafariViewController { SFSafariViewController(url: url) }
+    func updateUIViewController(_ controller: SFSafariViewController, context: Context) {}
+}
+
+extension URL: @retroactive Identifiable { public var id: String { absoluteString } }
 
 enum ApplePlaces {
     /// Findet zu einem Ort (z. B. Suchtreffer von Mapbox) den passenden Eintrag in Apples Orten.

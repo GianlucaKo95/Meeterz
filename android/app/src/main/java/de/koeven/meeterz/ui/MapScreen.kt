@@ -1253,8 +1253,9 @@ private fun PinCard(pin: DroppedPin, onNavigate: () -> Unit, onRemove: () -> Uni
                         Modifier.weight(1f)) { Text(tr("Anrufen")) }
                 }
                 d.website?.let { web ->
-                    OutlinedButton(onClick = { runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,
-                        android.net.Uri.parse(if (web.startsWith("http")) web else "https://$web"))) } }, Modifier.weight(1f)) { Text(tr("Website")) }
+                    // In der App öffnen (Custom Tab, wie die In-App-Safari auf iOS) – man soll in Meeterz bleiben
+                    OutlinedButton(onClick = { runCatching { androidx.browser.customtabs.CustomTabsIntent.Builder().build()
+                        .launchUrl(context, android.net.Uri.parse(if (web.startsWith("http")) web else "https://$web")) } }, Modifier.weight(1f)) { Text(tr("Website")) }
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {

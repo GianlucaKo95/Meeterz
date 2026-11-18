@@ -60,9 +60,9 @@ final class MeetupsStore {
     // MARK: Laden
 
     /// `candidates`: mögliche Treffpunkte nur suchen, wenn jemand hinschaut (Karte, CarPlay)
-    func refresh(candidates: Bool = true) async {
+    func refresh(candidates search: Bool = true) async {
         await refreshMeetups()
-        guard candidates else { return }
+        guard search else { return }
         do {
             candidates = try await client.rpc("find_meetups").execute().value
         } catch {

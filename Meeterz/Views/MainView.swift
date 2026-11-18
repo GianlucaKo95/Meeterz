@@ -30,6 +30,8 @@ struct MainView: View {
     /// Per langem Druck auf die Karte gesetzter Pin
     @State private var droppedPin: Place?
     @State private var showStoryComposer = false
+    @State private var lastPoiTap = Date.distantPast
+    @State private var poiDetail: PlaceDetailItem?
     /// Aktuelle Kamera der Mapbox-Karte (zum Zoomen an Ort und Stelle, wenn sie mir gerade nicht folgt)
     @State private var cameraNow: CameraState?
     @Environment(\.scenePhase) private var scenePhase
@@ -47,7 +49,7 @@ struct MainView: View {
         ZStack(alignment: .top) {
             if flyover {
                 // Flyover (experimentell): Apples fotorealistische 3D-Städte
-                FlyoverMapView(plannedMeetup: $plannedMeetup, droppedPin: $droppedPin, onLongPress: dropPin, threeD: threeD, recenterTick: recenterTick, zoomSteps: zoomSteps)
+                FlyoverMapView(plannedMeetup: $plannedMeetup, droppedPin: $droppedPin, onLongPress: { dropPin(at: $0) }, threeD: threeD, recenterTick: recenterTick, zoomSteps: zoomSteps)
                     .simultaneousGesture(TapGesture().onEnded { toggleChrome() })
             } else {
                 map
@@ -117,6 +119,12 @@ struct MainView: View {
         }
         .sheet(isPresented: $showFriends) { FriendsView() }
         .sheet(isPresented: $showStoryComposer) { StoryComposer().environment(app) }
+        .sheet(item: $poiDetail) { item in
+            PlaceDetailSheet(item: item) { place in
+                droppedPin = nil
+                Task { await app.navigation.planRoute(to: place) }
+            }
+        }
         .sheet(isPresented: $showSearch) { SearchView() }
         .sheet(item: $plannedMeetup) { MeetupPlannerView(candidate: $0) }
         .sheet(item: $navigation.preview) { RoutePreviewView(preview: $0) }
@@ -323,6 +331,14 @@ struct MainView: View {
                     .allowOverlap(true)
             }
 
+            // POI der Karte antippen: Apples Ortsdetails, sonst Karte mit Name und Adresse.
+            // Vorher reagierten die POIs der Mapbox-Karte gar nicht – ein Tipp blendete nur die Knöpfe aus (18.11.).
+            TapInteraction(.standardPoi) { poi, _ in
+                guard !app.navigation.isNavigating else { return false }
+                poiTapped(name: poi.name, coordinate: poi.coordinate)
+                return true
+            }
+
             // Geparktes Auto (beim Trennen von CarPlay gemerkt)
             if let spot = app.parking.spot {
                 MapViewAnnotation(coordinate: spot.coordinate) {
@@ -348,7 +364,10 @@ struct MainView: View {
             }
         }
         .onCameraChanged { cameraNow = $0.cameraState }
-        .onMapTapGesture { _ in toggleChrome() }
+        .onMapTapGesture { _ in
+            // Ein POI-Tipp geht auch hier durch – dann die Knöpfe nicht ausblenden
+            if Date().timeIntervalSince(lastPoiTap) > 0.6 { toggleChrome() }
+        }
         .onMapLongPressGesture { context in dropPin(at: context.coordinate) }
         .mapStyle(mapStyleKey == "classic"
                   ? .standard(lightPreset: colorScheme == .light ? .day : .night)
@@ -358,19 +377,33 @@ struct MainView: View {
         .ignoresSafeArea()
     }
 
-    /// Pin setzen und Adresse nachladen
-    private func dropPin(at coordinate: CLLocationCoordinate2D) {
+    /// POI angetippt: sofort Karte mit Namen, dann Apples Ortsdetails (Öffnungszeiten, Bewertungen …), falls Apple den Ort kennt
+    private func poiTapped(name: String?, coordinate: CLLocationCoordinate2D) {
+        lastPoiTap = Date()
+        Diag.log("POI getippt: \(name ?? "ohne Namen")")
+        dropPin(at: coordinate, name: name, haptic: false)
+        guard let name else { return }
+        let id = droppedPin?.id
+        Task {
+            let item = await ApplePlaces.mapItem(for: Place(id: "poi", name: name, address: nil, coordinate: coordinate))
+            guard let item, droppedPin?.id == id else { return }
+            poiDetail = PlaceDetailItem(mapItem: item)
+        }
+    }
+
+    /// Pin setzen und Adresse nachladen; `name`: Name des POI (sonst aus der Adresse)
+    private func dropPin(at coordinate: CLLocationCoordinate2D, name poiName: String? = nil, haptic: Bool = true) {
         let id = "pin-\(coordinate.latitude),\(coordinate.longitude)"
-        droppedPin = Place(id: id, name: String(localized: "Gesetzter Pin"), address: nil, coordinate: coordinate)
+        droppedPin = Place(id: id, name: poiName ?? String(localized: "Gesetzter Pin"), address: nil, coordinate: coordinate)
         setChrome(hidden: false)
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        if haptic { UIImpactFeedbackGenerator(style: .medium).impactOccurred() }
         Task {
             let marks = try? await CLGeocoder().reverseGeocodeLocation(
                 CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude))
             guard let mark = marks?.first, droppedPin?.id == id else { return }
             let street = [mark.thoroughfare, mark.subThoroughfare].compactMap { $0 }.joined(separator: " ")
             let city = [mark.postalCode, mark.locality].compactMap { $0 }.joined(separator: " ")
-            let name = mark.name ?? (street.isEmpty ? String(localized: "Gesetzter Pin") : street)
+            let name = poiName ?? mark.name ?? (street.isEmpty ? String(localized: "Gesetzter Pin") : street)
             let address = [street, city].filter { !$0.isEmpty }.joined(separator: ", ")
             droppedPin = Place(id: id, name: name, address: address.isEmpty ? nil : address, coordinate: coordinate)
         }

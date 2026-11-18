@@ -98,6 +98,7 @@ import com.mapbox.geojson.Point
 import com.mapbox.maps.CameraOptions
 import com.mapbox.maps.MapView
 import com.mapbox.maps.Style
+import com.mapbox.maps.interactions.standard.generated.standardPoi
 import com.mapbox.maps.plugin.compass.compass
 import com.mapbox.maps.plugin.scalebar.scalebar
 import com.mapbox.maps.plugin.annotation.annotations
@@ -339,27 +340,44 @@ fun MapScreen() {
         }
         // Gedrückt halten setzt einen Pin (wie iOS dropPin): Adresse nachladen, unten „Hierhin navigieren“ / „Entfernen“
         val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
+        /** Pin bzw. POI zeigen; `name` = Name des POI (sonst aus der Adresse) */
+        fun showPin(lat: Double, lng: Double, name: String?) {
+            val pin = DroppedPin(lat, lng, name ?: tr("Gesetzter Pin"), null)
+            droppedPin = pin
+            query = ""; results = emptyList()
+            scope.launch {
+                val a = withContext(Dispatchers.IO) {
+                    runCatching { android.location.Geocoder(context).getFromLocation(pin.lat, pin.lng, 1)?.firstOrNull() }.getOrNull()
+                } ?: return@launch
+                if (droppedPin?.lat != pin.lat || droppedPin?.lng != pin.lng) return@launch
+                val street = listOfNotNull(a.thoroughfare, a.subThoroughfare).joinToString(" ")
+                val city = listOfNotNull(a.postalCode, a.locality).joinToString(" ")
+                val title = name ?: a.featureName?.takeIf { it != a.subThoroughfare } ?: street.ifEmpty { pin.name }
+                droppedPin = pin.copy(name = title, address = listOf(street, city).filter { it.isNotEmpty() }.joinToString(", ").ifEmpty { null })
+            }
+        }
         DisposableEffect(mapView) {
             val listener = com.mapbox.maps.plugin.gestures.OnMapLongClickListener { point ->
                 if (NavigationController.guidance.value != null) return@OnMapLongClickListener false
                 haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
-                val pin = DroppedPin(point.latitude(), point.longitude(), tr("Gesetzter Pin"), null)
-                droppedPin = pin
-                query = ""; results = emptyList()
-                scope.launch {
-                    val a = withContext(Dispatchers.IO) {
-                        runCatching { android.location.Geocoder(context).getFromLocation(pin.lat, pin.lng, 1)?.firstOrNull() }.getOrNull()
-                    } ?: return@launch
-                    if (droppedPin?.lat != pin.lat || droppedPin?.lng != pin.lng) return@launch
-                    val street = listOfNotNull(a.thoroughfare, a.subThoroughfare).joinToString(" ")
-                    val city = listOfNotNull(a.postalCode, a.locality).joinToString(" ")
-                    val name = a.featureName?.takeIf { it != a.subThoroughfare } ?: street.ifEmpty { pin.name }
-                    droppedPin = pin.copy(name = name, address = listOf(street, city).filter { it.isNotEmpty() }.joinToString(", ").ifEmpty { null })
-                }
+                showPin(point.latitude(), point.longitude(), null)
                 true
             }
             mapView.gestures.addOnMapLongClickListener(listener)
             onDispose { mapView.gestures.removeOnMapLongClickListener(listener) }
+        }
+        // POI der Karte antippen (Geschäft, Tankstelle …): Karte mit Name, Adresse und „Hierhin navigieren“ (wie iOS).
+        // Vorher reagierten die POIs auf der Mapbox-Karte gar nicht (18.11.).
+        DisposableEffect(mapView, mapStyleRevision) {
+            val token = mapView.mapboxMap.addInteraction(
+                com.mapbox.maps.ClickInteraction.standardPoi { poi, _ ->
+                    if (NavigationController.guidance.value != null) return@standardPoi false
+                    de.koeven.meeterz.Diag.log("POI getippt: ${poi.name ?: "ohne Namen"}")
+                    showPin(poi.geometry.latitude(), poi.geometry.longitude(), poi.name)
+                    true
+                }
+            )
+            onDispose { token.cancel() }
         }
         // Stories an ihrem Ort (wie iOS): Antippen spielt die Stories der Person ab
         val storyManager = remember(mapView, mapStyleRevision) {

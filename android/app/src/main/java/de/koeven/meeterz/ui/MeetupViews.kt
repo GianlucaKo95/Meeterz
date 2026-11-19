@@ -495,10 +495,13 @@ fun MeetingPointCard(modifier: Modifier = Modifier) {
         ?: meetups.firstOrNull { it.isAccepted }?.let { Triple(it.placeName, it.lat, it.lng) } ?: return
     val (name, lat, lng) = target
     data class Arrival(val id: String, val name: String, val eta: Long?, val here: Boolean)
+    // Treffen dort: „schon da“ zählt nur für Eingeladene – sonst stand z. B. wer zu Hause ist mit drin (wie iOS)
+    val invited = meetups.firstOrNull { it.isAccepted && ChargePlanner.distance(it.lat, it.lng, lat, lng) < 150 }
+        ?.let { AppState.meetups.partners(it).toSet() }
     val riding = if (version >= 0) de.koeven.meeterz.social.Passengers.riding else emptySet()
     val others = friends.filter { it.isAccepted && it.friendId !in riding && !AppState.routes.withdrew(it.friendId, lat, lng) }.mapNotNull { f ->
         val p = live[f.friendId]
-        val here = p != null && ChargePlanner.distance(p.lat, p.lng, lat, lng) < 150
+        val here = p != null && ChargePlanner.distance(p.lat, p.lng, lat, lng) < 150 && invited?.contains(f.friendId) != false
         val eta = routes[f.friendId]?.takeIf { ChargePlanner.distance(it.destLat, it.destLng, lat, lng) < 300 }?.eta?.epochSecond
         if (!here && eta == null) null else Arrival(f.friendId, f.firstName, eta, here)
     }

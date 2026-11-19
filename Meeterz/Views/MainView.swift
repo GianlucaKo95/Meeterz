@@ -1074,11 +1074,14 @@ struct MeetingPointCard: View {
 
     private func arrivals(at place: CLLocationCoordinate2D) -> [Arrival] {
         var list: [Arrival] = []
+        // Treffen dort: „schon da“ zählt nur für Eingeladene – sonst stand z. B. wer zu Hause ist mit drin (19.11.)
+        let meetup = app.meetups.accepted.first { $0.coordinate.distance(to: place) < 150 }
+        let invited = meetup.map { Set(app.meetups.partners(of: $0)) }
         for item in app.friendsOnMap {
             let id = item.friend.friendId
             let first = item.friend.firstName
             guard !app.routes.withdrew(id, from: place) else { continue }
-            let here = item.position.coordinate.distance(to: place) < 150
+            let here = item.position.coordinate.distance(to: place) < 150 && invited?.contains(id) != false
             let route = app.routes.route(of: id, to: place)
             guard here || route != nil else { continue }
             list.append(Arrival(id: id.uuidString, name: first, color: FriendPalette.routeColor(for: id), eta: route?.eta, here: here))

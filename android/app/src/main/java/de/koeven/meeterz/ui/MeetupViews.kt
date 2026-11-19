@@ -143,8 +143,11 @@ fun SocialCard(modifier: Modifier = Modifier, hideAccepted: Boolean = false, onP
                     }
                     // Schon dort (z. B. Treffen bei mir): kein „Hinfahren“ (wie iOS)
                     val here = AppState.lastLocation?.let { ChargePlanner.distance(it.latitude, it.longitude, accepted.lat, accepted.lng) < 150 } == true
-                    if (here) Text(tr("Du bist schon da"), color = MaterialTheme.colorScheme.tertiary, fontWeight = FontWeight.SemiBold)
-                    else Button(onClick = { scope.launch { NavigationController.addStop(context, accepted.placeName, accepted.lat, accepted.lng) } },
+                    if (here) {
+                        Text(tr("Du bist schon da"), color = MaterialTheme.colorScheme.tertiary, fontWeight = FontWeight.SemiBold)
+                        // Zeitleiste „Wer ist wann da“ wandert in diese Karte (wie iOS)
+                        MeetingPointCard(inMeetupCard = true)
+                    } else Button(onClick = { scope.launch { NavigationController.addStop(context, accepted.placeName, accepted.lat, accepted.lng) } },
                         Modifier.fillMaxWidth()) { Text(if (guidance != null) tr("Als Zwischenstopp") else tr("Hinfahren")) }
                 }
                 waiting != null -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -479,7 +482,7 @@ private fun state(status: String) = when (status) {
  * nächste zugesagte Treffen) oder sind schon dort, alle Ankunftszeiten nebeneinander – unterwegs mit „Bescheid geben“.
  */
 @Composable
-fun MeetingPointCard(modifier: Modifier = Modifier) {
+fun MeetingPointCard(modifier: Modifier = Modifier, inMeetupCard: Boolean = false) {
     val guidance by NavigationController.guidance.collectAsState()
     val meetups by AppState.meetups.meetups.collectAsState()
     val live by AppState.hub.positions.collectAsState()
@@ -511,6 +514,9 @@ fun MeetingPointCard(modifier: Modifier = Modifier) {
     val me = g?.let { listOf(Arrival("me", tr("Du"), System.currentTimeMillis() / 1000 + it.remainingSeconds.toLong(), false)) }
         ?: if (meHere) listOf(Arrival("me", tr("Du"), null, true)) else emptyList()
     val all = (me + others).sortedWith(compareBy({ if (it.here) 0 else 1 }, { it.eta ?: Long.MAX_VALUE }))
+    // Schon am Treffpunkt: Zeitleiste sitzt in der Treffen-Karte (Hinfahren entfällt dort), nicht als eigene Karte
+    if (inMeetupCard != (meHere && g == null)) return
+    if (inMeetupCard) return ArrivalTimeline(all.map { TimelineItem(it.id, it.name, if (it.id == "me") MeeterzColors.mint else FriendPalette.routeColor(it.id), it.eta, it.here) })
 
     Surface(modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(16.dp), shadowElevation = 2.dp, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

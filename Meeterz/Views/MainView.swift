@@ -1056,6 +1056,8 @@ struct ArrivalTimeline: View {
 
 struct MeetingPointCard: View {
     @Environment(AppModel.self) private var app
+    /// Schon am Treffpunkt: Zeitleiste sitzt unten in der Treffen-Karte (statt oben über der Karte)
+    var inMeetupCard = false
 
     private struct Arrival: Identifiable {
         let id: String
@@ -1096,6 +1098,13 @@ struct MeetingPointCard: View {
             let me: [Arrival] = app.navigation.isNavigating
                 ? [Arrival(id: "me", name: String(localized: "Du"), color: Theme.accent, eta: app.navigation.eta, here: false)]
                 : meHere ? [Arrival(id: "me", name: String(localized: "Du"), color: Theme.accent, eta: nil, here: true)] : []
+            if inMeetupCard != (meHere && !app.navigation.isNavigating) {
+                EmptyView()
+            } else if inMeetupCard {
+                ArrivalTimeline(items: (me + friends).map {
+                    ArrivalTimeline.Item(id: $0.id, name: $0.name, color: $0.color, eta: $0.eta, here: $0.here)
+                })
+            } else {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Label(target.name, systemImage: "flag.checkered")
@@ -1138,6 +1147,7 @@ struct MeetingPointCard: View {
             .background(RoundedRectangle(cornerRadius: 16).fill(Theme.panel.opacity(0.95)))
             .accessibilityElement(children: .combine)
             .accessibilityLabel("Wer ist wann da")
+            }
         }
     }
 }

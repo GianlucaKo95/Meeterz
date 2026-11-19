@@ -110,6 +110,7 @@ private struct AcceptedMeetupCard: View {
             if let here = app.location.lastLocation, here.coordinate.distance(to: meetup.coordinate) < 150 {
                 Label("Du bist schon da", systemImage: "checkmark.circle.fill")
                     .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.go)
+                if meetup.id == app.meetups.accepted.first?.id { MeetingPointCard(inMeetupCard: true) }
             } else {
                 Button(app.navigation.isNavigating ? String(localized: "Als Zwischenstopp") : String(localized: "Hinfahren")) {
                     Task { await app.navigation.addStop(meetup.place) }

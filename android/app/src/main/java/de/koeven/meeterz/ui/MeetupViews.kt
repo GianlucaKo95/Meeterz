@@ -63,6 +63,7 @@ import de.koeven.meeterz.data.GroupMember
 import de.koeven.meeterz.data.Meetup
 import de.koeven.meeterz.data.MeetupCandidate
 import de.koeven.meeterz.ev.ChargePlanner
+import androidx.compose.runtime.SideEffect
 import de.koeven.meeterz.nav.NavigationController
 import de.koeven.meeterz.nav.PlaceSearch
 import kotlinx.coroutines.launch
@@ -140,7 +141,10 @@ fun SocialCard(modifier: Modifier = Modifier, hideAccepted: Boolean = false, onP
                         }
                         TextButton(onClick = { scope.launch { AppState.meetups.cancel(accepted) } }) { Text(tr("Absagen")) }
                     }
-                    Button(onClick = { scope.launch { NavigationController.addStop(context, accepted.placeName, accepted.lat, accepted.lng) } },
+                    // Schon dort (z. B. Treffen bei mir): kein „Hinfahren“ (wie iOS)
+                    val here = AppState.lastLocation?.let { ChargePlanner.distance(it.latitude, it.longitude, accepted.lat, accepted.lng) < 150 } == true
+                    if (here) Text(tr("Du bist schon da"), color = MaterialTheme.colorScheme.tertiary, fontWeight = FontWeight.SemiBold)
+                    else Button(onClick = { scope.launch { NavigationController.addStop(context, accepted.placeName, accepted.lat, accepted.lng) } },
                         Modifier.fillMaxWidth()) { Text(if (guidance != null) tr("Als Zwischenstopp") else tr("Hinfahren")) }
                 }
                 waiting != null -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -499,7 +503,10 @@ fun MeetingPointCard(modifier: Modifier = Modifier) {
         if (!here && eta == null) null else Arrival(f.friendId, f.firstName, eta, here)
     }
     if (others.isEmpty()) return
-    val me = g?.let { listOf(Arrival("me", "Du", System.currentTimeMillis() / 1000 + it.remainingSeconds.toLong(), false)) }.orEmpty()
+    // Ich selbst: unterwegs mit Ankunftszeit, schon dort als „da“ (z. B. Treffen bei mir zu Hause; wie iOS)
+    val meHere = AppState.lastLocation?.let { ChargePlanner.distance(it.latitude, it.longitude, lat, lng) < 150 } == true
+    val me = g?.let { listOf(Arrival("me", tr("Du"), System.currentTimeMillis() / 1000 + it.remainingSeconds.toLong(), false)) }
+        ?: if (meHere) listOf(Arrival("me", tr("Du"), null, true)) else emptyList()
     val all = (me + others).sortedWith(compareBy({ if (it.here) 0 else 1 }, { it.eta ?: Long.MAX_VALUE }))
 
     Surface(modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), shape = RoundedCornerShape(16.dp), shadowElevation = 2.dp, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
@@ -546,7 +553,9 @@ data class TimelineItem(val id: String, val name: String, val color: androidx.co
 fun ArrivalTimeline(items: List<TimelineItem>) {
     val labelWidth = 72.dp
     val axis = 38.dp
-    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().height(80.dp)) {
+    // Zweite Beschriftungszeile unter der Linie nur, wenn Namen sich überdecken würden (wie iOS) – sonst leerer Streifen
+    var twoRows by remember { mutableStateOf(false) }
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().height(if (twoRows) 80.dp else 48.dp)) {
         val w = maxWidth
         val now = System.currentTimeMillis() / 1000
         val span = maxOf((items.mapNotNull { it.eta }.maxOrNull() ?: now) - now, 5 * 60L).toFloat()
@@ -565,6 +574,7 @@ fun ArrivalTimeline(items: List<TimelineItem>) {
             last[row] = x.value
             row
         }
+        SideEffect { twoRows = rows.any { it == 1 } }
         androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth().height(2.dp).offset(y = axis - 1.dp)
             .background(MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(1.dp)))
         placed.forEachIndexed { i, (item, x) ->

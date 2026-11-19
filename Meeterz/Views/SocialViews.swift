@@ -106,10 +106,16 @@ private struct AcceptedMeetupCard: View {
                 }
                 .accessibilityLabel("Optionen")
             }
-            Button(app.navigation.isNavigating ? String(localized: "Als Zwischenstopp") : String(localized: "Hinfahren")) {
-                Task { await app.navigation.addStop(meetup.place) }
+            // Schon dort (z. B. Treffen bei mir): kein „Hinfahren“, sondern Bescheid, dass ich da bin
+            if let here = app.location.lastLocation, here.coordinate.distance(to: meetup.coordinate) < 150 {
+                Label("Du bist schon da", systemImage: "checkmark.circle.fill")
+                    .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.go)
+            } else {
+                Button(app.navigation.isNavigating ? String(localized: "Als Zwischenstopp") : String(localized: "Hinfahren")) {
+                    Task { await app.navigation.addStop(meetup.place) }
+                }
+                .buttonStyle(PrimaryButtonStyle())
             }
-            .buttonStyle(PrimaryButtonStyle())
         }
     }
 }

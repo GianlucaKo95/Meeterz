@@ -1047,7 +1047,9 @@ struct ArrivalTimeline: View {
                 }
             }
         }
-        .frame(height: 76)
+        // Zweite Beschriftungszeile unter der Linie nur, wenn Namen sich überdecken würden – sonst blieb dort
+        // ein leerer Streifen (Karte zu hoch, 19.11.)
+        .frame(height: layout(width: UIScreen.main.bounds.width - 56).contains { $0.row == 1 } ? 76 : 48)
         .padding(.top, 4)
     }
 }
@@ -1086,8 +1088,11 @@ struct MeetingPointCard: View {
 
     var body: some View {
         if let target, case let friends = arrivals(at: target.coordinate), !friends.isEmpty {
+            // Ich selbst: unterwegs mit Ankunftszeit, schon dort als „da“ (z. B. Treffen bei mir zu Hause)
+            let meHere = app.location.lastLocation.map { $0.coordinate.distance(to: target.coordinate) < 150 } ?? false
             let me: [Arrival] = app.navigation.isNavigating
-                ? [Arrival(id: "me", name: String(localized: "Du"), color: Theme.accent, eta: app.navigation.eta, here: false)] : []
+                ? [Arrival(id: "me", name: String(localized: "Du"), color: Theme.accent, eta: app.navigation.eta, here: false)]
+                : meHere ? [Arrival(id: "me", name: String(localized: "Du"), color: Theme.accent, eta: nil, here: true)] : []
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Label(target.name, systemImage: "flag.checkered")

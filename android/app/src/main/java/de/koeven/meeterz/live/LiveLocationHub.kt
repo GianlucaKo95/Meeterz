@@ -109,12 +109,15 @@ class LiveLocationHub(private val scope: CoroutineScope) {
         val pause = ch.broadcastFlow<de.koeven.meeterz.social.ConvoyPause.Proposal>("pause")
         val reply = ch.broadcastFlow<de.koeven.meeterz.social.ConvoyPause.Reply>("pause_reply")
         val routeEnd = ch.broadcastFlow<Gone>("route_end")
+        val hazard = ch.broadcastFlow<de.koeven.meeterz.data.HazardStore.Shared>("hazard")
         listeners[friendId] = listOf(
             scope.launch { positions.collect { p -> if (p.userId.equals(friendId, true)) _positions.update { it + (friendId to p) } } },
             scope.launch { gone.collect { g -> if (g.userId.equals(friendId, true)) _positions.update { it - friendId } } },
             scope.launch { pause.collect { p -> if (p.from.equals(friendId, true)) de.koeven.meeterz.social.ConvoyPause.received(p) } },
             scope.launch { routeEnd.collect { de.koeven.meeterz.AppState.routes.refresh() } },
             scope.launch { reply.collect { r -> if (r.userId.equals(friendId, true)) de.koeven.meeterz.social.ConvoyPause.received(r) } },
+            // Gefahr, die ein Mitfahrender eben gemeldet hat
+            scope.launch { hazard.collect { h -> if (h.from.equals(friendId, true)) de.koeven.meeterz.data.HazardStore.received(h) } },
         )
         runCatching { ch.subscribe() }
     }

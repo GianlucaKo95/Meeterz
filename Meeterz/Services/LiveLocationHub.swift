@@ -129,6 +129,7 @@ final class LiveLocationHub {
         let pauseStream = ch.broadcastStream(event: "pause")
         let replyStream = ch.broadcastStream(event: "pause_reply")
         let routeEndStream = ch.broadcastStream(event: "route_end")
+        let hazardStream = ch.broadcastStream(event: "hazard")
         friendChannels[friendId] = ch
         do { try await ch.subscribeWithError() } catch { seenHidden.insert(friendId) }
 
@@ -157,6 +158,14 @@ final class LiveLocationHub {
                 }
                 group.addTask {
                     for await _ in routeEndStream { await AppModel.shared.routes.refresh() }
+                }
+                group.addTask {
+                    // Gefahr, die ein Mitfahrender eben gemeldet hat (HazardStore.Shared)
+                    for await message in hazardStream {
+                        guard let payload = message["payload"], let data = try? JSONEncoder().encode(payload),
+                              let h = try? JSONDecoder().decode(HazardStore.Shared.self, from: data), h.from == friendId else { continue }
+                        await HazardStore.shared.received(h)
+                    }
                 }
                 group.addTask {
                     for await message in replyStream {

@@ -6,6 +6,7 @@ import de.koeven.meeterz.AppState
 import de.koeven.meeterz.Diag
 import de.koeven.meeterz.ev.ChargePlanner
 import de.koeven.meeterz.nav.IncidentWatcher
+import de.koeven.meeterz.nav.NavigationController
 import de.koeven.meeterz.tr
 import io.github.jan.supabase.functions.functions
 import io.github.jan.supabase.postgrest.from
@@ -80,22 +81,34 @@ object HazardStore {
     data class Hazard(val id: String, val kind: String, val lat: Double, val lng: Double, val heading: Double? = null,
                       @SerialName("by_friend") val byFriend: Boolean = false)
 
+    /** Meldung an den Konvoi (Live-Kanal, Ereignis „hazard“; wie iOS HazardStore.Shared). Feldnamen nur gemeinsam ändern. */
+    @Serializable
+    data class Shared(val id: String, val from: String, val kind: String, val lat: Double, val lng: Double, val heading: Double? = null)
+
     private var items = emptyList<Hazard>()
     private var loadedAt = 0L
     private var loading = false
     private val announced = mutableSetOf<String>()
+    /** Letzter Fortschritt der Navigation – um eine Konvoi-Meldung sofort einzuordnen */
+    private var lastProgress: RouteProgress? = null
 
-    fun reset() { items = emptyList(); loadedAt = 0; lastCheck = 0; announced.clear() }
+    fun reset() { items = emptyList(); loadedAt = 0; lastCheck = 0; announced.clear(); lastProgress = null }
 
     suspend fun report(kind: Kind) {
         val loc = AppState.lastLocation ?: run { toast(tr("Standort unbekannt")); return }
+        val heading = if (loc.hasBearing()) loc.bearing.toDouble() else null
         runCatching {
             Backend.client.postgrest.rpc("report_hazard", buildJsonObject {
-                put("kind", kind.key); put("lat", loc.latitude); put("lng", loc.longitude)
-                put("heading", if (loc.hasBearing()) loc.bearing.toDouble() else null)
-            })
-        }.onSuccess {
+                put("kind", kind.key); put("lat", loc.latitude); put("lng", loc.longitude); put("heading", heading)
+            }).decodeAs<String>()
+        }.onSuccess { id ->
             Diag.log("Gefahr gemeldet: ${kind.key}")
+            // Im Konvoi sofort an die anderen – wer noch daran vorbei muss, wird gleich gewarnt (wie iOS)
+            val me = AppState.myId
+            if (me != null && de.koeven.meeterz.social.Convoy.members().isNotEmpty()) {
+                AppState.hub.broadcast("hazard", Json.encodeToJsonElement(Shared.serializer(),
+                    Shared(id, me.lowercase(), kind.key, loc.latitude, loc.longitude, heading)).let { it as kotlinx.serialization.json.JsonObject })
+            }
             toast(tr("Danke! %@ gemeldet.", kind.title))
         }.onFailure {
             Diag.log("Gefahr melden fehlgeschlagen: ${it.message}")
@@ -107,36 +120,58 @@ object HazardStore {
     private var lastCheck = 0L
 
     fun check(progress: RouteProgress) {
+        lastProgress = progress
         if (System.currentTimeMillis() - lastCheck < 5_000) return   // wie iOS: alle 5 s genügt
         lastCheck = System.currentTimeMillis()
-        val coords = progress.navigationRoute.directionsRoute.geometry()
-            ?.let { com.mapbox.geojson.LineString.fromPolyline(it, 6).coordinates() } ?: return
-        if (coords.size < 2) return
+        val coords = coords(progress) ?: return
         if (System.currentTimeMillis() - loadedAt > 300_000 && !loading) {
             loading = true
             CoroutineScope(Dispatchers.IO).launch { load(coords); loading = false }
         }
-        val traveled = progress.distanceTraveled.toDouble()
         for (h in items) {
             if (h.id in announced) continue
             val kind = Kind.entries.firstOrNull { it.key == h.kind } ?: continue
-            val i = coords.indices.minBy { ChargePlanner.distance(coords[it].latitude(), coords[it].longitude(), h.lat, h.lng) }
-            // ponytail: Abstand zum nächsten Routenpunkt statt zur Strecke – Punkte liegen in Polyline6 dicht genug
-            if (ChargePlanner.distance(coords[i].latitude(), coords[i].longitude(), h.lat, h.lng) > 60) continue
-            var along = 0.0
-            for (j in 0 until i) along += ChargePlanner.distance(coords[j].latitude(), coords[j].longitude(), coords[j + 1].latitude(), coords[j + 1].longitude())
-            val ahead = along - traveled
-            if (ahead <= 150 || ahead >= 2_000) { if (ahead in -500.0..150.0) announced += h.id; continue }
-            // Gegenrichtung? Fahrtrichtung der Meldung mit der Richtung der Route vergleichen
-            if (h.heading != null && i + 1 < coords.size) {
-                val bearing = com.mapbox.turf.TurfMeasurement.bearing(coords[i], coords[i + 1])
-                val diff = Math.abs(((bearing - h.heading + 540) % 360) - 180)
-                if (diff > 60) { announced += h.id; continue }
-            }
+            val ahead = ahead(h, coords, progress) ?: continue
+            if (ahead <= 150 || ahead >= 2_000) { if (ahead <= 150) announced += h.id; continue }
             announced += h.id
             IncidentWatcher.announceReported(kind.title, if (h.byFriend) tr("von einem Freund gemeldet") else tr("von Meeterz-Fahrern gemeldet"), ahead)
             return
         }
+    }
+
+    private fun coords(progress: RouteProgress) = progress.navigationRoute.directionsRoute.geometry()
+        ?.let { com.mapbox.geojson.LineString.fromPolyline(it, 6).coordinates() }?.takeIf { it.size > 1 }
+
+    /** Strecke bis zur Meldung auf der eigenen Route; null = nicht auf der Route oder Gegenrichtung. Negativ = vorbei. */
+    private fun ahead(h: Hazard, coords: List<com.mapbox.geojson.Point>, progress: RouteProgress): Double? {
+        val i = coords.indices.minBy { ChargePlanner.distance(coords[it].latitude(), coords[it].longitude(), h.lat, h.lng) }
+        // ponytail: Abstand zum nächsten Routenpunkt statt zur Strecke – Punkte liegen in Polyline6 dicht genug
+        if (ChargePlanner.distance(coords[i].latitude(), coords[i].longitude(), h.lat, h.lng) > 60) return null
+        // Gegenrichtung? Fahrtrichtung der Meldung mit der Richtung der Route vergleichen
+        if (h.heading != null && i + 1 < coords.size) {
+            val bearing = com.mapbox.turf.TurfMeasurement.bearing(coords[i], coords[i + 1])
+            if (Math.abs(((bearing - h.heading + 540) % 360) - 180) > 60) return null
+        }
+        var along = 0.0
+        for (j in 0 until i) along += ChargePlanner.distance(coords[j].latitude(), coords[j].longitude(), coords[j + 1].latitude(), coords[j + 1].longitude())
+        return along - progress.distanceTraveled.toDouble()
+    }
+
+    /**
+     * Meldung eines Mitfahrenden aus dem Live-Kanal (wie iOS): liegt sie auf meiner Route noch vor mir, sofort
+     * Bescheid sagen („Unfall in 3,2 km – Luca hat es eben gemeldet“); bei 2 km kommt die übliche Warnung noch einmal.
+     */
+    fun received(shared: Shared) {
+        if (NavigationController.guidance.value == null || items.any { it.id == shared.id }) return
+        val h = Hazard(shared.id, shared.kind, shared.lat, shared.lng, shared.heading, byFriend = true)
+        items = items + h
+        val kind = Kind.entries.firstOrNull { it.key == h.kind } ?: return
+        val progress = lastProgress ?: return
+        val ahead = coords(progress)?.let { ahead(h, it, progress) }?.takeIf { it > 150 } ?: return
+        val name = AppState.friends.value.firstOrNull { it.friendId.equals(shared.from, true) }?.displayName ?: tr("Ein Mitfahrer")
+        Diag.log("Konvoi-Gefahr von $name: ${shared.kind} in ${ahead.toInt()} m")
+        IncidentWatcher.announceReported(kind.title, tr("%@ hat es eben gemeldet", name), ahead)
+        if (ahead < 2_000) announced += h.id
     }
 
     private suspend fun load(coords: List<com.mapbox.geojson.Point>) {
@@ -146,7 +181,11 @@ object HazardStore {
                 put("min_lat", coords.minOf { it.latitude() } - pad); put("min_lng", coords.minOf { it.longitude() } - pad)
                 put("max_lat", coords.maxOf { it.latitude() } + pad); put("max_lng", coords.maxOf { it.longitude() } + pad)
             }).decodeList<Hazard>()
-        }.onSuccess { items = it; loadedAt = System.currentTimeMillis() }
+        }.onSuccess { rows ->
+            // Live erhaltene Konvoi-Meldungen behalten, bis sie auch geladen sind
+            items = rows + items.filter { h -> h.byFriend && rows.none { it.id == h.id } }
+            loadedAt = System.currentTimeMillis()
+        }
     }
 }
 

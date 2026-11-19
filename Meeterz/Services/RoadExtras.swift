@@ -93,12 +93,23 @@ final class HazardStore {
         var type: Kind? { Kind(rawValue: kind) }
     }
 
+    /// Meldung an den Konvoi (Live-Kanal, Ereignis „hazard“). Feldnamen nur gemeinsam mit Android ändern.
+    struct Shared: Codable {
+        let id: UUID
+        let from: UUID
+        let kind: String
+        let lat: Double, lng: Double
+        let heading: Double?
+    }
+
     private(set) var items: [Hazard] = []
     private var loadedAt = Date.distantPast
     private var loading = false
     private var announced: Set<UUID> = []
+    /// Letzter Fortschritt der Navigation – um eine Konvoi-Meldung sofort einzuordnen
+    private var lastProgress: RouteProgress?
 
-    func reset() { items = []; loadedAt = .distantPast; announced = [] }
+    func reset() { items = []; loadedAt = .distantPast; announced = []; lastProgress = nil }
 
     /// Melden an der aktuellen Position (mit Fahrtrichtung, damit die Gegenfahrbahn nicht gewarnt wird)
     func report(_ kind: Kind) async {
@@ -108,10 +119,17 @@ final class HazardStore {
         }
         struct Params: Encodable { let kind: String; let lat: Double; let lng: Double; let heading: Double? }
         do {
-            try await Backend.client.rpc("report_hazard", params: Params(
+            let heading = loc.course >= 0 ? loc.course : nil
+            let id: UUID = try await Backend.client.rpc("report_hazard", params: Params(
                 kind: kind.rawValue, lat: loc.coordinate.latitude, lng: loc.coordinate.longitude,
-                heading: loc.course >= 0 ? loc.course : nil)).execute()
+                heading: heading)).execute().value
             Diag.log("Gefahr gemeldet: \(kind.rawValue)")
+            // Im Konvoi sofort an die anderen – wer noch daran vorbei muss, wird gleich gewarnt (nicht erst beim
+            // nächsten Laden in bis zu 5 Min.)
+            if let me = Backend.client.auth.currentUser?.id, !ConvoyTracker.shared.members().isEmpty {
+                await AppModel.shared.hub.broadcast(event: "hazard", Shared(
+                    id: id, from: me, kind: kind.rawValue, lat: loc.coordinate.latitude, lng: loc.coordinate.longitude, heading: heading))
+            }
             AppModel.shared.show(String(localized: "Danke! \(kind.title) gemeldet."), isError: false)
         } catch {
             Diag.log("Gefahr melden fehlgeschlagen: \(error.localizedDescription)")
@@ -121,31 +139,52 @@ final class HazardStore {
 
     /// Während der Navigation (je Fortschritt): Meldungen auf der Route voraus ansagen, einmal je Meldung
     func check(_ progress: RouteProgress) {
+        lastProgress = progress
         guard let shape = progress.route.shape, shape.coordinates.count > 1 else { return }
         if Date().timeIntervalSince(loadedAt) > 300, !loading { Task { await load(shape.coordinates) } }
-        let coords = shape.coordinates
         for h in items where !announced.contains(h.id) {
-            guard let type = h.type, let snap = shape.closestCoordinate(to: h.coordinate),
-                  snap.coordinate.distance(to: h.coordinate) < 40 else { continue }
-            // Strecke vom Routenanfang bis zur Meldung
-            var along = coords[snap.index].distance(to: snap.coordinate)
-            for i in 0..<snap.index { along += coords[i].distance(to: coords[i + 1]) }
-            let ahead = along - progress.distanceTraveled
+            guard h.type != nil, let ahead = Self.ahead(h, progress) else { continue }
             guard ahead > 150, ahead < 2_000 else {
-                if ahead <= 150, ahead > -500 { announced.insert(h.id) }
+                if ahead <= 150 { announced.insert(h.id) }
                 continue
             }
-            // Gegenrichtung? Fahrtrichtung der Meldung mit der Richtung der Route an der Stelle vergleichen
-            if let heading = h.heading, snap.index + 1 < coords.count {
-                let bearing = coords[snap.index].direction(to: coords[snap.index + 1])
-                let diff = abs((bearing - heading + 540).truncatingRemainder(dividingBy: 360) - 180)
-                if diff > 60 { announced.insert(h.id); continue }
-            }
+            let type = h.type!
             announced.insert(h.id)
             let source = h.by_friend ? String(localized: "von einem Freund gemeldet") : String(localized: "von Meeterz-Fahrern gemeldet")
             IncidentWatcher.shared.announceReported(title: type.title, subtitle: source, symbol: type.symbol, distance: ahead)
             return
         }
+    }
+
+    /// Strecke bis zur Meldung auf der eigenen Route; nil = nicht auf der Route oder Gegenrichtung.
+    /// Negativ = schon vorbei.
+    private static func ahead(_ h: Hazard, _ progress: RouteProgress) -> Double? {
+        guard let shape = progress.route.shape, shape.coordinates.count > 1,
+              let snap = shape.closestCoordinate(to: h.coordinate), snap.coordinate.distance(to: h.coordinate) < 40 else { return nil }
+        let coords = shape.coordinates
+        // Gegenrichtung? Fahrtrichtung der Meldung mit der Richtung der Route an der Stelle vergleichen
+        if let heading = h.heading, snap.index + 1 < coords.count {
+            let bearing = coords[snap.index].direction(to: coords[snap.index + 1])
+            if abs((bearing - heading + 540).truncatingRemainder(dividingBy: 360) - 180) > 60 { return nil }
+        }
+        // Strecke vom Routenanfang bis zur Meldung
+        var along = coords[snap.index].distance(to: snap.coordinate)
+        for i in 0..<snap.index { along += coords[i].distance(to: coords[i + 1]) }
+        return along - progress.distanceTraveled
+    }
+
+    /// Meldung eines Mitfahrenden aus dem Live-Kanal: liegt sie auf meiner Route noch vor mir, sofort Bescheid
+    /// sagen („Luca meldet Unfall in 3,2 km“); bei 2 km kommt die übliche Warnung noch einmal.
+    func received(_ shared: Shared) {
+        guard AppModel.shared.navigation.isNavigating, !items.contains(where: { $0.id == shared.id }) else { return }
+        let h = Hazard(id: shared.id, kind: shared.kind, lat: shared.lat, lng: shared.lng, heading: shared.heading, by_friend: true)
+        items.append(h)
+        guard let type = h.type, let progress = lastProgress, let ahead = Self.ahead(h, progress), ahead > 150 else { return }
+        let name = AppModel.shared.friend(shared.from)?.displayName ?? String(localized: "Ein Mitfahrer")
+        Diag.log("Konvoi-Gefahr von \(name): \(shared.kind) in \(Int(ahead)) m")
+        IncidentWatcher.shared.announceReported(title: type.title, subtitle: String(localized: "\(name) hat es eben gemeldet"),
+                                                symbol: type.symbol, distance: ahead)
+        if ahead < 2_000 { announced.insert(h.id) }
     }
 
     private func load(_ coords: [CLLocationCoordinate2D]) async {
@@ -157,7 +196,8 @@ final class HazardStore {
         guard let rows: [Hazard] = try? await Backend.client.rpc("hazards_in", params: Params(
             min_lat: lats.min()! - pad, min_lng: lngs.min()! - pad, max_lat: lats.max()! + pad, max_lng: lngs.max()! + pad))
             .execute().value else { return }
-        items = rows
+        // Live erhaltene Konvoi-Meldungen behalten, bis sie auch geladen sind
+        items = rows + items.filter { h in h.by_friend && !rows.contains { $0.id == h.id } }
         loadedAt = Date()
     }
 }

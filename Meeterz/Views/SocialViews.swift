@@ -86,6 +86,10 @@ private struct AcceptedMeetupCard: View {
     let meetup: Meetup
 
     var body: some View {
+        // Schon dort (z. B. Treffen bei mir): kein „Hinfahren“-Fenster – unten steht nur „Wer ist wann da“
+        if let here = app.location.lastLocation, here.coordinate.distance(to: meetup.coordinate) < 150 {
+            if meetup.id == app.meetups.accepted.first?.id { MeetingPointCard(atBottom: true) }
+        } else {
         Card {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
@@ -106,17 +110,11 @@ private struct AcceptedMeetupCard: View {
                 }
                 .accessibilityLabel("Optionen")
             }
-            // Schon dort (z. B. Treffen bei mir): kein „Hinfahren“, sondern Bescheid, dass ich da bin
-            if let here = app.location.lastLocation, here.coordinate.distance(to: meetup.coordinate) < 150 {
-                Label("Du bist schon da", systemImage: "checkmark.circle.fill")
-                    .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.go)
-                if meetup.id == app.meetups.accepted.first?.id { MeetingPointCard(inMeetupCard: true) }
-            } else {
-                Button(app.navigation.isNavigating ? String(localized: "Als Zwischenstopp") : String(localized: "Hinfahren")) {
-                    Task { await app.navigation.addStop(meetup.place) }
-                }
-                .buttonStyle(PrimaryButtonStyle())
+            Button(app.navigation.isNavigating ? String(localized: "Als Zwischenstopp") : String(localized: "Hinfahren")) {
+                Task { await app.navigation.addStop(meetup.place) }
             }
+            .buttonStyle(PrimaryButtonStyle())
+        }
         }
     }
 }

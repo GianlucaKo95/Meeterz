@@ -1133,7 +1133,12 @@ final class CarPlayController: NSObject {
         let hazard = CPListItem(text: String(localized: "Gefahr melden"), detailText: String(localized: "Warnt andere Meeterz-Fahrer"),
                                 image: UIImage(systemName: "exclamationmark.triangle.fill"))
         hazard.handler = { [weak self] _, done in self?.showHazardReport(); done() }
-        sections.append(CPListSection(items: [stop, hazard]))
+        let riders = Passengers.shared.ridingNow.compactMap { AppModel.shared.friend($0)?.firstName }
+        let passengers = CPListItem(text: String(localized: "Wer fährt mit?"),
+                                    detailText: riders.isEmpty ? String(localized: "Beifahrer zum Konvoi zählen") : riders.joined(separator: ", "),
+                                    image: UIImage(systemName: "person.2.fill"))
+        passengers.handler = { [weak self] _, done in self?.showPassengerPicker(); done() }
+        sections.append(CPListSection(items: [stop, hazard, passengers]))
 
         var items: [CPListItem] = []
         if friends.count > 1 {
@@ -1145,7 +1150,7 @@ final class CarPlayController: NSObject {
             }
             items.append(all)
         }
-        for friend in friends.prefix(max(0, CPListTemplate.maximumItemCount - items.count - 5)) {
+        for friend in friends.prefix(max(0, CPListTemplate.maximumItemCount - items.count - 6)) {
             let detail = friendArrival(friend.friendId, at: place).map { String(localized: "Kommt auch hierher · an \(ActivityFormat.time($0))") } ?? String(localized: "Einladen")
             let item = CPListItem(text: friend.displayName, detailText: detail)
             item.handler = { [weak self] _, done in

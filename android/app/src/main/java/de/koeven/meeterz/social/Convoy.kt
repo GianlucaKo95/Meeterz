@@ -23,8 +23,9 @@ private fun clock(seconds: Long) = DateFormat.getTimeInstance(DateFormat.SHORT).
  * Abstand entlang meiner Route; Hinweise, wenn jemand anhält, deutlich zurückfällt oder eine andere Strecke nimmt.
  */
 object Convoy {
-    data class Member(val friend: FriendRow, val gap: Double?, val arrival: Long?, val stopped: Boolean) {
-        val summary: String get() = listOfNotNull(
+    /** `passenger`: sitzt bei mir im Auto („Wer fährt mit?“ bzw. Mitfahrer-Frage) – gehört zum Konvoi ohne eigenes Auto */
+    data class Member(val friend: FriendRow, val gap: Double?, val arrival: Long?, val stopped: Boolean, val passenger: Boolean = false) {
+        val summary: String get() = if (passenger) tr("fährt bei dir mit") else listOfNotNull(
             when {
                 gap == null -> tr("andere Strecke")
                 abs(gap) < 150 -> tr("direkt bei dir")
@@ -70,7 +71,11 @@ object Convoy {
             val gap = if (myIndex != null) nearest(p.lat, p.lng)?.takeIf { it.second < 300 }?.let { cumulative[it.first] - cumulative[myIndex] } else null
             val stopped = p.ageSeconds < 120 && (p.speed ?: 0.0) < 1 && ChargePlanner.distance(p.lat, p.lng, dest.lat, dest.lng) > 300
             Member(f, gap, eta, stopped)
-        }.sortedByDescending { it.gap ?: -Double.MAX_VALUE }
+        }.sortedByDescending { it.gap ?: -Double.MAX_VALUE } +
+            // Mitfahrer im eigenen Auto gehören dazu (Feed, Gefahren an den Konvoi), auch ohne eigene Route (wie iOS)
+            Passengers.ridingNowIds.sorted().mapNotNull { id ->
+                AppState.friends.value.firstOrNull { it.friendId == id }?.let { Member(it, 0.0, null, false, passenger = true) }
+            }
     }
 
     /** Alle 30 s (Android Auto, wie der CarPlay-Takt): Hinweise bei Veränderungen */
@@ -79,7 +84,7 @@ object Convoy {
         val ids = current.map { it.friend.friendId }.toSet()
         states.keys.retainAll(ids)
         val now = System.currentTimeMillis()
-        for (m in current) {
+        for (m in current.filter { !it.passenger }) {   // wer bei mir im Auto sitzt, fällt nicht zurück
             val s = states.getOrPut(m.friend.friendId) { State() }
             val first = m.friend.firstName
             m.gap?.let { gap ->
@@ -158,6 +163,8 @@ object Convoy {
  */
 object Passengers {
     private val ridingNow = mutableSetOf<String>()
+    /** Für diese Fahrt als Mitfahrer markiert */
+    val ridingNowIds: Set<String> get() = ridingNow.toSet()
     private val asked = mutableSetOf<String>()
     private val arrivedAt = mutableSetOf<String>()
     private val _hiddenForMe = MutableStateFlow<Set<String>>(emptySet())
@@ -197,7 +204,7 @@ object Passengers {
     fun setRiding(id: String, riding: Boolean) {
         if (riding) ridingNow += id else ridingNow -= id
         _version.value++
-        Diag.log("Mitfahrer ${if (riding) "ausgeblendet" else "eingeblendet"}: $id")
+        Diag.log("Mitfahrer ${if (riding) "dabei" else "nicht mehr dabei"}: $id")
     }
 
     /** Fahrt vorbei (Android Auto getrennt) */

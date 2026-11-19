@@ -86,15 +86,18 @@ class MeeterzCarSession : Session() {
         manager.showAlert(alert)
     }
 
-    /** „Fährt Annika bei dir mit?“ – Ja blendet sie für die Fahrt aus. Nicht während/kurz nach der Führung (wie CarPlay). */
+    /**
+     * „Fährt Annika bei dir mit?“ – Ja: gehört zum Konvoi und verschwindet von der Karte. Auch während der Führung
+     * (vorher nie – wer erst nach dem Losfahren erkannt wurde, blieb draußen), nur nicht in der Minute nach ihrem Ende.
+     */
     private fun askPassenger(f: de.koeven.meeterz.data.FriendRow): Boolean {
-        if (NavigationController.guidance.value != null || System.currentTimeMillis() - navigationEndedAt < 60_000) return false
+        if (System.currentTimeMillis() - navigationEndedAt < 60_000) return false
         if (carContext.carAppApiLevel < CarAppApiLevels.LEVEL_5) return false
         Diag.log("Mitfahrer-Frage: ${f.displayName}")
         val manager = carContext.getCarService(AppManager::class.java)
         val alert = Alert.Builder(2, CarText.create(tr("Fährt %@ bei dir mit?", f.firstName)), 20_000)
-            .setSubtitle(CarText.create(tr("Dann blende ich %@ für diese Fahrt aus", f.firstName)))
-            .addAction(Action.Builder().setTitle(tr("Ja, ausblenden")).setOnClickListener {
+            .setSubtitle(CarText.create(tr("Dann gehört %@ zum Konvoi und verschwindet von der Karte", f.firstName)))
+            .addAction(Action.Builder().setTitle(tr("Ja, fährt mit")).setOnClickListener {
                 manager.dismissAlert(2); de.koeven.meeterz.social.Passengers.setRiding(f.friendId, true)
             }.build())
             .addAction(Action.Builder().setTitle(tr("Nein")).setOnClickListener { manager.dismissAlert(2) }.build())

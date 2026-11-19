@@ -224,8 +224,49 @@ class CarMoreScreen(carContext: CarContext) : Screen(carContext) {
                 .setOnClickListener { screenManager.push(CarStopScreen(carContext)) }.build())
             .addItem(Row.Builder().setTitle(tr("Gefahr melden")).addText(tr("Warnt andere Meeterz-Fahrer")).setBrowsable(true)
                 .setOnClickListener { screenManager.push(CarHazardScreen(carContext)) }.build())
+            .addItem(passengerRow(carContext, screenManager))
             .build())
         .build()
+}
+
+/** Eintrag „Wer fährt mit?“ (in „Mehr“ und in der Freundesliste, wie CarPlay) */
+fun passengerRow(carContext: CarContext, screenManager: androidx.car.app.ScreenManager): Row {
+    val riders = de.koeven.meeterz.social.Passengers.ridingNowIds.mapNotNull { id -> AppState.friends.value.firstOrNull { it.friendId == id }?.firstName }
+    return Row.Builder().setTitle(tr("Wer fährt mit?"))
+        .addText(if (riders.isEmpty()) tr("Beifahrer zum Konvoi zählen") else riders.joinToString(", ")).setBrowsable(true)
+        .setOnClickListener { screenManager.push(CarPassengersScreen(carContext)) }.build()
+}
+
+/**
+ * „Wer fährt mit?“ (wie CarPlay): Freunde von Hand als Mitfahrer markieren (Beifahrer, Rückbank) – sie zählen dann
+ * zum Konvoi. Nahe Freunde zuerst; die automatische Erkennung braucht ein paar Minuten gemeinsamer Fahrt.
+ */
+class CarPassengersScreen(carContext: CarContext) : Screen(carContext) {
+    override fun onGetTemplate(): Template {
+        val me = AppState.lastLocation
+        val live = AppState.hub.positions.value
+        fun distance(f: de.koeven.meeterz.data.FriendRow): Double {
+            val p = live[f.friendId] ?: return Double.MAX_VALUE
+            return me?.let { ChargePlanner.distance(it.latitude, it.longitude, p.lat, p.lng) } ?: Double.MAX_VALUE
+        }
+        val riding = de.koeven.meeterz.social.Passengers.ridingNowIds
+        val list = ItemList.Builder().setNoItemsMessage(tr("Noch keine Freunde."))
+        AppState.friends.value.filter { it.isAccepted }.sortedBy { distance(it) }.take(6).forEach { f ->
+            val on = f.friendId in riding
+            list.addItem(Row.Builder().setTitle(f.firstName)
+                .apply {
+                    when {
+                        on -> addText(tr("fährt mit"))
+                        distance(f) < 300 -> addText(tr("in der Nähe"))
+                    }
+                }
+                .setOnClickListener {
+                    de.koeven.meeterz.social.Passengers.setRiding(f.friendId, !on)
+                    invalidate()
+                }.build())
+        }
+        return ListTemplate.Builder().setTitle(tr("Wer fährt mit?")).setHeaderAction(Action.BACK).setSingleList(list.build()).build()
+    }
 }
 
 /**
@@ -308,7 +349,9 @@ class CarFriendsScreen(carContext: CarContext) : Screen(carContext) {
         val live = AppState.hub.positions.value
         val me = AppState.lastLocation
         val list = ItemList.Builder().setNoItemsMessage(tr("Gerade teilt kein Freund seinen Standort."))
-        AppState.friends.value.filter { it.isAccepted }.forEach { f ->
+        // Vor der Fahrt schon festlegen, wer mitfährt (auch in „Mehr“ während der Fahrt)
+        if (AppState.friends.value.any { it.isAccepted }) list.addItem(passengerRow(carContext, screenManager))
+        AppState.friends.value.filter { it.isAccepted }.take(5).forEach { f ->
             val p = live[f.friendId]
             val lat = p?.lat ?: f.lat ?: return@forEach
             val lng = p?.lng ?: f.lng ?: return@forEach

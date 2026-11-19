@@ -50,7 +50,8 @@ object ConvoyPause {
         if (proposing) return
         proposing = true
         try {
-            val members = Convoy.members()
+            // Mitfahrer im eigenen Auto halten ohnehin mit an – gefragt werden nur die anderen Autos
+            val members = Convoy.members().filter { !it.passenger }
             val me = AppState.profile
             if (NavigationController.guidance.value == null || me == null || members.isEmpty()) {
                 notice(tr("Gerade fährt niemand mit dir im Konvoi.")); return

@@ -50,7 +50,8 @@ final class ConvoyPause {
         guard !proposing else { return }
         proposing = true
         defer { proposing = false }
-        let members = ConvoyTracker.shared.members()
+        // Mitfahrer im eigenen Auto halten ohnehin mit an – gefragt werden nur die anderen Autos
+        let members = ConvoyTracker.shared.members().filter { !$0.passenger }
         guard app.navigation.isNavigating, let me = app.profile, !members.isEmpty else {
             notice(String(localized: "Gerade fährt niemand mit dir im Konvoi."))
             return

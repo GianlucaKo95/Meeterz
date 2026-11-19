@@ -56,7 +56,13 @@ extension CarPlayController {
             return row
         }
 
-        var sections = [CPListSection(items: [toggle])]
+        // Vor der Fahrt schon festlegen, wer mitfährt (auch im „Mehr“-Menü während der Fahrt)
+        let riders = Passengers.shared.ridingNow.compactMap { app.friend($0)?.firstName }
+        let passengerRow = CPListItem(text: String(localized: "Wer fährt mit?"),
+                                    detailText: riders.isEmpty ? String(localized: "Beifahrer zum Konvoi zählen") : riders.joined(separator: ", "),
+                                    image: UIImage(systemName: "person.2.fill", withConfiguration: config))
+        passengerRow.handler = { [weak self] _, done in self?.showPassengerPicker(); done() }
+        var sections = [CPListSection(items: [toggle, passengerRow])]
         if !items.isEmpty { sections.append(CPListSection(items: items, header: String(localized: "Freunde"), sectionIndexTitle: nil)) }
         if !hiddenForMe.isEmpty {
             let row = CPListItem(text: hiddenForMe.count == 1 ? String(localized: "1 ausgeblendeter Freund")

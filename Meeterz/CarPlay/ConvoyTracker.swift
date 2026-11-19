@@ -17,9 +17,12 @@ final class ConvoyTracker {
         let gap: Double?
         let arrival: Date?
         let stopped: Bool
+        /// Sitzt bei mir im Auto („Wer fährt mit?“ bzw. Mitfahrer-Frage): gehört zum Konvoi, ohne eigenes Auto
+        var passenger = false
         var firstName: String { friend.firstName }
 
         var summary: String {
+            if passenger { return String(localized: "fährt bei dir mit") }
             var parts: [String] = []
             if let gap {
                 if abs(gap) < 150 { parts.append(String(localized: "direkt bei dir")) }
@@ -66,6 +69,10 @@ final class ConvoyTracker {
             return Member(friend: item.friend, gap: gap, arrival: route?.eta, stopped: stopped)
         }
         .sorted { ($0.gap ?? -.greatestFiniteMagnitude) > ($1.gap ?? -.greatestFiniteMagnitude) }
+        // Mitfahrer im eigenen Auto gehören dazu (Feed, Gefahren an den Konvoi), auch ohne eigene Route
+        + Passengers.shared.ridingNow.sorted { $0.uuidString < $1.uuidString }.compactMap { id in
+            app.friend(id).map { Member(friend: $0, gap: 0, arrival: nil, stopped: false, passenger: true) }
+        }
     }
 
     /// Alle 30 s aus CarPlay aufgerufen: Hinweise bei Veränderungen
@@ -73,7 +80,7 @@ final class ConvoyTracker {
         let current = members()
         let ids = Set(current.map(\.friend.friendId))
         states = states.filter { ids.contains($0.key) }
-        for m in current {
+        for m in current where !m.passenger {   // wer bei mir im Auto sitzt, fällt nicht zurück
             var s = states[m.friend.friendId] ?? State()
             // Zurückgefallen: mehr als 3 km hinter mir (erst wieder melden, wenn er unter 1,5 km aufholt)
             if let gap = m.gap {

@@ -123,24 +123,63 @@ final class Passengers {
 
     func setRiding(_ id: UUID, _ riding: Bool) {
         if riding { ridingNow.insert(id) } else { ridingNow.remove(id) }
-        Diag.log("Mitfahrer \(riding ? "ausgeblendet" : "eingeblendet"): \(AppModel.shared.friend(id)?.displayName ?? "?")")
+        Diag.log("Mitfahrer \(riding ? "dabei" : "nicht mehr dabei"): \(AppModel.shared.friend(id)?.displayName ?? "?")")
     }
 }
 
 extension CarPlayController {
+    /// „Wer fährt mit?“: Freunde von Hand als Mitfahrer markieren (Beifahrer, Rückbank) – zählen dann zum Konvoi.
+    /// Nahe Freunde zuerst; die automatische Erkennung braucht ein paar Minuten gemeinsamer Fahrt.
+    func showPassengerPicker() {
+        let template = CPListTemplate(title: String(localized: "Wer fährt mit?"), sections: [])
+        func render() {
+            let app = AppModel.shared
+            let me = app.location.lastLocation?.coordinate
+            func distance(_ id: UUID) -> Double {
+                guard let me, let p = app.hub.positions[id] ?? app.friend(id)?.lastKnown else { return .greatestFiniteMagnitude }
+                return p.coordinate.distance(to: me)
+            }
+            let friends = app.friends.accepted.sorted { distance($0.friendId) < distance($1.friendId) }
+            let items: [CPListItem] = friends.prefix(CPListTemplate.maximumItemCount).map { f in
+                let riding = Passengers.shared.ridingNow.contains(f.friendId)
+                let d = distance(f.friendId)
+                let detail = riding ? String(localized: "fährt mit")
+                    : d < 300 ? String(localized: "in der Nähe") : nil
+                let item = CPListItem(text: f.firstName, detailText: detail,
+                                      image: AvatarRenderer.image(initials: f.initials, color: FriendPalette.uiColor(for: f.friendId),
+                                                                  faded: false, photo: app.avatars.image(for: f.friendId)),
+                                      accessoryImage: riding ? UIImage(systemName: "checkmark.circle.fill") : nil, accessoryType: .none)
+                item.handler = { [weak self] _, done in
+                    MainActor.assumeIsolated {
+                        Passengers.shared.setRiding(f.friendId, !riding)
+                        self?.refreshFriendsAfterPassengerChange()
+                        render()
+                    }
+                    done()
+                }
+                return item
+            }
+            template.updateSections([CPListSection(items: items, header: String(localized: "Gehört zum Konvoi, auch ohne eigenes Auto"),
+                                                   sectionIndexTitle: nil)])
+        }
+        render()
+        CarPlayUI.shared.push(template, animated: true)
+    }
+
     /// „Fährt Annika bei dir mit?“ – Ja blendet sie für die Fahrt aus
     @discardableResult
     func askPassenger(_ friend: FriendRow) -> Bool {
         // Nicht während der Routenführung (Freunde sind dort ohnehin ausgeblendet) und erst 60 s nach ihrem Ende:
         // Die Erkennung läuft im Hintergrund weiter und wäre beim Beenden sofort fertig – die Frage käme dann
         // mitten in den Ansichtswechsel. Fährt die Person danach noch mit, kommt die Frage eine Minute später.
-        guard manager.currentActivity != .navigating, !AppModel.shared.navigation.isNavigating,
-              Date().timeIntervalSince(navigationEndedAt) > 60 else { return false }
+        // Auch während der Fahrt fragen (vorher nie – wer erst nach dem Losfahren erkannt wurde, blieb draußen).
+        // Nur nicht in der ersten Minute nach dem Ende, da wechselt CarPlay gerade die Ansicht.
+        guard Date().timeIntervalSince(navigationEndedAt) > 60 else { return false }
         guard let template = alertTemplate, template.currentNavigationAlert == nil else { return false }
         _ = template
         Diag.log("Mitfahrer-Frage: \(friend.displayName)")
         let first = friend.firstName
-        let yes = CPAlertAction(title: String(localized: "Ja, ausblenden"), style: .default) { [weak self] _ in
+        let yes = CPAlertAction(title: String(localized: "Ja, fährt mit"), style: .default) { [weak self] _ in
             Task { @MainActor in
                 Passengers.shared.setRiding(friend.friendId, true)
                 self?.refreshFriendsAfterPassengerChange()
@@ -151,7 +190,7 @@ extension CarPlayController {
                                          faded: false, photo: AppModel.shared.avatars.image(for: friend.friendId))
         let alert = CPNavigationAlert(
             titleVariants: [String(localized: "Fährt \(first) bei dir mit?"), String(localized: "\(first) fährt mit?")],
-            subtitleVariants: [String(localized: "Dann blende ich \(first) für diese Fahrt aus")],
+            subtitleVariants: [String(localized: "Dann gehört \(first) zum Konvoi und verschwindet von der Karte")],
             image: image, primaryAction: yes, secondaryAction: no, duration: 20)
         return CarPlayUI.shared.alert(alert, priority: .low)
     }

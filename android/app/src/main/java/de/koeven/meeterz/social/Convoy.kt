@@ -213,10 +213,21 @@ object Passengers {
     /** Alle 30 s: wer fährt seit ≥ 1,5 Min. zeitgleich dicht bei mir? ask gibt zurück, ob die Frage erschien */
     fun check(ask: (FriendRow) -> Boolean) {
         val r = riding
+        val now = System.currentTimeMillis()
+        val live = AppState.hub.positions.value
+        val poke = mutableListOf<String>()
         for (f in AppState.friends.value.filter { it.isAccepted }) {
             val id = f.friendId
-            if (id in r || id in asked || !SoundMoments.isCompanion(id, 3, 90.0)) continue
-            if (ask(f)) asked += id
+            if (id in r || id in asked) continue
+            if (SoundMoments.isCompanion(id, 2, 60.0)) { if (ask(f)) asked += id; continue }
+            // Nah dran, aber die Position ist alt (Handy in der Tasche meldet sich im Hintergrund selten):
+            // frische Position anfordern, sonst fehlen die Messpunkte für die Erkennung (wie iOS)
+            val age = live[id]?.ageSeconds ?: continue
+            if ((SoundMoments.lastDistance(id) ?: Double.MAX_VALUE) < 300 && age > 30 && now - (pokedAt[id] ?: 0) > 60_000) {
+                poke += id; pokedAt[id] = now
+            }
         }
+        if (poke.isNotEmpty()) de.koeven.meeterz.live.PushService.requestLocations(poke)
     }
+    private val pokedAt = mutableMapOf<String, Long>()
 }

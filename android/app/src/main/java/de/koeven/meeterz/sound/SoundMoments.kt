@@ -70,11 +70,17 @@ object SoundMoments {
         list.removeAll { p.ts - it.ts > 600 }
     }
 
-    /** Fährt dicht mit mir (Mitfahrer): die letzten zeitgleichen Messpunkte (≥ 2) alle unter 150 m, während ich fahre */
+    /**
+     * Fährt dicht mit mir (Mitfahrer): die letzten zeitgleichen Messpunkte (≥ 2) alle unter 150 m, mindestens einer in
+     * Fahrt. Ein Halt (Ampel, Stau) unterbricht die Reihe nicht mehr – vorher dauerte die Erkennung oft 15 Min. (wie iOS).
+     */
     fun isCompanion(id: String, minSamples: Int = 2, minSpan: Double = 0.0): Boolean {
-        val close = samples[id]?.asReversed()?.takeWhile { it.distance < 150 && it.moving && it.sameDirection != false } ?: return false
-        return close.size >= minSamples && close.first().ts - close.last().ts >= minSpan
+        val close = samples[id]?.asReversed()?.takeWhile { it.distance < 150 && it.sameDirection != false } ?: return false
+        return close.size >= minSamples && close.any { it.moving } && close.first().ts - close.last().ts >= minSpan
     }
+
+    /** Letzter zeitgleicher Abstand zu diesem Freund (Meter) */
+    fun lastDistance(id: String): Double? = samples[id]?.lastOrNull()?.distance
 
     private enum class Encounter { PASS, CATCH_UP }
 

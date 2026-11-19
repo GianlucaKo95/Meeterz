@@ -85,11 +85,14 @@ final class Passengers {
         return sample
     }
 
-    /// Fährt dicht mit mir: die letzten zeitgleichen Messpunkte (≥ 2) alle unter 150 m, während ich fahre
+    /// Fährt dicht mit mir: die letzten zeitgleichen Messpunkte (≥ 2) alle unter 150 m, mindestens einer davon in Fahrt.
+    /// Ein Halt (Ampel, Stau) unterbricht die Reihe nicht mehr – vorher fing die Zählung nach jedem Stopp von vorn an,
+    /// in der Stadt dauerte die Erkennung so oft 15 Minuten (19.11.).
     func isCompanion(_ id: UUID, minSamples: Int = 2, minSpan: TimeInterval = 0) -> Bool {
         guard let list = samples[id] else { return false }
-        let close = list.reversed().prefix { $0.distance < 150 && $0.moving && $0.sameDirection != false }
-        guard close.count >= minSamples, let newest = close.first, let oldest = close.last else { return false }
+        let close = list.reversed().prefix { $0.distance < 150 && $0.sameDirection != false }
+        guard close.count >= minSamples, close.contains(where: \.moving),
+              let newest = close.first, let oldest = close.last else { return false }
         return newest.ts - oldest.ts >= minSpan
     }
 
@@ -112,14 +115,24 @@ final class Passengers {
     /// Freundespositionen kommen verzögert – darum zählt der Abstand zu meiner Position zu ihrem Zeitstempel.
     func check(ask: (FriendRow) -> Bool) {
         let app = AppModel.shared
+        var poke: [UUID] = []
         for item in app.friendsOnMapIncludingPassengers {
             let id = item.friend.friendId
             observe(id, item.position)
-            guard !riding.contains(id), !asked.contains(id),
-                  isCompanion(id, minSamples: 3, minSpan: 90) else { continue }
-            if ask(item.friend) { asked.insert(id) }   // nur als „gefragt“ merken, wenn die Frage auch erschien
+            guard !riding.contains(id), !asked.contains(id) else { continue }
+            if isCompanion(id, minSamples: 2, minSpan: 60) {
+                if ask(item.friend) { asked.insert(id) }   // nur als „gefragt“ merken, wenn die Frage auch erschien
+            } else if let last = samples[id]?.last, last.distance < 300, item.position.age > 30,
+                      Date().timeIntervalSince(pokedAt[id] ?? .distantPast) > 60 {
+                // Nah dran, aber die Position ist alt: Ein Handy in der Tasche meldet sich im Hintergrund selten.
+                // Frische Position anfordern (stiller Push), sonst fehlen die Messpunkte für die Erkennung.
+                poke.append(id)
+                pokedAt[id] = Date()
+            }
         }
+        if !poke.isEmpty { app.push.requestLocations(of: poke) }
     }
+    @ObservationIgnored private var pokedAt: [UUID: Date] = [:]
 
     func setRiding(_ id: UUID, _ riding: Bool) {
         if riding { ridingNow.insert(id) } else { ridingNow.remove(id) }

@@ -177,16 +177,16 @@ def status(bundle_identifier):
 def certs(drop_expiring=None):
     """Listet die Distributionszertifikate (Ablaufdatum = Erstellung + 1 Jahr). Mit `drop_expiring` (Anfang des
     Ablaufdatums, z. B. 2027-10-29T09:08) wird genau dieses Zertifikat gelöscht – nur wenn es zu keinem Profil gehört."""
-    used = set()
+    used = {}
     for prof in api("GET", "/v1/profiles?limit=200").get("data", []):
         try:
             for c in api("GET", f"/v1/profiles/{prof['id']}/certificates").get("data", []):
-                used.add(c["id"])
+                used.setdefault(c["id"], []).append(prof["attributes"].get("name", ""))
         except SystemExit:
             pass
     for c in api("GET", "/v1/certificates?filter[certificateType]=DISTRIBUTION&limit=50").get("data", []):
         a = c["attributes"]
-        print("Zertifikat:", c["id"], a.get("name"), "läuft ab", a.get("expirationDate"), "in Profil" if c["id"] in used else "ohne Profil")
+        print("Zertifikat:", c["id"], a.get("name"), "läuft ab", a.get("expirationDate"), "in Profil: " + ", ".join(used[c["id"]]) if c["id"] in used else "ohne Profil")
         if drop_expiring and (a.get("expirationDate") or "").startswith(drop_expiring) and c["id"] not in used:
             api("DELETE", f"/v1/certificates/{c['id']}")
             print("  -> gelöscht")

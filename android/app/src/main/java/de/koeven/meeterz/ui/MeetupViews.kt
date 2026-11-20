@@ -589,7 +589,7 @@ fun ArrivalTimeline(items: List<TimelineItem>) {
                 Text(item.name, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, maxLines = 1)
                 Text(if (item.here) tr("da") else item.eta?.let { clock(it) } ?: "–",
                     style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"),
-                    color = if (item.here) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant)
+                    color = item.color)  // Zeit bzw. „da“ in der Farbe der Person (wie iOS)
             }
         }
     }

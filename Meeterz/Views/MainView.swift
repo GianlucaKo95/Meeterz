@@ -1039,7 +1039,7 @@ struct ArrivalTimeline: View {
                         Text(p.item.name).font(.system(size: 12, weight: .semibold, design: .rounded)).lineLimit(1)
                         Text(p.item.here ? String(localized: "da") : (p.item.eta.map { $0.formatted(date: .omitted, time: .shortened) } ?? "–"))
                             .font(.system(size: 12, design: .rounded)).monospacedDigit()
-                            .foregroundStyle(p.item.here ? Theme.go : Theme.muted)
+                            .foregroundStyle(p.item.color)  // Zeit bzw. „da“ in der Farbe der Person
                     }
                     .frame(width: Self.labelWidth)
                     .position(x: min(max(p.x, Self.labelWidth / 2), w - Self.labelWidth / 2),

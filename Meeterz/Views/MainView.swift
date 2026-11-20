@@ -1011,7 +1011,8 @@ struct ArrivalTimeline: View {
     private func layout(width: CGFloat) -> [Placed] {
         let now = Date()
         let latest = items.compactMap(\.eta).max() ?? now
-        let span = max(latest.timeIntervalSince(now), 5 * 60)
+        // Rechtes Ende mindestens 30 min: wer in 6 min kommt, steht nicht ganz rechts, als wäre er weit weg (20.11.)
+        let span = max(latest.timeIntervalSince(now), 30 * 60)
         let inset: CGFloat = 6
         let xs = items.map { item -> (Item, CGFloat) in
             guard !item.here, let eta = item.eta else { return (item, inset) }

@@ -560,7 +560,8 @@ fun ArrivalTimeline(items: List<TimelineItem>) {
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().height(if (twoRows) 80.dp else 48.dp)) {
         val w = maxWidth
         val now = System.currentTimeMillis() / 1000
-        val span = maxOf((items.mapNotNull { it.eta }.maxOrNull() ?: now) - now, 5 * 60L).toFloat()
+        // Rechtes Ende mindestens 30 min: wer in 6 min kommt, steht nicht ganz rechts (wie iOS)
+        val span = maxOf((items.mapNotNull { it.eta }.maxOrNull() ?: now) - now, 30 * 60L).toFloat()
         val inset = 6.dp
         val placed = items.map { item ->
             val f = if (item.here || item.eta == null) 0f else ((item.eta - now) / span).coerceIn(0f, 1f)

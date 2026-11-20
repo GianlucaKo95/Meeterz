@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.double
+import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -47,6 +48,38 @@ object Directions {
             "?overview=false&alternatives=false$exclude$depart&access_token=${MapboxOptions.accessToken}").bodyAsText()
         Json.parseToJsonElement(body).jsonObject["routes"]?.jsonArray?.firstOrNull()?.jsonObject?.get("duration")?.jsonPrimitive?.double
     }.getOrNull()
+}
+
+/**
+ * Fahrzeiten unter den Kacheln der Zielsuche (wie TileTravelTimes auf iOS): EINE Mapbox-Matrix-Anfrage von hier zu bis
+ * zu 9 Zielen (driving-traffic erlaubt 10 Koordinaten). Neu gerechnet erst nach 500 m Weg oder 5 Minuten.
+ */
+object TileTravelTimes {
+    private val http by lazy { HttpClient(OkHttp) }
+    private var origin: Pair<Double, Double>? = null
+    private var at = 0L
+    private var times: Map<String, Double> = emptyMap()
+
+    fun key(lat: Double, lng: Double) = String.format(java.util.Locale.US, "%.4f,%.4f", lat, lng)
+
+    suspend fun get(lat: Double, lng: Double, targets: List<Pair<Double, Double>>): Map<String, Double> {
+        val wanted = targets.filter { ChargePlanner.distance(lat, lng, it.first, it.second) >= 200 }.take(9)
+        val fresh = origin?.let { ChargePlanner.distance(it.first, it.second, lat, lng) < 500 } == true &&
+            System.currentTimeMillis() - at < 5 * 60_000
+        if (fresh && wanted.all { key(it.first, it.second) in times }) return times
+        if (wanted.isEmpty()) return times
+        return runCatching {
+            val coords = (listOf(lat to lng) + wanted).joinToString(";") { "${it.second},${it.first}" }
+            val body = http.get("https://api.mapbox.com/directions-matrix/v1/mapbox/driving-traffic/$coords" +
+                "?sources=0&annotations=duration&access_token=${MapboxOptions.accessToken}").bodyAsText()
+            val row = Json.parseToJsonElement(body).jsonObject["durations"]!!.jsonArray[0].jsonArray
+            val result = wanted.mapIndexedNotNull { i, t ->
+                row.getOrNull(i + 1)?.jsonPrimitive?.doubleOrNull?.let { key(t.first, t.second) to it }
+            }.toMap()
+            origin = lat to lng; at = System.currentTimeMillis(); times = result
+            result
+        }.getOrDefault(times)
+    }
 }
 
 /**

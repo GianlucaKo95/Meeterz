@@ -321,3 +321,39 @@ enum Polyline {
         return s
     }
 }
+
+/// Fahrzeiten unter den Kacheln der Zielsuche (wie Apple „Arbeit · 40 Min.“): EINE Mapbox-Matrix-Anfrage von hier zu
+/// bis zu 9 Zielen (driving-traffic erlaubt 10 Koordinaten). Neu gerechnet erst nach 500 m Weg oder 5 Minuten –
+/// abgerechnet wird je Ziel, das Freikontingent liegt bei 100.000 im Monat.
+@MainActor
+enum TileTravelTimes {
+    private static var origin: CLLocation?
+    private static var at = Date.distantPast
+    private static var times: [String: TimeInterval] = [:]
+
+    static func key(_ c: CLLocationCoordinate2D) -> String { String(format: "%.4f,%.4f", c.latitude, c.longitude) }
+
+    /// Fahrzeiten (s) je Ziel-Schlüssel; fehlende Ziele bleiben weg (dann zeigt die Kachel die Entfernung)
+    static func get(from here: CLLocation, to targets: [CLLocationCoordinate2D]) async -> [String: TimeInterval] {
+        let wanted = Array(targets.filter { $0.distance(to: here.coordinate) >= 200 }.prefix(9))
+        let fresh = origin.map { $0.distance(from: here) < 500 } == true && Date().timeIntervalSince(at) < 5 * 60
+        if fresh, wanted.allSatisfy({ times[key($0)] != nil }) { return times }
+        guard !wanted.isEmpty else { return times }
+        let coords = ([here.coordinate] + wanted).map { String(format: "%.6f,%.6f", $0.longitude, $0.latitude) }.joined(separator: ";")
+        var url = URLComponents(string: "https://api.mapbox.com/directions-matrix/v1/mapbox/driving-traffic/\(coords)")!
+        url.queryItems = [
+            URLQueryItem(name: "sources", value: "0"),
+            URLQueryItem(name: "annotations", value: "duration"),
+            URLQueryItem(name: "access_token", value: AppConfig.mapboxToken),
+        ]
+        struct Response: Decodable { let durations: [[Double?]]? }
+        guard let (data, _) = try? await URLSession.shared.data(from: url.url!),
+              let row = (try? JSONDecoder().decode(Response.self, from: data))?.durations?.first else { return times }
+        var result: [String: TimeInterval] = [:]
+        for (i, c) in wanted.enumerated() where i + 1 < row.count {
+            if let d = row[i + 1] { result[key(c)] = d }
+        }
+        origin = here; at = Date(); times = result
+        return result
+    }
+}

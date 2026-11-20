@@ -101,6 +101,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -1338,8 +1339,22 @@ private fun SearchStart(
     }
     openList?.let { id -> PlaceListDialog(id, onChoose, onDismiss = { openList = null }) }
     val me = AppState.lastLocation
-    fun near(lat: Double, lng: Double) = me?.let { ChargePlanner.distance(it.latitude, it.longitude, lat, lng) }
-        ?.let { if (it < 200) tr("In der Nähe") else distanceText(it) }
+    // Fahrzeiten unter den Kacheln (eine Mapbox-Matrix-Anfrage, wie iOS)
+    val times by produceState(emptyMap<String, Double>()) {
+        val here = me ?: return@produceState
+        val targets = favorites.map { it.lat to it.lng } + friends.filter { it.isAccepted }.mapNotNull { f ->
+            val p = live[f.friendId]; val la = p?.lat ?: f.lat; val ln = p?.lng ?: f.lng
+            if (la != null && ln != null) la to ln else null
+        }
+        value = de.koeven.meeterz.suggest.TileTravelTimes.get(here.latitude, here.longitude, targets)
+    }
+    fun near(lat: Double, lng: Double) = me?.let { ChargePlanner.distance(it.latitude, it.longitude, lat, lng) }?.let { d ->
+        when {
+            d < 200 -> tr("In der Nähe")
+            else -> times[de.koeven.meeterz.suggest.TileTravelTimes.key(lat, lng)]?.let { tr("%@ Min.", maxOf(1, Math.round(it / 60).toInt())) }
+                ?: distanceText(d)
+        }
+    }
 
     Surface(Modifier.padding(top = 8.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface,
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {

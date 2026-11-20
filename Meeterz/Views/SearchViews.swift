@@ -27,6 +27,8 @@ struct SearchView: View {
     /// „In der Nähe finden“: gewählte Kategorie (statt Freitext)
     @State private var category: SearchService.Stopover?
     @State private var suggestion: RouteSuggestions.Suggestion?
+    /// Fahrzeiten unter den Kacheln (Mapbox-Matrix, siehe TileTravelTimes)
+    @State private var tileTimes: [String: TimeInterval] = [:]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -88,6 +90,12 @@ struct SearchView: View {
         .task(id: query) { await search() }
         .task(id: category) { await searchCategory() }
         .task { suggestion = await RouteSuggestions.shared.refresh() }
+        .task {
+            guard let here = app.location.lastLocation else { return }
+            let targets = [app.favorites.home, app.favorites.work].compactMap { $0?.place.coordinate }
+                + app.favorites.others.map(\.place.coordinate) + app.friendsOnMap.map(\.position.coordinate)
+            tileTimes = await TileTravelTimes.get(from: here, to: targets)
+        }
         .task { if !app.lists.loaded { await app.lists.refresh() } }
         .sheet(item: $savingToList) { SaveToListSheet(place: $0).presentationDetents([.medium, .large]) }
         .sheet(item: Binding(get: { openList.map(ListID.init) }, set: { openList = $0?.id })) { item in
@@ -236,9 +244,12 @@ struct SearchView: View {
         }
     }
 
-    /// Entfernung unter der Kachel: „In der Nähe“ bis 200 m (wie Apple)
+    /// Unter der Kachel: „In der Nähe“ bis 200 m, sonst Fahrzeit (wie Apple), ohne sie die Entfernung
     private func shortDistance(_ place: Place) -> String? {
-        distance(to: place).map { $0 < 200 ? String(localized: "In der Nähe") : ActivityFormat.distance($0) }
+        guard let d = distance(to: place) else { return nil }
+        if d < 200 { return String(localized: "In der Nähe") }
+        if let t = tileTimes[TileTravelTimes.key(place.coordinate)] { return String(localized: "\(max(1, Int((t / 60).rounded()))) Min.") }
+        return ActivityFormat.distance(d)
     }
 
     private func favoriteTile(_ fav: Favorite) -> some View {

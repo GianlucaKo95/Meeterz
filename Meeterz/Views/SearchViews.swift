@@ -132,6 +132,7 @@ struct SearchView: View {
     }
 
     private func finishAssigning() {
+        focused = false   // nach dem Speichern wieder die Startseite ohne Tastatur zeigen
         namingPlace = nil
         assigning = nil
         query = ""
@@ -263,9 +264,10 @@ struct SearchView: View {
                 }
                 .frame(width: 64, height: 64)
                 Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.text).lineLimit(1)
+                    .minimumScaleFactor(0.8)   // „Hinzufügen“ passte sonst nicht ganz
                 Text(subtitle ?? " ").font(.caption).foregroundStyle(Theme.muted).lineLimit(1)
             }
-            .frame(width: 80)
+            .frame(width: 84)
         }
         .buttonStyle(.plain)
     }

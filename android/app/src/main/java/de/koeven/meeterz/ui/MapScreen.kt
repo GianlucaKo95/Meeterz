@@ -1456,7 +1456,7 @@ private fun SuggestionRow(icon: androidx.compose.ui.graphics.vector.ImageVector,
 private fun Tile(icon: androidx.compose.ui.graphics.vector.ImageVector?, initials: String?, color: androidx.compose.ui.graphics.Color,
                  title: String, subtitle: String?, tint: androidx.compose.ui.graphics.Color = androidx.compose.ui.graphics.Color.White,
                  onLongClick: (() -> Unit)? = null, onClick: () -> Unit) {
-    Column(Modifier.width(76.dp).combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(vertical = 4.dp),
+    Column(Modifier.width(84.dp).combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally) {
         Box(Modifier.size(60.dp).background(color, androidx.compose.foundation.shape.CircleShape), contentAlignment = Alignment.Center) {
             icon?.let { Icon(it, null, tint = tint, modifier = Modifier.size(28.dp)) }

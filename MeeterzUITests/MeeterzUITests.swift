@@ -183,15 +183,18 @@ final class MeeterzUITests: MeeterzTestBase {
         // 5. Zielsuche
         app.buttons["Ziel suchen"].tap()
 
-        // Favoriten: „Zuhause“ festlegen, danach steht es oben in der Liste
-        let setHome = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Zuhause festlegen'")).firstMatch
+        // Startseite wie Apple Karten: zuerst die Vorschläge und Kacheln, ohne Tastatur
+        pause(2)
+        shot("suche-start")
+        // Orte: Kachel „Zuhause · Festlegen“, danach zeigt sie die Entfernung
+        let setHome = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Zuhause' AND label CONTAINS 'Festlegen'")).firstMatch
         need(setHome, "zuhause-festlegen").tap()
         type("Düsseldorf Hauptbahnhof", into: need(app.textFields.firstMatch, "suchfeld-zuhause"))
         let homeResult = app.buttons.containing(NSPredicate(format: "label CONTAINS 'Hauptbahnhof'")).firstMatch
         need(homeResult, "zuhause-ergebnis", timeout: 30).tap()
-        let homeRow = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Zuhause' AND NOT label CONTAINS 'festlegen'")).firstMatch
+        let homeRow = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Zuhause' AND NOT label CONTAINS 'Festlegen'")).firstMatch
         need(homeRow, "zuhause-gespeichert")
-        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS 'Arbeit festlegen'")).firstMatch.exists, "Arbeit noch leer")
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS 'Arbeit' AND label CONTAINS 'Festlegen'")).firstMatch.exists, "Arbeit noch leer")
         shot("favoriten")
 
         let searchField = need(app.textFields["Adresse oder Ort"], "suchfeld")

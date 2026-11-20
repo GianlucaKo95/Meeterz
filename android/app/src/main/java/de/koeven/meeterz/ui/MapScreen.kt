@@ -1,6 +1,13 @@
 package de.koeven.meeterz.ui
 
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.LocalGasStation
+import androidx.compose.material.icons.filled.EvStation
+import androidx.compose.material.icons.filled.LocalParking
+import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.LocalCafe
 import de.koeven.meeterz.tr
 import androidx.compose.material.icons.filled.AddLocationAlt
 import androidx.compose.material.icons.filled.Place
@@ -303,7 +310,9 @@ fun MapScreen() {
         AppState.openPlace.value = null
         planTo(d.name, d.address, d.lat, d.lng)
     }
+    var nearbyCategory by remember { mutableStateOf<PlaceSearch.Category?>(null) }
     LaunchedEffect(query) {
+        if (query.isNotEmpty()) nearbyCategory = null else if (nearbyCategory != null) return@LaunchedEffect
         delay(300)   // erst suchen, wenn kurz nicht getippt wird
         val me = AppState.lastLocation
         results = PlaceSearch.search(query, me?.latitude, me?.longitude)
@@ -531,11 +540,22 @@ fun MapScreen() {
                     MapCircleButton(Icons.Default.People, tr("Freunde"),
                         badge = friends.any { !it.isAccepted && it.incoming }, activeDot = friendRoutes.isNotEmpty()) { showUnterwegs = true }
                 }
-                if (query.isEmpty() && preview == null && searchFocused && assigning == null) {
+                // „In der Nähe finden“: gewählte Kategorie als Chip, Treffer in der Ergebnisliste darunter (wie iOS)
+                nearbyCategory?.let { c ->
+                    androidx.compose.material3.InputChip(selected = true, onClick = { nearbyCategory = null; results = emptyList() },
+                        label = { Text(c.title) }, trailingIcon = { Icon(Icons.Default.Close, null, Modifier.size(16.dp)) },
+                        modifier = Modifier.padding(top = 8.dp))
+                }
+                if (query.isEmpty() && preview == null && searchFocused && assigning == null && nearbyCategory == null) {
                     SearchStart(favorites, visibleFriends, live,
                         onChoose = { n, a, la, ln -> choose(n, a, la, ln) },
                         onAssign = { assigning = it },
-                        onRename = { renaming = it })
+                        onRename = { renaming = it },
+                        onCategory = { c ->
+                            nearbyCategory = c
+                            val me = AppState.lastLocation ?: return@SearchStart
+                            scope.launch { results = PlaceSearch.stopovers(c, me.latitude, me.longitude).map { it.place } }
+                        })
                 }
                 if (query.isEmpty() && preview == null && !searchFocused) {
                     Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.Top) {
@@ -1291,9 +1311,9 @@ private fun pinBitmap(): android.graphics.Bitmap {
 
 
 /**
- * Suche ohne Eingabe (wie iOS SearchView): Favoriten mit Zuhause/Arbeit (sonst „… festlegen“), eigene Orte,
- * „Favorit hinzufügen“; darunter Schnellziele (vereinbarte Treffpunkte, Freunde). Gedrückt halten: umbenennen,
- * Adresse ändern, löschen.
+ * Suche ohne Eingabe, aufgebaut wie Apple Karten (wie iOS SearchView): Vorschläge (Termin/übliches Ziel, Treffen,
+ * geparktes Auto), Orte und Freunde als runde Kacheln, Zuletzt, Listen, In der Nähe finden. Kacheln gedrückt halten:
+ * umbenennen, Adresse ändern, löschen.
  */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
@@ -1304,26 +1324,85 @@ private fun SearchStart(
     onChoose: (String, String?, Double, Double) -> Unit,
     onAssign: (String) -> Unit,
     onRename: (de.koeven.meeterz.data.Favorite) -> Unit,
+    onCategory: (PlaceSearch.Category) -> Unit,
 ) {
     val meetups by AppState.meetups.meetups.collectAsState()
     val lists by de.koeven.meeterz.data.PlaceLists.lists.collectAsState()
+    val suggestion by de.koeven.meeterz.suggest.RouteSuggestions.current.collectAsState()
+    val parked by de.koeven.meeterz.suggest.Parking.spot.collectAsState()
+    val recents by de.koeven.meeterz.suggest.Recents.items.collectAsState()
     var openList by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(Unit) { if (!de.koeven.meeterz.data.PlaceLists.loaded) de.koeven.meeterz.data.PlaceLists.refresh() }
+    LaunchedEffect(Unit) {
+        if (!de.koeven.meeterz.data.PlaceLists.loaded) de.koeven.meeterz.data.PlaceLists.refresh()
+        de.koeven.meeterz.suggest.RouteSuggestions.refresh()
+    }
     openList?.let { id -> PlaceListDialog(id, onChoose, onDismiss = { openList = null }) }
+    val me = AppState.lastLocation
+    fun near(lat: Double, lng: Double) = me?.let { ChargePlanner.distance(it.latitude, it.longitude, lat, lng) }
+        ?.let { if (it < 200) tr("In der Nähe") else distanceText(it) }
+
     Surface(Modifier.padding(top = 8.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface,
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-        LazyColumn(Modifier.heightIn(max = 460.dp).padding(vertical = 8.dp)) {
-            item { SearchHeader(tr("Favoriten")) }
-            for (kind in listOf("home", "work")) {
-                val fav = favorites.firstOrNull { it.kind == kind }
-                item(kind) {
-                    if (fav != null) FavoriteRow(fav, onChoose, onAssign, onRename)
-                    else SearchRow(if (kind == "home") Icons.Default.Home else Icons.Default.Work,
-                        if (kind == "home") tr("Zuhause festlegen") else tr("Arbeit festlegen"), tr("Adresse suchen und speichern")) { onAssign(kind) }
+        LazyColumn(Modifier.heightIn(max = 560.dp).padding(vertical = 8.dp)) {
+            // Vorschläge
+            val accepted = meetups.filter { it.isAccepted }.distinctBy { it.groupId ?: it.id }
+            if (suggestion != null || accepted.isNotEmpty() || parked != null) {
+                item { SearchHeader(tr("Vorschläge")) }
+                suggestion?.let { sg -> item("sg") {
+                    SuggestionRow(if (sg.calendarTitle != null) Icons.Default.Event else Icons.Default.History,
+                        androidx.compose.ui.graphics.Color(0xFFE0457B), sg.title, sg.subtitle) { onChoose(sg.name, sg.address, sg.lat, sg.lng) }
+                } }
+                items(accepted, key = { "m" + it.id }) { m ->
+                    SuggestionRow(Icons.Default.Groups, MaterialTheme.colorScheme.primary, m.placeName,
+                        tr("Treffen mit %@", if (m.incoming) m.withText else m.otherName)) { onChoose(m.placeName, null, m.lat, m.lng) }
+                }
+                parked?.let { p -> item("park") {
+                    SuggestionRow(Icons.Default.DirectionsCar, androidx.compose.ui.graphics.Color(0xFF3478F6), tr("Geparktes Auto"),
+                        near(p.lat, p.lng)) { onChoose(tr("Dein Auto"), null, p.lat, p.lng) }
+                } }
+            }
+            // Orte als runde Kacheln
+            item { SearchHeader(tr("Orte")) }
+            item("orte") {
+                androidx.compose.foundation.lazy.LazyRow(contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    for (kind in listOf("home", "work")) {
+                        val fav = favorites.firstOrNull { it.kind == kind }
+                        item(kind) {
+                            if (fav != null) FavoriteTile(fav, near(fav.lat, fav.lng), onChoose, onAssign, onRename)
+                            else Tile(if (kind == "home") Icons.Default.Home else Icons.Default.Work, null, tileColor(kind),
+                                if (kind == "home") tr("Zuhause") else tr("Arbeit"), tr("Festlegen")) { onAssign(kind) }
+                        }
+                    }
+                    items(favorites.filter { it.kind == "other" }, key = { it.id }) { FavoriteTile(it, near(it.lat, it.lng), onChoose, onAssign, onRename) }
+                    item("add") { Tile(Icons.Default.Add, null, MaterialTheme.colorScheme.surfaceVariant, tr("Hinzufügen"), null,
+                        tint = MaterialTheme.colorScheme.primary) { onAssign("other") } }
                 }
             }
-            items(favorites.filter { it.kind == "other" }, key = { it.id }) { FavoriteRow(it, onChoose, onAssign, onRename) }
-            item { SearchRow(Icons.Default.AddCircleOutline, tr("Favorit hinzufügen"), tr("Ort suchen und mit Namen speichern")) { onAssign("other") } }
+            // Freunde: Ziel ist ihr aktueller Standort
+            val friendPlaces = friends.filter { it.isAccepted }.mapNotNull { f ->
+                val p = live[f.friendId]; val lat = p?.lat ?: f.lat; val lng = p?.lng ?: f.lng
+                if (lat != null && lng != null) Triple(f, lat, lng) else null
+            }
+            if (friendPlaces.isNotEmpty()) {
+                item { SearchHeader(tr("Freunde")) }
+                item("freunde") {
+                    androidx.compose.foundation.lazy.LazyRow(contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        items(friendPlaces, key = { it.first.friendId }) { (f, lat, lng) ->
+                            Tile(null, f.displayName.take(1).uppercase(), FriendPalette.routeColor(f.friendId), f.firstName, near(lat, lng)) {
+                                onChoose(f.displayName, null, lat, lng)
+                            }
+                        }
+                    }
+                }
+            }
+            if (recents.isNotEmpty()) {
+                item { SearchHeader(tr("Zuletzt")) }
+                items(recents.take(5), key = { "r" + it.lat + it.lng }) { r ->
+                    SearchRow(Icons.Default.History, r.name, r.address) { onChoose(r.name, r.address, r.lat, r.lng) }
+                }
+            }
             // Eigene und von Freunden geteilte Ortslisten (wie iOS)
             if (lists.isNotEmpty()) {
                 item { SearchHeader(tr("Listen")) }
@@ -1333,20 +1412,73 @@ private fun SearchStart(
                         listOfNotNull(owner, tr("%lld Orte", l.items.size)).joinToString(" · ")) { openList = l.id }
                 }
             }
-            val meetupPlaces = meetups.filter { it.isAccepted }.distinctBy { it.groupId ?: it.id }
-            val friendPlaces = friends.filter { it.isAccepted }.mapNotNull { f ->
-                val p = live[f.friendId]; val lat = p?.lat ?: f.lat; val lng = p?.lng ?: f.lng
-                if (lat != null && lng != null) Triple(f, lat, lng) else null
+            item { SearchHeader(tr("In der Nähe finden")) }
+            items(PlaceSearch.Category.stopovers, key = { "c" + it.name }) { c ->
+                SearchRow(categoryIcon(c), c.title, null) { onCategory(c) }
             }
-            if (meetupPlaces.isNotEmpty() || friendPlaces.isNotEmpty()) {
-                item { SearchHeader(tr("Schnellziele")) }
-                items(meetupPlaces, key = { "m" + it.id }) { m ->
-                    SearchRow(Icons.Default.Event, m.placeName, m.withText) { onChoose(m.placeName, null, m.lat, m.lng) }
-                }
-                items(friendPlaces, key = { "f" + it.first.friendId }) { (f, lat, lng) ->
-                    SearchRow(Icons.Default.Person, f.displayName, tr("Aktueller Standort")) { onChoose(f.displayName, null, lat, lng) }
-                }
-            }
+        }
+    }
+}
+
+private fun tileColor(kind: String) = when (kind) {
+    "home" -> androidx.compose.ui.graphics.Color(0xFF4FC3F7)
+    "work" -> androidx.compose.ui.graphics.Color(0xFF8D6E63)
+    else -> androidx.compose.ui.graphics.Color(0xFFE0457B)
+}
+
+private fun categoryIcon(c: PlaceSearch.Category) = when (c) {
+    PlaceSearch.Category.GAS -> Icons.Default.LocalGasStation
+    PlaceSearch.Category.CHARGING -> Icons.Default.EvStation
+    PlaceSearch.Category.PARKING -> Icons.Default.LocalParking
+    PlaceSearch.Category.RESTAURANT -> Icons.Default.Restaurant
+    PlaceSearch.Category.COFFEE -> Icons.Default.LocalCafe
+    else -> Icons.Default.Place
+}
+
+@Composable
+private fun SuggestionRow(icon: androidx.compose.ui.graphics.vector.ImageVector, color: androidx.compose.ui.graphics.Color,
+                          title: String, subtitle: String?, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(40.dp).background(color, androidx.compose.foundation.shape.CircleShape), contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = androidx.compose.ui.graphics.Color.White, modifier = Modifier.size(20.dp))
+        }
+        Column(Modifier.padding(start = 12.dp)) {
+            Text(title, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            subtitle?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1) }
+        }
+    }
+}
+
+/** Runde Kachel (Ort oder Freund) mit Name und Entfernung darunter */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+private fun Tile(icon: androidx.compose.ui.graphics.vector.ImageVector?, initials: String?, color: androidx.compose.ui.graphics.Color,
+                 title: String, subtitle: String?, tint: androidx.compose.ui.graphics.Color = androidx.compose.ui.graphics.Color.White,
+                 onLongClick: (() -> Unit)? = null, onClick: () -> Unit) {
+    Column(Modifier.width(76.dp).combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(Modifier.size(60.dp).background(color, androidx.compose.foundation.shape.CircleShape), contentAlignment = Alignment.Center) {
+            icon?.let { Icon(it, null, tint = tint, modifier = Modifier.size(28.dp)) }
+            initials?.let { Text(it, color = tint, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge) }
+        }
+        Text(title, Modifier.padding(top = 6.dp), fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+        Text(subtitle ?: " ", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+    }
+}
+
+@Composable
+private fun FavoriteTile(fav: de.koeven.meeterz.data.Favorite, distance: String?, onChoose: (String, String?, Double, Double) -> Unit,
+                         onAssign: (String) -> Unit, onRename: (de.koeven.meeterz.data.Favorite) -> Unit) {
+    var menu by remember { mutableStateOf(false) }
+    Box {
+        Tile(when (fav.kind) { "home" -> Icons.Default.Home; "work" -> Icons.Default.Work; else -> Icons.Default.Star }, null,
+            tileColor(fav.kind), fav.label, distance, onLongClick = { menu = true }) { onChoose(fav.label, fav.address, fav.lat, fav.lng) }
+        androidx.compose.material3.DropdownMenu(menu, { menu = false }) {
+            if (fav.kind == "other") androidx.compose.material3.DropdownMenuItem(text = { Text(tr("Umbenennen")) }, onClick = { menu = false; onRename(fav) })
+            else androidx.compose.material3.DropdownMenuItem(text = { Text(tr("Adresse ändern")) }, onClick = { menu = false; onAssign(fav.kind) })
+            androidx.compose.material3.DropdownMenuItem(text = { Text(tr("Löschen"), color = MaterialTheme.colorScheme.error) },
+                onClick = { menu = false; AppState.favorites.remove(fav.id) })
         }
     }
 }
@@ -1406,18 +1538,3 @@ private fun SearchRow(icon: androidx.compose.ui.graphics.vector.ImageVector, tit
     }
 }
 
-@Composable
-private fun FavoriteRow(fav: de.koeven.meeterz.data.Favorite, onChoose: (String, String?, Double, Double) -> Unit,
-                        onAssign: (String) -> Unit, onRename: (de.koeven.meeterz.data.Favorite) -> Unit) {
-    var menu by remember { mutableStateOf(false) }
-    Box {
-        SearchRow(when (fav.kind) { "home" -> Icons.Default.Home; "work" -> Icons.Default.Work; else -> Icons.Default.Star },
-            fav.label, fav.address, onLongClick = { menu = true }) { onChoose(fav.label, fav.address, fav.lat, fav.lng) }
-        androidx.compose.material3.DropdownMenu(menu, { menu = false }) {
-            if (fav.kind == "other") androidx.compose.material3.DropdownMenuItem(text = { Text(tr("Umbenennen")) }, onClick = { menu = false; onRename(fav) })
-            else androidx.compose.material3.DropdownMenuItem(text = { Text(tr("Adresse ändern")) }, onClick = { menu = false; onAssign(fav.kind) })
-            androidx.compose.material3.DropdownMenuItem(text = { Text(tr("Löschen"), color = MaterialTheme.colorScheme.error) },
-                onClick = { menu = false; AppState.favorites.remove(fav.id) })
-        }
-    }
-}

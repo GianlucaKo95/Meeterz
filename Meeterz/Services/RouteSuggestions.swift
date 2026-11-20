@@ -21,6 +21,7 @@ final class RouteSuggestions {
         /// Fahrzeit jetzt (s)
         let travelTime: TimeInterval
         var arrival: Date { Date().addingTimeInterval(travelTime) }
+        var isCalendar: Bool { if case .calendar = reason { true } else { false } }
 
         /// „Arbeit“ bzw. Termintitel
         var title: String {

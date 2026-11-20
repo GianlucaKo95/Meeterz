@@ -24,6 +24,9 @@ struct SearchView: View {
     @State private var renaming: Favorite?
     @State private var savingToList: Place?
     @State private var openList: UUID?
+    /// „In der Nähe finden“: gewählte Kategorie (statt Freitext)
+    @State private var category: SearchService.Stopover?
+    @State private var suggestion: RouteSuggestions.Suggestion?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -44,7 +47,16 @@ struct SearchView: View {
 
             ScrollView {
                 VStack(spacing: 8) {
-                    if query.isEmpty && assigning == nil { favorites; lists; suggestions }
+                    if let category, query.isEmpty {
+                        Button { self.category = nil; results = [] } label: {
+                            Label(category.title, systemImage: "xmark.circle.fill")
+                                .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.accent)
+                                .padding(.horizontal, 12).padding(.vertical, 6)
+                                .background(Capsule().fill(Theme.panel))
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    if query.isEmpty && assigning == nil && category == nil { start }
                     if loading { ProgressView().padding() }
                     if let errorText { Text(errorText).font(.footnote).foregroundStyle(Theme.muted) }
                     ForEach(results) { place in
@@ -71,8 +83,11 @@ struct SearchView: View {
         .background(Theme.ink)
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)   // zeigt, dass man das Fenster nach unten wegwischen kann
-        .onAppear { focused = true }
+        // Mit Ziel-Auswahl gleich tippen; sonst wie Apple Karten erst die Vorschläge zeigen (Tastatur verdeckte sie)
+        .onAppear { if onPick != nil { focused = true } }
         .task(id: query) { await search() }
+        .task(id: category) { await searchCategory() }
+        .task { suggestion = await RouteSuggestions.shared.refresh() }
         .task { if !app.lists.loaded { await app.lists.refresh() } }
         .sheet(item: $savingToList) { SaveToListSheet(place: $0).presentationDetents([.medium, .large]) }
         .sheet(item: Binding(get: { openList.map(ListID.init) }, set: { openList = $0?.id })) { item in
@@ -123,30 +138,110 @@ struct SearchView: View {
         results = []
     }
 
-    /// Favoriten ganz oben: Zuhause, Arbeit (auch wenn noch leer, dann zum Festlegen) und eigene Orte
-    @ViewBuilder private var favorites: some View {
-        Text("Favoriten").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        ForEach([Favorite.Kind.home, .work], id: \.self) { kind in
-            if let fav = (kind == .home ? app.favorites.home : app.favorites.work) {
-                favoriteRow(fav)
-            } else {
-                PlaceRow(
-                    place: Place(id: "set-\(kind.rawValue)", name: kind == .home ? String(localized: "Zuhause festlegen") : String(localized: "Arbeit festlegen"),
-                                 address: String(localized: "Adresse suchen und speichern"), coordinate: .init()),
-                    distance: nil, selected: false, icon: kind == .home ? "house" : "briefcase"
-                ) { assigning = kind; focused = true }
-            }
+    // MARK: Startseite ohne Eingabe – aufgebaut wie die Suche in Apple Karten (20.11.)
+
+    @ViewBuilder private var start: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            suggestionsSection
+            placesSection
+            friendsSection
+            recentsSection
+            lists
+            nearbySection
         }
-        ForEach(app.favorites.others) { favoriteRow($0) }
-        PlaceRow(
-            place: Place(id: "new-favorite", name: String(localized: "Favorit hinzufügen"), address: String(localized: "Ort suchen und mit Namen speichern"), coordinate: .init()),
-            distance: nil, selected: false, icon: "plus.circle"
-        ) { assigning = .other; focused = true }
     }
 
-    private func favoriteRow(_ fav: Favorite) -> some View {
-        PlaceRow(place: fav.place, distance: distance(to: fav.place), selected: false, icon: fav.symbol) { choose(fav.place) }
+    private func header(_ text: LocalizedStringKey) -> some View {
+        Text(text).font(Theme.title(20)).foregroundStyle(Theme.text)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// Weiße bzw. dunkle Karte mit Trennlinien zwischen den Zeilen (wie Apple)
+    private func group<C: View>(@ViewBuilder _ content: () -> C) -> some View {
+        VStack(spacing: 0) { content() }
+            .padding(.horizontal, 12).padding(.vertical, 4)
+            .background(RoundedRectangle(cornerRadius: 18).fill(Theme.panel))
+    }
+
+    /// Vorschläge: Termin bzw. übliches Ziel, vereinbarte Treffen, geparktes Auto
+    @ViewBuilder private var suggestionsSection: some View {
+        let meetups = app.meetups.accepted
+        let parked = app.parking.spot
+        if suggestion != nil || !meetups.isEmpty || parked != nil {
+            VStack(alignment: .leading, spacing: 10) {
+                header("Vorschläge")
+                group {
+                    if let suggestion {
+                        suggestionRow(symbol: suggestion.isCalendar ? "calendar" : "clock.arrow.circlepath",
+                                      color: .pink, title: suggestion.title, subtitle: suggestion.subtitle) { choose(suggestion.place) }
+                    }
+                    ForEach(meetups) { m in
+                        suggestionRow(symbol: "person.2.fill", color: Theme.accent, title: m.placeName,
+                                      subtitle: String(localized: "Treffen mit \(m.incoming ? m.withText : m.otherName)")) { choose(m.place) }
+                    }
+                    if let parked {
+                        suggestionRow(symbol: "car.fill", color: .blue, title: String(localized: "Geparktes Auto"),
+                                      subtitle: distance(to: parked.place).map { ActivityFormat.distance($0) } ?? "") { choose(parked.place) }
+                    }
+                }
+            }
+        }
+    }
+
+    private func suggestionRow(symbol: String, color: Color, title: String, subtitle: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: symbol).font(.system(size: 17, weight: .semibold)).foregroundStyle(.white)
+                    .frame(width: 40, height: 40).background(Circle().fill(color))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(Theme.title(16)).foregroundStyle(Theme.text).lineLimit(1)
+                    if !subtitle.isEmpty { Text(subtitle).font(.subheadline).foregroundStyle(Theme.muted).lineLimit(1) }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.vertical, 10).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// Orte: Zuhause, Arbeit, eigene Favoriten als runde Kacheln nebeneinander, zuletzt „Hinzufügen“
+    private var placesSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            header("Orte")
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(alignment: .top, spacing: 14) {
+                    ForEach([Favorite.Kind.home, .work], id: \.self) { kind in
+                        if let fav = (kind == .home ? app.favorites.home : app.favorites.work) {
+                            favoriteTile(fav)
+                        } else {
+                            tile(symbol: kind == .home ? "house.fill" : "briefcase.fill", color: tileColor(kind),
+                                 title: kind == .home ? String(localized: "Zuhause") : String(localized: "Arbeit"),
+                                 subtitle: String(localized: "Festlegen")) { assigning = kind; focused = true }
+                        }
+                    }
+                    ForEach(app.favorites.others) { favoriteTile($0) }
+                    tile(symbol: "plus", color: Theme.panelRaised, foreground: Theme.accent,
+                         title: String(localized: "Hinzufügen"), subtitle: nil) { assigning = .other; focused = true }
+                }
+            }
+        }
+    }
+
+    private func tileColor(_ kind: Favorite.Kind) -> Color {
+        switch kind {
+        case .home: .cyan
+        case .work: .brown
+        case .other: .pink
+        }
+    }
+
+    /// Entfernung unter der Kachel: „In der Nähe“ bis 200 m (wie Apple)
+    private func shortDistance(_ place: Place) -> String? {
+        distance(to: place).map { $0 < 200 ? String(localized: "In der Nähe") : ActivityFormat.distance($0) }
+    }
+
+    private func favoriteTile(_ fav: Favorite) -> some View {
+        tile(symbol: fav.symbol, color: tileColor(fav.kind), title: fav.label, subtitle: shortDistance(fav.place)) { choose(fav.place) }
             .contextMenu {
                 if fav.kind == .other {
                     Button("Umbenennen", systemImage: "pencil") { favoriteName = fav.label; renaming = fav }
@@ -157,34 +252,125 @@ struct SearchView: View {
             }
     }
 
-    /// Eigene und von Freunden geteilte Ortslisten
-    @ViewBuilder private var lists: some View {
-        if !app.lists.lists.isEmpty {
-            Text("Listen").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            ForEach(app.lists.lists) { list in
-                let owner = list.owner == app.lists.me ? nil : app.friend(list.owner)?.displayName
-                PlaceRow(place: Place(id: "list-\(list.id)", name: list.name,
-                                      address: [owner, String(localized: "\(list.items.count) Orte")].compactMap { $0 }.joined(separator: " · "),
-                                      coordinate: .init()),
-                         distance: nil, selected: false, icon: list.shared ? "person.2.fill" : "list.bullet") { openList = list.id }
+    private func tile(symbol: String? = nil, initials: String? = nil, color: Color, foreground: Color = .white,
+                      title: String, subtitle: String?, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                ZStack {
+                    Circle().fill(color)
+                    if let symbol { Image(systemName: symbol).font(.system(size: 24, weight: .semibold)).foregroundStyle(foreground) }
+                    if let initials { Text(initials).font(Theme.title(20)).foregroundStyle(foreground) }
+                }
+                .frame(width: 64, height: 64)
+                Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.text).lineLimit(1)
+                Text(subtitle ?? " ").font(.caption).foregroundStyle(Theme.muted).lineLimit(1)
+            }
+            .frame(width: 80)
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// Freunde als runde Kacheln in ihrer Farbe – Ziel ist ihr aktueller Standort
+    @ViewBuilder private var friendsSection: some View {
+        let friends = app.friendsOnMap
+        if !friends.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                header("Freunde")
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(alignment: .top, spacing: 14) {
+                        ForEach(friends, id: \.friend.friendId) { item in
+                            let place = Place(id: "friend-\(item.friend.friendId)", name: item.friend.displayName,
+                                              address: String(localized: "Aktueller Standort"), coordinate: item.position.coordinate)
+                            tile(initials: String(item.friend.displayName.prefix(1)).uppercased(),
+                                 color: FriendPalette.routeColor(for: item.friend.friendId), title: item.friend.firstName,
+                                 subtitle: shortDistance(place)) { choose(place) }
+                        }
+                    }
+                }
             }
         }
     }
 
-    /// Ohne Eingabe: Freunde und vereinbarte Treffpunkte als schnelle Ziele
-    @ViewBuilder private var suggestions: some View {
-        let meetupPlaces = app.meetups.accepted.map(\.place)
-        let friendPlaces = app.friendsOnMap.map {
-            Place(id: "friend-\($0.friend.friendId)", name: $0.friend.displayName,
-                  address: String(localized: "Aktueller Standort"), coordinate: $0.position.coordinate)
-        }
-        if !meetupPlaces.isEmpty || !friendPlaces.isEmpty {
-            Text("Schnellziele").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            ForEach(meetupPlaces + friendPlaces) { place in
-                PlaceRow(place: place, distance: distance(to: place), selected: false) { choose(place) }
+    /// Zuletzt angefahrene Ziele
+    @ViewBuilder private var recentsSection: some View {
+        let recents = Array(app.recents.items.prefix(5))
+        if !recents.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                header("Zuletzt")
+                group {
+                    ForEach(recents) { r in
+                        let place = Place(id: "recent-\(r.id)", name: r.name, address: r.address, coordinate: r.coordinate)
+                        PlaceRow(place: place, distance: distance(to: place), selected: false, icon: "clock") { choose(place) }
+                            .padding(.vertical, 6)
+                            .contextMenu {
+                                Button("Als Favorit speichern", systemImage: "star") { askName(for: place) }
+                                Button("In Liste speichern", systemImage: "list.bullet") { savingToList = place }
+                            }
+                    }
+                }
             }
+        }
+    }
+
+    /// Eigene und von Freunden geteilte Ortslisten
+    @ViewBuilder private var lists: some View {
+        if !app.lists.lists.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                header("Listen")
+                group {
+                    ForEach(app.lists.lists) { list in
+                        let owner = list.owner == app.lists.me ? nil : app.friend(list.owner)?.displayName
+                        PlaceRow(place: Place(id: "list-\(list.id)", name: list.name,
+                                              address: [owner, String(localized: "\(list.items.count) Orte")].compactMap { $0 }.joined(separator: " · "),
+                                              coordinate: .init()),
+                                 distance: nil, selected: false, icon: list.shared ? "person.2.fill" : "list.bullet") { openList = list.id }
+                            .padding(.vertical, 6)
+                    }
+                }
+            }
+        }
+    }
+
+    /// In der Nähe finden: Kategorien, Antippen zeigt die Treffer darunter
+    private var nearbySection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            header("In der Nähe finden")
+            group {
+                ForEach(SearchService.Stopover.allCases) { kind in
+                    Button { category = kind } label: {
+                        HStack(spacing: 14) {
+                            Image(systemName: kind.symbol).font(.system(size: 20, weight: .semibold))
+                                .foregroundStyle(nearbyColor(kind)).frame(width: 32)
+                            Text(kind.title).font(Theme.title(16)).foregroundStyle(Theme.text)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .padding(.vertical, 13).contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private func nearbyColor(_ kind: SearchService.Stopover) -> Color {
+        switch kind {
+        case .gas: .blue
+        case .charging: .green
+        case .parking: .indigo
+        case .food: .orange
+        case .coffee: .brown
+        }
+    }
+
+    private func searchCategory() async {
+        guard let category, let here = app.location.lastLocation?.coordinate else { return }
+        loading = true
+        defer { loading = false }
+        do {
+            results = try await SearchService.stopovers(category, near: here, route: nil)
+            errorText = results.isEmpty ? String(localized: "Nichts gefunden.") : nil
+        } catch {
+            errorText = error.localizedDescription
         }
     }
 
@@ -194,7 +380,8 @@ struct SearchView: View {
 
     private func search() async {
         let q = query.trimmingCharacters(in: .whitespaces)
-        guard q.count >= 3 else { results = []; errorText = nil; return }
+        if !q.isEmpty { category = nil }
+        guard q.count >= 3 else { if category == nil { results = []; errorText = nil }; return }
         try? await Task.sleep(for: .milliseconds(350))   // tippen abwarten
         guard !Task.isCancelled else { return }
         loading = true

@@ -548,7 +548,7 @@ fun MeetingPointCard(modifier: Modifier = Modifier) {
 data class TimelineItem(val id: String, val name: String, val color: androidx.compose.ui.graphics.Color, val eta: Long?, val here: Boolean)
 
 /**
- * Zeitleiste „Wer ist wann da“ (wie ArrivalTimeline auf iOS): links jetzt, rechts die späteste Ankunft. Jeder ist ein
+ * Zeitleiste „Wer ist wann da“ (wie ArrivalTimeline auf iOS): rechts das Ziel („da“), links die späteste Ankunft (mind. 30 min). Jeder ist ein
  * Punkt in seiner Farbe an seiner Ankunftszeit; Namen abwechselnd über und unter der Linie, damit nichts überdeckt.
  */
 @Composable
@@ -560,11 +560,12 @@ fun ArrivalTimeline(items: List<TimelineItem>) {
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().height(if (twoRows) 80.dp else 48.dp)) {
         val w = maxWidth
         val now = System.currentTimeMillis() / 1000
-        // Rechtes Ende mindestens 30 min: wer in 6 min kommt, steht nicht ganz rechts (wie iOS)
+        // Linkes Ende mindestens 30 min: wer in 6 min kommt, steht nicht ganz links (wie iOS)
         val span = maxOf((items.mapNotNull { it.eta }.maxOrNull() ?: now) - now, 30 * 60L).toFloat()
         val inset = 6.dp
         val placed = items.map { item ->
-            val f = if (item.here || item.eta == null) 0f else ((item.eta - now) / span).coerceIn(0f, 1f)
+            // Zeitstrahl aufs Ziel zu: rechts = da, links = noch weit (ohne Zeit ganz links; wie iOS)
+            val f = if (item.here) 1f else item.eta?.let { 1f - ((it - now) / span).coerceIn(0f, 1f) } ?: 0f
             item to (inset + (w - inset * 2) * f)
         }.sortedBy { it.second.value }
         val last = floatArrayOf(Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY)

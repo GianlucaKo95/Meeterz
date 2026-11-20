@@ -990,7 +990,7 @@ struct ConvoyPausePrompt: View {
     }
 }
 
-/// Zeitleiste „Wer ist wann da“: links jetzt, rechts die späteste Ankunft. Jeder ist ein Punkt in seiner Farbe an
+/// Zeitleiste „Wer ist wann da“: rechts das Ziel („da“), links die späteste Ankunft (mind. 30 min). Jeder ist ein Punkt in seiner Farbe an
 /// seiner Ankunftszeit (wer schon da ist, ganz links in Bernstein beschriftet); Namen abwechselnd über und unter der Linie.
 struct ArrivalTimeline: View {
     struct Item: Identifiable {
@@ -1011,12 +1011,12 @@ struct ArrivalTimeline: View {
     private func layout(width: CGFloat) -> [Placed] {
         let now = Date()
         let latest = items.compactMap(\.eta).max() ?? now
-        // Rechtes Ende mindestens 30 min: wer in 6 min kommt, steht nicht ganz rechts, als wäre er weit weg (20.11.)
+        // Linkes Ende mindestens 30 min: wer in 6 min kommt, steht nicht ganz links, als wäre er weit weg (20.11.)
         let span = max(latest.timeIntervalSince(now), 30 * 60)
         let inset: CGFloat = 6
         let xs = items.map { item -> (Item, CGFloat) in
-            guard !item.here, let eta = item.eta else { return (item, inset) }
-            let f = min(max(eta.timeIntervalSince(now) / span, 0), 1)
+            // Zeitstrahl aufs Ziel zu: rechts = da, links = noch weit (ohne Zeit ganz links) – 20.11.
+            let f = item.here ? 1 : item.eta.map { 1 - min(max($0.timeIntervalSince(now) / span, 0), 1) } ?? 0
             return (item, inset + (width - 2 * inset) * f)
         }.sorted { $0.1 < $1.1 }
         var last: [CGFloat] = [-.infinity, -.infinity]

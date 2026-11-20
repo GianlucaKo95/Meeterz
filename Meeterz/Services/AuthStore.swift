@@ -31,6 +31,9 @@ final class AuthStore {
             switch event {
             case .initialSession, .signedIn, .signedOut, .userUpdated:
                 await load(session: session)
+            case .tokenRefreshed where profile == nil:
+                // Start im Hintergrund mit abgelaufenem Zugang: erst die Erneuerung bringt die gültige Sitzung
+                await load(session: session)
             default:
                 break
             }
@@ -38,10 +41,28 @@ final class AuthStore {
     }
 
     private func load(session: Session?) async {
-        guard let session, !session.isExpired else {
-            state = .signedOut
-            return
+        var session = session
+        if session == nil || session!.isExpired {
+            // Abgelaufen oder (noch) nicht geliefert – typisch beim Start im Hintergrund durch CarPlay, wenn die App
+            // länger als eine Stunde zu war. Vorher hieß das sofort „abgemeldet“ und es kam nie wieder eine Anmeldung:
+            // die ganze Fahrt ohne Freunde, ohne Einladen und ohne „Wer fährt mit?“ (Diagnose 20.11., 21:02).
+            // Jetzt erneuern; nur wenn wirklich keine Sitzung gespeichert ist, gilt man als abgemeldet.
+            do {
+                session = try await client.auth.session
+            } catch where !Self.isOffline(error) {
+                state = .signedOut   // keine gespeicherte Sitzung oder Erneuerung abgelehnt
+                return
+            } catch {
+                Diag.log("Anmeldung erneuern fehlgeschlagen (\(error.localizedDescription)) – neuer Versuch in 10 s")
+                Task { [weak self] in
+                    try? await Task.sleep(for: .seconds(10))
+                    guard let self, self.profile == nil else { return }
+                    await self.load(session: nil)
+                }
+                return
+            }
         }
+        guard let session else { state = .signedOut; return }
         do {
             let rows: [Profile] = try await client.from("profiles")
                 .select("id, handle, display_name, sharing_enabled, sharing_until, incognito_until, hide_routes, avatar_version")

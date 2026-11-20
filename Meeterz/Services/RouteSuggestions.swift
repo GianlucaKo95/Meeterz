@@ -84,6 +84,9 @@ final class RouteSuggestions {
 
     /// Vorschlag für jetzt (höchstens alle 5 Minuten neu berechnet)
     func refresh(force: Bool = false) async -> Suggestion? {
+        // Während einer Navigation kein Vorschlag nötig – sonst alle 5 Min. eine Routenanfrage (Diagnose 20.11.: „Zuhause –
+        // 40 Min.“ mitten in der Fahrt zum Treffpunkt). Wie Android (dort während der Führung kein Vorschlag).
+        if AppModel.shared.navigation.isNavigating { return current }
         if !force, Date().timeIntervalSince(computedAt) < 5 * 60 { return current }
         if let computing { return await computing.value }
         let task = Task { @MainActor in await self.compute() }

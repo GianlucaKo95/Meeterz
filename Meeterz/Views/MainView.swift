@@ -1001,9 +1001,18 @@ struct ArrivalTimeline: View {
         let here: Bool
     }
     let items: [Item]
+    /// Breite für die Zeilenwahl (CarPlay: Breite der Einblendung); sonst Bildschirmbreite abzüglich Kartenrand
+    var layoutWidth: CGFloat? = nil
 
     private static let labelWidth: CGFloat = 72
     private static let axis: CGFloat = 38
+    /// Platz rechts für die Zielflagge am Linienende – damit klar ist, dass rechts das Ziel ist (20.11.)
+    private static let flag: CGFloat = 16
+
+    /// Braucht eine zweite Beschriftungszeile (Namen würden sich überdecken)?
+    func twoRows(width: CGFloat) -> Bool { layout(width: width).contains { $0.row == 1 } }
+    /// Gesamthöhe inkl. Abstand oben
+    func height(width: CGFloat) -> CGFloat { (twoRows(width: width) ? 76 : 48) + 4 }
 
     private struct Placed { let item: Item; let x: CGFloat; let row: Int }
 
@@ -1019,7 +1028,7 @@ struct ArrivalTimeline: View {
         let xs = items.map { item -> (Item, CGFloat) in
             // Zeitstrahl aufs Ziel zu: rechts = da, links = noch weit (ohne Zeit ganz links) – 20.11.
             let f = item.here ? 1 : item.eta.map { 1 - min(max($0.timeIntervalSince(now) / span, 0), 1) } ?? 0
-            return (item, inset + (width - 2 * inset) * f)
+            return (item, inset + (width - Self.flag - 2 * inset) * f)
         }.sorted { $0.1 < $1.1 }
         var last: [CGFloat] = [-.infinity, -.infinity]
         return xs.map { item, x in
@@ -1033,7 +1042,9 @@ struct ArrivalTimeline: View {
         GeometryReader { geo in
             let w = geo.size.width
             ZStack(alignment: .topLeading) {
-                Capsule().fill(Theme.stroke).frame(width: w, height: 2).position(x: w / 2, y: Self.axis)
+                Capsule().fill(Theme.stroke).frame(width: w - Self.flag, height: 2).position(x: (w - Self.flag) / 2, y: Self.axis)
+                Image(systemName: "flag.checkered").font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Theme.muted).position(x: w - Self.flag / 2 + 1, y: Self.axis)
                 ForEach(layout(width: w), id: \.item.id) { p in
                     Circle().fill(p.item.color).frame(width: 12, height: 12)
                         .overlay(Circle().stroke(Theme.panel, lineWidth: 2))
@@ -1052,7 +1063,7 @@ struct ArrivalTimeline: View {
         }
         // Zweite Beschriftungszeile unter der Linie nur, wenn Namen sich überdecken würden – sonst blieb dort
         // ein leerer Streifen (Karte zu hoch, 19.11.)
-        .frame(height: layout(width: UIScreen.main.bounds.width - 56).contains { $0.row == 1 } ? 76 : 48)
+        .frame(height: height(width: layoutWidth ?? UIScreen.main.bounds.width - 56) - 4)
         .padding(.top, 4)
     }
 }

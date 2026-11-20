@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.SportsScore
 import androidx.compose.material.icons.filled.Schedule
 import de.koeven.meeterz.tr
 import android.widget.Toast
@@ -564,10 +565,11 @@ fun ArrivalTimeline(items: List<TimelineItem>) {
         val longest = (items.mapNotNull { it.eta }.maxOrNull() ?: now) - now
         val span = (if (longest > 30 * 60) longest else if (longest >= 10 * 60) 30 * 60L else 10 * 60L).toFloat()
         val inset = 6.dp
+        val flag = 16.dp   // rechts Platz für die Zielflagge am Linienende (wie iOS)
         val placed = items.map { item ->
             // Zeitstrahl aufs Ziel zu: rechts = da, links = noch weit (ohne Zeit ganz links; wie iOS)
             val f = if (item.here) 1f else item.eta?.let { 1f - ((it - now) / span).coerceIn(0f, 1f) } ?: 0f
-            item to (inset + (w - inset * 2) * f)
+            item to (inset + (w - flag - inset * 2) * f)
         }.sortedBy { it.second.value }
         val last = floatArrayOf(Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY)
         val rows = placed.map { (_, x) ->
@@ -580,8 +582,10 @@ fun ArrivalTimeline(items: List<TimelineItem>) {
             row
         }
         SideEffect { twoRows = rows.any { it == 1 } }
-        androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth().height(2.dp).offset(y = axis - 1.dp)
+        androidx.compose.foundation.layout.Box(Modifier.width(w - flag).height(2.dp).offset(y = axis - 1.dp)
             .background(MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(1.dp)))
+        Icon(Icons.Default.SportsScore, null, Modifier.offset(x = w - flag + 1.dp, y = axis - 7.dp).size(14.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant)
         placed.forEachIndexed { i, (item, x) ->
             androidx.compose.foundation.layout.Box(Modifier.offset(x = x - 6.dp, y = axis - 6.dp).size(12.dp)
                 .background(MaterialTheme.colorScheme.surface, androidx.compose.foundation.shape.CircleShape).padding(2.dp)

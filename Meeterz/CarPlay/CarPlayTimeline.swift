@@ -50,18 +50,22 @@ final class CarPlayTimeline {
             var b = view.safeAreaInsets; b.bottom -= vc.additionalSafeAreaInsets.bottom; return b
         }()
         let safe = view.bounds.inset(by: base)
-        let size = CGSize(width: min(340, safe.width * 0.5), height: 104)
+        let width = min(340, safe.width * 0.5)
+        let timeline = ArrivalTimeline(items: items, layoutWidth: width - 24)
+        // Höhe genau nach Inhalt (Name, Zeitleiste, Rand) – vorher fest 104 pt, darunter blieb ein leerer Streifen (20.11.)
+        let size = CGSize(width: width, height: 8 + 16 + timeline.height(width: width - 24) + 8)
         // Kleine Anzeige: lieber keine Zeitleiste, als die Route zu verdrängen
         guard size.height < safe.height * 0.35 else { return hide() }
         let content = AnyView(
             VStack(alignment: .leading, spacing: 0) {
-                Text(dest.name).font(.system(size: 12, weight: .medium, design: .rounded))
+                Text(dest.name).font(.system(size: 12, weight: .medium, design: .rounded)).frame(height: 16)
                     .foregroundStyle(Color(white: 1, opacity: 0.7)).lineLimit(1)
-                ArrivalTimeline(items: items)
+                timeline
             }
             .padding(.horizontal, 12).padding(.top, 8)
             .frame(width: size.width, height: size.height, alignment: .topLeading)
-            .background(RoundedRectangle(cornerRadius: 16).fill(Color(red: 0.067, green: 0.09, blue: 0.098).opacity(0.94)))
+            // Deckend: durchscheinende Kartenbeschriftungen machten die Namen unruhig (20.11.)
+            .background(RoundedRectangle(cornerRadius: 16).fill(Color(red: 0.067, green: 0.09, blue: 0.098)))
             .environment(\.colorScheme, .dark)
         )
         let h = host ?? UIHostingController(rootView: content)

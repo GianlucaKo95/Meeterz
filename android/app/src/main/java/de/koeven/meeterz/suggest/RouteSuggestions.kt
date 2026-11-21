@@ -169,20 +169,24 @@ object RouteSuggestions {
         val c = AppState.appContextOrNull() ?: return null
         if (!calendarAllowed(c)) return null
         val now = System.currentTimeMillis()
-        data class Event(val id: Long, val title: String, val location: String, val start: Long)
+        data class Event(val id: Long, val title: String, val location: String, val start: Long, val calendar: String)
         val events = withContext(Dispatchers.IO) {
             runCatching {
                 val uri = CalendarContract.Instances.CONTENT_URI.buildUpon()
                     .appendPath((now - 10 * 60_000).toString()).appendPath((now + 6 * 3_600_000).toString()).build()
                 c.contentResolver.query(uri, arrayOf(CalendarContract.Instances.EVENT_ID, CalendarContract.Instances.TITLE,
-                    CalendarContract.Instances.EVENT_LOCATION, CalendarContract.Instances.BEGIN, CalendarContract.Instances.ALL_DAY),
-                    null, null, CalendarContract.Instances.BEGIN + " ASC")?.use { cur ->
+                    CalendarContract.Instances.EVENT_LOCATION, CalendarContract.Instances.BEGIN, CalendarContract.Instances.ALL_DAY,
+                    CalendarContract.Instances.CALENDAR_DISPLAY_NAME),
+                    // Nur sichtbare Kalender, keine abgelehnten oder offenen Einladungen (wie iOS, 21.11.: „Lehrgang“)
+                    "${CalendarContract.Instances.VISIBLE} = 1 AND ${CalendarContract.Instances.SELF_ATTENDEE_STATUS} NOT IN " +
+                        "(${CalendarContract.Attendees.ATTENDEE_STATUS_DECLINED}, ${CalendarContract.Attendees.ATTENDEE_STATUS_INVITED})",
+                    null, CalendarContract.Instances.BEGIN + " ASC")?.use { cur ->
                     buildList {
                         while (cur.moveToNext()) {
                             if (cur.getInt(4) == 1) continue
                             val loc = cur.getString(2)?.trim().orEmpty()
                             if (loc.isEmpty()) continue
-                            add(Event(cur.getLong(0), cur.getString(1).orEmpty(), loc, cur.getLong(3)))
+                            add(Event(cur.getLong(0), cur.getString(1).orEmpty(), loc, cur.getLong(3), cur.getString(5).orEmpty()))
                         }
                     }
                 }.orEmpty()
@@ -200,6 +204,7 @@ object RouteSuggestions {
             if (leave - now > 30 * 60_000) continue   // noch zu früh
             if (now + (travel * 1000).toLong() > e.start + 15 * 60_000) continue   // käme über 15 Min. zu spät – vorbei (wie iOS)
             val name = e.location.substringBefore("\n").substringBefore(",")
+            de.koeven.meeterz.Diag.log("Termin-Vorschlag „${e.title}“ aus Kalender „${e.calendar}“")
             return Suggestion(id, name, e.location, eLat, eLng, e.title.ifEmpty { name }, e.start, travel)
         }
         return null

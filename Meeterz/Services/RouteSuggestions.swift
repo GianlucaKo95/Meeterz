@@ -179,6 +179,13 @@ final class RouteSuggestions {
                                                  calendars: nil)
         let events = store.events(matching: predicate)
             .filter { !$0.isAllDay && $0.startDate > now.addingTimeInterval(-10 * 60) }
+            // Abgelehnte und nicht angenommene Einladungen sind nicht mein Termin; ebenso abonnierte Kalender
+            // (Spielpläne, Feiertage …) und Geburtstage (21.11.: „Lehrgang“ vorgeschlagen, stand nicht im Kalender)
+            .filter { event in
+                let me = event.attendees?.first { $0.isCurrentUser }
+                return me.map { $0.participantStatus != .declined && $0.participantStatus != .pending } ?? true
+            }
+            .filter { $0.calendar.type != .subscription && $0.calendar.type != .birthday }
             .sorted { $0.startDate < $1.startDate }
         for event in events.prefix(5) {
             guard let coordinate = await coordinate(of: event),
@@ -194,6 +201,7 @@ final class RouteSuggestions {
             guard leave.timeIntervalSince(now) <= 30 * 60 else { continue }   // noch zu früh
             // Käme man über 15 Min. zu spät an, ist der Termin gelaufen (17.11.: „Reformer Balance“ noch 19:06 vorgeschlagen)
             guard now.addingTimeInterval(travel) <= event.startDate.addingTimeInterval(15 * 60) else { continue }
+            Diag.log("Termin-Vorschlag „\(event.title ?? name)“ aus Kalender „\(event.calendar.title)“ (\(event.calendar.source.title))")
             return Suggestion(place: place, reason: .calendar(title: event.title ?? name, start: event.startDate), travelTime: travel)
         }
         return nil

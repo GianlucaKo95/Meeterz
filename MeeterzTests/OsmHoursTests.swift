@@ -1,4 +1,5 @@
 import XCTest
+import CoreLocation
 @testable import Meeterz
 
 final class OsmHoursTests: XCTestCase {
@@ -41,5 +42,17 @@ final class SteadyLocationTests: XCTestCase {
     func testFahrtWirdUebernommen() {
         XCTAssertTrue(SteadyLocation.plausible(distance: 30, seconds: 1, speed: 28))   // ~100 km/h
         XCTAssertTrue(SteadyLocation.plausible(distance: 200, seconds: 10, speed: 15))
+    }
+}
+
+@MainActor
+final class SteadyLocationDirectionTests: XCTestCase {
+    func testHinterDerFahrtrichtung() {
+        let a = CLLocationCoordinate2D(latitude: 51.4, longitude: 6.7)
+        let north = CLLocationCoordinate2D(latitude: 51.4003, longitude: 6.7)
+        let south = CLLocationCoordinate2D(latitude: 51.3997, longitude: 6.7)
+        XCTAssertFalse(SteadyLocation.behind(from: a, to: north, course: 0))
+        XCTAssertTrue(SteadyLocation.behind(from: a, to: south, course: 0))
+        XCTAssertEqual(SteadyLocation.angle(350, 10), 20, accuracy: 0.01)
     }
 }

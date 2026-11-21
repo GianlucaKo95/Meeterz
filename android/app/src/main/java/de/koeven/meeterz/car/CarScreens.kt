@@ -602,31 +602,45 @@ private class CarStartFrame(private val camera: CarNavigationCamera) : com.mapbo
             var me = AppState.lastLocation
             var tries = 0
             while (me == null && tries++ < 40) { delay(500); me = AppState.lastLocation }
-            if (me == null) { camera.updateCameraMode(CarCameraMode.FOLLOWING); following = true; return@launch }
-            if (!framed) {
-                framed = true
-                val map = mapboxCarMapSurface.mapSurface.mapboxMap
-                // Erst nach dem Laden des Kartenstils – sonst setzt Mapbox die Kamera danach auf den Stil-Standard
-                // (ganze Welt) zurück (wie CarPlay, Diagnose 20.11.)
-                var wait = 0
-                while (!map.isStyleLoaded() && wait++ < 100) delay(100)
-                val here = Point.fromLngLat(me.longitude, me.latitude)
+            val start = me ?: run { camera.updateCameraMode(CarCameraMode.FOLLOWING); following = true; return@launch }
+            val map = mapboxCarMapSurface.mapSurface.mapboxMap
+            // Erst nach dem Laden des Kartenstils – sonst setzt Mapbox die Kamera danach auf den Stil-Standard
+            // (ganze Welt) zurück (wie CarPlay, Diagnose 20.11.)
+            var wait = 0
+            while (!map.isStyleLoaded() && wait++ < 100) delay(100)
+            val here = Point.fromLngLat(start.longitude, start.latitude)
+            fun nearbyFriends(): List<Point> {
                 val live = AppState.hub.positions.value
-                val friends = AppState.friends.value.filter { it.isAccepted }.mapNotNull { f ->
+                return AppState.friends.value.filter { it.isAccepted }.mapNotNull { f ->
                     val p = live[f.friendId]
                     val lat = p?.lat ?: f.lat ?: return@mapNotNull null
                     val lng = p?.lng ?: f.lng ?: return@mapNotNull null
-                    if (de.koeven.meeterz.ev.ChargePlanner.distance(me.latitude, me.longitude, lat, lng) > 200_000) null
+                    if (de.koeven.meeterz.ev.ChargePlanner.distance(start.latitude, start.longitude, lat, lng) > 200_000) null
                     else Point.fromLngLat(lng, lat)
                 }
+            }
+            fun frame(friends: List<Point>) {
                 val cam = if (friends.isEmpty()) com.mapbox.maps.CameraOptions.Builder().center(here).zoom(15.5).bearing(0.0).pitch(0.0).build()
                 else map.cameraForCoordinates(listOf(here) + friends, com.mapbox.maps.CameraOptions.Builder().bearing(0.0).pitch(0.0).build(),
                     com.mapbox.maps.EdgeInsets(80.0, 80.0, 80.0, 80.0), 16.0, null)
                 map.setCamera(cam)
                 de.koeven.meeterz.Diag.log("Android Auto Start: Karte zeigt mich" + if (friends.isEmpty()) "" else " und ${friends.size} Freunde")
             }
+            val framedAt = System.currentTimeMillis()
+            var withFriends = true
+            if (!framed) {
+                framed = true
+                val friends = nearbyFriends()
+                withFriends = friends.isNotEmpty()
+                frame(friends)
+            }
             while (true) {
                 delay(1000)
+                // Freunde kommen oft erst Sekunden nach dem Start – einmal mit ihnen nachrahmen (wie CarPlay, 21.11.)
+                if (!withFriends && System.currentTimeMillis() - framedAt < 30_000) {
+                    val friends = nearbyFriends()
+                    if (friends.isNotEmpty()) { withFriends = true; frame(friends) }
+                }
                 if ((AppState.lastLocation?.speed ?: 0f) > 3f) { camera.updateCameraMode(CarCameraMode.FOLLOWING); following = true; break }
             }
         }

@@ -41,11 +41,13 @@ struct MainView: View {
     @State private var cameraNow: CameraState?
     @Environment(\.scenePhase) private var scenePhase
 
-    /// Kamera folgt dem eigenen Standort – in 3D schräg von hinten, in Fahrtrichtung gedreht
+    /// Kamera folgt dem eigenen Standort – in 3D schräg von hinten, in Fahrtrichtung gedreht; in 2D genordet.
+    /// (Ohne Angabe drehte Mapbox auch in 2D mit der Kompassrichtung des iPhones mit – der Kompass-Knopf nordete
+    /// nur kurz, dann drehte die Karte zurück, bis man sie einmal selbst gedreht hatte. 21.11.)
     private var followViewport: Viewport {
         threeD
             ? .followPuck(zoom: 16.5 + Double(zoomSteps), bearing: .course, pitch: 60)
-            : .followPuck(zoom: 13 + Double(zoomSteps))
+            : .followPuck(zoom: 13 + Double(zoomSteps), bearing: .constant(0), pitch: 0)
     }
 
     var body: some View {

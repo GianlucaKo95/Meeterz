@@ -184,7 +184,7 @@ fun MapScreen() {
                 enabled = true
                 locationPuck = createDefault2DPuck(withBearing = true)
             }
-            viewport.transitionTo(viewport.makeFollowPuckViewportState())
+            viewport.transitionTo(followMe(viewport, map3d = false))
         }
     }
     val binder = remember { NavigationMapBinder(mapView) }
@@ -199,13 +199,16 @@ fun MapScreen() {
         }
     }
     LaunchedEffect(map3d) {
-        mapView.mapboxMap.setCamera(CameraOptions.Builder().pitch(if (map3d) 45.0 else 0.0).build())
+        val following = (mapView.viewport.status as? com.mapbox.maps.plugin.viewport.ViewportStatus.State)?.state is
+            com.mapbox.maps.plugin.viewport.state.FollowPuckViewportState
+        if (following && guidance == null) mapView.viewport.transitionTo(followMe(mapView.viewport, map3d))
+        else mapView.mapboxMap.setCamera(CameraOptions.Builder().pitch(if (map3d) 45.0 else 0.0).build())
     }
     DisposableEffect(Unit) { binder.attach(); onDispose { binder.detach() } }
     DisposableEffect(mapView) { val t = TrafficLayer.install(mapView.mapboxMap); onDispose { t.cancel() } }
     LaunchedEffect(guidance != null) {
         binder.setActive(guidance != null)
-        if (guidance == null) mapView.viewport.transitionTo(mapView.viewport.makeFollowPuckViewportState())
+        if (guidance == null) mapView.viewport.transitionTo(followMe(mapView.viewport, map3d))
     }
 
     val friendRoutes by AppState.routes.routes.collectAsState()
@@ -575,7 +578,7 @@ fun MapScreen() {
                             MapStyleMenu(mapStyle, map3d)
                             MapCircleButton(Icons.Default.PhotoCamera, tr("Story aufnehmen")) { showStoryComposer = true }
                             MapCircleButton(Icons.Default.NearMe, tr("Auf meinen Standort zentrieren"), tint = MaterialTheme.colorScheme.primary) {
-                                mapView.viewport.transitionTo(mapView.viewport.makeFollowPuckViewportState())
+                                mapView.viewport.transitionTo(followMe(mapView.viewport, map3d))
                             }
                         }
                     }
@@ -1553,3 +1556,14 @@ private fun SearchRow(icon: androidx.compose.ui.graphics.vector.ImageVector, tit
     }
 }
 
+/**
+ * Karte folgt mir: in 2D genordet, in 3D in Fahrtrichtung (wie iOS). Vorher drehte die Karte auch in 2D mit der
+ * Kompassrichtung des Handys – der Kompass-Knopf nordete nur kurz, dann drehte sie zurück (21.11.).
+ */
+internal fun followMe(viewport: com.mapbox.maps.plugin.viewport.ViewportPlugin, map3d: Boolean) =
+    viewport.makeFollowPuckViewportState(
+        com.mapbox.maps.plugin.viewport.data.FollowPuckViewportStateOptions.Builder()
+            .bearing(if (map3d) com.mapbox.maps.plugin.viewport.data.FollowPuckViewportStateBearing.SyncWithLocationPuck
+                     else com.mapbox.maps.plugin.viewport.data.FollowPuckViewportStateBearing.Constant(0.0))
+            .pitch(if (map3d) 45.0 else 0.0)
+            .build())

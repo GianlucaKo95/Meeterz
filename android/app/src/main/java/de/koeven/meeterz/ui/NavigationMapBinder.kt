@@ -142,7 +142,7 @@ class NavigationMapBinder(private val mapView: MapView) : MapboxNavigationObserv
             lastRenderedRoutes = emptyList()
             routeLineApi.clearRouteLine { routeLineView.renderClearRouteLineValue(style, it) }
             viewport.clearRouteData()
-            mapView.viewport.transitionTo(mapView.viewport.makeFollowPuckViewportState())
+            mapView.viewport.transitionTo(followMe(mapView.viewport, map3d = (mapView.mapboxMap.cameraState.pitch > 0)))
             return
         }
         val main = routes.getOrNull(selected) ?: routes.first()

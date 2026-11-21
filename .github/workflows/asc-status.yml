@@ -6,6 +6,9 @@ on:
       drop_cert:
         description: "Verwaistes Distributionszertifikat löschen (Anfang des Ablaufdatums, z. B. 2027-10-29T09:08)"
         default: ""
+      release_run:
+        description: "Zertifikat und Profile eines TestFlight-Laufs freigeben (Laufnummer)"
+        default: ""
 
 permissions:
   contents: write
@@ -24,6 +27,7 @@ jobs:
           printf '%s' "$ASC_KEY_P8" > "$RUNNER_TEMP/key.p8"
           export ASC_KEY_PATH="$RUNNER_TEMP/key.p8"
           python3 ci/asc.py status de.koeven.meeterz > /tmp/report.txt 2>&1 || true
+          if [ -n "${{ inputs.release_run }}" ]; then python3 ci/asc.py release "${{ inputs.release_run }}" >> /tmp/report.txt 2>&1 || true; fi
           python3 ci/asc.py certs "${{ inputs.drop_cert }}" >> /tmp/report.txt 2>&1 || true
       - name: Bericht veröffentlichen
         run: |

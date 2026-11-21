@@ -358,10 +358,10 @@ final class CarPlayController: NSObject {
             }
             guard let self, let map, let me = here?.coordinate, !Task.isCancelled,
                   manager.currentActivity == nil || manager.currentActivity == .browsing else { return }
-            var nearbyFriends: [CLLocationCoordinate2D] {
+            @MainActor func nearbyFriends() -> [CLLocationCoordinate2D] {
                 friendsShown ? AppModel.shared.friendsOnMap.map(\.position.coordinate).filter { $0.distance(to: me) < 200_000 } : []
             }
-            func frame(_ friends: [CLLocationCoordinate2D]) {
+            @MainActor func frame(_ friends: [CLLocationCoordinate2D]) {
                 let pitch = threeD ? Self.tilt3D : 0
                 if friends.isEmpty {
                     map.mapView.camera.ease(to: CameraOptions(center: me, zoom: browseZoom, bearing: 0, pitch: pitch), duration: 0.8)
@@ -374,17 +374,17 @@ final class CarPlayController: NSObject {
             }
             map.navigationCamera.stop()
             let framedAt = Date()
-            var withFriends = !nearbyFriends.isEmpty
-            frame(nearbyFriends)
+            var withFriends = !nearbyFriends().isEmpty
+            frame(nearbyFriends())
             refreshFollowButton(force: true)
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(1))
                 guard manager.currentActivity == nil || manager.currentActivity == .browsing else { return }
                 // Start im Hintergrund: Freunde kommen erst ein paar Sekunden nach der Anmeldung (Diagnose 21.11.:
                 // „Sitzung nach 1.6 s, 0 Freunde“) – dann einmal mit ihnen nachrahmen, solange niemand die Karte bewegt hat
-                if !withFriends, Date().timeIntervalSince(framedAt) < 30, lastMapInteraction < framedAt, !nearbyFriends.isEmpty {
+                if !withFriends, Date().timeIntervalSince(framedAt) < 30, lastMapInteraction < framedAt, !nearbyFriends().isEmpty {
                     withFriends = true
-                    frame(nearbyFriends)
+                    frame(nearbyFriends())
                 }
                 if (AppModel.shared.location.lastLocation?.speed ?? 0) > 3 {
                     map.navigationCamera.update(cameraState: .following)

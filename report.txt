@@ -1,0 +1,140 @@
+Commit: 94b3902eec0737335528478f4dcec10fdbace098
+Zeit:   2026-11-21T14:58:16Z
+Ergebnis: success
+
+== Umgebung ==
+ProductName:		macOS
+ProductVersion:		27.0.1
+BuildVersion:		26A434
+Installierte Xcode-Versionen:
+/Applications/Xcode_27.0.0.app
+/Applications/Xcode_27.0.app
+/Applications/Xcode_27.1.0.app
+/Applications/Xcode_27.1.app
+/Applications/Xcode_27.2.0.app
+/Applications/Xcode_27.2.app
+/Applications/Xcode_27.app
+/Applications/Xcode.app
+Xcode 27.2
+Build version 27B52
+iOS-Simulator-SDK: 27.2
+
+== Mapbox-Zugang ==
+ok
+
+== Projekt erzeugen ==
+✔︎ Bottle xcodegen (2.46.0)
+[34m==>[0m [1mPouring xcodegen--2.46.0.arm64_golden_gate.bottle.1.tar.gz[0m
+🍺  /opt/homebrew/Cellar/xcodegen/2.46.0: 38 files, 7.5MB
+Konfiguration: Supabase=jgtkyxlzroajtxboqgcn, Schlüssel gesetzt=ja, Mapbox-Token gesetzt=ja
+⚙️  Generating plists...
+⚙️  Generating project...
+⚙️  Writing project...
+Created project at /Users/runner/work/Meeterz/Meeterz/Meeterz.xcodeproj
+
+== Pakete laden ==
+Resolve Package Graph
+
+
+Resolved source packages:
+  swift-http-types: https://github.com/apple/swift-http-types.git @ 1.8.0
+  swift-asn1: https://github.com/apple/swift-asn1.git @ 1.7.3
+  MapboxNavigation: https://github.com/mapbox/mapbox-navigation-ios.git @ 3.32.1
+  swift-syntax: https://github.com/swiftlang/swift-syntax @ 604.0.0
+  swift-issue-reporting: https://github.com/pointfreeco/swift-issue-reporting @ 2.1.2
+  swift-concurrency-extras: https://github.com/pointfreeco/swift-concurrency-extras @ 1.4.3
+  MapboxCommon: https://github.com/mapbox/mapbox-common-ios.git @ 24.32.1
+  swift-argument-parser: https://github.com/apple/swift-argument-parser @ 1.8.2
+  Supabase: https://github.com/supabase/supabase-swift @ 2.55.4
+  MapboxMaps: https://github.com/mapbox/mapbox-maps-ios @ 11.32.1
+  MapboxNavigationCpp: https://github.com/mapbox/mapbox-navigation-cpp-ios.git @ 0.32.1
+  MapboxCoreMaps: https://github.com/mapbox/mapbox-core-maps-ios.git @ 11.32.1
+  xctest-dynamic-overlay: https://github.com/pointfreeco/xctest-dynamic-overlay @ 1.13.1
+  MapboxNavigationNative: https://github.com/mapbox/mapbox-navigation-native-ios.git @ 324.32.1
+  swift-crypto: https://github.com/apple/swift-crypto.git @ 4.5.2
+  swift-snapshot-testing: https://github.com/pointfreeco/swift-snapshot-testing.git @ 1.19.7
+  Turf: https://github.com/mapbox/turf-swift.git @ 4.0.0
+  swift-clocks: https://github.com/pointfreeco/swift-clocks @ 1.1.1
+  swift-custom-dump: https://github.com/pointfreeco/swift-custom-dump @ 1.7.3
+
+resolved source packages: swift-http-types, swift-asn1, MapboxNavigation, swift-syntax, swift-issue-reporting, swift-concurrency-extras, MapboxCommon, swift-argument-parser, Supabase, MapboxMaps, MapboxNavigationCpp, MapboxCoreMaps, xctest-dynamic-overlay, MapboxNavigationNative, swift-crypto, swift-snapshot-testing, Turf, swift-clocks, swift-custom-dump
+
+== Bauen ==
+xcodebuild Rückgabewert: 0
+
+== Warnungen (Auswahl) ==
+Meeterz/Services/FairMeetupFinder.swift:100:60: warning: 'data(from:)' was deprecated in iOS 15.0: Use iOS 15 API instead. [#DeprecatedDeclaration]
+    |                                                            `- warning: 'data(from:)' was deprecated in iOS 15.0: Use iOS 15 API instead. [#DeprecatedDeclaration]
+Meeterz/Services/RouteConditions.swift:128:71: warning: 'data(from:)' was deprecated in iOS 15.0: Use iOS 15 API instead. [#DeprecatedDeclaration]
+    |                                                                       `- warning: 'data(from:)' was deprecated in iOS 15.0: Use iOS 15 API instead. [#DeprecatedDeclaration]
+Meeterz/Services/RouteConditions.swift:151:67: warning: 'data(from:)' was deprecated in iOS 15.0: Use iOS 15 API instead. [#DeprecatedDeclaration]
+    |                                                                   `- warning: 'data(from:)' was deprecated in iOS 15.0: Use iOS 15 API instead. [#DeprecatedDeclaration]
+Meeterz/Services/SearchService.swift:350:60: warning: 'data(from:)' was deprecated in iOS 15.0: Use iOS 15 API instead. [#DeprecatedDeclaration]
+Meeterz/CarPlay/CarPlayController.swift:647:62: warning: passing non-Sendable parameter 'completion' to function expecting a '@Sendable' closure
+     |                                                              `- warning: passing non-Sendable parameter 'completion' to function expecting a '@Sendable' closure
+Meeterz/CarPlay/CarPlayController.swift:1063:19: warning: value 'controller' was defined but never used; consider replacing with boolean test [#NoUsage]
+     |                   `- warning: value 'controller' was defined but never used; consider replacing with boolean test [#NoUsage]
+Meeterz/CarPlay/CarPlayController.swift:1074:93: warning: variable 'self' was written to, but never read
+     |                                                                                             `- warning: variable 'self' was written to, but never read
+Meeterz/CarPlay/CarPlayController.swift:1188:65: warning: variable 'self' was written to, but never read
+     |                                                                 `- warning: variable 'self' was written to, but never read
+Meeterz/CarPlay/CarPlayController.swift:1450:16: warning: call to main actor-isolated initializer 'init(titleVariants:subtitleVariants:image:primaryAction:secondaryAction:duration:)' in a synchronous nonisolated context [#ActorIsolatedCall]
+     |                `- warning: call to main actor-isolated initializer 'init(titleVariants:subtitleVariants:image:primaryAction:secondaryAction:duration:)' in a synchronous nonisolated context [#ActorIsolatedCall]
+Meeterz/CarPlay/CarPlayExtras.swift:67:22: warning: consider using asynchronous alternative function
+    |                      `- warning: consider using asynchronous alternative function
+Meeterz/Services/ChargeStatusService.swift:135:64: warning: 'data(from:)' was deprecated in iOS 15.0: Use iOS 15 API instead. [#DeprecatedDeclaration]
+    |                                                                `- warning: 'data(from:)' was deprecated in iOS 15.0: Use iOS 15 API instead. [#DeprecatedDeclaration]
+Meeterz/Services/RouteConditions.swift:81:14: warning: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+    |              `- warning: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+Meeterz/Services/RouteConditions.swift:84:14: warning: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+    |              `- warning: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+Meeterz/Services/RouteConditions.swift:99:23: warning: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+    |                       `- warning: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+Meeterz/Services/RouteConditions.swift:99:67: warning: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+    |                                                                   `- warning: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+Meeterz/Services/SearchService.swift:233:60: warning: 'data(from:)' was deprecated in iOS 15.0: Use iOS 15 API instead. [#DeprecatedDeclaration]
+
+== Unit-Tests ==
+xcodebuild test Rückgabewert: 0
+Test Case '-[MeeterzTests.ChargePlannerTests testAlternativesForStop]' started.
+Test Case '-[MeeterzTests.ChargePlannerTests testAlternativesForStop]' passed (0.842 seconds).
+Test Case '-[MeeterzTests.ChargePlannerTests testAvoidedNetworkIsNeverUsed]' started.
+Test Case '-[MeeterzTests.ChargePlannerTests testAvoidedNetworkIsNeverUsed]' passed (0.011 seconds).
+Test Case '-[MeeterzTests.ChargePlannerTests testBearing]' started.
+Test Case '-[MeeterzTests.ChargePlannerTests testBearing]' passed (0.001 seconds).
+Test Case '-[MeeterzTests.ChargePlannerTests testBundledData]' started.
+Test Case '-[MeeterzTests.ChargePlannerTests testBundledData]' passed (2.289 seconds).
+Test Case '-[MeeterzTests.ChargePlannerTests testChargeTimeFollowsCurve]' started.
+Test Case '-[MeeterzTests.ChargePlannerTests testChargeTimeFollowsCurve]' passed (0.005 seconds).
+Test Case '-[MeeterzTests.ChargePlannerTests testClimbCostsAndDescentPartlyReturns]' started.
+Test Case '-[MeeterzTests.ChargePlannerTests testClimbCostsAndDescentPartlyReturns]' passed (0.009 seconds).
+Test Case '-[MeeterzTests.ChargePlannerTests testDirectWhenEnoughCharge]' started.
+Test Case '-[MeeterzTests.ChargePlannerTests testDirectWhenEnoughCharge]' passed (0.005 seconds).
+Test Case '-[MeeterzTests.ChargePlannerTests testFixedChargerStopIsUsed]' started.
+Test Case '-[MeeterzTests.ChargePlannerTests testFixedChargerStopIsUsed]' passed (0.004 seconds).
+Test Case '-[MeeterzTests.ChargePlannerTests testFixedChargerWithoutNeedChargesNothing]' started.
+Test Case '-[MeeterzTests.ChargePlannerTests testFixedChargerWithoutNeedChargesNothing]' passed (0.015 seconds).
+Test Case '-[MeeterzTests.ChargePlannerTests testFixedStopWithoutChargerGetsStopBefore]' started.
+Test Case '-[MeeterzTests.ChargePlannerTests testFixedStopWithoutChargerGetsStopBefore]' passed (0.004 seconds).
+Test Case '-[MeeterzTests.ChargePlannerTests testForecastColdAndRainRaiseConsumption]' started.
+Test Case '-[MeeterzTests.ChargePlannerTests testForecastColdAndRainRaiseConsumption]' passed (0.001 seconds).
+Test Case '-[MeeterzTests.ChargePlannerTests testHeadwindCostsTailwindSaves]' started.
+Test Case '-[MeeterzTests.ChargePlannerTests testHeadwindCostsTailwindSaves]' passed (0.001 seconds).
+Test Case '-[MeeterzTests.ChargePlannerTests testLearnedFactorRaisesConsumption]' started.
+Test Case '-[MeeterzTests.ChargePlannerTests testLearnedFactorRaisesConsumption]' passed (2.409 seconds).
+Test Case '-[MeeterzTests.ChargePlannerTests testLongTripNeedsStopsAndArrivesWithTarget]' started.
+Plan 600 km: 4 charging stops · 77 min charging · arrive with 20 % ["150 km 25→53 %", "250 km 10→53 %", "350 km 10→74 %", "500 km 10→63 %"]
+Test Case '-[MeeterzTests.ChargePlannerTests testLongTripNeedsStopsAndArrivesWithTarget]' passed (0.070 seconds).
+Test Case '-[MeeterzTests.ChargePlannerTests testPreferredNetworkWinsOverSlightlyFaster]' started.
+Test Case '-[MeeterzTests.ChargePlannerTests testPreferredNetworkWinsOverSlightlyFaster]' passed (0.016 seconds).
+Test Case '-[MeeterzTests.ChargePlannerTests testReplanFromMidRoute]' started.
+Test Case '-[MeeterzTests.ChargePlannerTests testReplanFromMidRoute]' passed (0.005 seconds).
+Test Case '-[MeeterzTests.ChargePlannerTests testSteepDescentRecuperatesOnlyPart]' started.
+Test Case '-[MeeterzTests.ChargePlannerTests testSteepDescentRecuperatesOnlyPart]' passed (0.120 seconds).
+Test Case '-[MeeterzTests.ChargePlannerTests testUnreachableWithoutChargers]' started.
+Test Case '-[MeeterzTests.ChargePlannerTests testUnreachableWithoutChargers]' passed (0.002 seconds).
+Test Case '-[MeeterzTests.ChargePlannerTests testWithoutConditionsMatchesFlatModel]' started.
+Test Case '-[MeeterzTests.ChargePlannerTests testWithoutConditionsMatchesFlatModel]' passed (0.001 seconds).
+	 Executed 19 tests, with 0 failures (0 unexpected) in 5.810 (5.829) seconds
+
+== UI-Tests übersprungen (nur Compile-Check) ==

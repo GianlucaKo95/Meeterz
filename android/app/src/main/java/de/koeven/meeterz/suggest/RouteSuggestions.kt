@@ -122,6 +122,33 @@ object RouteSuggestions {
         get() = prefs()?.getBoolean("suggest.calendar", false) == true
         set(v) { prefs()?.edit()?.putBoolean("suggest.calendar", v)?.apply() }
 
+    /** Ein Kalender des Geräts für die Auswahl in den Einstellungen */
+    data class DeviceCalendar(val id: Long, val name: String, val account: String, val color: Int, val visible: Boolean)
+
+    /** Alle Kalender des Geräts, nach Konto und Name sortiert */
+    fun allCalendars(c: Context): List<DeviceCalendar> = if (!calendarAllowed(c)) emptyList() else runCatching {
+        c.contentResolver.query(CalendarContract.Calendars.CONTENT_URI, arrayOf(CalendarContract.Calendars._ID,
+            CalendarContract.Calendars.CALENDAR_DISPLAY_NAME, CalendarContract.Calendars.ACCOUNT_NAME,
+            CalendarContract.Calendars.CALENDAR_COLOR, CalendarContract.Calendars.VISIBLE), null, null, null)?.use { cur ->
+            buildList { while (cur.moveToNext()) add(DeviceCalendar(cur.getLong(0), cur.getString(1).orEmpty(),
+                cur.getString(2).orEmpty(), cur.getInt(3), cur.getInt(4) == 1)) }
+        }.orEmpty().sortedWith(compareBy({ it.account }, { it.name }))
+    }.getOrDefault(emptyList())
+
+    /** Selbst gewählte Kalender (IDs); null = Standard: in der Kalender-App eingeblendete (wie iOS chosenCalendars) */
+    private var chosenCalendars: Set<Long>?
+        get() = prefs()?.getStringSet("suggest.calendars", null)?.mapNotNull { it.toLongOrNull() }?.toSet()
+        set(v) { prefs()?.edit()?.putStringSet("suggest.calendars", v?.map { it.toString() }?.toSet())?.apply() }
+
+    fun isUsed(cal: DeviceCalendar) = chosenCalendars?.contains(cal.id) ?: cal.visible
+
+    fun setUsed(c: Context, cal: DeviceCalendar, used: Boolean) {
+        val chosen = (chosenCalendars ?: allCalendars(c).filter { isUsed(it) }.map { it.id }.toSet()).toMutableSet()
+        if (used) chosen += cal.id else chosen -= cal.id
+        chosenCalendars = chosen
+        computedAt = 0L   // beim nächsten Mal neu berechnen
+    }
+
     /** Vorschlag für jetzt (alle 5 Minuten neu, unterwegs alle 2 – Fahrzeit ab hier wie iOS; nicht während einer Führung) */
     suspend fun refresh(force: Boolean = false) {
         val moving = (AppState.lastLocation?.speed ?: 0f) > 3f
@@ -177,8 +204,9 @@ object RouteSuggestions {
                 c.contentResolver.query(uri, arrayOf(CalendarContract.Instances.EVENT_ID, CalendarContract.Instances.TITLE,
                     CalendarContract.Instances.EVENT_LOCATION, CalendarContract.Instances.BEGIN, CalendarContract.Instances.ALL_DAY,
                     CalendarContract.Instances.CALENDAR_DISPLAY_NAME),
-                    // Nur sichtbare Kalender, keine abgelehnten oder offenen Einladungen (wie iOS, 21.11.: „Lehrgang“)
-                    "${CalendarContract.Instances.VISIBLE} = 1 AND ${CalendarContract.Instances.SELF_ATTENDEE_STATUS} NOT IN " +
+                    // Nur gewählte Kalender (Standard: eingeblendete), keine abgelehnten oder offenen Einladungen (wie iOS)
+                    "${CalendarContract.Instances.CALENDAR_ID} IN (${allCalendars(c).filter { isUsed(it) }.joinToString(",") { it.id.toString() }.ifEmpty { "-1" }})" +
+                        " AND ${CalendarContract.Instances.SELF_ATTENDEE_STATUS} NOT IN " +
                         "(${CalendarContract.Attendees.ATTENDEE_STATUS_DECLINED}, ${CalendarContract.Attendees.ATTENDEE_STATUS_INVITED})",
                     null, CalendarContract.Instances.BEGIN + " ASC")?.use { cur ->
                     buildList {

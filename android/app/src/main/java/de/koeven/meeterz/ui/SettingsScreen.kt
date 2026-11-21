@@ -395,6 +395,21 @@ fun SettingsScreen(onClose: () -> Unit) {
                         } else calendarPermission.launch(android.Manifest.permission.READ_CALENDAR)
                     }
                 }
+                // Welche Kalender zählen (wie iOS „Kalender für Vorschläge“)
+                if (calendar) {
+                    val calendars = remember(calendar) { de.koeven.meeterz.suggest.RouteSuggestions.allCalendars(context) }
+                    var choice by remember { mutableStateOf(mapOf<Long, Boolean>()) }
+                    if (calendars.isNotEmpty()) Group(header = tr("Kalender für Vorschläge"),
+                        footer = tr("Nur Termine aus den eingeschalteten Kalendern werden vorgeschlagen.")) {
+                        calendars.forEachIndexed { i, cal ->
+                            if (i > 0) GroupDivider()
+                            ToggleRow(cal.name, choice[cal.id] ?: de.koeven.meeterz.suggest.RouteSuggestions.isUsed(cal), subtitle = cal.account) { on ->
+                                choice = choice + (cal.id to on)
+                                de.koeven.meeterz.suggest.RouteSuggestions.setUsed(context, cal, on)
+                            }
+                        }
+                    }
+                }
                 if (learned > 0) Group {
                     ActionRow(tr("Gelernte Orte löschen (%lld)", learned), destructive = true) {
                         de.koeven.meeterz.suggest.FrequentPlaces.clear(); learned = 0

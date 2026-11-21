@@ -22,6 +22,8 @@ struct FriendsView: View {
     @State private var staleHours = StaleFriends.hours
     @State private var suggestFrequent = RouteSuggestions.frequentEnabled
     @State private var suggestCalendar = RouteSuggestions.calendarEnabled && RouteSuggestions.shared.calendarAuthorized
+    /// Geänderte Kalender-Auswahl (damit die Schalter sofort umspringen)
+    @State private var calendarChoice: [String: Bool] = [:]
     @AppStorage(CarPlayController.placeInfoKey) private var carPlayPlaceInfo = false
     @State private var learnedPlaces = FrequentPlaces.shared.spots.count
     @State private var appearance = AppAppearance.current
@@ -604,6 +606,32 @@ struct FriendsView: View {
             Text("Wie bei Apple Karten schlägt CarPlay beim Einsteigen ein Ziel vor: einen Termin mit Ort, zu dem du bald losfahren musst, oder einen Ort, den du um diese Zeit oft ansteuerst. Die gelernten Orte bleiben nur auf diesem iPhone.")
         }
         .listRowBackground(Theme.panel)
+        if suggestCalendar {
+            // Welche Kalender zählen (z. B. geteilte oder ausgeblendete Kalender ausnehmen)
+            Section {
+                ForEach(RouteSuggestions.shared.allCalendars, id: \.calendarIdentifier) { calendar in
+                    Toggle(isOn: Binding(get: { calendarChoice[calendar.calendarIdentifier] ?? RouteSuggestions.shared.isUsed(calendar) },
+                                         set: { on in
+                        calendarChoice[calendar.calendarIdentifier] = on
+                        RouteSuggestions.shared.setUsed(calendar, on)
+                    })) {
+                        HStack(spacing: 10) {
+                            Circle().fill(Color(cgColor: calendar.cgColor)).frame(width: 10, height: 10)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(calendar.title)
+                                Text(calendar.source.title).font(.caption).foregroundStyle(Theme.muted)
+                            }
+                        }
+                    }
+                    .tint(Theme.accent)
+                }
+            } header: {
+                Text("Kalender für Vorschläge")
+            } footer: {
+                Text("Nur Termine aus den eingeschalteten Kalendern werden vorgeschlagen. Ausgeblendete Kalender aus der Kalender-App sind hier auch dabei.")
+            }
+            .listRowBackground(Theme.panel)
+        }
         Section {
             Toggle("Ortskarte in CarPlay (Test)", isOn: $carPlayPlaceInfo).tint(Theme.accent)
         } footer: {

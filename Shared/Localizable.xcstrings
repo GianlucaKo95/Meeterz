@@ -42203,6 +42203,144 @@
           }
         }
       }
+    },
+    "Kalender für Vorschläge": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kalender für Vorschläge"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calendars for Suggestions"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calendriers pour les suggestions"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calendarios para sugerencias"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calendários para sugestões"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öneriler için takvimler"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calendari per i suggerimenti"
+          }
+        }
+      }
+    },
+    "Nur Termine aus den eingeschalteten Kalendern werden vorgeschlagen. Ausgeblendete Kalender aus der Kalender-App sind hier auch dabei.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nur Termine aus den eingeschalteten Kalendern werden vorgeschlagen. Ausgeblendete Kalender aus der Kalender-App sind hier auch dabei."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only events from the calendars turned on here are suggested. Calendars hidden in the Calendar app are listed here too."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seuls les événements des calendriers activés ici sont suggérés. Les calendriers masqués dans l’app Calendrier figurent aussi ici."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo se sugieren eventos de los calendarios activados aquí. Los calendarios ocultos en la app Calendario también aparecen aquí."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Só são sugeridos eventos dos calendários ativados aqui. Calendários ocultos no app Calendário também aparecem aqui."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yalnızca burada açık olan takvimlerdeki etkinlikler önerilir. Takvim uygulamasında gizlenen takvimler de burada listelenir."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vengono suggeriti solo gli eventi dei calendari attivati qui. Anche i calendari nascosti nell’app Calendario sono elencati qui."
+          }
+        }
+      }
+    },
+    "Nur Termine aus den eingeschalteten Kalendern werden vorgeschlagen.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nur Termine aus den eingeschalteten Kalendern werden vorgeschlagen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only events from the calendars turned on here are suggested."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seuls les événements des calendriers activés ici sont suggérés."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo se sugieren eventos de los calendarios activados aquí."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Só são sugeridos eventos dos calendários ativados aqui."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yalnızca burada açık olan takvimlerdeki etkinlikler önerilir."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vengono suggeriti solo gli eventi dei calendari attivati qui."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

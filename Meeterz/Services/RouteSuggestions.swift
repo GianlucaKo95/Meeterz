@@ -80,6 +80,12 @@ final class RouteSuggestions {
         set { UserDefaults.standard.set(newValue, forKey: calendarKey) }
     }
 
+    /// Selbst gewählte Kalender für Vorschläge (Kennungen); nil = Standard: alle außer abonnierten und Geburtstagen
+    static var chosenCalendars: Set<String>? {
+        get { (UserDefaults.standard.array(forKey: "suggest.calendars") as? [String]).map(Set.init) }
+        set { UserDefaults.standard.set(newValue.map(Array.init), forKey: "suggest.calendars") }
+    }
+
     // MARK: Ermitteln
 
     /// Vorschlag für jetzt (höchstens alle 5 Minuten neu berechnet)
@@ -171,21 +177,41 @@ final class RouteSuggestions {
 
     var calendarAuthorized: Bool { EKEventStore.authorizationStatus(for: .event) == .fullAccess }
 
+    /// Alle Kalender des Geräts (für die Auswahl in den Einstellungen), nach Konto und Name sortiert
+    var allCalendars: [EKCalendar] {
+        guard calendarAuthorized else { return [] }
+        return store.calendars(for: .event).sorted { ($0.source.title, $0.title) < ($1.source.title, $1.title) }
+    }
+
+    /// Wird dieser Kalender für Vorschläge gelesen? (eigene Auswahl oder Standard)
+    func isUsed(_ calendar: EKCalendar) -> Bool {
+        Self.chosenCalendars.map { $0.contains(calendar.calendarIdentifier) }
+            ?? (calendar.type != .subscription && calendar.type != .birthday)
+    }
+
+    func setUsed(_ calendar: EKCalendar, _ used: Bool) {
+        var chosen = Self.chosenCalendars ?? Set(allCalendars.filter(isUsed).map(\.calendarIdentifier))
+        if used { chosen.insert(calendar.calendarIdentifier) } else { chosen.remove(calendar.calendarIdentifier) }
+        Self.chosenCalendars = chosen
+        computedAt = .distantPast   // Vorschlag beim nächsten Mal neu berechnen
+    }
+
     /// Termin mit Ort, zu dem man in spätestens 30 Minuten losfahren muss (Fahrzeit + 5 Min. Puffer)
     private func calendarSuggestion(from here: CLLocation) async -> Suggestion? {
         guard calendarAuthorized else { return nil }
         let now = Date()
+        // Nur die gewählten Kalender (21.11.: „Lehrgang“ kam aus einem Kalender, den Luca nicht als seinen sieht)
+        let calendars = store.calendars(for: .event).filter(isUsed)
+        guard !calendars.isEmpty else { return nil }
         let predicate = store.predicateForEvents(withStart: now.addingTimeInterval(-10 * 60), end: now.addingTimeInterval(6 * 3600),
-                                                 calendars: nil)
+                                                 calendars: calendars)
         let events = store.events(matching: predicate)
             .filter { !$0.isAllDay && $0.startDate > now.addingTimeInterval(-10 * 60) }
-            // Abgelehnte und nicht angenommene Einladungen sind nicht mein Termin; ebenso abonnierte Kalender
-            // (Spielpläne, Feiertage …) und Geburtstage (21.11.: „Lehrgang“ vorgeschlagen, stand nicht im Kalender)
+            // Abgelehnte und nicht angenommene Einladungen sind nicht mein Termin
             .filter { event in
                 let me = event.attendees?.first { $0.isCurrentUser }
                 return me.map { $0.participantStatus != .declined && $0.participantStatus != .pending } ?? true
             }
-            .filter { $0.calendar.type != .subscription && $0.calendar.type != .birthday }
             .sorted { $0.startDate < $1.startDate }
         for event in events.prefix(5) {
             guard let coordinate = await coordinate(of: event),

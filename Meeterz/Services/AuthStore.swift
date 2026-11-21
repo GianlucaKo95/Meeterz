@@ -11,7 +11,39 @@ final class AuthStore {
         case ready(Profile)
     }
 
-    var state: State = .loading
+    var state: State = .loading {
+        // Letztes Profil auf dem Gerät merken: ohne Netz öffnet die App damit trotzdem die Karte (Offline-Karten,
+        // Navigation, Favoriten) statt endlos zu laden. Beim Abmelden vergessen. (21.11.)
+        didSet {
+            switch state {
+            case .ready(let p): UserDefaults.standard.set(try? JSONEncoder().encode(p), forKey: Self.cacheKey)
+            case .signedOut: UserDefaults.standard.removeObject(forKey: Self.cacheKey); loadedOnline = false
+            default: break
+            }
+        }
+    }
+    private static let cacheKey = "auth.lastProfile"
+    /// Profil wirklich vom Server geladen (nicht nur das gespeicherte) – bis dahin wird weiter versucht
+    private var loadedOnline = false
+
+    /// Ohne Netz: mit dem gespeicherten Profil weitermachen (nur solange noch nichts geladen ist)
+    private func useCachedIfOffline(userId: UUID?) {
+        guard state == .loading,
+              let data = UserDefaults.standard.data(forKey: Self.cacheKey),
+              let cached = try? JSONDecoder().decode(Profile.self, from: data),
+              userId == nil || cached.id == userId else { return }
+        Diag.log("Ohne Netz: App startet mit gespeichertem Profil")
+        state = .ready(cached)
+    }
+
+    /// Kein Netz: in 10 s noch einmal, bis das Profil einmal vom Server kam
+    private func retryLater() {
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(10))
+            guard let self, !self.loadedOnline else { return }
+            await self.load(session: nil)
+        }
+    }
     var errorMessage: String?
 
     private var client: SupabaseClient { Backend.client }
@@ -31,7 +63,7 @@ final class AuthStore {
             switch event {
             case .initialSession, .signedIn, .signedOut, .userUpdated:
                 await load(session: session)
-            case .tokenRefreshed where profile == nil:
+            case .tokenRefreshed where !loadedOnline:
                 // Start im Hintergrund mit abgelaufenem Zugang: erst die Erneuerung bringt die gültige Sitzung
                 await load(session: session)
             default:
@@ -54,11 +86,8 @@ final class AuthStore {
                 return
             } catch {
                 Diag.log("Anmeldung erneuern fehlgeschlagen (\(error.localizedDescription)) – neuer Versuch in 10 s")
-                Task { [weak self] in
-                    try? await Task.sleep(for: .seconds(10))
-                    guard let self, self.profile == nil else { return }
-                    await self.load(session: nil)
-                }
+                useCachedIfOffline(userId: nil)
+                retryLater()
                 return
             }
         }
@@ -69,16 +98,14 @@ final class AuthStore {
                 .eq("id", value: session.user.id)
                 .execute().value
             state = rows.first.map(State.ready) ?? .needsProfile(session.user.id)
+            loadedOnline = true
             errorMessage = nil
         } catch where Self.isOffline(error) {
             // Kein Netz (z. B. Start im Hintergrund, Funkloch): kein Fehlertext, der stehen bleibt, und schon gar nicht
             // „Profil anlegen“ – das Profil gibt es ja. Bisherigen Stand behalten und gleich noch einmal versuchen.
             Diag.log("Profil laden: kein Netz – neuer Versuch in 10 s")
-            Task { [weak self] in
-                try? await Task.sleep(for: .seconds(10))
-                guard let self, self.profile?.id != session.user.id else { return }
-                await self.load(session: try? await self.client.auth.session)
-            }
+            useCachedIfOffline(userId: session.user.id)
+            retryLater()
         } catch {
             errorMessage = error.localizedDescription
             state = .needsProfile(session.user.id)

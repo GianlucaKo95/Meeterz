@@ -43,7 +43,9 @@ class AuthRepository(private val scope: CoroutineScope) {
             client.auth.sessionStatus.collect { status ->
                 when (status) {
                     is SessionStatus.Authenticated -> load(status.session.user?.id)
-                    is SessionStatus.NotAuthenticated -> _state.value = State.SignedOut
+                    is SessionStatus.NotAuthenticated -> { _state.value = State.SignedOut; cache(null); loadedOnline = false }
+                    // Abgelaufen und kein Netz: Supabase versucht selbst weiter; bis dahin mit dem gespeicherten Profil (wie iOS)
+                    is SessionStatus.RefreshFailure -> useCachedIfOffline(null)
                     else -> Unit
                 }
             }
@@ -59,9 +61,36 @@ class AuthRepository(private val scope: CoroutineScope) {
                 }.decodeList<Profile>()
         }.onSuccess { rows ->
             _state.value = rows.firstOrNull()?.let { State.Ready(it) } ?: State.NeedsProfile(userId, suggestedName)
+            rows.firstOrNull()?.let { cache(it) }
+            loadedOnline = true
         }.onFailure {
-            error.value = it.message
+            if (it is java.io.IOException || it.cause is java.io.IOException ||
+                it is io.github.jan.supabase.exceptions.HttpRequestException) {
+                // Kein Netz: mit dem gespeicherten Profil öffnen und in 10 s neu versuchen (wie iOS)
+                useCachedIfOffline(userId)
+                scope.launch { kotlinx.coroutines.delay(10_000); if (!loadedOnline) load(userId) }
+            } else error.value = it.message
         }
+    }
+
+    // Letztes Profil auf dem Gerät: ohne Netz öffnet die App damit die Karte (Offline-Karten, Navigation, Favoriten)
+    // statt endlos zu laden. Beim Abmelden vergessen. (21.11., wie iOS AuthStore)
+    private var loadedOnline = false
+    private fun prefs() = de.koeven.meeterz.AppState.appContextOrNull()?.getSharedPreferences("auth", 0)
+    private fun cache(profile: Profile?) {
+        prefs()?.edit()?.apply {
+            if (profile == null) remove("lastProfile")
+            else putString("lastProfile", kotlinx.serialization.json.Json.encodeToString(Profile.serializer(), profile))
+        }?.apply()
+    }
+    private fun useCachedIfOffline(userId: String?) {
+        if (_state.value != State.Loading) return
+        val cached = prefs()?.getString("lastProfile", null)?.let {
+            runCatching { kotlinx.serialization.json.Json { ignoreUnknownKeys = true }.decodeFromString(Profile.serializer(), it) }.getOrNull()
+        } ?: return
+        if (userId != null && cached.id != userId) return
+        de.koeven.meeterz.Diag.log("Ohne Netz: App startet mit gespeichertem Profil")
+        _state.value = State.Ready(cached)
     }
 
     /** Mit Google anmelden (Credential Manager → ID-Token → Supabase) */

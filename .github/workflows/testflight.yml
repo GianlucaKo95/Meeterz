@@ -63,3 +63,22 @@ jobs:
       - name: Ergebnis
         if: steps.build.outcome == 'failure'
         run: exit 1
+
+  # Zertifikat dieses Laufs freigeben, sobald Apple den Build verarbeitet hat – günstig auf Linux statt auf dem Mac,
+  # damit andere Apps (z. B. Couchpotato) nicht an der Grenze von 2 Distributionszertifikaten hängen
+  release-cert:
+    needs: testflight
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - name: Zertifikat freigeben
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          printf '%s' "$ASC_KEY_P8" > "$RUNNER_TEMP/key.p8"
+          export ASC_KEY_PATH="$RUNNER_TEMP/key.p8"
+          python3 ci/asc.py release "$GITHUB_RUN_NUMBER"

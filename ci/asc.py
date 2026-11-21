@@ -144,6 +144,35 @@ def purge(max_age_seconds=7200):
             except SystemExit:
                 pass
 
+def release(run_number, bundle_identifier="de.koeven.meeterz", max_wait=45 * 60):
+    """Räumt Zertifikat und Profile DIESES Laufs weg, sobald Apple den Build verarbeitet hat (vorher → ITMS-90035).
+    Läuft als eigener Linux-Job nach dem Upload, damit der Platz für Zertifikate (max. 2) sofort wieder frei ist –
+    z. B. für Couchpotato. Ohne laufende Verarbeitung (Upload fehlgeschlagen) wird sofort geräumt."""
+    app = api("GET", f"/v1/apps?filter[bundleId]={bundle_identifier}").get("data", [])
+    start = time.time()
+    while app and time.time() - start < max_wait:
+        builds = api("GET", f"/v1/builds?filter[app]={app[0]['id']}&sort=-uploadedDate&limit=3").get("data", [])
+        processing = [b["attributes"].get("version") for b in builds if b["attributes"].get("processingState") == "PROCESSING"]
+        if not processing:
+            break
+        print("Apple verarbeitet noch Build", ", ".join(processing), "– warte 60 s")
+        time.sleep(60)
+    prefixes = (f"Meeterz CI {run_number}-", f"Meeterz CI W{run_number}-")
+    for prof in api("GET", "/v1/profiles?limit=200").get("data", []):
+        name = prof["attributes"].get("name", "")
+        if not name.startswith(prefixes):
+            continue
+        try:
+            certs = api("GET", f"/v1/profiles/{prof['id']}/certificates").get("data", [])
+        except SystemExit:
+            certs = []
+        for kind, ident in [("profiles", prof["id"])] + [("certificates", c["id"]) for c in certs]:
+            try:
+                api("DELETE", f"/v1/{kind}/{ident}")
+                print("gelöscht:", kind, ident, name)
+            except SystemExit:
+                pass
+
 def status(bundle_identifier):
     """Zeigt die letzten Builds mit Verarbeitungsstatus und – falls vorhanden – die Fehler der Uploads."""
     def safe(path):
@@ -195,6 +224,7 @@ if __name__ == "__main__":
     cmd = sys.argv[1]
     if cmd == "certs": certs(sys.argv[2] if len(sys.argv) > 2 and sys.argv[2] else None); raise SystemExit
     if cmd == "purge": purge(); raise SystemExit
+    if cmd == "release": release(sys.argv[2]); raise SystemExit
     if cmd == "status": status(sys.argv[2]); raise SystemExit
     if cmd == "create": create(sys.argv[2], sys.argv[3], sys.argv[4])
     elif cmd == "extra": extra(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5])

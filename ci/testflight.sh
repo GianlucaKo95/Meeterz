@@ -59,7 +59,8 @@ WORK="$PWD/build/signing"
 PROFILE_NAME="Meeterz CI ${GITHUB_RUN_NUMBER:-0}-$(date +%s)"
 KC="$PWD/build/ci.keychain-db"
 # Zertifikat und Profil bleiben nach dem Upload bestehen, bis Apple den Build verarbeitet hat
-# (sofortiges Löschen ergab „ITMS-90035: Invalid Signature“); der nächste Lauf räumt Altes (> 2 Std.) weg.
+# (sofortiges Löschen ergab „ITMS-90035: Invalid Signature“). Danach gibt der Job „release-cert“ sie frei;
+# als Rückfall räumt der nächste Lauf Altes (> 2 Std.) weg.
 cleanup() {
   security delete-keychain "$KC" >/dev/null 2>&1
 }

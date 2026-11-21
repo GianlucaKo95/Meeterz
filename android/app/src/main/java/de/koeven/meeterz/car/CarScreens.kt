@@ -606,6 +606,10 @@ private class CarStartFrame(private val camera: CarNavigationCamera) : com.mapbo
             if (!framed) {
                 framed = true
                 val map = mapboxCarMapSurface.mapSurface.mapboxMap
+                // Erst nach dem Laden des Kartenstils – sonst setzt Mapbox die Kamera danach auf den Stil-Standard
+                // (ganze Welt) zurück (wie CarPlay, Diagnose 20.11.)
+                var wait = 0
+                while (!map.isStyleLoaded() && wait++ < 100) delay(100)
                 val here = Point.fromLngLat(me.longitude, me.latitude)
                 val live = AppState.hub.positions.value
                 val friends = AppState.friends.value.filter { it.isAccepted }.mapNotNull { f ->

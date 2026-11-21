@@ -348,6 +348,14 @@ final class CarPlayController: NSObject {
                 try? await Task.sleep(for: .milliseconds(500))
                 here = AppModel.shared.location.lastLocation
             }
+            // Erst wenn der Kartenstil geladen ist und die Karte eine Größe hat: Beim Laden setzt Mapbox die Kamera auf den
+            // Stil-Standard (Zoom ~3, ganze Welt) und bricht dabei unsere Fahrt ab – daher stand die Karte beim Einsteigen
+            // fast immer auf der Weltkarte (Diagnose 17.–20.11.: „große Karte 3.3“ nach 5 s, nur selten 16.5).
+            if let map {
+                for _ in 0..<100 where !(map.mapView.mapboxMap.isStyleLoaded && map.mapView.bounds.width > 0) {
+                    try? await Task.sleep(for: .milliseconds(100))
+                }
+            }
             guard let self, let map, let me = here?.coordinate, !Task.isCancelled,
                   manager.currentActivity == nil || manager.currentActivity == .browsing else { return }
             let friends = friendsShown
@@ -361,7 +369,7 @@ final class CarPlayController: NSObject {
                 coordinatesPadding: UIEdgeInsets(top: 60, left: 60, bottom: 60, right: 60), maxZoom: browseZoom, offset: nil) {
                 map.mapView.camera.ease(to: camera, duration: 0.8)
             }
-            Diag.log("CarPlay-Start: Karte zeigt mich\(friends.isEmpty ? "" : " und \(friends.count) Freunde")")
+            Diag.log("CarPlay-Start: Karte zeigt mich\(friends.isEmpty ? "" : " und \(friends.count) Freunde") (Stil geladen: \(map.mapView.mapboxMap.isStyleLoaded))")
             refreshFollowButton(force: true)
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(1))

@@ -205,18 +205,25 @@ def status(bundle_identifier):
 
 def certs(drop_expiring=None):
     """Listet die Distributionszertifikate (Ablaufdatum = Erstellung + 1 Jahr). Mit `drop_expiring` (Anfang des
-    Ablaufdatums, z. B. 2027-10-29T09:08) wird genau dieses Zertifikat gelöscht – nur wenn es zu keinem Profil gehört."""
-    used = {}
+    Ablaufdatums, z. B. 2027-10-29T09:08) wird genau dieses Zertifikat gelöscht – nur wenn höchstens CI-Profile
+    (auch anderer Apps, z. B. „Wizzo CI 10-…“) daran hängen; die gehen mit."""
+    used, profile_ids = {}, {}
     for prof in api("GET", "/v1/profiles?limit=200").get("data", []):
         try:
             for c in api("GET", f"/v1/profiles/{prof['id']}/certificates").get("data", []):
-                used.setdefault(c["id"], []).append(prof["attributes"].get("name", ""))
+                name = prof["attributes"].get("name", "")
+                used.setdefault(c["id"], []).append(name)
+                profile_ids.setdefault(c["id"], []).append(prof["id"])
         except SystemExit:
             pass
     for c in api("GET", "/v1/certificates?filter[certificateType]=DISTRIBUTION&limit=50").get("data", []):
         a = c["attributes"]
         print("Zertifikat:", c["id"], a.get("name"), "läuft ab", a.get("expirationDate"), "in Profil: " + ", ".join(used[c["id"]]) if c["id"] in used else "ohne Profil")
-        if drop_expiring and (a.get("expirationDate") or "").startswith(drop_expiring) and c["id"] not in used:
+        if drop_expiring and (a.get("expirationDate") or "").startswith(drop_expiring) \
+                and all(" CI " in n for n in used.get(c["id"], [])):
+            for pid in profile_ids.get(c["id"], []):
+                api("DELETE", f"/v1/profiles/{pid}")
+                print("  -> Profil gelöscht", pid)
             api("DELETE", f"/v1/certificates/{c['id']}")
             print("  -> gelöscht")
 

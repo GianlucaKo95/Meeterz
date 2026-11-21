@@ -12,7 +12,15 @@ class MeeterzApplication : Application() {
         L10n.init(this)
         MapboxOptions.accessToken = getString(R.string.mapbox_access_token)
         // Eine Navigation für App und Android Auto
-        if (!MapboxNavigationApp.isSetup()) MapboxNavigationApp.setup { NavigationOptions.Builder(this).build() }
+        if (!MapboxNavigationApp.isSetup()) MapboxNavigationApp.setup {
+            NavigationOptions.Builder(this)
+                // Live-Standort mit Sprungfilter: stehend an der Ampel kein Neuberechnen wegen GPS-Spiegelungen (wie iOS)
+                .locationOptions(com.mapbox.navigation.base.options.LocationOptions.Builder()
+                    .locationProviderFactory(de.koeven.meeterz.nav.SteadyLocation.factory,
+                        com.mapbox.navigation.base.options.LocationOptions.LocationProviderType.MIXED)
+                    .build())
+                .build()
+        }
         NavigationController.init(this)
         Diag.init(this)
         AppState.init(this)

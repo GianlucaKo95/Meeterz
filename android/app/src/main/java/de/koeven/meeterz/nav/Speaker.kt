@@ -54,12 +54,12 @@ class Speaker(context: Context) {
         })
     }
 
-    /** Abbiegeansage: ersetzt eine laufende */
+    /** Abbiegeansage: eine laufende spricht zu Ende, die neue folgt direkt (wie iOS, 21.11.: erste Ansage brach ab) */
     fun say(text: String) {
         if (muted) return
         Diag.log("Ansage: $text")
         if (!ready) { pending.clear(); pending += text; return }
-        speakNow(text)
+        speakNow(text, if (tts.isSpeaking) TextToSpeech.QUEUE_ADD else TextToSpeech.QUEUE_FLUSH)
     }
 
     /** Hinweis (z. B. Nachricht eines Freundes): hinten anstellen, keine Abbiegeansage abbrechen */

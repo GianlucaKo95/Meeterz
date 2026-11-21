@@ -31,3 +31,15 @@ final class StoryDecodingTests: XCTestCase {
         XCTAssertEqual(rows[0].createdAt.timeIntervalSince1970, 1_794_949_917.816, accuracy: 0.01)
     }
 }
+
+@MainActor
+final class SteadyLocationTests: XCTestCase {
+    func testSprungImStandWirdVerworfen() {
+        XCTAssertFalse(SteadyLocation.plausible(distance: 40, seconds: 1, speed: 0))
+        XCTAssertTrue(SteadyLocation.plausible(distance: 10, seconds: 1, speed: 0))
+    }
+    func testFahrtWirdUebernommen() {
+        XCTAssertTrue(SteadyLocation.plausible(distance: 30, seconds: 1, speed: 28))   // ~100 km/h
+        XCTAssertTrue(SteadyLocation.plausible(distance: 200, seconds: 10, speed: 15))
+    }
+}

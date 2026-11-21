@@ -229,12 +229,14 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
         text = FinalTurn.apply(to: text, instruction: instruction, legProgress: legProgress)
         if text != instruction.text { Diag.log("Ansage angepasst: „\(instruction.text)“ → „\(text)“") }
 
-        // Eine neue Abbiegeansage ersetzt eine laufende oder wartende – die alte ist überholt
-        if let previous = playing, let old = previous.instruction {
-            subject.send(VoiceInstructionEvents.DidInterrupt(interruptedInstruction: old, interruptingInstruction: instruction))
-        }
+        // Eine neue Abbiegeansage ersetzt eine wartende oder noch nicht hörbare. Eine schon hörbare läuft zu Ende,
+        // die neue folgt direkt danach – vorher brach z. B. die erste Ansage nach Start oder Neuberechnung mittendrin ab,
+        // weil Sekunden später schon die nächste kam (21.11.).
         queue.removeAll { $0.instruction != nil }
-        if playing?.instruction != nil { stopCurrent() }
+        if let previous = playing, let old = previous.instruction, rendering != nil {
+            subject.send(VoiceInstructionEvents.DidInterrupt(interruptedInstruction: old, interruptingInstruction: instruction))
+            stopCurrent()
+        }
         queue.insert(Item(text: text, instruction: instruction), at: 0)
         pump()
     }

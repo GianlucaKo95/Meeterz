@@ -9,6 +9,8 @@ object UiPreferences {
     val appearance = MutableStateFlow("system") // system, light, dark
     val mapStyle = MutableStateFlow("satellite") // satellite (Vorgabe wie iOS), standard
     val map3d = MutableStateFlow(true)
+    /** Während der Fahrt Norden oben statt Fahrtrichtung oben (wie iOS „map.northUp“) */
+    val northUp = MutableStateFlow(false)
     val staleHours = MutableStateFlow(6)
 
     fun init(context: Context) {
@@ -16,11 +18,13 @@ object UiPreferences {
         appearance.value = prefs.getString("appearance", "system") ?: "system"
         mapStyle.value = prefs.getString("android.map.style", "satellite") ?: "satellite"
         map3d.value = prefs.getBoolean("android.map.3d", true)
+        northUp.value = prefs.getBoolean("map.northUp", false)
         staleHours.value = prefs.getInt("map.hideStaleHours", 6)
     }
 
     fun setAppearance(value: String) { appearance.value = value; prefs.edit().putString("appearance", value).apply() }
     fun setMapStyle(value: String) { mapStyle.value = value; prefs.edit().putString("android.map.style", value).apply() }
     fun setMap3d(value: Boolean) { map3d.value = value; prefs.edit().putBoolean("android.map.3d", value).apply() }
+    fun setNorthUp(value: Boolean) { northUp.value = value; prefs.edit().putBoolean("map.northUp", value).apply() }
     fun setStaleHours(value: Int) { staleHours.value = value; prefs.edit().putInt("map.hideStaleHours", value).apply() }
 }

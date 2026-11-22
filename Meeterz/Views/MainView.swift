@@ -13,6 +13,7 @@ struct MainView: View {
         MapPreferences.setStyle(MapPreferences.Style(rawValue: key) ?? .satellite)   // gilt auch in CarPlay
     }
     @AppStorage("map.3d") private var threeD = true
+    @AppStorage("map.northUp") private var northUp = false
 
     @State private var viewport: Viewport = .idle
     @State private var showFriends = false
@@ -488,6 +489,15 @@ struct MainView: View {
                 Section("Ansicht") {
                     Button { MapPreferences.setThreeD(true) } label: { Label("3D", systemImage: threeD ? "checkmark" : "cube") }
                     Button { MapPreferences.setThreeD(false) } label: { Label("2D", systemImage: threeD ? "square" : "checkmark") }
+                }
+                // Wie Apple Karten: während der Fahrt Fahrtrichtung oben oder Norden oben
+                Section("Während der Fahrt") {
+                    Button { MapPreferences.setNorthUp(false) } label: {
+                        Label("Fahrtrichtung oben", systemImage: northUp ? "location.north.line" : "checkmark")
+                    }
+                    Button { MapPreferences.setNorthUp(true) } label: {
+                        Label("Norden oben", systemImage: northUp ? "checkmark" : "n.circle")
+                    }
                 }
             } label: {
                 Image(systemName: "square.3.layers.3d")

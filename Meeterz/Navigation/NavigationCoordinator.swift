@@ -579,6 +579,12 @@ final class NavigationCoordinator: NSObject {
     }
 
     /// Kartenart während der iPhone-Navigation sofort übernehmen (vorher galt sie erst bei der nächsten Route)
+    /// Ausrichtung (Norden / Fahrtrichtung oben) in der laufenden iPhone-Navigation sofort übernehmen
+    func applyOrientation() {
+        guard let source = phoneMap?.navigationCamera.viewportDataSource as? MobileViewportDataSource else { return }
+        NavigationZoom.orient(source)
+    }
+
     func applyMapStyle() {
         guard let controller = phoneController else { return }
         controller.styleManager.styles = NavigationStyles.phone()
@@ -949,12 +955,25 @@ enum NavigationZoom {
     /// iPhone-Navigation (CarPlay: CarPlayController.configureCamera)
     @MainActor static func closer(_ map: NavigationMapView?) {
         guard let source = map?.navigationCamera.viewportDataSource as? MobileViewportDataSource else { return }
+        orient(source)
         var options = source.options
         options.followingCameraOptions.intersectionDensity.averageDistanceMultiplier = lookaheadMultiplier
         options.followingCameraOptions.pitchNearManeuver.triggerDistanceToManeuver = pitchTrigger
         let range = options.followingCameraOptions.zoomRange
         options.followingCameraOptions.zoomRange = (range.lowerBound + 1)...(range.upperBound + 1)
         source.options = options
+    }
+
+    /// Norden oben oder Fahrtrichtung oben (Einstellung wie in Apple Karten)
+    @MainActor static func orient(_ source: MobileViewportDataSource) {
+        var options = source.options
+        options.followingCameraOptions.bearingUpdatesAllowed = !MapPreferences.northUp
+        source.options = options
+        if MapPreferences.northUp {
+            var current = source.currentNavigationCameraOptions
+            current.followingCamera.bearing = 0
+            source.currentNavigationCameraOptions = current
+        }
     }
 
     // MARK: Neigung vor Abbiegungen

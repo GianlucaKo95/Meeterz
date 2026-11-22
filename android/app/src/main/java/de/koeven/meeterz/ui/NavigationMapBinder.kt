@@ -182,6 +182,8 @@ class NavigationMapBinder(private val mapView: MapView) : MapboxNavigationObserv
         viewport.followingPitchPropertyOverride(maneuverPitch(progress, viewport.options.followingFrameOptions.defaultPitch))
         viewport.followingZoomPropertyOverride(maneuverZoom(progress, (de.koeven.meeterz.AppState.lastLocation?.speed ?: 0f).toDouble(),
             mapView.mapboxMap.cameraState.zoom))
+        // Norden oben (Einstellung wie Apple Karten / iOS): Kamera nicht mit der Fahrtrichtung drehen
+        viewport.followingBearingPropertyOverride(if (UiPreferences.northUp.value) 0.0 else null)
         viewport.evaluate()
         routeLineApi.updateWithRouteProgress(progress) { value ->
             mapView.mapboxMap.style?.let { routeLineView.renderRouteLineUpdate(it, value) }

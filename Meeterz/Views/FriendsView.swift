@@ -24,7 +24,6 @@ struct FriendsView: View {
     @State private var suggestCalendar = RouteSuggestions.calendarEnabled && RouteSuggestions.shared.calendarAuthorized
     /// Geänderte Kalender-Auswahl (damit die Schalter sofort umspringen)
     @State private var calendarChoice: [String: Bool] = [:]
-    @AppStorage(CarPlayController.placeInfoKey) private var carPlayPlaceInfo = false
     @State private var learnedPlaces = FrequentPlaces.shared.spots.count
     @State private var appearance = AppAppearance.current
     @State private var evRange = EVSettings.rangeKm
@@ -632,12 +631,6 @@ struct FriendsView: View {
             }
             .listRowBackground(Theme.panel)
         }
-        Section {
-            Toggle("Ortskarte in CarPlay (Test)", isOn: $carPlayPlaceInfo).tint(Theme.accent)
-        } footer: {
-            Text("Zeigt in CarPlay vor der Route eine Karte mit Adresse, Öffnungszeiten und „Anrufen“. Noch im Test: Ob CarPlay diese Ansicht für Navigations-Apps erlaubt, zeigt sich erst im Auto. Bricht CarPlay ab, hier wieder ausschalten.")
-        }
-        .listRowBackground(Theme.panel)
         if learnedPlaces > 0 {
             Section {
                 Button("Gelernte Orte löschen (\(learnedPlaces))", role: .destructive) {

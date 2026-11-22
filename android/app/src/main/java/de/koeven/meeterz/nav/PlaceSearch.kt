@@ -127,7 +127,8 @@ object PlaceSearch {
                 val od = o["day"]!!.jsonPrimitive.int; val ot = minutes(o["time"]!!.jsonPrimitive.content)
                 // ohne „close“ = rund um die Uhr
                 val end = c?.let { ((it["day"]!!.jsonPrimitive.int - od + 7) % 7) * 1440 + minutes(it["time"]!!.jsonPrimitive.content) } ?: 1440
-                days[od % 7] += ot until maxOf(end, ot + 1)
+                // Mapbox zählt ab Sonntag (0 = So), wir ab Montag (wie iOS)
+                days[(od + 6) % 7] += ot until maxOf(end, ot + 1)
             }
             days
         }

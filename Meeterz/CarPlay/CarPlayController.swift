@@ -156,6 +156,9 @@ final class CarPlayController: NSObject {
         var options = source.options
         var current = source.currentNavigationCameraOptions
         options.followingCameraOptions.defaultPitch = pitch
+        // Norden oben: Mapbox darf die Kamera nicht mehr drehen, sie bleibt bei 0°
+        options.followingCameraOptions.bearingUpdatesAllowed = !MapPreferences.northUp
+        if MapPreferences.northUp { current.followingCamera.bearing = 0 }
         if navigating {
             // Mit Route: Mapbox neigt (flacher vor Abbiegungen) und rahmt den Zoom – außer der Fahrer hat selbst gezoomt
             options.followingCameraOptions.pitchUpdatesAllowed = true
@@ -654,6 +657,31 @@ final class CarPlayController: NSObject {
         // Von wo aus gewählt wurde: Ist diese Ansicht weg (Zurück/Verlassen), wird die Planung verworfen
         let origin: CPTemplate? = fromMap ? manager.interfaceController?.rootTemplate : manager.interfaceController?.topTemplate
         pendingDestination = Place(id: UUID().uuidString, name: name, address: address, coordinate: coordinate, hours: hours)
+        // Ortsangaben für die Vorschau (Öffnungszeiten, Telefon) parallel zur Route holen – die Vorschau zeigt sie
+        // unter dem Namen und bietet „Anrufen“ (statt einer eigenen Ortskarte vorher, 22.11.)
+        previewPhone = nil
+        previewStatus = hours.map { OsmPlaces.status($0) }
+        let placeForDetails = pendingDestination!
+        let detailsTask = Task { @MainActor () -> (status: String?, phone: String?) in
+            async let apple = ApplePlaces.mapItem(for: placeForDetails)
+            let d = await SearchService.details(name: name, at: coordinate)
+            let applePhone = (await apple)?.phoneNumber
+            let phone = applePhone.flatMap { $0.isEmpty ? nil : $0 } ?? d?.phone
+            return ((d?.hours ?? hours).map { OsmPlaces.status($0) } ?? d?.hoursText, phone)
+        }
+        /// Ortsangaben übernehmen – höchstens 1,5 s auf sie warten, die Route geht vor
+        func takeDetails() async {
+            let info = await withTaskGroup(of: (status: String?, phone: String?)?.self) { group in
+                group.addTask { await detailsTask.value }
+                group.addTask { try? await Task.sleep(for: .milliseconds(1500)); return nil }
+                let first = await group.next() ?? nil
+                group.cancelAll()
+                return first
+            }
+            guard let info else { return }
+            previewStatus = info.status ?? previewStatus
+            previewPhone = info.phone
+        }
         // Eigene Routenoptionen: Deutsch (sonst gilt die Systemsprache des iPhones, z. B. Englisch) und Auto
         // Mapbox meldet den Abschluss aus einem Hintergrund-Task; CarPlay bekommt ihn auf dem Hauptthread
         let completion = { DispatchQueue.main.async(execute: completion) }
@@ -678,6 +706,7 @@ final class CarPlayController: NSObject {
                 return
             }
             let wide = await RouteVariety.widen(routes, options: options, using: provider)
+            await takeDetails()
             guard self.previewStillWanted(generation, origin: origin, fromMap: fromMap) else { completion(); return }
             await self.manager.previewRoutes(for: wide)
             completion()
@@ -685,6 +714,9 @@ final class CarPlayController: NSObject {
     }
 
     private var previewGeneration = 0
+    /// Öffnungsstatus und Telefon des Vorschau-Ziels (aus Mapbox/OSM, Telefon von Apple)
+    private var previewStatus: String?
+    private var previewPhone: String?
     private var previewTask: Task<Void, Never>?
 
     /// Darf die berechnete Vorschau noch erscheinen? Nicht, wenn inzwischen ein anderes Ziel gewählt wurde, eine
@@ -747,11 +779,6 @@ final class CarPlayController: NSObject {
             }
             return
         }
-        if UserDefaults.standard.bool(forKey: Self.placeInfoKey) {
-            done()
-            showPlaceInfo(place)
-            return
-        }
         startPreview(place)
         done()
     }
@@ -765,50 +792,6 @@ final class CarPlayController: NSObject {
     }
 
     /// Schalter in den Einstellungen: Ortskarte vor der Route (Test, ob CarPlay die Vorlage Navigations-Apps erlaubt)
-    static let placeInfoKey = "carplay.placeInfo"
-
-    /// Ortskarte wie in Apple Karten (ohne Bilder): Adresse, Öffnungsstatus, Telefon; „Losfahren“ und „Anrufen“.
-    /// Telefon von Apple, sonst Mapbox/OpenStreetMap; Öffnungszeiten aus Mapbox/OpenStreetMap (Apple gibt sie nicht als Daten heraus).
-    private func showPlaceInfo(_ place: Place) {
-        Diag.log("CarPlay-Ortskarte: \(place.name)")
-        func items(_ d: SearchService.Details?) -> [CPInformationItem] {
-            var list = [CPInformationItem(title: String(localized: "Adresse"), detail: d?.address ?? place.address ?? "–")]
-            if let hours = d?.hours ?? place.hours {
-                list.append(CPInformationItem(title: String(localized: "Öffnungszeiten"), detail: OsmPlaces.status(hours)))
-            } else if let text = d?.hoursText {
-                list.append(CPInformationItem(title: String(localized: "Öffnungszeiten"), detail: text))
-            }
-            if let category = d?.category { list.insert(CPInformationItem(title: nil, detail: category), at: 0) }
-            if let phone = d?.phone { list.append(CPInformationItem(title: String(localized: "Telefon"), detail: phone)) }
-            return list
-        }
-        func actions(_ d: SearchService.Details?) -> [CPTextButton] {
-            var list = [CPTextButton(title: String(localized: "Losfahren"), textStyle: .confirm) { [weak self] _ in
-                MainActor.assumeIsolated { self?.startPreview(place) }
-            }]
-            if let phone = d?.phone, let url = URL(string: "tel:" + phone.filter { !$0.isWhitespace }) {
-                list.append(CPTextButton(title: String(localized: "Anrufen"), textStyle: .normal) { _ in
-                    MainActor.assumeIsolated { UIApplication.shared.open(url) }
-                })
-            }
-            return list
-        }
-        let template = CPInformationTemplate(title: place.name, layout: .leading, items: items(nil), actions: actions(nil))
-        CarPlayUI.shared.push(template, animated: true)
-        Task { @MainActor [weak template] in
-            // Apple gibt Telefon (und Website) als Daten heraus, Öffnungszeiten nicht – die kommen aus Mapbox/OSM
-            async let apple = ApplePlaces.mapItem(for: place)
-            var d = await SearchService.details(name: place.name, at: place.coordinate)
-            if let phone = await apple?.phoneNumber, !phone.isEmpty {
-                if d == nil { d = SearchService.Details(category: nil, address: nil, phone: nil, website: nil, rating: nil, reviews: nil, hours: nil) }
-                d?.phone = phone
-            }
-            guard let template else { return }
-            template.items = items(d)
-            template.actions = actions(d)
-        }
-    }
-
     // MARK: Ladephase bis zur Routenvorschau
 
     private var loadingView: RouteLoadingView?
@@ -1274,7 +1257,7 @@ extension CarPlayController: CarPlayManagerDelegate {
 
     nonisolated func carPlayManager(_ carPlayManager: CarPlayManager, willPreview trip: CPTrip) -> CPTrip {
         MainActor.assumeIsolated {
-            var shown = Self.withRouteOptions(Self.withBatteryForecast(Self.withPhoneLabels(trip, destination: pendingDestination)))
+            var shown = Self.withRouteOptions(Self.withBatteryForecast(Self.withPhoneLabels(trip, destination: pendingDestination, status: previewStatus)))
             if let suggestion = activeSuggestion { shown = Self.withSuggestionLabel(shown, suggestion) }
             previewTrip = shown
             return shown
@@ -1286,7 +1269,7 @@ extension CarPlayController: CarPlayManagerDelegate {
     /// Strecke (stand doppelt und wich durch andere Rundung ab: „45 Min · 41,5 km“ über „44 Min. · 41 km“).
     /// In der Liste aller Routen steht die Dauer/Strecke als Titel, damit man sie vergleichen kann.
     /// Unter dem Zielnamen stand außerdem noch einmal der Name („Arbeit“ / „Arbeit“): Das Ziel bekommt seine Adresse.
-    private static func withPhoneLabels(_ trip: CPTrip, destination: Place?) -> CPTrip {
+    private static func withPhoneLabels(_ trip: CPTrip, destination: Place?, status: String?) -> CPTrip {
         let all = trip.routeChoices.compactMap { mainRoute(in: $0.userInfo) }
         let choices = trip.routeChoices.enumerated().map { index, choice -> CPRouteChoice in
             guard let route = mainRoute(in: choice.userInfo) else { return choice }
@@ -1302,8 +1285,8 @@ extension CarPlayController: CarPlayManagerDelegate {
         var target = trip.destination
         if let destination, let address = destination.address, !address.isEmpty,
            destination.coordinate.distance(to: trip.destination.placemark.coordinate) < 200 {
-            // Mit Öffnungsstatus („Geöffnet bis 23:00“), falls die Liste ihn kannte
-            let line = [destination.hours.map { OsmPlaces.status($0) }, address].compactMap { $0 }.joined(separator: " · ")
+            // Mit Öffnungsstatus („Geöffnet bis 23:00“) aus Mapbox/OSM
+            let line = [status ?? destination.hours.map { OsmPlaces.status($0) }, address].compactMap { $0 }.joined(separator: " · ")
             target = MKMapItem(placemark: Self.placemark(trip.destination.placemark.coordinate, address: line))
             target.name = destination.name
         }
@@ -1619,7 +1602,11 @@ extension CarPlayController: CarPlayManagerDelegate {
                 }
                 let stop = CPBarButton(title: String(localized: "Stopp")) { [weak self] _ in self?.showSearchHub() }
                 return [stop, end]
-            case .previewing, .panningInBrowsingMode, .panningInNavigationMode:
+            case .previewing:
+                // „Anrufen“, wenn das Ziel eine Telefonnummer hat (Teil der früheren Ortskarte)
+                guard let phone = previewPhone, let url = URL(string: "tel:" + phone.filter { !$0.isWhitespace }) else { return nil }
+                return [CPBarButton(title: String(localized: "Anrufen")) { _ in UIApplication.shared.open(url) }]
+            case .panningInBrowsingMode, .panningInNavigationMode:
                 return nil
             }
         }

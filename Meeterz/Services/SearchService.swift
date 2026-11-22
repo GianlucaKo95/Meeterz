@@ -253,7 +253,8 @@ enum SearchService {
                 if let cl = e["close"] as? [String: Any], let cd = cl["day"] as? Int, let ct = cl["time"] as? String {
                     end = ((cd - od + 7) % 7) * 1440 + minutes(ct)
                 }
-                days[od % 7].append(start..<max(end, start + 1))
+                // Mapbox zählt ab Sonntag (0 = So): Boda Borg „So 10–20, Mo 14–20“, Büros „Mo–Fr, Fr bis 13 Uhr“ (Log 20./21.11.)
+                days[(od + 6) % 7].append(start..<max(end, start + 1))
             }
             return days
         }

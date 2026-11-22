@@ -157,6 +157,7 @@ class GuidanceScreen(carContext: CarContext, private val carMap: MapboxCarMap) :
             viewport.followingZoomPropertyOverride(
                 NavigationMapBinder.maneuverZoom(progress, (AppState.lastLocation?.speed ?: 0f).toDouble(), zoom))
         }
+        viewport.followingBearingPropertyOverride(if (de.koeven.meeterz.ui.UiPreferences.northUp.value) 0.0 else null)
         viewport.evaluate()
     }
 
@@ -414,15 +415,26 @@ class CarSearchScreen(carContext: CarContext) : Screen(carContext) {
  */
 class CarPlaceScreen(carContext: CarContext, private val place: PlaceSearch.Place) : Screen(carContext) {
     private var details: PlaceSearch.Details? = null
+    /** Fahrzeit dorthin – Ortskarte und Routenvorschlag in einem (wie CarPlay, 22.11.) */
+    private var travel: Double? = null
 
     init {
         lifecycleScope.launch { details = PlaceSearch.details(place.name, place.lat, place.lng); invalidate() }
+        lifecycleScope.launch {
+            val me = AppState.lastLocation ?: return@launch
+            travel = de.koeven.meeterz.suggest.Directions.duration(me.latitude, me.longitude, place.lat, place.lng)
+            invalidate()
+        }
     }
 
     override fun onGetTemplate(): Template {
         val d = details
         val pane = androidx.car.app.model.Pane.Builder()
         fun row(title: String, text: String) = pane.addRow(Row.Builder().setTitle(title).addText(text).build())
+        travel?.let { seconds ->
+            val arrival = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(System.currentTimeMillis() + (seconds * 1000).toLong()))
+            row(tr("Ankunft %@", arrival), tr("%lld Min.", maxOf(1, Math.round(seconds / 60).toInt())))
+        }
         row(d?.category ?: tr("Adresse"), d?.address ?: place.address ?: "–")
         (d?.hours ?: place.hours)?.let { row(tr("Öffnungszeiten"), de.koeven.meeterz.nav.OsmPlaces.status(it)) }
             ?: d?.hoursText?.let { row(tr("Öffnungszeiten"), it) }

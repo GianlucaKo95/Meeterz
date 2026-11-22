@@ -941,6 +941,16 @@ private fun MapStyleMenu(mapStyle: String, map3d: Boolean) {
                     trailingIcon = { if (map3d == on) Icon(Icons.Default.Check, null) },
                     onClick = { open = false; UiPreferences.setMap3d(on) })
             }
+            // Wie Apple Karten / iOS: während der Fahrt Fahrtrichtung oben oder Norden oben
+            HorizontalDivider()
+            Text(tr("Während der Fahrt"), Modifier.padding(horizontal = 16.dp, vertical = 6.dp), style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            val northUp by UiPreferences.northUp.collectAsState()
+            for ((on, label) in listOf(false to tr("Fahrtrichtung oben"), true to tr("Norden oben"))) {
+                androidx.compose.material3.DropdownMenuItem(text = { Text(label) },
+                    trailingIcon = { if (northUp == on) Icon(Icons.Default.Check, null) },
+                    onClick = { open = false; UiPreferences.setNorthUp(on) })
+            }
         }
     }
 }

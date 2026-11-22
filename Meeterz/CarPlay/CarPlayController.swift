@@ -251,7 +251,7 @@ final class CarPlayController: NSObject {
                           header: String(localized: "Karte"), sectionIndexTitle: nil),
             CPListSection(items: [viewItem(true), viewItem(false)], header: String(localized: "Ansicht"), sectionIndexTitle: nil),
             // CarPlay erlaubt nur vier Kartenknöpfe – die Ausrichtung sitzt deshalb hier statt in einem eigenen Knopf
-            CPListSection(items: [orientItem(false), orientItem(true)], header: String(localized: "Während der Fahrt"), sectionIndexTitle: nil),
+            CPListSection(items: [orientItem(false), orientItem(true)], header: String(localized: "Ausrichtung"), sectionIndexTitle: nil),
         ])
         CarPlayUI.shared.push(template, animated: true)
     }
@@ -675,26 +675,7 @@ final class CarPlayController: NSObject {
         previewPhone = nil
         previewStatus = hours.map { OsmPlaces.status($0) }
         let placeForDetails = pendingDestination!
-        let detailsTask = Task { @MainActor () -> (status: String?, phone: String?) in
-            async let apple = ApplePlaces.mapItem(for: placeForDetails)
-            let d = await SearchService.details(name: name, at: coordinate)
-            let applePhone = (await apple)?.phoneNumber
-            let phone = applePhone.flatMap { $0.isEmpty ? nil : $0 } ?? d?.phone
-            return ((d?.hours ?? hours).map { OsmPlaces.status($0) } ?? d?.hoursText, phone)
-        }
-        /// Ortsangaben übernehmen – höchstens 1,5 s auf sie warten, die Route geht vor
-        func takeDetails() async {
-            let info = await withTaskGroup(of: (status: String?, phone: String?)?.self) { group in
-                group.addTask { await detailsTask.value }
-                group.addTask { try? await Task.sleep(for: .milliseconds(1500)); return nil }
-                let first = await group.next() ?? nil
-                group.cancelAll()
-                return first
-            }
-            guard let info else { return }
-            previewStatus = info.status ?? previewStatus
-            previewPhone = info.phone
-        }
+        let detailsTask = Task { @MainActor in await Self.placeDetails(placeForDetails, eventTitle: Self.eventTitle(near: coordinate)) }
         // Eigene Routenoptionen: Deutsch (sonst gilt die Systemsprache des iPhones, z. B. Englisch) und Auto
         // Mapbox meldet den Abschluss aus einem Hintergrund-Task; CarPlay bekommt ihn auf dem Hauptthread
         let completion = { DispatchQueue.main.async(execute: completion) }
@@ -719,11 +700,44 @@ final class CarPlayController: NSObject {
                 return
             }
             let wide = await RouteVariety.widen(routes, options: options, using: provider)
-            await takeDetails()
+            await self.takeDetails(detailsTask)
             guard self.previewStillWanted(generation, origin: origin, fromMap: fromMap) else { completion(); return }
             await self.manager.previewRoutes(for: wide)
             completion()
         }
+    }
+
+    /// Öffnungszeiten und Telefon zum Ziel. Bei Terminen ist der Ort oft nur eine Adresse („Friedrichstraße 2“) –
+    /// dann zuerst nach dem Termintitel dort suchen („Reformer Balance“), das ist meist das Geschäft (22.11.).
+    private static func placeDetails(_ place: Place, eventTitle: String?) async -> (status: String?, phone: String?) {
+        async let apple = ApplePlaces.mapItem(for: place)
+        var d: SearchService.Details?
+        if let eventTitle { d = await SearchService.details(name: eventTitle, at: place.coordinate) }
+        if d?.hours == nil && d?.hoursText == nil && d?.phone == nil { d = await SearchService.details(name: place.name, at: place.coordinate) ?? d }
+        let applePhone = eventTitle == nil ? (await apple)?.phoneNumber : nil   // Apple kennt bei einer reinen Adresse kein Geschäft
+        let phone = applePhone.flatMap { $0.isEmpty ? nil : $0 } ?? d?.phone
+        return ((d?.hours ?? place.hours).map { OsmPlaces.status($0) } ?? d?.hoursText, phone)
+    }
+
+    /// Titel des vorgeschlagenen Termins, wenn das Ziel dessen Ort ist
+    static func eventTitle(near coordinate: CLLocationCoordinate2D) -> String? {
+        guard let s = RouteSuggestions.shared.current, case .calendar(let title, _) = s.reason, !title.isEmpty,
+              s.place.coordinate.distance(to: coordinate) < 150 else { return nil }
+        return title
+    }
+
+    /// Ortsangaben übernehmen – höchstens 1,5 s auf sie warten, die Route geht vor
+    private func takeDetails(_ task: Task<(status: String?, phone: String?), Never>) async {
+        let info = await withTaskGroup(of: (status: String?, phone: String?)?.self) { group in
+            group.addTask { await task.value }
+            group.addTask { try? await Task.sleep(for: .milliseconds(1500)); return nil }
+            let first = await group.next() ?? nil
+            group.cancelAll()
+            return first
+        }
+        guard let info else { return }
+        previewStatus = info.status ?? previewStatus
+        previewPhone = info.phone
     }
 
     private var previewGeneration = 0
@@ -775,6 +789,11 @@ final class CarPlayController: NSObject {
                   self.manager.interfaceController?.templates.count ?? 0 <= 1 else { return }   // nichts anderes offen
             self.activeSuggestion = suggestion
             self.pendingDestination = suggestion.place
+            // Auch hier Öffnungszeiten und Telefon in die Vorschau (vorher nur bei selbst gewählten Zielen)
+            self.previewStatus = suggestion.place.hours.map { OsmPlaces.status($0) }
+            self.previewPhone = nil
+            let place = suggestion.place
+            await self.takeDetails(Task { await Self.placeDetails(place, eventTitle: Self.eventTitle(near: place.coordinate)) })
             await self.manager.previewRoutes(for: routes)
             Diag.log("Routenvorschlag als Vorschau gezeigt: \(suggestion.title)")
         }
@@ -1271,7 +1290,7 @@ extension CarPlayController: CarPlayManagerDelegate {
     nonisolated func carPlayManager(_ carPlayManager: CarPlayManager, willPreview trip: CPTrip) -> CPTrip {
         MainActor.assumeIsolated {
             var shown = Self.withRouteOptions(Self.withBatteryForecast(Self.withPhoneLabels(trip, destination: pendingDestination, status: previewStatus, phone: previewPhone)))
-            if let suggestion = activeSuggestion { shown = Self.withSuggestionLabel(shown, suggestion) }
+            if let suggestion = activeSuggestion { shown = Self.withSuggestionLabel(shown, suggestion, status: previewStatus, phone: previewPhone) }
             previewTrip = shown
             return shown
         }
@@ -1309,9 +1328,13 @@ extension CarPlayController: CarPlayManagerDelegate {
     }
 
     /// Adresse einzeilig als Straße (Termin-Orte kommen oft mehrzeilig: „Straße 2\n47441 Moers“)
-    private static func placemark(_ coordinate: CLLocationCoordinate2D, address: String?) -> MKPlacemark {
-        let line = (address ?? "").split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }
+    private static func oneLine(_ text: String) -> String {
+        text.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }.joined(separator: ", ")
+    }
+
+    private static func placemark(_ coordinate: CLLocationCoordinate2D, address: String?) -> MKPlacemark {
+        let line = oneLine(address ?? "")
         return line.isEmpty ? MKPlacemark(coordinate: coordinate)
             : MKPlacemark(coordinate: coordinate, addressDictionary: [CNPostalAddressStreetKey: line])
     }
@@ -1319,7 +1342,7 @@ extension CarPlayController: CarPlayManagerDelegate {
     /// Vorschlag: statt „Schnellste“ der Grund („Termin 09:00“ bzw. „Oft um diese Zeit“).
     /// Beim Termin steht oben der Termin, darunter einmal die Adresse (wie Apple Karten). Vorher war bei Terminen, deren
     /// Ort nur eine Adresse ist, der Zielname die Adresse – CarPlay zeigte sie dann dreimal (17.11.).
-    private static func withSuggestionLabel(_ trip: CPTrip, _ suggestion: RouteSuggestions.Suggestion) -> CPTrip {
+    private static func withSuggestionLabel(_ trip: CPTrip, _ suggestion: RouteSuggestions.Suggestion, status: String?, phone: String?) -> CPTrip {
         let reason: String
         if case .calendar(_, let start) = suggestion.reason {
             reason = String(localized: "Termin \(ActivityFormat.time(start))")
@@ -1335,7 +1358,10 @@ extension CarPlayController: CarPlayManagerDelegate {
         }
         let destination: MKMapItem
         if case .calendar(let title, _) = suggestion.reason, !title.isEmpty {
-            destination = MKMapItem(placemark: Self.placemark(trip.destination.placemark.coordinate, address: suggestion.place.address))
+            // Eine Zeile: Öffnungsstatus · Telefon · Adresse (einmal) – Anrufen-Knopf oben in der Leiste
+            let address = Self.oneLine(suggestion.place.address ?? suggestion.place.name)
+            let line = [status, phone, address.isEmpty || address == title ? nil : address].compactMap { $0 }.joined(separator: " · ")
+            destination = MKMapItem(placemark: Self.placemark(trip.destination.placemark.coordinate, address: line))
             destination.name = title
         } else {
             destination = trip.destination

@@ -36,7 +36,7 @@ enum MapPreferences {
     }
 
     /// Ausrichtung während der Fahrt wie in Apple Karten: Fahrtrichtung oben (Standard) oder Norden oben.
-    /// Gilt für iPhone-Navigation und CarPlay; die iPhone-Karte ohne Fahrt ist in 2D immer genordet.
+    /// Gilt überall gleich: iPhone-Karte (2D und 3D), iPhone-Navigation und CarPlay.
     static var northUp: Bool { UserDefaults.standard.bool(forKey: "map.northUp") }
 
     static func setNorthUp(_ on: Bool) {

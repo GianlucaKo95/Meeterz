@@ -102,6 +102,18 @@ object PlaceSearch {
         merged.copy(osm = merged != base)
     }
 
+    /**
+     * Wie [details], aber bei einem Termin, dessen Ort nur eine Adresse ist („Friedrichstraße 2“), zuerst nach dem
+     * Termintitel dort suchen („Reformer Balance“) – das ist meist das Geschäft (wie iOS, 22.11.).
+     */
+    suspend fun detailsForDestination(name: String, lat: Double, lng: Double): Details? {
+        val s = de.koeven.meeterz.suggest.RouteSuggestions.current.value
+        val title = s?.calendarTitle?.takeIf { it.isNotBlank() && distance(s.lat, s.lng, lat, lng) < 150 }
+        val byTitle = title?.let { details(it, lat, lng) }
+        if (byTitle != null && (byTitle.hours != null || byTitle.hoursText != null || byTitle.phone != null)) return byTitle
+        return details(name, lat, lng) ?: byTitle
+    }
+
     /** Mapbox-Treffer zum angetippten POI: gleicher Name in der Nähe (≤ 150 m). Ein Forward-Request, keine Session. */
     private suspend fun mapboxDetails(name: String, lat: Double, lng: Double): Details? = runCatching {
         val body = http.get("https://api.mapbox.com/search/searchbox/v1/forward") {

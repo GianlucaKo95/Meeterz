@@ -167,6 +167,16 @@ class GuidanceScreen(carContext: CarContext, private val carMap: MapboxCarMap) :
                 listOf(routeLine, location, camera, markers, friendRoutes, friends, sign, info).forEach(carMap::registerObserver)
                 carMap.setGestureHandler(camera.gestureHandler)
                 MapboxNavigationApp.current()?.registerRouteProgressObserver(pitchObserver)
+                val north = de.koeven.meeterz.ui.UiPreferences.northUp.value
+                carViewport(camera)?.run { followingBearingPropertyOverride(if (north) 0.0 else null); evaluate() }
+            }
+            override fun onCreate(owner: LifecycleOwner) {
+                // Ausrichtung auch ohne Route (freie Fahrt) und sofort beim Umschalten am Handy – wie CarPlay
+                lifecycleScope.launch {
+                    de.koeven.meeterz.ui.UiPreferences.northUp.collect { north ->
+                        carViewport(camera)?.run { followingBearingPropertyOverride(if (north) 0.0 else null); evaluate() }
+                    }
+                }
             }
             override fun onPause(owner: LifecycleOwner) {
                 MapboxNavigationApp.current()?.unregisterRouteProgressObserver(pitchObserver)
@@ -419,7 +429,7 @@ class CarPlaceScreen(carContext: CarContext, private val place: PlaceSearch.Plac
     private var travel: Double? = null
 
     init {
-        lifecycleScope.launch { details = PlaceSearch.details(place.name, place.lat, place.lng); invalidate() }
+        lifecycleScope.launch { details = PlaceSearch.detailsForDestination(place.name, place.lat, place.lng); invalidate() }
         lifecycleScope.launch {
             val me = AppState.lastLocation ?: return@launch
             travel = de.koeven.meeterz.suggest.Directions.duration(me.latitude, me.longitude, place.lat, place.lng)

@@ -700,9 +700,12 @@ struct RoutePreviewView: View {
 
     private func loadPlaceInfo() async {
         let place = current.destination
+        // Termin mit reiner Adresse als Ort: nach dem Termintitel dort suchen (wie CarPlay)
+        let title = CarPlayController.eventTitle(near: place.coordinate)
         async let apple = ApplePlaces.mapItem(for: place)
-        let d = await SearchService.details(name: place.name, at: place.coordinate)
-        let applePhone = (await apple)?.phoneNumber
+        var d = title == nil ? nil : await SearchService.details(name: title!, at: place.coordinate)
+        if d?.hours == nil && d?.hoursText == nil && d?.phone == nil { d = await SearchService.details(name: place.name, at: place.coordinate) ?? d }
+        let applePhone = title == nil ? (await apple)?.phoneNumber : nil
         placeInfo = PlaceInfo(
             status: d?.hours.map { OsmPlaces.status($0) } ?? d?.hoursText,
             phone: applePhone.flatMap { $0.isEmpty ? nil : $0 } ?? d?.phone,

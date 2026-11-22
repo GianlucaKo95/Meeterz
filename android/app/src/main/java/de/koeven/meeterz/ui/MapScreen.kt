@@ -202,9 +202,9 @@ fun MapScreen() {
             mapStyleRevision++
         }
     }
-    // Ortungspfeil wie in Apple Karten: erster Tipp folgt mir, jeder weitere schaltet „mitdrehen ↔ genordet“ um (wie iOS)
-    var flipBearing by remember { mutableStateOf(false) }
-    val turnsWithMe = map3d != flipBearing
+    // Eine Ausrichtung für 2D, 3D und Fahrt (wie iOS): Ortungspfeil folgt beim ersten Tipp, danach schaltet er um
+    val northUpPref by UiPreferences.northUp.collectAsState()
+    val turnsWithMe = !northUpPref
     var followingMe by remember { mutableStateOf(true) }
     DisposableEffect(mapView) {
         val observer = com.mapbox.maps.plugin.viewport.ViewportStatusObserver { _, to, _ ->
@@ -214,11 +214,10 @@ fun MapScreen() {
         mapView.viewport.addStatusObserver(observer)
         onDispose { mapView.viewport.removeStatusObserver(observer) }
     }
-    LaunchedEffect(map3d) {
-        flipBearing = false
+    LaunchedEffect(map3d, northUpPref) {
         val following = (mapView.viewport.status as? com.mapbox.maps.plugin.viewport.ViewportStatus.State)?.state is
             com.mapbox.maps.plugin.viewport.state.FollowPuckViewportState
-        if (following && guidance == null) mapView.viewport.transitionTo(followMe(mapView.viewport, map3d))
+        if (following && guidance == null) mapView.viewport.transitionTo(followMe(mapView.viewport, map3d, turnsWithMe))
         else mapView.mapboxMap.setCamera(CameraOptions.Builder().pitch(if (map3d) 45.0 else 0.0).build())
     }
     DisposableEffect(Unit) { binder.attach(); onDispose { binder.detach() } }
@@ -596,9 +595,8 @@ fun MapScreen() {
                             MapCircleButton(Icons.Default.PhotoCamera, tr("Story aufnehmen")) { showStoryComposer = true }
                             MapCircleButton(if (!followingMe) Icons.Outlined.NearMeOutlined else if (turnsWithMe) Icons.Default.Navigation else Icons.Default.NearMe,
                                 tr("Auf meinen Standort zentrieren"), tint = MaterialTheme.colorScheme.primary) {
-                                val turns = if (followingMe) !turnsWithMe else turnsWithMe
-                                if (followingMe) flipBearing = !flipBearing
-                                mapView.viewport.transitionTo(followMe(mapView.viewport, map3d, turns))
+                                if (followingMe) UiPreferences.setNorthUp(!northUpPref)   // LaunchedEffect richtet neu aus
+                                else mapView.viewport.transitionTo(followMe(mapView.viewport, map3d, turnsWithMe))
                             }
                         }
                     }
@@ -724,7 +722,7 @@ private fun PreviewCard(dest: NavigationController.Destination, routes: List<Nav
             Text(dest.name, style = MaterialTheme.typography.titleMedium)
             // Öffnungszeiten und Anrufen direkt in der Routenvorschau (wie iOS RoutePreviewView)
             val info by produceState<de.koeven.meeterz.nav.PlaceSearch.Details?>(null, dest) {
-                value = de.koeven.meeterz.nav.PlaceSearch.details(dest.name, dest.lat, dest.lng)
+                value = de.koeven.meeterz.nav.PlaceSearch.detailsForDestination(dest.name, dest.lat, dest.lng)
             }
             info?.let { d ->
                 val context = androidx.compose.ui.platform.LocalContext.current
@@ -991,7 +989,7 @@ private fun MapStyleMenu(mapStyle: String, map3d: Boolean) {
             }
             // Wie Apple Karten / iOS: während der Fahrt Fahrtrichtung oben oder Norden oben
             HorizontalDivider()
-            Text(tr("Während der Fahrt"), Modifier.padding(horizontal = 16.dp, vertical = 6.dp), style = MaterialTheme.typography.labelMedium,
+            Text(tr("Ausrichtung"), Modifier.padding(horizontal = 16.dp, vertical = 6.dp), style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             val northUp by UiPreferences.northUp.collectAsState()
             for ((on, label) in listOf(false to tr("Fahrtrichtung oben"), true to tr("Norden oben"))) {
@@ -1618,7 +1616,7 @@ private fun SearchRow(icon: androidx.compose.ui.graphics.vector.ImageVector, tit
  * Karte folgt mir: in 2D genordet, in 3D in Fahrtrichtung (wie iOS). Vorher drehte die Karte auch in 2D mit der
  * Kompassrichtung des Handys – der Kompass-Knopf nordete nur kurz, dann drehte sie zurück (21.11.).
  */
-internal fun followMe(viewport: com.mapbox.maps.plugin.viewport.ViewportPlugin, map3d: Boolean, turns: Boolean = map3d) =
+internal fun followMe(viewport: com.mapbox.maps.plugin.viewport.ViewportPlugin, map3d: Boolean, turns: Boolean = !UiPreferences.northUp.value) =
     viewport.makeFollowPuckViewportState(
         com.mapbox.maps.plugin.viewport.data.FollowPuckViewportStateOptions.Builder()
             .bearing(if (turns) com.mapbox.maps.plugin.viewport.data.FollowPuckViewportStateBearing.SyncWithLocationPuck

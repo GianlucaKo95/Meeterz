@@ -30,6 +30,8 @@ struct MainView: View {
     @State private var chromeHidden = false
     /// Per langem Druck auf die Karte gesetzter Pin
     @State private var droppedPin: Place?
+    /// Der „Pin“ ist ein angetippter POI: kein roter Pin auf dem Symbol, „Schließen“ statt „Entfernen“ (22.11.)
+    @State private var pinIsPoi = false
     @State private var showStoryComposer = false
     @State private var lastPoiTap = Date.distantPast
     @State private var poiDetail: PlaceDetailItem?
@@ -89,7 +91,7 @@ struct MainView: View {
             VStack(spacing: 10) {
                 Spacer()
                 if let pin = droppedPin, !poiResolving {
-                    PinCard(pin: pin, details: poiInfo) {
+                    PinCard(pin: pin, details: poiInfo, isPoi: pinIsPoi) {
                         droppedPin = nil
                         Task { await app.navigation.planRoute(to: pin) }
                     } onRemove: { droppedPin = nil }
@@ -348,7 +350,7 @@ struct MainView: View {
                 .allowOverlap(true)
             }
 
-            if let pin = droppedPin {
+            if let pin = droppedPin, !pinIsPoi {
                 MapViewAnnotation(coordinate: pin.coordinate) { DroppedPinMarker() }
                     .allowOverlap(true)
             }
@@ -404,6 +406,7 @@ struct MainView: View {
         lastPoiTap = Date()
         Diag.log("POI getippt: \(name ?? "ohne Namen")")
         dropPin(at: coordinate, name: name, haptic: false)
+        pinIsPoi = true
         guard let name else { return }
         poiResolving = true
         let id = droppedPin?.id
@@ -426,6 +429,7 @@ struct MainView: View {
     private func dropPin(at coordinate: CLLocationCoordinate2D, name poiName: String? = nil, haptic: Bool = true) {
         let id = "pin-\(coordinate.latitude),\(coordinate.longitude)"
         droppedPin = Place(id: id, name: poiName ?? String(localized: "Gesetzter Pin"), address: nil, coordinate: coordinate)
+        pinIsPoi = false
         poiInfo = nil
         poiResolving = false
         setChrome(hidden: false)
@@ -891,6 +895,7 @@ struct DroppedPinMarker: View {
 struct PinCard: View {
     let pin: Place
     var details: SearchService.Details? = nil
+    var isPoi = false
     let onNavigate: () -> Void
     let onRemove: () -> Void
     @State private var week = false
@@ -960,7 +965,7 @@ struct PinCard: View {
                 }
             }
             HStack(spacing: 10) {
-                Button("Entfernen", action: onRemove).buttonStyle(SecondaryButtonStyle())
+                Button(isPoi ? "Schließen" : "Entfernen", action: onRemove).buttonStyle(SecondaryButtonStyle())
                 Button("Hierhin navigieren", action: onNavigate).buttonStyle(PrimaryButtonStyle())
             }
         }

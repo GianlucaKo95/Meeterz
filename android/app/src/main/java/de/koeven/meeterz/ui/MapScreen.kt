@@ -380,7 +380,7 @@ fun MapScreen() {
         val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
         /** Pin bzw. POI zeigen; `name` = Name des POI (sonst aus der Adresse) */
         fun showPin(lat: Double, lng: Double, name: String?) {
-            val pin = DroppedPin(lat, lng, name ?: tr("Gesetzter Pin"), null)
+            val pin = DroppedPin(lat, lng, name ?: tr("Gesetzter Pin"), null, isPoi = name != null)
             droppedPin = pin
             query = ""; results = emptyList()
             scope.launch {
@@ -465,7 +465,8 @@ fun MapScreen() {
         val pinManager = remember(mapView, mapStyleRevision) { mapView.annotations.createPointAnnotationManager() }
         LaunchedEffect(droppedPin, mapStyleRevision) {
             pinManager.deleteAll()
-            droppedPin?.let { p ->
+            // Angetippter POI: kein roter Pin auf seinem Symbol (wie iOS, 22.11.)
+            droppedPin?.takeIf { !it.isPoi }?.let { p ->
                 pinManager.create(PointAnnotationOptions().withPoint(Point.fromLngLat(p.lng, p.lat)).withIconImage(pinBitmap()))
             }
         }
@@ -1275,7 +1276,7 @@ private fun HazardDialog(onDismiss: () -> Unit) {
 
 /** Per Gedrückthalten gesetzter Pin */
 private data class DroppedPin(val lat: Double, val lng: Double, val name: String, val address: String?,
-    val details: PlaceSearch.Details? = null)
+    val details: PlaceSearch.Details? = null, val isPoi: Boolean = false)
 
 /** Karte unten wie iOS PinCard bzw. Apples Ortskarte: Name, Kategorie, Adresse, Öffnungszeiten, Bewertung,
  *  Anrufen/Website, „Entfernen“ und „Hierhin navigieren“ */
@@ -1341,7 +1342,7 @@ private fun PinCard(pin: DroppedPin, onNavigate: () -> Unit, onRemove: () -> Uni
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedButton(onClick = onRemove, Modifier.weight(1f)) { Text(tr("Entfernen")) }
+                OutlinedButton(onClick = onRemove, Modifier.weight(1f)) { Text(tr(if (pin.isPoi) "Schließen" else "Entfernen")) }
                 Button(onClick = onNavigate, Modifier.weight(1f)) { Text(tr("Hierhin navigieren")) }
             }
         }

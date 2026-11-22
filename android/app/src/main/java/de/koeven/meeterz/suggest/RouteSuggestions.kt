@@ -169,6 +169,15 @@ object RouteSuggestions {
         Diag.log("Routenvorschlag abgelehnt: ${c.title}")
     }
 
+    /** Ohne Navigation am vorgeschlagenen Ziel angekommen: Vorschlag erledigt (wie iOS, 22.11.) */
+    fun arrivedCheck(lat: Double, lng: Double, accuracy: Float) {
+        val c = _current.value ?: return
+        if (accuracy > 50 || de.koeven.meeterz.ev.ChargePlanner.distance(lat, lng, c.lat, c.lng) >= 150) return
+        dismissed[c.id] = System.currentTimeMillis() + 3 * 3_600_000
+        _current.value = null
+        Diag.log("Am Vorschlagsziel angekommen: ${c.title}")
+    }
+
     /** Fahrt gestartet: Vorschlag erledigt */
     /** Fahrt vorbei (Android Auto getrennt): abgelehnte Vorschläge dürfen bei der nächsten Fahrt wieder kommen (wie iOS) */
     fun newDrive() = dismissed.clear()

@@ -823,6 +823,21 @@ final class CarPlayController: NSObject {
         }
     }
 
+    /// Vorschlag neu berechnet (man fährt ohne Navigation los) oder erledigt (angekommen): eine offene Vorschau des
+    /// Vorschlags nachziehen bzw. schließen. Vorher blieb sie mit Startpunkt und Ankunftszeit vom Losfahren stehen.
+    func suggestionUpdated() {
+        guard let shown = activeSuggestion, manager.currentActivity == .previewing else { return }
+        let suggestions = RouteSuggestions.shared
+        if let current = suggestions.current, current.place.id == shown.place.id, let routes = suggestions.currentRoutes {
+            activeSuggestion = current
+            Task { await manager.previewRoutes(for: routes) }   // Mapbox ersetzt die offene Vorschau
+        } else {
+            activeSuggestion = nil   // sonst lehnt das Schließen einen neuen Vorschlag gleich mit ab
+            Diag.log("Vorschau des Vorschlags geschlossen: \(shown.title) erledigt")
+            Task { await manager.cancelRoutesPreview() }
+        }
+    }
+
     /// Ziel aus einer Liste gewählt: sofort zur Karte, Kamera zeigt Start und Ziel, am Ziel dreht ein Ladekreis.
     /// Sobald die Route da ist, öffnet Mapbox die Vorschau und rahmt die Route ein.
     /// (Vorher passierte bei schlechtem Netz sichtbar nichts – es wirkte eingefroren.)

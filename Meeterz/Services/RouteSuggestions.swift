@@ -108,6 +108,7 @@ final class RouteSuggestions {
             currentRoutes = entry?.routes
             routesAt = entry?.at ?? .distantPast
             CarPlayDashboard.suggestionChanged()
+            CarPlayController.shared.suggestionUpdated()   // offene Vorschau nachziehen (vorher blieb sie beim Start stehen)
             WidgetSnapshotWriter.shared.update(force: true)
         }
         return result
@@ -117,7 +118,20 @@ final class RouteSuggestions {
     /// 150 m neben ihr ist, sonst alle 2 Minuten (Startpunkt und Ankunftszeit bleiben aktuell)
     func follow(_ loc: CLLocation) {
         guard let current, let routes = currentRoutes, computing == nil, !AppModel.shared.navigation.isNavigating,
-              loc.speed > 3, loc.horizontalAccuracy < 50 else { return }
+              loc.horizontalAccuracy < 50 else { return }
+        // Ohne Navigation am vorgeschlagenen Ziel angekommen: Vorschlag (und offene Vorschau) beenden – vorher stand
+        // zu Hause noch „Zuhause – 7 Min.“ mit der Route vom Losfahren (Foto 22.11.)
+        if loc.coordinate.distance(to: current.place.coordinate) < 150 {
+            dismissed[current.place.id] = Date().addingTimeInterval(3 * 3600)
+            self.current = nil
+            currentRoutes = nil
+            Diag.log("Am Vorschlagsziel angekommen: \(current.title)")
+            CarPlayDashboard.suggestionChanged()
+            CarPlayController.shared.suggestionUpdated()
+            WidgetSnapshotWriter.shared.update(force: true)
+            return
+        }
+        guard loc.speed > 3 else { return }
         let age = Date().timeIntervalSince(routesAt)
         guard age > 15 else { return }
         let off = routes.mainRoute.route.shape

@@ -106,6 +106,7 @@ object SoundMoments {
     /** Bei jeder eigenen Positionsmeldung */
     suspend fun onLocation(loc: Location) {
         AppState.recordLocation(loc)
+        de.koeven.meeterz.suggest.RouteSuggestions.arrivedCheck(loc.latitude, loc.longitude, loc.accuracy)
         val myMoving = loc.speed > 3
         val now = System.currentTimeMillis()
         checkJourneys()

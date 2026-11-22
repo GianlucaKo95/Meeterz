@@ -58,11 +58,13 @@ final class Passengers {
         let friendMoving: Bool
     }
     @ObservationIgnored private var samples: [UUID: [Sample]] = [:]
+    @ObservationIgnored private var lastFix: [UUID: (coordinate: CLLocationCoordinate2D, ts: TimeInterval)] = [:]
 
     func reset() {
         ridingNow = []
         asked = []
         samples = [:]
+        lastFix = [:]
     }
 
     /// Neue Freundesposition einordnen (bei jeder eigenen Meldung aufgerufen; je Zeitstempel nur einmal).
@@ -73,7 +75,14 @@ final class Passengers {
         guard list.last.map({ p.ts > $0.ts + 1 }) ?? true,
               let me = AppModel.shared.location.location(at: p.date) else { return nil }
         var same: Bool?
-        if let heading = p.heading, heading >= 0, me.course >= 0, me.speed > 2 {
+        // Richtung des Freundes: gemeldeter Kurs – fehlt er (Handy im Hintergrund meldet oft keinen), aus seiner
+        // eigenen Spur. Ohne Richtung wurde Aufholen in gleicher Richtung als „an dir vorbeigefahren“ gemeldet (22.11.).
+        var friendHeading = p.heading.flatMap { $0 >= 0 ? $0 : nil }
+        if friendHeading == nil, let prev = lastFix[id], p.ts - prev.ts < 120, prev.coordinate.distance(to: p.coordinate) > 30 {
+            friendHeading = prev.coordinate.bearing(to: p.coordinate)
+        }
+        lastFix[id] = (p.coordinate, p.ts)
+        if let heading = friendHeading, me.course >= 0, me.speed > 2 {
             let diff = abs((heading - me.course + 540).truncatingRemainder(dividingBy: 360) - 180)
             same = diff < 50
         }
@@ -99,16 +108,16 @@ final class Passengers {
     enum Encounter { case pass, catchUp }
 
     /// Begegnung unterwegs: zeitgleich < 300 m, aber kein Mitfahrer. Wer von Anfang an dicht dabei ist, begegnet mir nicht.
-    /// - `.pass`: Gegenverkehr/kreuzend – oder Richtung unbekannt und vorher deutlich weiter weg
+    /// - `.pass`: Gegenverkehr/kreuzend. Bei unbekannter Richtung keine Meldung – lieber nichts als etwas Falsches (22.11.)
     /// - `.catchUp`: gleiche Richtung und vorher fahrend deutlich weiter weg – einer hat zum anderen aufgeholt.
     ///   Das war vorher ebenfalls „fährt an dir vorbei“, obwohl man danach zusammen weiterfährt (10.11.).
     func encounter(_ id: UUID) -> Encounter? {
         guard let list = samples[id], let now = list.last, now.distance < 300, now.moving,
               !isCompanion(id) else { return nil }
-        if now.sameDirection == false { return .pass }
+        guard let same = now.sameDirection else { return nil }
+        if !same { return .pass }
         let wasFar = list.dropLast().contains { now.ts - $0.ts < 5 * 60 && $0.distance > 800 && $0.friendMoving }
-        guard wasFar else { return nil }
-        return now.sameDirection == true ? .catchUp : .pass
+        return wasFar ? .catchUp : nil
     }
 
     /// Alle 30 s aus CarPlay: wer fährt seit ≥ 1,5 Minuten zeitgleich dicht bei mir?

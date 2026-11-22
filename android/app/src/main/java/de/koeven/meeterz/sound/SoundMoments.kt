@@ -38,7 +38,7 @@ object SoundMoments {
     private val lateNotified = mutableMapOf<String, Long>()
 
     fun reset() {
-        samples.clear(); lastEncounter.clear(); announced.clear(); meetupAway.clear(); meetupDistance.clear()
+        samples.clear(); lastFix.clear(); lastEncounter.clear(); announced.clear(); meetupAway.clear(); meetupDistance.clear()
         journeyRoute.clear(); lateBaseline.clear(); lateAnnounced.clear(); lateNotified.clear()
     }
 
@@ -56,13 +56,21 @@ object SoundMoments {
 
     // Begegnung
 
+    private val lastFix = mutableMapOf<String, Triple<Double, Double, Double>>()
+
     private fun observe(id: String, p: LivePosition) {
         val list = samples.getOrPut(id) { mutableListOf() }
         if (list.isNotEmpty() && p.ts <= list.last().ts + 1) return
         val me = AppState.locationAt(p.ts) ?: return
         var same: Boolean? = null
-        val heading = p.heading
-        if (heading != null && heading >= 0 && me.hasBearing() && me.speed > 2) {
+        // Richtung des Freundes: gemeldeter Kurs, sonst aus seiner Spur – ohne Richtung wurde Aufholen in gleicher
+        // Richtung als „an dir vorbeigefahren“ gemeldet (wie iOS, 22.11.)
+        var heading = p.heading?.takeIf { it >= 0 }
+        val prev = lastFix[id]
+        if (heading == null && prev != null && p.ts - prev.third < 120 && ChargePlanner.distance(prev.first, prev.second, p.lat, p.lng) > 30)
+            heading = ChargePlanner.bearing(prev.first, prev.second, p.lat, p.lng)
+        lastFix[id] = Triple(p.lat, p.lng, p.ts)
+        if (heading != null && me.hasBearing() && me.speed > 2) {
             val diff = abs(((heading - me.bearing + 540) % 360) - 180)
             same = diff < 50
         }
@@ -84,15 +92,15 @@ object SoundMoments {
 
     private enum class Encounter { PASS, CATCH_UP }
 
-    /** Gegenverkehr/kreuzend → vorbei; gleiche Richtung und vorher fahrend > 800 m weg → holt auf */
+    /** Gegenverkehr/kreuzend → vorbei; gleiche Richtung und vorher fahrend > 800 m weg → holt auf; Richtung unbekannt → nichts */
     private fun encounter(id: String): Encounter? {
         val list = samples[id] ?: return null
         val now = list.lastOrNull() ?: return null
         if (now.distance >= 300 || !now.moving || isCompanion(id)) return null
-        if (now.sameDirection == false) return Encounter.PASS
+        val same = now.sameDirection ?: return null
+        if (!same) return Encounter.PASS
         val wasFar = list.dropLast(1).any { now.ts - it.ts < 300 && it.distance > 800 && it.friendMoving }
-        if (!wasFar) return null
-        return if (now.sameDirection == true) Encounter.CATCH_UP else Encounter.PASS
+        return if (wasFar) Encounter.CATCH_UP else null
     }
 
     /** Bei jeder eigenen Positionsmeldung */

@@ -56,3 +56,31 @@ final class SteadyLocationDirectionTests: XCTestCase {
         XCTAssertEqual(SteadyLocation.angle(350, 10), 20, accuracy: 0.01)
     }
 }
+
+final class SearchRankingTests: XCTestCase {
+    private func place(_ name: String, _ lat: Double, _ lng: Double, id: String = UUID().uuidString) -> Place {
+        Place(id: id, name: name, address: nil, coordinate: .init(latitude: lat, longitude: lng))
+    }
+    private let duisburg = CLLocationCoordinate2D(latitude: 51.43, longitude: 6.76)
+
+    func testPassendesNahesVorFalschemFernem() {
+        let near = place("Boda Borg Duisburg", 51.44, 6.78)
+        let wrong = place("Bodensee-Therme", 47.6, 9.4)
+        let far = place("Boda Borg Stockholm", 59.3, 18.0)
+        let out = SearchRanking.merge(apple: [], mapbox: [wrong, far, near], query: "Boda Borg", near: duisburg)
+        XCTAssertEqual(out.first?.name, "Boda Borg Duisburg")
+        XCTAssertFalse(out.contains { $0.name == "Bodensee-Therme" })   // kein Wort passt
+    }
+
+    func testDoppelterOrtNurEinmal() {
+        let a = place("Boda Borg", 51.4400, 6.7800, id: "apple")
+        let m = place("Boda Borg", 51.4401, 6.7801, id: "mapbox")
+        let out = SearchRanking.merge(apple: [a], mapbox: [m], query: "boda", near: duisburg)
+        XCTAssertEqual(out.map(\.id), ["apple"])
+    }
+
+    func testOhneJedeUebereinstimmungBleibtAllesStehen() {
+        let out = SearchRanking.merge(apple: [], mapbox: [place("Hbf", 51.43, 6.77)], query: "Hauptbahnhof", near: duisburg)
+        XCTAssertEqual(out.count, 1)
+    }
+}

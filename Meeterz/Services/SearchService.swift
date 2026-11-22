@@ -1,5 +1,6 @@
 import Foundation
 import CoreLocation
+import MapKit
 
 /// Mapbox Search Box API (Ziele und Orte in der Nähe eines Treffpunkts).
 enum SearchService {
@@ -57,10 +58,33 @@ enum SearchService {
         let features: [Feature]
     }
 
+    /// Ortssuche: Apple-Orte und Mapbox gleichzeitig, zusammengeführt und nach Passung und Nähe sortiert.
+    /// Nur Mapbox lieferte ab und an völlig falsche Treffer (unscharfe Suche, 22.11.); Apple kennt Geschäfte in
+    /// Deutschland meist besser, Mapbox ergänzt Adressen und was Apple nicht hat.
     static func search(_ query: String, near: CLLocationCoordinate2D?) async throws -> [Place] {
         var items = [URLQueryItem(name: "q", value: query), URLQueryItem(name: "limit", value: "10")]
         if let near { items.append(proximity(near)) }
-        return try await request(path: "forward", items: items)
+        async let apple = appleSearch(query, near: near)
+        let mapbox: [Place]
+        do { mapbox = try await request(path: "forward", items: items) }
+        catch { let a = await apple; if a.isEmpty { throw error }; mapbox = [] }
+        return SearchRanking.merge(apple: await apple, mapbox: mapbox, query: query, near: near)
+    }
+
+    private static func appleSearch(_ query: String, near: CLLocationCoordinate2D?) async -> [Place] {
+        let request = MKLocalSearch.Request()
+        request.naturalLanguageQuery = query
+        request.resultTypes = [.pointOfInterest, .address]
+        if let near { request.region = MKCoordinateRegion(center: near, latitudinalMeters: 50_000, longitudinalMeters: 50_000) }
+        guard let response = try? await MKLocalSearch(request: request).start() else { return [] }
+        return response.mapItems.prefix(10).compactMap { item in
+            guard let name = item.name, !name.isEmpty else { return nil }
+            let address: String?
+            if #available(iOS 26.0, *) { address = item.address?.fullAddress } else { address = item.placemark.title }
+            return Place(id: "apple:" + String(format: "%.5f,%.5f", item.coordinate.latitude, item.coordinate.longitude),
+                         name: name, address: address?.replacingOccurrences(of: "\n", with: ", "), coordinate: item.coordinate,
+                         symbol: item.pointOfInterestCategory == nil ? "mappin.circle.fill" : symbol(type: "poi", maki: nil, categories: [item.pointOfInterestCategory!.rawValue.lowercased()]))
+        }
     }
 
     static func places(_ category: Category, near: CLLocationCoordinate2D, limit: Int = 6) async throws -> [Place] {
@@ -356,5 +380,43 @@ enum TileTravelTimes {
         }
         origin = here; at = Date(); times = result
         return result
+    }
+}
+
+/// Treffer zusammenführen und sortieren (eigene Datei-freie Logik, getestet in SearchRankingTests)
+enum SearchRanking {
+    /// Wie gut passt der Treffer zur Eingabe? 0 = gar nicht (kein Wort der Eingabe kommt in Name/Adresse vor)
+    static func match(_ place: Place, query: String) -> Double {
+        let fold: (String) -> String = { $0.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current) }
+        let name = fold(place.name), all = name + " " + fold(place.address ?? "")
+        let q = fold(query).trimmingCharacters(in: .whitespaces)
+        let words = q.split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init).filter { !$0.isEmpty }
+        guard !words.isEmpty else { return 0 }
+        if name == q { return 3 }
+        if name.hasPrefix(q) { return 2.5 }
+        if name.contains(q) { return 2 }
+        // Wortanfänge zählen (auch Tippfehler am Ende: „Boda Bor“)
+        let tokens = all.split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init)
+        let hits = words.filter { w in tokens.contains { $0.hasPrefix(w) } }.count
+        return hits == 0 ? 0 : Double(hits) / Double(words.count) * 1.5
+    }
+
+    static func merge(apple: [Place], mapbox: [Place], query: String, near: CLLocationCoordinate2D?) -> [Place] {
+        var out: [Place] = []
+        for p in apple + mapbox {
+            // Gleicher Ort aus beiden Quellen: den ersten (Apple) behalten
+            if out.contains(where: { $0.coordinate.distance(to: p.coordinate) < 150 && match($0, query: p.name) >= 2 }) { continue }
+            out.append(p)
+        }
+        func score(_ p: Place) -> Double {
+            let m = match(p, query: query)
+            guard let near else { return m }
+            let km = p.coordinate.distance(to: near) / 1000
+            return m - log10(1 + km) * 0.6   // 10 km kosten 0,6, 100 km 1,2, 1000 km 1,8
+        }
+        let ranked = out.map { ($0, match($0, query: query), score($0)) }
+        // Passt mindestens ein Treffer, fallen die ohne jede Übereinstimmung weg („völlig falsche“ Treffer)
+        let anyMatch = ranked.contains { $0.1 > 0 }
+        return ranked.filter { !anyMatch || $0.1 > 0 }.sorted { $0.2 > $1.2 }.prefix(10).map(\.0)
     }
 }

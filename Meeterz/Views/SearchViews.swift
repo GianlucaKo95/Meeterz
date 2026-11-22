@@ -395,7 +395,7 @@ struct SearchView: View {
         let q = query.trimmingCharacters(in: .whitespaces)
         if !q.isEmpty { category = nil }
         guard q.count >= 3 else { if category == nil { results = []; errorText = nil }; return }
-        try? await Task.sleep(for: .milliseconds(350))   // tippen abwarten
+        try? await Task.sleep(for: .milliseconds(250))   // tippen abwarten
         guard !Task.isCancelled else { return }
         loading = true
         defer { loading = false }

@@ -52,10 +52,31 @@ object PlaceSearch {
         }
     }
 
-    suspend fun search(query: String, nearLat: Double?, nearLng: Double?): List<Place> {
-        if (query.isBlank()) return emptyList()
-        return request("forward", query, nearLat, nearLng, 8)
+    /**
+     * Ortssuche: Mapbox und der Geocoder des Geräts gleichzeitig, zusammengeführt und nach Passung und Nähe sortiert
+     * (wie iOS mit Apple-Orten). Nur Mapbox lieferte ab und an völlig falsche Treffer (unscharfe Suche, 22.11.).
+     */
+    suspend fun search(query: String, nearLat: Double?, nearLng: Double?): List<Place> = kotlinx.coroutines.coroutineScope {
+        if (query.isBlank()) return@coroutineScope emptyList()
+        val device = async(kotlinx.coroutines.Dispatchers.IO) { geocoder(query, nearLat, nearLng) }
+        val mapbox = request("forward", query, nearLat, nearLng, 10)
+        SearchRanking.merge(device.await(), mapbox, query, nearLat, nearLng)
     }
+
+    @Suppress("DEPRECATION")
+    private fun geocoder(query: String, lat: Double?, lng: Double?): List<Place> = runCatching {
+        val context = de.koeven.meeterz.AppState.appContextOrNull() ?: return emptyList()
+        if (!android.location.Geocoder.isPresent()) return emptyList()
+        val g = android.location.Geocoder(context, java.util.Locale.getDefault())
+        val found = if (lat != null && lng != null) g.getFromLocationName(query, 8, lat - 0.5, lng - 0.8, lat + 0.5, lng + 0.8)
+                    else g.getFromLocationName(query, 8)
+        found.orEmpty().mapNotNull { a ->
+            val line = a.getAddressLine(0)
+            val name = a.featureName?.takeIf { it != a.subThoroughfare && it.any(Char::isLetter) }
+                ?: listOfNotNull(a.thoroughfare, a.subThoroughfare).joinToString(" ").ifBlank { null } ?: a.locality ?: return@mapNotNull null
+            Place(name, line, a.latitude, a.longitude)
+        }
+    }.getOrDefault(emptyList())
 
     suspend fun places(category: Category, nearLat: Double, nearLng: Double, limit: Int = 6): List<Place> {
         val found = request(category.path, category.query, nearLat, nearLng, limit)
@@ -217,7 +238,7 @@ object PlaceSearch {
         return runCatching {
             val body = http.get("https://api.mapbox.com/search/searchbox/v1/$path") {
                 if (query != null) parameter("q", query)
-                parameter("language", "de")
+                parameter("language", java.util.Locale.getDefault().language)   // wie iOS: Sprache der App
                 parameter("limit", limit)
                 if (nearLat != null && nearLng != null) parameter("proximity", "$nearLng,$nearLat")
                 parameter("access_token", MapboxOptions.accessToken)
@@ -234,5 +255,40 @@ object PlaceSearch {
                 )
             }
         }.getOrDefault(emptyList())
+    }
+}
+
+/** Treffer zusammenführen und sortieren (wie iOS SearchRanking) */
+object SearchRanking {
+    private fun fold(s: String) = java.text.Normalizer.normalize(s.lowercase(), java.text.Normalizer.Form.NFD).replace(Regex("\\p{M}"), "")
+    private fun words(s: String) = s.split(Regex("[^\\p{L}\\p{N}]+")).filter { it.isNotEmpty() }
+
+    /** Wie gut passt der Treffer zur Eingabe? 0 = gar nicht (kein Wort der Eingabe kommt in Name/Adresse vor) */
+    fun match(name: String, address: String?, query: String): Double {
+        val n = fold(name); val q = fold(query).trim()
+        val ws = words(q)
+        if (ws.isEmpty()) return 0.0
+        if (n == q) return 3.0
+        if (n.startsWith(q)) return 2.5
+        if (n.contains(q)) return 2.0
+        val tokens = words(n + " " + fold(address ?: ""))
+        val hits = ws.count { w -> tokens.any { it.startsWith(w) } }
+        return if (hits == 0) 0.0 else hits.toDouble() / ws.size * 1.5
+    }
+
+    fun merge(device: List<PlaceSearch.Place>, mapbox: List<PlaceSearch.Place>, query: String, lat: Double?, lng: Double?): List<PlaceSearch.Place> {
+        val out = mutableListOf<PlaceSearch.Place>()
+        for (p in device + mapbox) {
+            if (out.any { de.koeven.meeterz.ev.ChargePlanner.distance(it.lat, it.lng, p.lat, p.lng) < 150 && match(it.name, null, p.name) >= 2 }) continue
+            out += p
+        }
+        fun score(p: PlaceSearch.Place): Double {
+            val m = match(p.name, p.address, query)
+            if (lat == null || lng == null) return m
+            val km = de.koeven.meeterz.ev.ChargePlanner.distance(p.lat, p.lng, lat, lng) / 1000
+            return m - kotlin.math.log10(1 + km) * 0.6
+        }
+        val anyMatch = out.any { match(it.name, it.address, query) > 0 }
+        return out.filter { !anyMatch || match(it.name, it.address, query) > 0 }.sortedByDescending { score(it) }.take(10)
     }
 }

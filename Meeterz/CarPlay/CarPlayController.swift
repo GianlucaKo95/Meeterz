@@ -673,6 +673,7 @@ final class CarPlayController: NSObject {
         // Ortsangaben für die Vorschau (Öffnungszeiten, Telefon) parallel zur Route holen – die Vorschau zeigt sie
         // unter dem Namen und bietet „Anrufen“ (statt einer eigenen Ortskarte vorher, 22.11.)
         previewPhone = nil
+        previewDetails = nil
         previewStatus = hours.map { OsmPlaces.status($0) }
         let placeForDetails = pendingDestination!
         let detailsTask = Task { @MainActor in await Self.placeDetails(placeForDetails, eventTitle: Self.eventTitle(near: coordinate)) }
@@ -709,14 +710,14 @@ final class CarPlayController: NSObject {
 
     /// Öffnungszeiten und Telefon zum Ziel. Bei Terminen ist der Ort oft nur eine Adresse („Friedrichstraße 2“) –
     /// dann zuerst nach dem Termintitel dort suchen („Reformer Balance“), das ist meist das Geschäft (22.11.).
-    private static func placeDetails(_ place: Place, eventTitle: String?) async -> (status: String?, phone: String?) {
+    private static func placeDetails(_ place: Place, eventTitle: String?) async -> (status: String?, phone: String?, details: SearchService.Details?) {
         async let apple = ApplePlaces.mapItem(for: place)
         var d: SearchService.Details?
         if let eventTitle { d = await SearchService.details(name: eventTitle, at: place.coordinate) }
         if d?.hours == nil && d?.hoursText == nil && d?.phone == nil { d = await SearchService.details(name: place.name, at: place.coordinate) ?? d }
         let applePhone = eventTitle == nil ? (await apple)?.phoneNumber : nil   // Apple kennt bei einer reinen Adresse kein Geschäft
         let phone = applePhone.flatMap { $0.isEmpty ? nil : $0 } ?? d?.phone
-        return ((d?.hours ?? place.hours).map { OsmPlaces.status($0) } ?? d?.hoursText, phone)
+        return ((d?.hours ?? place.hours).map { OsmPlaces.status($0) } ?? d?.hoursText, phone, d)
     }
 
     /// Titel des vorgeschlagenen Termins, wenn das Ziel dessen Ort ist
@@ -727,8 +728,8 @@ final class CarPlayController: NSObject {
     }
 
     /// Ortsangaben übernehmen – höchstens 1,5 s auf sie warten, die Route geht vor
-    private func takeDetails(_ task: Task<(status: String?, phone: String?), Never>) async {
-        let info = await withTaskGroup(of: (status: String?, phone: String?)?.self) { group in
+    private func takeDetails(_ task: Task<(status: String?, phone: String?, details: SearchService.Details?), Never>) async {
+        let info = await withTaskGroup(of: (status: String?, phone: String?, details: SearchService.Details?)?.self) { group in
             group.addTask { await task.value }
             group.addTask { try? await Task.sleep(for: .milliseconds(1500)); return nil }
             let first = await group.next() ?? nil
@@ -738,12 +739,14 @@ final class CarPlayController: NSObject {
         guard let info else { return }
         previewStatus = info.status ?? previewStatus
         previewPhone = info.phone
+        previewDetails = info.details
     }
 
     private var previewGeneration = 0
     /// Öffnungsstatus und Telefon des Vorschau-Ziels (aus Mapbox/OSM, Telefon von Apple)
     private var previewStatus: String?
     private var previewPhone: String?
+    private var previewDetails: SearchService.Details?
     private var previewTask: Task<Void, Never>?
 
     /// Darf die berechnete Vorschau noch erscheinen? Nicht, wenn inzwischen ein anderes Ziel gewählt wurde, eine
@@ -792,6 +795,7 @@ final class CarPlayController: NSObject {
             // Auch hier Öffnungszeiten und Telefon in die Vorschau (vorher nur bei selbst gewählten Zielen)
             self.previewStatus = suggestion.place.hours.map { OsmPlaces.status($0) }
             self.previewPhone = nil
+            self.previewDetails = nil
             let place = suggestion.place
             await self.takeDetails(Task { await Self.placeDetails(place, eventTitle: Self.eventTitle(near: place.coordinate)) })
             await self.manager.previewRoutes(for: routes)
@@ -959,6 +963,7 @@ final class CarPlayController: NSObject {
         guard let trip = previewTrip, let choice = trip.routeChoices.first,
               let template = manager.interfaceController?.topTemplate as? CPMapTemplate else { return }
         pauseAlerts()   // Mapbox tauscht gleich die Ansicht
+        if #available(iOS 27, *) { hidePreviewPanel() }
         manager.mapTemplate(template, startedTrip: trip, using: choice)
     }
 
@@ -1522,6 +1527,7 @@ extension CarPlayController: CarPlayManagerDelegate {
     ) {
         MainActor.assumeIsolated {
             pauseAlerts()
+            if #available(iOS 27, *) { hidePreviewPanel() }   // Start über Mapbox' eigenen Weg: Fenster weg
             navigationViewController.routeLineTracksTraversal = true
             guard let mapView = navigationViewController.navigationMapView?.mapView else { return }
             // Verkehr auf der Route wie auf dem iPhone: Mapbox schaltet ihn in CarPlay bei jedem Stil-Laden ab
@@ -1682,11 +1688,92 @@ extension CarPlayController: CarPlayManagerDelegate {
                 Diag.log("Routenvorschau während der Navigation ignoriert")
                 return
             }
-            splitRoutesIfNeeded(trip)
+            if #available(iOS 27, *) { showPreviewPanel(selected: routeChoice) } else { splitRoutesIfNeeded(trip) }
             framePreview(routeChoice.navigationRoutes)
             flyover?.showPreview(routeChoice.navigationRoutes)
             refreshFriends()
         }
+    }
+
+    // MARK: Vorschau als eigenes Fenster (iOS 27: CPMapPanel)
+
+    /// Wie Apple Karten: Ziel, Öffnungszeiten, Anrufen, Routen zur Wahl und „Starten“ in einem Fenster. CarPlays
+    /// Standard-Vorschau (CPTrip) zeigt nur Name, Adresse und Routentexte – darum wird sie durch ein eigenes Panel
+    /// ersetzt. Mapbox bleibt im Vorschau-Zustand (Zurück-Knopf, Routenlinien); Auswahl und Start gehen an Mapbox.
+    @available(iOS 27, *)
+    private func showPreviewPanel(selected: CPRouteChoice) {
+        guard let trip = previewTrip, let template = manager.interfaceController?.topTemplate as? CPMapTemplate else { return }
+        let choice = trip.routeChoices.first { $0 === selected } ?? selected
+        template.hideTripPreviews()
+        let panel = Self.previewPanel(trip: trip, selected: choice, destination: pendingDestination, suggestion: activeSuggestion,
+                                      status: previewStatus, phone: previewPhone, details: previewDetails,
+            select: { [weak self] other in
+                guard let self, let template = manager.interfaceController?.topTemplate as? CPMapTemplate else { return }
+                manager.mapTemplate(template, selectedPreviewFor: trip, using: other)   // Mapbox hebt die Route hervor
+            },
+            start: { [weak self] in
+                guard let self, let template = manager.interfaceController?.topTemplate as? CPMapTemplate else { return }
+                hidePreviewPanel()
+                pauseAlerts()
+                manager.mapTemplate(template, startedTrip: trip, using: choice)
+            })
+        template.showPanel(panel) { ok, error in if !ok { Diag.log("CarPlay-Vorschaufenster fehlgeschlagen: \(error?.localizedDescription ?? "?")") } }
+        previewPanelShown = true
+    }
+
+    @available(iOS 27, *)
+    private func hidePreviewPanel() {
+        guard previewPanelShown else { return }
+        previewPanelShown = false
+        (manager.interfaceController?.rootTemplate as? CPMapTemplate)?.hidePanel(completion: nil)
+        (manager.interfaceController?.topTemplate as? CPMapTemplate)?.hidePanel(completion: nil)
+    }
+
+    private var previewPanelShown = false
+
+    @available(iOS 27, *)
+    private static func previewPanel(trip: CPTrip, selected: CPRouteChoice, destination: Place?, suggestion: RouteSuggestions.Suggestion?,
+                                     status: String?, phone: String?, details: SearchService.Details?,
+                                     select: @escaping (CPRouteChoice) -> Void, start: @escaping () -> Void) -> CPMapPanel {
+        let route = mainRoute(in: selected.userInfo)
+        let eta = Date().addingTimeInterval(route?.expectedTravelTime ?? 0)
+        func info(_ text: String, _ detail: String?, _ symbol: String, handler: (() -> Void)? = nil) -> CPMapPanelItem {
+            let item = CPListItem(text: text, detailText: detail, image: UIImage(systemName: symbol))
+            if let handler { item.handler = { _, done in handler(); done() } }
+            let panelItem = CPMapPanelItem(listItem: item)
+            panelItem.isEnabled = handler != nil
+            return panelItem
+        }
+        // Kopf: Name und was es ist / wo es liegt (beim Termin: Termin und Adresse)
+        var reason: String?
+        if let suggestion, case .calendar(_, let start) = suggestion.reason { reason = String(localized: "Termin \(ActivityFormat.time(start))") }
+        let name = suggestion?.title ?? destination?.name ?? trip.destination.name ?? ""
+        let address = oneLine(destination?.address ?? suggestion?.place.address ?? "")
+        let head = [reason, details?.category, address.isEmpty || address == name ? nil : address].compactMap { $0 }.joined(separator: " · ")
+        var items = [info(name, head.isEmpty ? nil : head, reason == nil ? "mappin.circle.fill" : "calendar")]
+        // Öffnungszeiten – mit Blick auf die Ankunft
+        if let status {
+            let closed = details?.openNow(eta) == false
+            items.append(info(status, closed ? String(localized: "Bei Ankunft um \(ActivityFormat.time(eta)) geschlossen") : nil,
+                              closed ? "clock.badge.exclamationmark" : "clock"))
+        }
+        if let phone, let url = URL(string: "tel:" + phone.filter { !$0.isWhitespace }) {
+            items.append(info(String(localized: "Anrufen"), phone, "phone.fill") { UIApplication.shared.open(url) })
+        }
+        var sections = [CPMapPanelSection(title: nil, items: items)]
+        if trip.routeChoices.count > 1 {
+            let routes = trip.routeChoices.map { choice in
+                CPMapPanelItem(routeChoice: choice) { _, done in select(choice); done() }
+            }
+            sections.append(CPMapPanelSection(title: String(localized: "Routen"), items: routes))
+        }
+        let estimates = CPTravelEstimates(distanceRemaining: Measurement(value: route?.distance ?? 0, unit: UnitLength.meters),
+                                          timeRemaining: route?.expectedTravelTime ?? 0)
+        let startButton = CPTextButton(title: String(localized: "Starten"), textStyle: .confirm) { _ in start() }
+        let panel = CPMapPanel(title: nil, sections: sections,
+                               buttonConfiguration: CPMapPanelButtonConfiguration(primaryAction: startButton, secondaryButton: nil, travelEstimates: estimates))
+        panel.showsCloseButton = false   // zurück geht über „Zurück“ oben (Mapbox beendet dann die Vorschau)
+        return panel
     }
 
     /// Mehrere Routen: je Route eine eigene Vorschau, zwischen denen man mit den Pfeilen der Auswahlkarte blättert
@@ -1720,6 +1807,7 @@ extension CarPlayController: CarPlayManagerDelegate {
                 RouteSuggestions.shared.dismissCurrent()
             }
             splitTrips = []
+            if #available(iOS 27, *) { hidePreviewPanel() }
             framePreview(nil)
             flyover?.showPreview(nil)
             refreshFriends()

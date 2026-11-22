@@ -747,6 +747,8 @@ final class CarPlayController: NSObject {
     private var previewStatus: String?
     private var previewPhone: String?
     private var previewDetails: SearchService.Details?
+    /// iOS 27: eigenes Vorschaufenster (CPMapPanel) ist offen
+    private var previewPanelShown = false
     private var previewTask: Task<Void, Never>?
 
     /// Darf die berechnete Vorschau noch erscheinen? Nicht, wenn inzwischen ein anderes Ziel gewählt wurde, eine
@@ -1728,8 +1730,6 @@ extension CarPlayController: CarPlayManagerDelegate {
         (manager.interfaceController?.rootTemplate as? CPMapTemplate)?.hidePanel(completion: nil)
         (manager.interfaceController?.topTemplate as? CPMapTemplate)?.hidePanel(completion: nil)
     }
-
-    private var previewPanelShown = false
 
     @available(iOS 27, *)
     private static func previewPanel(trip: CPTrip, selected: CPRouteChoice, destination: Place?, suggestion: RouteSuggestions.Suggestion?,

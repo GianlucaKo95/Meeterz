@@ -233,12 +233,25 @@ final class CarPlayController: NSObject {
             }
             return item
         }
+        func orientItem(_ north: Bool) -> CPListItem {
+            let item = CPListItem(text: north ? String(localized: "Norden oben") : String(localized: "Fahrtrichtung oben"), detailText: nil,
+                                  image: UIImage(systemName: north ? "location.fill" : "location.north.line.fill", withConfiguration: config),
+                                  accessoryImage: MapPreferences.northUp == north ? check : nil, accessoryType: .none)
+            item.handler = { _, done in
+                MapPreferences.setNorthUp(north)
+                done()
+                CarPlayUI.shared.pop(animated: true)
+            }
+            return item
+        }
         let template = CPListTemplate(title: String(localized: "Kartenansicht"), sections: [
             CPListSection(items: [styleItem("satellite", String(localized: "Satellit"), "globe.europe.africa.fill"),
                                   styleItem("classic", String(localized: "Klassisch"), "map.fill"),
                                   styleItem("flyover", String(localized: "Apple Flyover (experimentell)"), "building.2.fill")],
                           header: String(localized: "Karte"), sectionIndexTitle: nil),
             CPListSection(items: [viewItem(true), viewItem(false)], header: String(localized: "Ansicht"), sectionIndexTitle: nil),
+            // CarPlay erlaubt nur vier Kartenknöpfe – die Ausrichtung sitzt deshalb hier statt in einem eigenen Knopf
+            CPListSection(items: [orientItem(false), orientItem(true)], header: String(localized: "Während der Fahrt"), sectionIndexTitle: nil),
         ])
         CarPlayUI.shared.push(template, animated: true)
     }
@@ -1257,7 +1270,7 @@ extension CarPlayController: CarPlayManagerDelegate {
 
     nonisolated func carPlayManager(_ carPlayManager: CarPlayManager, willPreview trip: CPTrip) -> CPTrip {
         MainActor.assumeIsolated {
-            var shown = Self.withRouteOptions(Self.withBatteryForecast(Self.withPhoneLabels(trip, destination: pendingDestination, status: previewStatus)))
+            var shown = Self.withRouteOptions(Self.withBatteryForecast(Self.withPhoneLabels(trip, destination: pendingDestination, status: previewStatus, phone: previewPhone)))
             if let suggestion = activeSuggestion { shown = Self.withSuggestionLabel(shown, suggestion) }
             previewTrip = shown
             return shown
@@ -1269,7 +1282,7 @@ extension CarPlayController: CarPlayManagerDelegate {
     /// Strecke (stand doppelt und wich durch andere Rundung ab: „45 Min · 41,5 km“ über „44 Min. · 41 km“).
     /// In der Liste aller Routen steht die Dauer/Strecke als Titel, damit man sie vergleichen kann.
     /// Unter dem Zielnamen stand außerdem noch einmal der Name („Arbeit“ / „Arbeit“): Das Ziel bekommt seine Adresse.
-    private static func withPhoneLabels(_ trip: CPTrip, destination: Place?, status: String?) -> CPTrip {
+    private static func withPhoneLabels(_ trip: CPTrip, destination: Place?, status: String?, phone: String?) -> CPTrip {
         let all = trip.routeChoices.compactMap { mainRoute(in: $0.userInfo) }
         let choices = trip.routeChoices.enumerated().map { index, choice -> CPRouteChoice in
             guard let route = mainRoute(in: choice.userInfo) else { return choice }
@@ -1285,8 +1298,8 @@ extension CarPlayController: CarPlayManagerDelegate {
         var target = trip.destination
         if let destination, let address = destination.address, !address.isEmpty,
            destination.coordinate.distance(to: trip.destination.placemark.coordinate) < 200 {
-            // Mit Öffnungsstatus („Geöffnet bis 23:00“) aus Mapbox/OSM
-            let line = [status ?? destination.hours.map { OsmPlaces.status($0) }, address].compactMap { $0 }.joined(separator: " · ")
+            // Mit Öffnungsstatus („Geöffnet bis 23:00“) aus Mapbox/OSM und Telefonnummer – Anrufen-Knopf sitzt oben in der Leiste
+            let line = [status ?? destination.hours.map { OsmPlaces.status($0) }, phone, address].compactMap { $0 }.joined(separator: " · ")
             target = MKMapItem(placemark: Self.placemark(trip.destination.placemark.coordinate, address: line))
             target.name = destination.name
         }

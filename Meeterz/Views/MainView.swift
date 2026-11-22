@@ -45,10 +45,13 @@ struct MainView: View {
     /// Kamera folgt dem eigenen Standort – in 3D schräg von hinten, in Fahrtrichtung gedreht; in 2D genordet.
     /// (Ohne Angabe drehte Mapbox auch in 2D mit der Kompassrichtung des iPhones mit – der Kompass-Knopf nordete
     /// nur kurz, dann drehte die Karte zurück, bis man sie einmal selbst gedreht hatte. 21.11.)
+    /// Ortungspfeil wie in Apple Karten: erster Tipp folgt mir, jeder weitere schaltet „mitdrehen ↔ genordet“ um.
+    @State private var flipBearing = false
+    private var turnsWithMe: Bool { threeD != flipBearing }
     private var followViewport: Viewport {
         threeD
-            ? .followPuck(zoom: 16.5 + Double(zoomSteps), bearing: .course, pitch: 60)
-            : .followPuck(zoom: 13 + Double(zoomSteps), bearing: .constant(0), pitch: 0)
+            ? .followPuck(zoom: 16.5 + Double(zoomSteps), bearing: turnsWithMe ? .course : .constant(0), pitch: 60)
+            : .followPuck(zoom: 13 + Double(zoomSteps), bearing: turnsWithMe ? .heading : .constant(0), pitch: 0)
     }
 
     var body: some View {
@@ -174,6 +177,7 @@ struct MainView: View {
             }
         }
         .onChange(of: threeD) { _, three in
+            flipBearing = false   // 3D dreht mit, 2D ist genordet – der Pfeil schaltet von dort aus um
             if viewport.followPuck != nil {
                 withViewportAnimation(.easeOut(duration: 0.6)) { viewport = followViewport }
             } else if let cam = cameraNow {
@@ -514,8 +518,10 @@ struct MainView: View {
                 Task { if await Permissions.ask(.camera) { showStoryComposer = true } }
             }
 
-            CircleIconButton(systemName: "location.north.line.fill", label: "Auf meinen Standort zentrieren", tint: Theme.accent) {
+            CircleIconButton(systemName: viewport.followPuck == nil ? "location" : (turnsWithMe ? "location.north.line.fill" : "location.fill"),
+                             label: "Auf meinen Standort zentrieren", tint: Theme.accent) {
                 app.mapFocus = nil
+                if viewport.followPuck != nil, !flyover { flipBearing.toggle() }
                 recenterTick += 1
                 withViewportAnimation(.easeOut(duration: 0.5)) { viewport = followViewport }
             }

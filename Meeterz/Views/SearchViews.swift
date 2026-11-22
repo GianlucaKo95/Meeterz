@@ -573,7 +573,33 @@ struct RoutePreviewView: View {
                 if let address = current.destination.address {
                     Text(address).foregroundStyle(Theme.muted)
                 }
+                // Öffnungszeiten und Anrufen direkt hier (wie die Ortskarte, 22.11.) – mit Blick auf die Ankunft
+                if placeInfo.status != nil || placeInfo.phone != nil {
+                    HStack(spacing: 10) {
+                        if let status = placeInfo.status {
+                            Label(status, systemImage: "clock")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(placeInfo.openAt?(eta) == false ? Theme.danger : Theme.accent)
+                                .lineLimit(2)
+                        }
+                        Spacer(minLength: 0)
+                        if let phone = placeInfo.phone, let url = URL(string: "tel:" + phone.filter { !$0.isWhitespace }) {
+                            Link(destination: url) {
+                                Label("Anrufen", systemImage: "phone.fill")
+                                    .font(.subheadline.weight(.semibold))
+                                    .padding(.horizontal, 12).padding(.vertical, 7)
+                                    .background(Capsule().fill(Theme.panelRaised))
+                            }
+                        }
+                    }
+                    .padding(.top, 4)
+                    if placeInfo.openAt?(eta) == false {
+                        Text("Bei Ankunft um \(ActivityFormat.time(eta)) geschlossen")
+                            .font(.footnote.weight(.semibold)).foregroundStyle(Theme.danger)
+                    }
+                }
             }
+            .task(id: current.destination.coordinate.latitude) { await loadPlaceInfo() }
 
             HStack(spacing: 10) {
                 // Ankunft antippen = „Ankunft um …“ planen (Uhr-Symbol zeigt es an; eine eigene Zeile lag unter dem sichtbaren Bereich)
@@ -663,6 +689,24 @@ struct RoutePreviewView: View {
         } message: {
             Text(current.destination.address ?? "")
         }
+    }
+
+    /// Öffnungszeiten (Mapbox/OSM) und Telefon (Apple, sonst Mapbox/OSM) des Ziels
+    @State private var placeInfo = PlaceInfo()
+    struct PlaceInfo {
+        var status: String?, phone: String?
+        var openAt: ((Date) -> Bool?)?
+    }
+
+    private func loadPlaceInfo() async {
+        let place = current.destination
+        async let apple = ApplePlaces.mapItem(for: place)
+        let d = await SearchService.details(name: place.name, at: place.coordinate)
+        let applePhone = (await apple)?.phoneNumber
+        placeInfo = PlaceInfo(
+            status: d?.hours.map { OsmPlaces.status($0) } ?? d?.hoursText,
+            phone: applePhone.flatMap { $0.isEmpty ? nil : $0 } ?? d?.phone,
+            openAt: d?.hours == nil ? nil : { date in d?.openNow(date) })
     }
 
     /// Route neu über die Ladesäulen berechnen

@@ -387,6 +387,17 @@ final class NavigationCoordinator: NSObject {
         }
         buttons.append(make("magnifyingglass", String(localized: "Stopp entlang der Route")) { present(StopSearchSheet()) })
         buttons.append(make("exclamationmark.triangle.fill", String(localized: "Gefahr melden")) { present(HazardReportSheet()) })
+        // Ausrichtung direkt umschalten wie in Apple Karten: Fahrtrichtung oben ↔ Norden oben
+        weak var orientation: UIButton?
+        func symbol() -> String { MapPreferences.northUp ? "location.fill" : "location.north.line.fill" }
+        let orientButton = make(symbol(), String(localized: "Ausrichtung")) {
+            MapPreferences.setNorthUp(!MapPreferences.northUp)
+            orientation?.setImage(UIImage(systemName: symbol()), for: .normal)
+            orientation?.accessibilityValue = MapPreferences.northUp ? String(localized: "Norden oben") : String(localized: "Fahrtrichtung oben")
+        }
+        orientation = orientButton
+        orientButton.accessibilityValue = MapPreferences.northUp ? String(localized: "Norden oben") : String(localized: "Fahrtrichtung oben")
+        buttons.append(orientButton)
         controller.floatingButtons = buttons
     }
 

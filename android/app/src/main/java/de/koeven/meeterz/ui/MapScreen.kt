@@ -74,6 +74,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.border
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.material.icons.filled.NearMe
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Navigation
+import androidx.compose.material.icons.outlined.NearMe as NearMeOutlined
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.foundation.layout.width
@@ -198,7 +202,20 @@ fun MapScreen() {
             mapStyleRevision++
         }
     }
+    // Ortungspfeil wie in Apple Karten: erster Tipp folgt mir, jeder weitere schaltet „mitdrehen ↔ genordet“ um (wie iOS)
+    var flipBearing by remember { mutableStateOf(false) }
+    val turnsWithMe = map3d != flipBearing
+    var followingMe by remember { mutableStateOf(true) }
+    DisposableEffect(mapView) {
+        val observer = com.mapbox.maps.plugin.viewport.ViewportStatusObserver { _, to, _ ->
+            followingMe = (to as? com.mapbox.maps.plugin.viewport.ViewportStatus.State)?.state is
+                com.mapbox.maps.plugin.viewport.state.FollowPuckViewportState
+        }
+        mapView.viewport.addStatusObserver(observer)
+        onDispose { mapView.viewport.removeStatusObserver(observer) }
+    }
     LaunchedEffect(map3d) {
+        flipBearing = false
         val following = (mapView.viewport.status as? com.mapbox.maps.plugin.viewport.ViewportStatus.State)?.state is
             com.mapbox.maps.plugin.viewport.state.FollowPuckViewportState
         if (following && guidance == null) mapView.viewport.transitionTo(followMe(mapView.viewport, map3d))
@@ -208,7 +225,7 @@ fun MapScreen() {
     DisposableEffect(mapView) { val t = TrafficLayer.install(mapView.mapboxMap); onDispose { t.cancel() } }
     LaunchedEffect(guidance != null) {
         binder.setActive(guidance != null)
-        if (guidance == null) mapView.viewport.transitionTo(followMe(mapView.viewport, map3d))
+        if (guidance == null) mapView.viewport.transitionTo(followMe(mapView.viewport, map3d, turnsWithMe))
     }
 
     val friendRoutes by AppState.routes.routes.collectAsState()
@@ -577,8 +594,11 @@ fun MapScreen() {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             MapStyleMenu(mapStyle, map3d)
                             MapCircleButton(Icons.Default.PhotoCamera, tr("Story aufnehmen")) { showStoryComposer = true }
-                            MapCircleButton(Icons.Default.NearMe, tr("Auf meinen Standort zentrieren"), tint = MaterialTheme.colorScheme.primary) {
-                                mapView.viewport.transitionTo(followMe(mapView.viewport, map3d))
+                            MapCircleButton(if (!followingMe) Icons.Outlined.NearMeOutlined else if (turnsWithMe) Icons.Default.Navigation else Icons.Default.NearMe,
+                                tr("Auf meinen Standort zentrieren"), tint = MaterialTheme.colorScheme.primary) {
+                                val turns = if (followingMe) !turnsWithMe else turnsWithMe
+                                if (followingMe) flipBearing = !flipBearing
+                                mapView.viewport.transitionTo(followMe(mapView.viewport, map3d, turns))
                             }
                         }
                     }
@@ -702,6 +722,30 @@ private fun PreviewCard(dest: NavigationController.Destination, routes: List<Nav
                 }
             }
             Text(dest.name, style = MaterialTheme.typography.titleMedium)
+            // Öffnungszeiten und Anrufen direkt in der Routenvorschau (wie iOS RoutePreviewView)
+            val info by produceState<de.koeven.meeterz.nav.PlaceSearch.Details?>(null, dest) {
+                value = de.koeven.meeterz.nav.PlaceSearch.details(dest.name, dest.lat, dest.lng)
+            }
+            info?.let { d ->
+                val context = androidx.compose.ui.platform.LocalContext.current
+                val status = d.hours?.let { de.koeven.meeterz.nav.OsmPlaces.status(it) } ?: d.hoursText
+                val arrival = java.util.Calendar.getInstance().apply { add(java.util.Calendar.SECOND, (r.duration() + chargeSeconds).toInt()) }
+                val closedOnArrival = d.openNow(arrival) == false
+                if (status != null || d.phone != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    status?.let {
+                        Icon(Icons.Default.Schedule, null, Modifier.size(16.dp),
+                            tint = if (d.openNow() == false) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+                        Text(it, style = MaterialTheme.typography.bodySmall, maxLines = 1, modifier = Modifier.weight(1f, fill = false))
+                    }
+                    d.phone?.let { phone ->
+                        AssistChip(onClick = {
+                            context.startActivity(android.content.Intent(android.content.Intent.ACTION_DIAL, android.net.Uri.parse("tel:" + phone.filter { c -> c.isDigit() || c == '+' })))
+                        }, label = { Text(tr("Anrufen")) }, leadingIcon = { Icon(Icons.Default.Phone, null, Modifier.size(16.dp)) })
+                    }
+                }
+                if (closedOnArrival) Text(tr("Bei Ankunft um %@ geschlossen", clock(r.duration() + chargeSeconds)),
+                    style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error)
+            }
             Text(if (chargeSeconds > 0) tr("%@ · %@ · Ankunft inkl. Laden %@", minutes(r.duration() + chargeSeconds), km(r.distance()), clock(r.duration() + chargeSeconds))
                  else tr("%@ · %@ · Ankunft %@", minutes(r.duration()), km(r.distance()), clock(r.duration())))
             // Bis zu drei Routen zur Wahl (Schnellste, Kürzeste, Ohne Autobahn) – wie die Routenwahl auf iOS
@@ -761,12 +805,16 @@ private fun GuidanceBar(g: NavigationController.Guidance, modifier: Modifier) {
     if (showStop) AddStopDialog(onDismiss = { showStop = false })
     var showHazard by remember { mutableStateOf(false) }
     if (showHazard) HazardDialog(onDismiss = { showHazard = false })
+    val northUp by UiPreferences.northUp.collectAsState()
     // Stopp entlang der Route und Gefahr melden: runde Knöpfe rechts über der Leiste (wie die Knöpfe am Rand auf iOS).
     // In der Leiste selbst war dafür kein Platz – auf 360-dp-Geräten blieb für die Ankunftszeit fast nichts.
     Column(modifier.fillMaxWidth().padding(end = 12.dp), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         for ((icon, label, action) in listOf(
             Triple(Icons.Default.Search, tr("Stopp entlang der Route")) { showStop = true },
             Triple(Icons.Default.Warning, tr("Gefahr melden")) { showHazard = true },
+            // Ausrichtung direkt umschalten wie in Apple Karten / iOS: Fahrtrichtung oben ↔ Norden oben
+            Triple(if (northUp) Icons.Default.NearMe else Icons.Default.Navigation,
+                tr(if (northUp) "Norden oben" else "Fahrtrichtung oben")) { UiPreferences.setNorthUp(!northUp) },
         )) {
             Surface(onClick = action, shape = androidx.compose.foundation.shape.CircleShape, color = MaterialTheme.colorScheme.surface,
                 shadowElevation = 2.dp, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
@@ -1570,10 +1618,10 @@ private fun SearchRow(icon: androidx.compose.ui.graphics.vector.ImageVector, tit
  * Karte folgt mir: in 2D genordet, in 3D in Fahrtrichtung (wie iOS). Vorher drehte die Karte auch in 2D mit der
  * Kompassrichtung des Handys – der Kompass-Knopf nordete nur kurz, dann drehte sie zurück (21.11.).
  */
-internal fun followMe(viewport: com.mapbox.maps.plugin.viewport.ViewportPlugin, map3d: Boolean) =
+internal fun followMe(viewport: com.mapbox.maps.plugin.viewport.ViewportPlugin, map3d: Boolean, turns: Boolean = map3d) =
     viewport.makeFollowPuckViewportState(
         com.mapbox.maps.plugin.viewport.data.FollowPuckViewportStateOptions.Builder()
-            .bearing(if (map3d) com.mapbox.maps.plugin.viewport.data.FollowPuckViewportStateBearing.SyncWithLocationPuck
+            .bearing(if (turns) com.mapbox.maps.plugin.viewport.data.FollowPuckViewportStateBearing.SyncWithLocationPuck
                      else com.mapbox.maps.plugin.viewport.data.FollowPuckViewportStateBearing.Constant(0.0))
             .pitch(if (map3d) 45.0 else 0.0)
             .build())

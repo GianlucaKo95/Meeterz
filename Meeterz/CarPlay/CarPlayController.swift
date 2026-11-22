@@ -670,6 +670,7 @@ final class CarPlayController: NSObject {
         // Von wo aus gewählt wurde: Ist diese Ansicht weg (Zurück/Verlassen), wird die Planung verworfen
         let origin: CPTemplate? = fromMap ? manager.interfaceController?.rootTemplate : manager.interfaceController?.topTemplate
         pendingDestination = Place(id: UUID().uuidString, name: name, address: address, coordinate: coordinate, hours: hours)
+        lastMapInteraction = Date()   // Startausschnitt nicht mehr nachrahmen, während die Route lädt
         // Ortsangaben für die Vorschau (Öffnungszeiten, Telefon) parallel zur Route holen – die Vorschau zeigt sie
         // unter dem Namen und bietet „Anrufen“ (statt einer eigenen Ortskarte vorher, 22.11.)
         previewPhone = nil
@@ -727,16 +728,32 @@ final class CarPlayController: NSObject {
         return title
     }
 
-    /// Ortsangaben übernehmen – höchstens 1,5 s auf sie warten, die Route geht vor
+    /// Ortsangaben übernehmen – höchstens 1,5 s auf sie warten, die Route geht vor. Was später kommt, wird in das
+    /// offene Vorschaufenster nachgetragen. (Vorher wartete eine TaskGroup trotz „Abbruch“ auf die Ortsangaben –
+    /// OpenStreetMap brauchte bis zu 30 s, so lange erschien keine Vorschau; Log 22.11.)
     private func takeDetails(_ task: Task<(status: String?, phone: String?, details: SearchService.Details?), Never>) async {
-        let info = await withTaskGroup(of: (status: String?, phone: String?, details: SearchService.Details?)?.self) { group in
-            group.addTask { await task.value }
-            group.addTask { try? await Task.sleep(for: .milliseconds(1500)); return nil }
-            let first = await group.next() ?? nil
-            group.cancelAll()
-            return first
+        let generation = previewGeneration
+        let info: (status: String?, phone: String?, details: SearchService.Details?)? = await withCheckedContinuation { cont in
+            let once = Once()
+            Task { @MainActor in
+                let value = await task.value
+                if !once.done { once.done = true; cont.resume(returning: value); return }
+                // Zu spät für den Aufbau der Vorschau: nachtragen, wenn sie noch dieselbe ist
+                guard generation == self.previewGeneration else { return }
+                self.apply(value)
+                if #available(iOS 27, *), self.previewPanelShown, let choice = self.previewChoice { self.showPreviewPanel(selected: choice) }
+            }
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(1500))
+                if !once.done { once.done = true; cont.resume(returning: nil) }
+            }
         }
-        guard let info else { return }
+        if let info { apply(info) }
+    }
+
+    @MainActor private final class Once { var done = false }
+
+    private func apply(_ info: (status: String?, phone: String?, details: SearchService.Details?)) {
         previewStatus = info.status ?? previewStatus
         previewPhone = info.phone
         previewDetails = info.details
@@ -749,6 +766,7 @@ final class CarPlayController: NSObject {
     private var previewDetails: SearchService.Details?
     /// iOS 27: eigenes Vorschaufenster (CPMapPanel) ist offen
     private var previewPanelShown = false
+    private var previewChoice: CPRouteChoice?
     private var previewTask: Task<Void, Never>?
 
     /// Darf die berechnete Vorschau noch erscheinen? Nicht, wenn inzwischen ein anderes Ziel gewählt wurde, eine
@@ -1706,6 +1724,7 @@ extension CarPlayController: CarPlayManagerDelegate {
     private func showPreviewPanel(selected: CPRouteChoice) {
         guard let trip = previewTrip, let template = manager.interfaceController?.topTemplate as? CPMapTemplate else { return }
         let choice = trip.routeChoices.first { $0 === selected } ?? selected
+        previewChoice = choice
         template.hideTripPreviews()
         let panel = Self.previewPanel(trip: trip, selected: choice, destination: pendingDestination, suggestion: activeSuggestion,
                                       status: previewStatus, phone: previewPhone, details: previewDetails,
@@ -1740,9 +1759,8 @@ extension CarPlayController: CarPlayManagerDelegate {
         func info(_ text: String, _ detail: String?, _ symbol: String, handler: (() -> Void)? = nil) -> CPMapPanelItem {
             let item = CPListItem(text: text, detailText: detail, image: UIImage(systemName: symbol))
             if let handler { item.handler = { _, done in handler(); done() } }
-            let panelItem = CPMapPanelItem(listItem: item)
-            panelItem.isEnabled = handler != nil
-            return panelItem
+            // Nicht deaktivieren: CarPlay zeigt deaktivierte Zeilen fast unsichtbar grau (Foto 22.11.)
+            return CPMapPanelItem(listItem: item)
         }
         // Kopf: Name und was es ist / wo es liegt (beim Termin: Termin und Adresse)
         var reason: String?

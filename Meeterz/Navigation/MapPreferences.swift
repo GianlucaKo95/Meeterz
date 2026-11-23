@@ -42,6 +42,7 @@ enum MapPreferences {
     static func setNorthUp(_ on: Bool) {
         UserDefaults.standard.set(on, forKey: "map.northUp")
         CarPlayController.shared.applyThreeD()          // stellt die CarPlay-Kameras neu ein
+        CarPlayController.shared.refreshVoiceButton()   // und den Ausrichtungsknopf in der Leiste
         AppModel.shared.navigation.applyOrientation()   // und die laufende iPhone-Navigation
     }
 

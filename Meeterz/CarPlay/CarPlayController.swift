@@ -1015,11 +1015,22 @@ final class CarPlayController: NSObject {
         }
     }
 
-    /// Knopf nach einem Wechsel (auch vom iPhone aus) neu setzen – CarPlay-Knöpfe lassen sich nicht ändern
+    /// Ausrichtung direkt umschalten wie in Apple Karten: Fahrtrichtung oben ↔ Norden oben. Sitzt in der oberen Leiste,
+    /// weil CarPlay nur vier Kartenknöpfe erlaubt und die belegt sind (vorher nur im Menü – 23.11.).
+    private func orientationButton() -> CPBarButton {
+        let image = UIImage(systemName: MapPreferences.northUp ? "location.fill" : "location.north.line.fill",
+                            withConfiguration: UIImage.SymbolConfiguration(pointSize: 20, weight: .semibold)) ?? UIImage()
+        return CPBarButton(image: image) { _ in MapPreferences.setNorthUp(!MapPreferences.northUp) }   // setzt die Knöpfe neu
+    }
+
+    /// Knöpfe nach einem Wechsel (auch vom iPhone aus) neu setzen – CarPlay-Knöpfe lassen sich nicht ändern
     func refreshVoiceButton() {
-        guard isConnected, manager.currentActivity == .navigating,
-              let template = manager.interfaceController?.rootTemplate as? CPMapTemplate else { return }
-        template.leadingNavigationBarButtons = [voiceButton()]
+        guard isConnected, let template = manager.interfaceController?.rootTemplate as? CPMapTemplate else { return }
+        switch manager.currentActivity {
+        case .navigating: template.leadingNavigationBarButtons = [voiceButton(), orientationButton()]
+        case .browsing: template.leadingNavigationBarButtons = [orientationButton()]
+        default: break
+        }
     }
 
     /// Kurz anzeigen, was jetzt gilt (das Symbol allein ist im Auto schwer zu lesen)
@@ -1650,8 +1661,8 @@ extension CarPlayController: CarPlayManagerDelegate {
             // Start gab es dort praktisch nie eine Auswahl („Keine alternativen Routen“); schnellere Routen bieten wir
             // ohnehin per Hinweis an.
             switch activity {
-            case .browsing: return []
-            case .navigating: return [voiceButton()]
+            case .browsing: return [orientationButton()]
+            case .navigating: return [voiceButton(), orientationButton()]
             default: return nil
             }
         }

@@ -236,6 +236,13 @@ class CarMoreScreen(carContext: CarContext) : Screen(carContext) {
             .addItem(Row.Builder().setTitle(tr("Gefahr melden")).addText(tr("Warnt andere Meeterz-Fahrer")).setBrowsable(true)
                 .setOnClickListener { screenManager.push(CarHazardScreen(carContext)) }.build())
             .addItem(passengerRow(carContext, screenManager))
+            // Ausrichtung umschalten (iOS: Knopf in der CarPlay-Leiste) – die Leisten von Android Auto sind voll
+            .addItem(Row.Builder().setTitle(tr("Ausrichtung"))
+                .addText(tr(if (de.koeven.meeterz.ui.UiPreferences.northUp.value) "Norden oben" else "Fahrtrichtung oben"))
+                .setOnClickListener {
+                    de.koeven.meeterz.ui.UiPreferences.setNorthUp(!de.koeven.meeterz.ui.UiPreferences.northUp.value)
+                    invalidate()
+                }.build())
             .build())
         .build()
 }

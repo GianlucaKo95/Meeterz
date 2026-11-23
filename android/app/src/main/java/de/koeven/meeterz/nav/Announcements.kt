@@ -115,11 +115,19 @@ object ThenInstructions {
         if (second == null || !isTurn(second)) return if (hasThen) withoutThen(text) else text
         val direction = LandmarkInstructions.directionText(second.direction)
         if (!isTurn(first) || first.distance > MAX_GAP || direction == null) return if (hasThen) withoutThen(text) else text
+        // Zweimal dieselbe Seite so kurz hintereinander ist in Wirklichkeit eine Abbiegung (wie iOS, 23.11.)
+        if (side(first.direction) == side(second.direction)) return if (hasThen) withoutThen(text) else text
         if (hasThen) return text
         var base = text.trim()
         val period = base.endsWith(".")
         if (period) base = base.dropLast(1)
         return "$base, dann $direction abbiegen" + if (period) "." else ""
+    }
+
+    fun side(d: Direction?) = when (d) {
+        Direction.RIGHT, Direction.SHARP_RIGHT, Direction.SLIGHT_RIGHT -> "rechts"
+        Direction.LEFT, Direction.SHARP_LEFT, Direction.SLIGHT_LEFT -> "links"
+        else -> null
     }
 
     fun isTurn(step: Step) = (step.type == ManeuverType.TURN || step.type == ManeuverType.END_OF_ROAD) && step.direction in TURN_DIRECTIONS
@@ -134,20 +142,18 @@ object ThenInstructions {
 /** Abseits der Autobahn gleich die nächste Abbiegung: „In 800 Metern rechts auf Hafenstraße abbiegen“ */
 /**
  * Letzter Schliff (wie iOS, 23.11.): „In 400 Metern In Richtung A 40 nach Rechts abbiegen“ → „In 400 Metern rechts
- * abbiegen Richtung A 40“; zweimal dieselbe Richtung hintereinander → „…, dann gleich wieder rechts“.
+ * abbiegen Richtung A 40“.
  */
 object TurnPhrases {
     private val toward = Regex("""\b[Ii]n Richtung (.+?),? nach ([Ll]inks|[Rr]echts) abbiegen""")
     fun polish(text: String): String {
         if (java.util.Locale.getDefault().language != "de") return text
-        var out = toward.find(text)?.let { m ->
+        val out = toward.find(text)?.let { m ->
             val dir = m.groupValues[2].lowercase()
             val target = m.groupValues[1].split(", ").first()
             val word = if (m.range.first == 0) dir.replaceFirstChar { it.uppercase() } else dir
             text.replaceRange(m.range, "$word abbiegen Richtung $target")
         } ?: text
-        for (d in listOf("links", "rechts"))
-            out = out.replace(Regex("""(?i)(\b$d\b[^,]*), dann $d abbiegen"""), "$1, dann gleich wieder $d")
         return out
     }
 }

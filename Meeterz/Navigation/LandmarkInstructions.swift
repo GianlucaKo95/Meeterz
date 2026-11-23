@@ -147,11 +147,22 @@ enum ThenInstructions {
               let direction = LandmarkInstructions.directionText(second.maneuverDirection) else {
             return hasThen ? withoutThen(text) : text
         }
+        // Zweimal dieselbe Seite so kurz hintereinander ist in Wirklichkeit eine Abbiegung (z. B. über eine
+        // Abbiegespur Richtung A 40): kein „…, dann rechts abbiegen“ (23.11., Moers – es war nur einmal rechts)
+        if side(first.maneuverDirection) == side(second.maneuverDirection) { return hasThen ? withoutThen(text) : text }
         if hasThen { return text }   // Mapbox sagt es schon
         var base = text.trimmingCharacters(in: .whitespaces)
         let period = base.hasSuffix(".")
         if period { base.removeLast() }
         return base + ", dann \(direction) abbiegen" + (period ? "." : "")
+    }
+
+    static func side(_ direction: ManeuverDirection?) -> String? {
+        switch direction {
+        case .right, .sharpRight, .slightRight: return "rechts"
+        case .left, .sharpLeft, .slightLeft: return "links"
+        default: return nil
+        }
     }
 
     static func isTurn(_ step: RouteStep) -> Bool {
@@ -168,8 +179,7 @@ enum ThenInstructions {
 }
 
 /// Letzter Schliff (23.11., A 40 Moers): Mapbox sagt „In 400 Metern In Richtung A 40 nach Rechts abbiegen“ –
-/// daraus wird „In 400 Metern rechts abbiegen Richtung A 40“. Und zweimal dieselbe Richtung direkt hintereinander
-/// klingt als „…, dann gleich wieder rechts“ statt „rechts abbiegen, dann rechts abbiegen“.
+/// daraus wird „In 400 Metern rechts abbiegen Richtung A 40“.
 enum TurnPhrases {
     static func polish(_ text: String) -> String {
         guard VoiceCatalog.language == "de" else { return text }
@@ -183,10 +193,6 @@ enum TurnPhrases {
             target = target.components(separatedBy: ", ").first ?? target
             let atStart = r.lowerBound == out.startIndex
             out.replaceSubrange(r, with: (atStart ? dir.prefix(1).uppercased() + dir.dropFirst() : dir) + " abbiegen Richtung " + target)
-        }
-        for d in ["links", "rechts"] {
-            out = out.replacingOccurrences(of: #"(?i)(\b\#(d)\b[^,]*), dann \#(d) abbiegen"#, with: "$1, dann gleich wieder \(d)",
-                                           options: .regularExpression)
         }
         return out
     }

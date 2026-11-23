@@ -290,6 +290,32 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
             let pcm = buffer as? AVAudioPCMBuffer
             DispatchQueue.main.async { MainActor.assumeIsolated { self?.received(pcm, id: id) } }
         }
+        // Ersatzweg: Hängt das Umrechnen (bei gesperrtem iPhone bis zu 97 s, Log 21.11.), die Ansage direkt sprechen
+        // lassen – sonst kam die erste Ansage nach einer Neuberechnung gar nicht. Nur dann geht die Musik schon leiser,
+        // bevor Ton kommt; im Normalfall bleibt es beim fertig berechneten Ton.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self, let now = self.rendering, now.item.id == id, now.buffers.isEmpty else { return }
+                self.rendering = nil
+                self.renderer.stopSpeaking(at: .immediate)
+                Diag.log("Ansage-Berechnung hängt – direkt gesprochen: \(item.text)")
+                self.speakDirectly(item, utterance: utterance)
+            }
+        }
+    }
+
+    private lazy var direct = DirectVoice()
+
+    private func speakDirectly(_ item: Item, utterance: AVSpeechUtterance) {
+        activateAudio()
+        playGeneration += 1
+        let generation = playGeneration
+        direct.speak(utterance) { [weak self] in
+            guard let self, self.playGeneration == generation else { return }
+            self.finish(item)
+        }
+        let route = AVAudioSession.sharedInstance().currentRoute.outputs.map(\.portType.rawValue).joined(separator: ", ")
+        Diag.log("Ansage über \(route) (direkt): \(item.text)")
     }
 
     private func received(_ buffer: AVAudioPCMBuffer?, id: UUID) {
@@ -428,6 +454,7 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
     private func stopCurrent() {
         rendering = nil
         renderer.stopSpeaking(at: .immediate)
+        direct.stop()
         playGeneration += 1   // Abschluss des abgebrochenen Abspielens ignorieren
         player.stop()
         playing = nil
@@ -460,6 +487,40 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
         guard managesAudioSession, audioActive else { return }
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         audioActive = false
+    }
+}
+
+/// Direkt sprechender Synthesizer für den Ersatzweg; meldet das Ende (auch bei Abbruch) genau einmal
+@MainActor
+final class DirectVoice: NSObject, AVSpeechSynthesizerDelegate {
+    private let synthesizer = AVSpeechSynthesizer()
+    private var done: (() -> Void)?
+
+    override init() {
+        super.init()
+        synthesizer.delegate = self
+        synthesizer.usesApplicationAudioSession = true
+    }
+
+    func speak(_ utterance: AVSpeechUtterance, done: @escaping () -> Void) {
+        self.done = done
+        synthesizer.speak(utterance)
+    }
+
+    func stop() {
+        done = nil
+        synthesizer.stopSpeaking(at: .immediate)
+    }
+
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) { end() }
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) { end() }
+
+    nonisolated private func end() {
+        DispatchQueue.main.async { MainActor.assumeIsolated {
+            let callback = self.done
+            self.done = nil
+            callback?()
+        } }
     }
 }
 

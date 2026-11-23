@@ -170,17 +170,11 @@ fun MapScreen() {
     // Kompass unter die rechte Knopfspalte (Freunde, Kartenansicht, Standort) statt dahinter – wie iOS unter der
     // Knopfleiste: Statusleiste + 8 + 52 (Suche) + 10 + 48 + 8 + 48 + 10 dp
     val density = context.resources.displayMetrics.density
-    val statusBarPx = context.resources.getIdentifier("status_bar_height", "dimen", "android")
-        .takeIf { it > 0 }?.let { context.resources.getDimensionPixelSize(it) } ?: (24 * density).toInt()
-    val compassTopMarginPx = statusBarPx + 184.0 * density
     val mapView = remember {
         MapView(context).apply {
             mapboxMap.loadStyle(if (UiPreferences.mapStyle.value == "satellite") Style.STANDARD_SATELLITE else Style.STANDARD)
-            // MapView liegt edge-to-edge unter der Statusleiste: den nativen Kompass darunter verschieben.
-            compass.updateSettings {
-                marginTop = compassTopMarginPx.toFloat()
-                marginRight = (20.0 * context.resources.displayMetrics.density).toFloat()
-            }
+            // Kein Kompass: die Ausrichtung schaltet der Ortungspfeil (wie iOS, 23.11.)
+            compass.updateSettings { enabled = false }
             // Maßstab lag über der Statusleiste (Foto 17.11.) – iOS zeigt keinen
             scalebar.enabled = false
             mapboxMap.setCamera(CameraOptions.Builder().zoom(14.0).build())

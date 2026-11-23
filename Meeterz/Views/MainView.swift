@@ -397,8 +397,9 @@ struct MainView: View {
         .mapStyle(mapStyleKey == "classic"
                   ? .standard(lightPreset: colorScheme == .light ? .day : .night)
                   : .standardSatellite(lightPreset: colorScheme == .light ? .day : .night))
-        // Kompass unter die Knopfleiste rechts, sonst liegt er hinter der oberen Leiste
-        .ornamentOptions(OrnamentOptions(compass: CompassViewOptions(position: .topTrailing, margins: CGPoint(x: 20, y: 400), visibility: .adaptive)))
+        // Kein Kompass: Die Ausrichtung schaltet der Ortungspfeil (Norden oben ↔ Fahrtrichtung). Der Kompass
+        // nordete nur kurz ein, dann drehte die Kamera wieder mit (23.11.)
+        .ornamentOptions(OrnamentOptions(compass: CompassViewOptions(visibility: .hidden)))
         .ignoresSafeArea()
     }
 

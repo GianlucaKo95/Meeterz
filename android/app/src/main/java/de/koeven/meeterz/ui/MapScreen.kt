@@ -502,7 +502,7 @@ fun MapScreen() {
             )
         }
         val charging by ChargingSession.view.collectAsState()
-        charging?.let { ChargingCard(it, Modifier.align(Alignment.Center)) }
+        charging?.let { ChargingCard(it, Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp)) }   // unten wie iOS (23.11.)
 
         val g = guidance
         planCandidate?.let { CandidatePlanDialog(it, onClose = { planCandidate = null }) }

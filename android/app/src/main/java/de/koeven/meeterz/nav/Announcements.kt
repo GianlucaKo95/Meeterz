@@ -132,6 +132,26 @@ object ThenInstructions {
 }
 
 /** Abseits der Autobahn gleich die nächste Abbiegung: „In 800 Metern rechts auf Hafenstraße abbiegen“ */
+/**
+ * Letzter Schliff (wie iOS, 23.11.): „In 400 Metern In Richtung A 40 nach Rechts abbiegen“ → „In 400 Metern rechts
+ * abbiegen Richtung A 40“; zweimal dieselbe Richtung hintereinander → „…, dann gleich wieder rechts“.
+ */
+object TurnPhrases {
+    private val toward = Regex("""\b[Ii]n Richtung (.+?),? nach ([Ll]inks|[Rr]echts) abbiegen""")
+    fun polish(text: String): String {
+        if (java.util.Locale.getDefault().language != "de") return text
+        var out = toward.find(text)?.let { m ->
+            val dir = m.groupValues[2].lowercase()
+            val target = m.groupValues[1].split(", ").first()
+            val word = if (m.range.first == 0) dir.replaceFirstChar { it.uppercase() } else dir
+            text.replaceRange(m.range, "$word abbiegen Richtung $target")
+        } ?: text
+        for (d in listOf("links", "rechts"))
+            out = out.replace(Regex("""(?i)(\b$d\b[^,]*), dann $d abbiegen"""), "$1, dann gleich wieder $d")
+        return out
+    }
+}
+
 object ContinueInstructions {
     private val pattern = Regex("""^\s*(einen|einem|[0-9]+(?:[.,][0-9]+)?) (Meter|Metern|Kilometer|Kilometern) weiter (der Route folgen|auf [^,.]+)""", RegexOption.IGNORE_CASE)
     private val lowerFirst = setOf("Rechts", "Links", "Leicht", "Scharf", "Wenden", "An", "Am", "Auf", "Geradeaus", "Bei", "Im", "Nach", "Die", "Den", "Der")
@@ -445,6 +465,7 @@ class Announcer {
         text = ThenInstructions.apply(text, leg)
         if (!position.first) leg.upcoming?.let { text = StepAnnouncements.withoutStreet(text, it.names.firstOrNull(), it.codes.firstOrNull()) }
         text = FinalTurn.apply(text, instruction, leg)
+        text = TurnPhrases.polish(text)
         return Result.Speak(text)
     }
 }

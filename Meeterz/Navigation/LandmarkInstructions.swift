@@ -167,6 +167,31 @@ enum ThenInstructions {
     }
 }
 
+/// Letzter Schliff (23.11., A 40 Moers): Mapbox sagt „In 400 Metern In Richtung A 40 nach Rechts abbiegen“ –
+/// daraus wird „In 400 Metern rechts abbiegen Richtung A 40“. Und zweimal dieselbe Richtung direkt hintereinander
+/// klingt als „…, dann gleich wieder rechts“ statt „rechts abbiegen, dann rechts abbiegen“.
+enum TurnPhrases {
+    static func polish(_ text: String) -> String {
+        guard VoiceCatalog.language == "de" else { return text }
+        var out = text
+        if let r = out.range(of: #"\b[Ii]n Richtung (.+?),? nach ([Ll]inks|[Rr]echts) abbiegen"#, options: .regularExpression) {
+            let match = String(out[r])
+            let dir = match.range(of: #"(?i)(links|rechts)(?= abbiegen)"#, options: .regularExpression).map { match[$0].lowercased() } ?? ""
+            var target = match.replacingOccurrences(of: #"^[Ii]n Richtung "#, with: "", options: .regularExpression)
+            target = target.replacingOccurrences(of: #",? nach ([Ll]inks|[Rr]echts) abbiegen$"#, with: "", options: .regularExpression)
+            // Vom Schild nur das erste Ziel
+            target = target.components(separatedBy: ", ").first ?? target
+            let atStart = r.lowerBound == out.startIndex
+            out.replaceSubrange(r, with: (atStart ? dir.prefix(1).uppercased() + dir.dropFirst() : dir) + " abbiegen Richtung " + target)
+        }
+        for d in ["links", "rechts"] {
+            out = out.replacingOccurrences(of: #"(?i)(\b\#(d)\b[^,]*), dann \#(d) abbiegen"#, with: "$1, dann gleich wieder \(d)",
+                                           options: .regularExpression)
+        }
+        return out
+    }
+}
+
 /// Abseits der Autobahn gleich die nächste Abbiegung ansagen: „In 800 Metern rechts auf Hafenstraße abbiegen“
 /// statt „800 Meter weiter der Route folgen“ bzw. „Einen Kilometer weiter auf L 140, dann rechts abbiegen“.
 /// „… weiter fahren“ bleibt nur auf der Autobahn (längere Strecken ohne Abbiegung).

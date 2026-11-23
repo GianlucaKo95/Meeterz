@@ -158,7 +158,17 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
     private let callObserver = CXCallObserver()
     var inCall: Bool { callObserver.calls.contains { !$0.hasEnded } }
 
-    func prepareIncomingSpokenInstructions(_ instructions: [SpokenInstruction], locale: Locale?) {}
+    /// Neue Route: Stimme schon jetzt laden. Die erste Berechnung dauerte 2,5–5 s, und die nächste Ansage kam oft
+    /// vorher und ersetzte sie – die erste Ansage nach Start oder Neuberechnung fiel weg (Log 23.11.).
+    func prepareIncomingSpokenInstructions(_ instructions: [SpokenInstruction], locale: Locale?) {
+        guard mode != .off, Date().timeIntervalSince(warmedAt) > 600 else { return }
+        warmedAt = Date()
+        let utterance = AVSpeechUtterance(string: "Los")
+        utterance.voice = VoiceCatalog.selected ?? AVSpeechSynthesisVoice(language: VoiceCatalog.language)
+        warmer.write(utterance) { _ in }   // eigener Synthesizer, der Ton wird verworfen
+    }
+    private let warmer = AVSpeechSynthesizer()
+    private var warmedAt = Date.distantPast
 
     func speak(_ instruction: SpokenInstruction, during legProgress: RouteLegProgress, locale: Locale?) {
         guard !muted, !inCall else {
@@ -227,6 +237,7 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
         }
         // Letzte Ansage an der Abbiegung: nur „Jetzt rechts abbiegen“ (auch an Ampeln)
         text = FinalTurn.apply(to: text, instruction: instruction, legProgress: legProgress)
+        text = TurnPhrases.polish(text)
         if text != instruction.text { Diag.log("Ansage angepasst: „\(instruction.text)“ → „\(text)“") }
 
         // Eine neue Abbiegeansage ersetzt eine wartende oder noch nicht hörbare. Eine schon hörbare läuft zu Ende,
@@ -237,6 +248,7 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
             subject.send(VoiceInstructionEvents.DidInterrupt(interruptedInstruction: old, interruptingInstruction: instruction))
             stopCurrent()
         }
+        warmedAt = Date()   // die Stimme ist jetzt ohnehin geladen
         queue.insert(Item(text: text, instruction: instruction), at: 0)
         pump()
     }
@@ -371,6 +383,18 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
             }
         }
         player.play()
+        // Ende auch aus der bekannten Länge: Die Rückmeldung „abgespielt“ blieb manchmal aus (Audioweg-Wechsel bei
+        // gesperrtem iPhone) – dann galt die Ansage als laufend, und alle folgenden Ansagen blieben stumm, bis CarPlay
+        // getrennt wurde und die alte noch einmal über den Lautsprecher kam (Log 23.11. 18:05–18:13).
+        let seconds = buffers.reduce(0.0) { $0 + Double($1.frameLength) / $1.format.sampleRate } + (wasActive ? 0 : 0.35)
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds + 1.5) { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self, self.playGeneration == generation, self.playing?.id == item.id else { return }
+                Diag.log("Ansage: Ende ohne Rückmeldung – nach \(String(format: "%.1f", seconds)) s abgeschlossen")
+                self.player.stop()
+                self.finish(item)
+            }
+        }
         // Jede Ansage vollständig ins Log (vorher nur die ersten 40 Zeichen) – um sie nachträglich prüfen zu können
         let route = AVAudioSession.sharedInstance().currentRoute.outputs.map(\.portType.rawValue).joined(separator: ", ")
         Diag.log("Ansage über \(route): \(item.text)")

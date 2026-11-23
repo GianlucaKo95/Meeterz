@@ -79,9 +79,6 @@ struct MainView: View {
                 if let banner = app.banner {
                     BannerView(banner: banner) { app.dismissBanner() }
                 }
-                if ChargingSession.shared.active, !ChargingSession.shared.hiddenOnPhone {
-                    ChargingCard()
-                }
                 MeetingPointCard()
                 ConvoyPausePrompt()
             }
@@ -97,6 +94,10 @@ struct MainView: View {
                     } onRemove: { droppedPin = nil }
                 }
                 SocialCards(plannedMeetup: $plannedMeetup)
+                // Ladeanzeige unten wie die übrigen Karten (vorher oben unter der Suche – 23.11.)
+                if ChargingSession.shared.active, !ChargingSession.shared.hiddenOnPhone {
+                    ChargingCard()
+                }
             }
             .padding(.horizontal, 12)
             .padding(.bottom, 8)

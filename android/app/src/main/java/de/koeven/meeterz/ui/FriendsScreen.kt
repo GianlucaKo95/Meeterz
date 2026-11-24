@@ -23,6 +23,9 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.DirectionsCar
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
@@ -61,7 +64,8 @@ import kotlinx.coroutines.launch
  * Freund hinzufügen, Anfragen, deine Freunde (Aktionen im Menü statt Wischgesten), Gesendet.
  */
 @Composable
-fun FriendsScreen(onClose: () -> Unit, onSettings: () -> Unit = {}, onMeetups: () -> Unit = {}) {
+fun FriendsScreen(onClose: () -> Unit, onSettings: () -> Unit = {}, onMeetups: () -> Unit = {},
+                  onTrips: () -> Unit = {}, onGroupMeetup: () -> Unit = {}, onFocus: (de.koeven.meeterz.data.FriendRow) -> Unit = {}) {
     BackHandler(onBack = onClose)
     val scope = rememberCoroutineScope()
     val auth by AppState.auth.state.collectAsState()
@@ -143,9 +147,18 @@ fun FriendsScreen(onClose: () -> Unit, onSettings: () -> Unit = {}, onMeetups: (
                         FriendLabel(row, Modifier.weight(1f))
                         if (hidden) Icon(Icons.Default.VisibilityOff, tr("Standort verborgen"), tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(end = 8.dp).size(18.dp))
+                        // Entfernung wie früher im „Unterwegs“-Fenster (wie iOS)
+                        val pos = live[row.friendId]
+                        val me = AppState.lastLocation
+                        if (pos != null && me != null) Text(distanceText(de.koeven.meeterz.ev.ChargePlanner.distance(me.latitude, me.longitude, pos.lat, pos.lng)) + " · ",
+                            style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
                         Text(status, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     DropdownMenu(menu, { menu = false }) {
+                        // Auf der Karte zeigen (vorher im „Unterwegs“-Fenster – wie iOS, 24.11.)
+                        if (live[row.friendId] != null || row.lat != null) DropdownMenuItem(text = { Text(tr("Auf Karte anzeigen")) },
+                            leadingIcon = { Icon(Icons.Default.LocationOn, null) },
+                            onClick = { menu = false; onFocus(row) })
                         DropdownMenuItem(text = { Text(if (hidden) tr("Standort wieder zeigen") else tr("Standort vor %@ verbergen", row.displayName)) },
                             leadingIcon = { Icon(if (hidden) Icons.Default.Visibility else Icons.Default.VisibilityOff, null) },
                             onClick = { menu = false; scope.launch { AppState.setHidden(row.friendId, !hidden) } })
@@ -174,6 +187,24 @@ fun FriendsScreen(onClose: () -> Unit, onSettings: () -> Unit = {}, onMeetups: (
                     }
                 }
             }
+        }
+
+        // Treffen, Gruppen-Treffen und Fahrten – früher im „Unterwegs“-Fenster, jetzt am Ende des Profils (wie iOS, 24.11.)
+        val meetups by AppState.meetups.meetups.collectAsState()
+        val meetupCount = meetups.filter { it.isAccepted || it.isPending }.map { it.groupId ?: it.id }.toSet().size
+        val convoy by de.koeven.meeterz.data.ConvoyFeed.key.collectAsState()
+        val anyOnMap = accepted.any { live[it.friendId] != null }
+        Group(tr("Treffen & Fahrten")) {
+            if (meetupCount > 0) {
+                NavRow(if (meetupCount == 1) tr("1 Treffen") else tr("%lld Treffen", meetupCount), icon = Icons.Default.Event, onClick = onMeetups)
+                GroupDivider()
+            }
+            if (anyOnMap) {
+                NavRow(tr("Gruppen-Treffen planen"), icon = Icons.Default.Groups, onClick = onGroupMeetup)
+                GroupDivider()
+            }
+            NavRow(if (convoy != null) tr("Konvoi-Feed & Fahrten") else tr("Fahrten"),
+                icon = if (convoy != null) Icons.Default.DirectionsCar else Icons.Default.History, onClick = onTrips)
         }
     }
 }

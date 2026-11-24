@@ -59,7 +59,7 @@ final class MeeterzStoreShots: MeeterzTestBase {
         return nil
     }
 
-    /// Gruppen-Treffen: Zeile eines Freundes antippen. Die Namen stehen auch im Unterwegs-Fenster darunter – darum
+    /// Gruppen-Treffen: Zeile eines Freundes antippen. Die Namen stehen auch in der Freundesliste darunter – darum
     /// den Namen direkt unter der Überschrift „Wer kommt mit?“ nehmen und links auf den Auswahlkreis tippen.
     func tapGroupRow(_ name: String) -> Bool {
         let header = app.staticTexts[L("Wer kommt mit?")]
@@ -226,10 +226,10 @@ final class MeeterzStoreShots: MeeterzTestBase {
         chrome()
         storeShot(1, "karte")
 
-        // 2 Unterwegs-Liste
-        need(app.buttons[L("Freunde")], "freunde-knopf").tap()
+        // 2 Profil mit Freunden, Treffen und Fahrten
+        need(app.buttons[L("Profil")], "profil-knopf").tap()
         pause(4)
-        storeShot(2, "unterwegs")
+        storeShot(2, "profil")
 
         // 3 Fairer Treffpunkt für die Gruppe
         let group = app.buttons[L("Gruppen-Treffen planen")]

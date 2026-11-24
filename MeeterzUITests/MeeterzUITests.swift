@@ -205,8 +205,7 @@ final class MeeterzUITests: MeeterzTestBase {
 
         // 6. Freunde und Einstellungen
         showChrome()
-        need(app.buttons["Freunde"], "freunde-knopf").tap()
-        need(app.buttons.matching(NSPredicate(format: "label IN {'Freunde & Profil', 'Freunde hinzufügen'}")).firstMatch, "freunde-verwalten").tap()   // „Unterwegs“-Fenster → Verwaltung
+        need(app.buttons["Profil"], "profil-knopf").tap()   // öffnet direkt das Profil (24.11.)
         need(app.navigationBars.matching(NSPredicate(format: "identifier BEGINSWITH 'Hallo'")).firstMatch, "freunde-ansicht")
         shot("freunde-oben")
 

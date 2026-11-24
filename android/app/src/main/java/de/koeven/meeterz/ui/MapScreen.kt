@@ -58,6 +58,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material3.OutlinedTextField
@@ -275,7 +276,6 @@ fun MapScreen() {
     var showFriends by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
     var showMeetups by remember { mutableStateOf(false) }
-    var showUnterwegs by remember { mutableStateOf(false) }
     var showGroupMeetup by remember { mutableStateOf(false) }
     var showStoryComposer by remember { mutableStateOf(false) }
     var showTrips by remember { mutableStateOf(false) }
@@ -552,8 +552,9 @@ fun MapScreen() {
                             "home" -> tr("Adresse für „Zuhause“ suchen"); "work" -> tr("Adresse für „Arbeit“ suchen")
                             "other" -> tr("Ort für neuen Favoriten suchen"); else -> tr("Wohin?")
                         })
-                    MapCircleButton(Icons.Default.People, tr("Freunde"),
-                        badge = friends.any { !it.isAccepted && it.incoming }, activeDot = friendRoutes.isNotEmpty()) { showUnterwegs = true }
+                    // Profil statt „Unterwegs“-Fenster: Freunde, Treffen und Fahrten stehen dort (wie iOS, 24.11.)
+                    MapCircleButton(Icons.Default.AccountCircle, tr("Profil"),
+                        badge = friends.any { !it.isAccepted && it.incoming }, activeDot = friendRoutes.isNotEmpty()) { showFriends = true }
                 }
                 // „In der Nähe finden“: gewählte Kategorie als Chip, Treffer in der Ergebnisliste darunter (wie iOS)
                 nearbyCategory?.let { c ->
@@ -623,20 +624,6 @@ fun MapScreen() {
                 MeetingPointCard()
             }
             if (showMeetups) MeetupsOverviewScreen(onClose = { showMeetups = false })
-            if (showUnterwegs) UnterwegsSheet(visibleFriends, onDismiss = { showUnterwegs = false },
-                onFocus = { f ->
-                    showUnterwegs = false
-                    val p = live[f.friendId]
-                    val lat = p?.lat ?: f.lat; val lng = p?.lng ?: f.lng
-                    if (lat != null && lng != null) {
-                        mapView.viewport.idle()
-                        mapView.camera.flyTo(CameraOptions.Builder().center(Point.fromLngLat(lng, lat)).zoom(15.0).build())
-                    }
-                },
-                onMeetups = { showUnterwegs = false; showMeetups = true },
-                onTrips = { showUnterwegs = false; showTrips = true },
-                onGroupMeetup = { showUnterwegs = false; showGroupMeetup = true },
-                onManage = { showUnterwegs = false; showFriends = true })
             if (showGroupMeetup) GroupMeetupScreen(onClose = { showGroupMeetup = false })
             if (showTrips) TripsSheet(onDismiss = { showTrips = false })
             if (showStoryComposer) StoryComposer(onDismiss = { showStoryComposer = false })
@@ -660,7 +647,17 @@ fun MapScreen() {
                     onNavigate = { name, lat, lng -> selectedFriend = null; planTo(name, null, lat, lng) })
             }
             // Wie iOS: Einstellungen liegen über „Freunde & Profil“ – Zurück führt dorthin
-            if (showFriends) FriendsScreen(onClose = { showFriends = false }, onSettings = { showSettings = true })
+            if (showFriends) FriendsScreen(onClose = { showFriends = false }, onSettings = { showSettings = true },
+                onMeetups = { showMeetups = true }, onTrips = { showTrips = true }, onGroupMeetup = { showGroupMeetup = true },
+                onFocus = { f ->
+                    showFriends = false
+                    val p = live[f.friendId]
+                    val lat = p?.lat ?: f.lat; val lng = p?.lng ?: f.lng
+                    if (lat != null && lng != null) {
+                        mapView.viewport.idle()
+                        mapView.camera.flyTo(CameraOptions.Builder().center(Point.fromLngLat(lng, lat)).zoom(15.0).build())
+                    }
+                })
             if (showSettings) SettingsScreen(onClose = { showSettings = false })
             preview?.let { (dest, routes) ->
                 PreviewCard(dest, routes, selectedRoute, { selectedRoute = it }, Modifier.align(Alignment.BottomCenter),

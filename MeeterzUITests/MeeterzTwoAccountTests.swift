@@ -159,8 +159,7 @@ final class MeeterzTwoAccountTests: MeeterzTestBase {
         // A schickt B eine Anfrage
         dismissSystemDialogs()
         showChrome()
-        need(app.buttons["Freunde"], "freunde-knopf").tap()
-        need(app.buttons.matching(NSPredicate(format: "label IN {'Freunde & Profil', 'Freunde hinzufügen'}")).firstMatch, "freunde-verwalten").tap()   // „Unterwegs“-Fenster → Verwaltung
+        need(app.buttons["Profil"], "profil-knopf").tap()   // öffnet direkt das Profil (24.11.)
         need(app.navigationBars.matching(NSPredicate(format: "identifier BEGINSWITH 'Hallo'")).firstMatch, "freunde-ansicht")
         let addField = need(app.textFields["@benutzername"], "freund-feld")
         type(handleB, into: addField)
@@ -208,10 +207,9 @@ final class MeeterzTwoAccountTests: MeeterzTestBase {
         // Der Freund zählt erst als angenommen und sichtbar, wenn die Karte ihn geladen hat
         showChrome()
         showChrome()
-        need(app.buttons["Freunde"], "freunde-knopf-sichtbar").tap()          // „Unterwegs“-Fenster
-        needPolling(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'von 1 sichtbar'")).firstMatch,
-                    "freund-sichtbar", timeout: 75)
-        app.buttons["Fertig"].tap()
+        need(app.buttons["Profil"], "profil-knopf-sichtbar").tap()
+        needPolling(app.buttons["Auf Karte anzeigen"], "freund-sichtbar", timeout: 75)   // nur für Freunde mit Standort
+        app.navigationBars.firstMatch.swipeDown(velocity: .fast)
         pause(1)
         pause(5)
         dismissSystemDialogs()
@@ -287,9 +285,7 @@ final class MeeterzTwoAccountTests: MeeterzTestBase {
         // Aufräumen: A über die App, B und C über das Backend
         for _ in 0..<3 where !app.navigationBars.matching(NSPredicate(format: "identifier BEGINSWITH 'Hallo'")).firstMatch.exists {
             showChrome()
-            need(app.buttons["Freunde"], "freunde-knopf-2").tap()
-            let manage = app.buttons.matching(NSPredicate(format: "label IN {'Freunde & Profil', 'Freunde hinzufügen'}")).firstMatch
-            if manage.waitForExistence(timeout: 6) { manage.tap() }
+            need(app.buttons["Profil"], "profil-knopf-2").tap()
             _ = app.navigationBars.matching(NSPredicate(format: "identifier BEGINSWITH 'Hallo'")).firstMatch.waitForExistence(timeout: 6)
         }
         need(app.navigationBars.matching(NSPredicate(format: "identifier BEGINSWITH 'Hallo'")).firstMatch, "freunde-ansicht-2")

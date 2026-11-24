@@ -18,8 +18,6 @@ struct MainView: View {
     @State private var viewport: Viewport = .idle
     @State private var showFriends = false
     /// „Unterwegs“-Fenster (öffnet über das Freunde-Symbol) und Folgeaktion nach dem Schließen
-    @State private var showUnterwegs = false
-    @State private var openManageAfterDismiss = false
     @State private var showSearch = false
     @State private var plannedMeetup: MeetupCandidate?
     @State private var recenterTick = 0
@@ -115,16 +113,6 @@ struct MainView: View {
             Button("Abbrechen", role: .cancel) {}
         } message: {
             Text("Freunde sehen weder deinen Standort noch deine Route – und erfahren nicht, dass du inkognito bist.")
-        }
-        .sheet(isPresented: $showUnterwegs, onDismiss: {
-            // Erst nach dem Schließen öffnen – ein Sheet auf ein noch schließendes Sheet schlägt fehl
-            if openManageAfterDismiss { openManageAfterDismiss = false; showFriends = true }
-        }) {
-            UnterwegsSheet {
-                openManageAfterDismiss = true
-                showUnterwegs = false
-            }
-            .environment(app)
         }
         .sheet(isPresented: Binding(get: { app.selectedFriend != nil }, set: { if !$0 { app.selectedFriend = nil } })) {
             if let id = app.selectedFriend { FriendActionSheet(friendId: id).environment(app) }
@@ -475,12 +463,13 @@ struct MainView: View {
             }
             .accessibilityLabel("Ziel suchen")
 
+            // Profil statt „Unterwegs“-Fenster: Freunde, Treffen und Fahrten stehen dort (24.11.)
             CircleIconButton(
-                systemName: "person.2.fill",
-                label: "Freunde",
+                systemName: "person.crop.circle.fill",
+                label: "Profil",
                 badge: !app.friends.incoming.isEmpty,
                 activeDot: !app.routes.friendRoutes.isEmpty
-            ) { showUnterwegs = true }
+            ) { showFriends = true }
         }
         .padding(.top, 8)
     }
@@ -685,206 +674,6 @@ struct BannerView: View {
     }
 }
 
-// MARK: - Unterwegs-Panel
-
-/// „Unterwegs“: wer gerade sichtbar ist, mit Entfernung und – falls vorhanden – Ziel und Ankunft.
-struct UnterwegsSheet: View {
-    @Environment(AppModel.self) private var app
-    @Environment(\.dismiss) private var dismiss
-    let manageFriends: () -> Void
-    @State private var detent: PresentationDetent = .medium
-    /// Höhe des Inhalts – das Fenster wird so hoch, dass alles zu sehen ist (höchstens 85 % des Bildschirms)
-    @State private var contentHeight: CGFloat = 0
-
-    private var fitted: PresentationDetent {
-        guard contentHeight > 0 else { return .medium }
-        let limit = (UIApplication.shared.connectedScenes.compactMap { ($0 as? UIWindowScene)?.screen.bounds.height }.first ?? 800) * 0.85
-        return .height(min(contentHeight + 64, limit))   // + Titelleiste
-    }
-    @State private var showGroupMeetup = false
-    @State private var showMeetups = false
-    @State private var showTrips = false
-
-    /// Zugesagte und offene Treffen (Gruppen zählen einmal)
-    private var meetupCount: Int {
-        Set(app.meetups.meetups.filter { $0.isAccepted || $0.isPending }.map { $0.groupId ?? $0.id }).count
-    }
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    if meetupCount > 0 {
-                        Button { showMeetups = true } label: {
-                            HStack {
-                                Image(systemName: "calendar.badge.clock").foregroundStyle(Theme.accent)
-                                Text(meetupCount == 1 ? "1 Treffen" : "\(meetupCount) Treffen").font(Theme.title(15))
-                                Spacer()
-                                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
-                            }
-                            .foregroundStyle(Theme.text)
-                            .padding(12)
-                            .background(RoundedRectangle(cornerRadius: 12).fill(Theme.panelRaised))
-                        }
-                        .accessibilityIdentifier("meetups-overview")
-                    }
-                    Button { showTrips = true } label: {
-                        HStack {
-                            Image(systemName: ConvoyFeed.shared.key != nil ? "car.2.fill" : "clock.arrow.circlepath").foregroundStyle(Theme.accent)
-                            Text(ConvoyFeed.shared.key != nil ? "Konvoi-Feed & Fahrten" : "Fahrten").font(Theme.title(15))
-                            Spacer()
-                            Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
-                        }
-                        .foregroundStyle(Theme.text)
-                        .padding(12)
-                        .background(RoundedRectangle(cornerRadius: 12).fill(Theme.panelRaised))
-                    }
-                    if app.friends.accepted.isEmpty {
-                        EmptyStateView(symbol: "person.2.fill", title: "Noch keine Freunde",
-                                       message: "Lade jemanden ein oder füge ihn über den Benutzernamen hinzu. Dann seht ihr euch hier auf der Karte.") {
-                            ShareLink(item: InviteText.current) { Label("Einladung senden", systemImage: "square.and.arrow.up") }
-                                .buttonStyle(SecondaryButtonStyle())
-                        }
-                    } else {
-                        Text("\(app.friendsOnMap.count) von \(app.friends.accepted.count) sichtbar")
-                            .font(.footnote).foregroundStyle(Theme.muted)
-                        ForEach(app.friendsOnMapIncludingPassengers) { item in
-                            FriendRowView(item: item) { showRoute in
-                                // Fenster schließen: die Karte zeigt den Freund frei in der Bildmitte
-                                app.mapFocus = .init(friendId: item.friend.friendId, showRoute: showRoute)
-                                dismiss()
-                            }
-                        }
-                        if app.friendsOnMapIncludingPassengers.isEmpty {
-                            EmptyStateView(symbol: "location.slash", title: "Gerade teilt niemand",
-                                           message: "Sobald Freunde ihren Standort teilen, erscheinen sie hier. Lange nicht aktualisierte Freunde blendet Meeterz aus (Einstellungen → Karte & Navigation).")
-                        }
-                    }
-                    if !app.friendsOnMap.isEmpty {
-                        Button {
-                            showGroupMeetup = true
-                        } label: {
-                            Label("Gruppen-Treffen planen", systemImage: "person.3.fill")
-                        }
-                        .buttonStyle(SecondaryButtonStyle())
-                        .padding(.top, 8)
-                    }
-                    Button(app.friends.accepted.isEmpty ? String(localized: "Freunde hinzufügen") : String(localized: "Freunde & Profil")) {
-                        manageFriends()
-                    }
-                    .buttonStyle(PrimaryButtonStyle())
-                }
-                .padding(16)
-                .background(GeometryReader { geo in
-                    Color.clear.preference(key: SheetContentHeight.self, value: geo.size.height)
-                })
-            }
-            .onPreferenceChange(SheetContentHeight.self) { h in
-                guard abs(h - contentHeight) > 1 else { return }
-                let wasFitted = detent != .large
-                contentHeight = h
-                if wasFitted { detent = fitted }
-            }
-            .background(Theme.ink)
-            .navigationTitle("Unterwegs")
-            .navigationBarTitleDisplayMode(.inline)
-            .sheet(isPresented: $showGroupMeetup) { GroupMeetupView().environment(app) }
-            .sheet(isPresented: $showMeetups) { MeetupsOverviewView().environment(app) }
-            .sheet(isPresented: $showTrips) { TripsView().environment(app) }
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } }
-            }
-        }
-        .presentationDetents([fitted, .large], selection: $detent)
-        .presentationDragIndicator(.visible)
-        .presentationBackgroundInteraction(.enabled(upThrough: fitted))
-        .presentationBackground(Theme.ink)
-    }
-}
-
-private struct FriendRowView: View {
-    @Environment(AppModel.self) private var app
-    @Environment(\.dismiss) private var dismiss
-    let item: AppModel.FriendOnMap
-    /// true = Route (mit Ziel) auf der Karte zeigen, false = nur den Standort
-    let show: (Bool) -> Void
-
-    var body: some View {
-        let route = app.routes.friendRoutes[item.friend.friendId]
-        let distance = app.location.lastLocation.map { item.position.coordinate.distance(to: $0.coordinate) }
-
-        Menu {
-            Button(route == nil ? String(localized: "Auf Karte anzeigen") : String(localized: "Route anzeigen"),
-                   systemImage: route == nil ? "mappin.and.ellipse" : "point.topleft.down.to.point.bottomright.curvepath") {
-                show(route != nil)
-            }
-            Button("Zu \(item.friend.displayName) navigieren", systemImage: "arrow.triangle.turn.up.right.diamond") {
-                go(to: Place(
-                    id: "friend-\(item.friend.friendId)", name: item.friend.displayName,
-                    address: nil, coordinate: item.position.coordinate))
-            }
-            let hiddenForMe = Passengers.shared.riding.contains(item.friend.friendId)
-            Button(hiddenForMe ? String(localized: "Auf meiner Karte einblenden") : String(localized: "Auf meiner Karte ausblenden"),
-                   systemImage: hiddenForMe ? "eye" : "eye.slash") {
-                Passengers.shared.setHiddenForMe(item.friend.friendId, !hiddenForMe)
-                CarPlayController.shared.refreshFriendsAfterPassengerChange()
-            }
-            if let route {
-                Button("Zum Ziel von \(item.friend.displayName) navigieren", systemImage: "flag.checkered") {
-                    go(to: Place(
-                        id: "dest-\(item.friend.friendId)", name: route.destinationName ?? String(localized: "Ziel von \(item.friend.displayName)"),
-                        address: nil, coordinate: route.destination))
-                }
-            }
-        } label: {
-            HStack(spacing: 12) {
-                Avatar(initials: item.friend.initials, color: FriendPalette.color(for: item.friend.friendId),
-                       faded: Passengers.shared.riding.contains(item.friend.friendId), userId: item.friend.friendId)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(item.friend.displayName).font(Theme.title(15))
-                    Text(statusText(route: route))
-                        .font(.footnote).foregroundStyle(Theme.muted).lineLimit(1)
-                }
-                Spacer()
-                if let distance {
-                    Text(ActivityFormat.distance(distance))
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(route != nil ? Theme.accent : Theme.muted)
-                }
-            }
-            .foregroundStyle(Theme.text)
-        }
-    }
-
-    /// „Unterwegs“-Fenster sofort schließen, dann die Route planen – die Vorschau kann erst nach dem Schließen erscheinen.
-    private func go(to place: Place) {
-        dismiss()
-        Task {
-            try? await Task.sleep(for: .milliseconds(450))
-            await app.navigation.planRoute(to: place)
-        }
-    }
-
-    private func statusText(route: FriendRoute?) -> String {
-        if Passengers.shared.riding.contains(item.friend.friendId) { return String(localized: "Auf deiner Karte ausgeblendet") }
-        if let route {
-            let dest = route.destinationName.map { String(localized: "Nach \($0)") } ?? String(localized: "Unterwegs")
-            return String(localized: "\(dest) · an \(ActivityFormat.time(route.eta))")
-        }
-        return item.position.age < 60 ? String(localized: "Live") : String(localized: "Zuletzt \(Format.age(item.position.age))")
-    }
-}
-
-private extension View {
-    /// Blendet Bedienelemente aus: unsichtbar, nicht antippbar, für VoiceOver und Tests nicht vorhanden.
-    func chromeVisibility(hidden: Bool) -> some View {
-        self.opacity(hidden ? 0 : 1)
-            .allowsHitTesting(!hidden)
-            .accessibilityHidden(hidden)
-    }
-}
-
-
 struct DroppedPinMarker: View {
     var body: some View {
         Image(systemName: "mappin.circle.fill")
@@ -990,13 +779,6 @@ struct PinCard: View {
             return String(format: "%02d:%02d–%02d:%02d", r.lowerBound / 60, r.lowerBound % 60, r.upperBound / 60 % 24, r.upperBound % 60)
         }.joined(separator: ", ")
     }
-}
-
-
-/// Höhe des Inhalts im Unterwegs-Fenster
-private struct SheetContentHeight: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }
 
 

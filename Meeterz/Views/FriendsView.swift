@@ -16,6 +16,9 @@ struct FriendsView: View {
     @State private var inviteFriend: FriendRow?
     @State private var invite: InviteTarget?
     @State private var showSettings = false
+    @State private var showMeetups = false
+    @State private var showGroupMeetup = false
+    @State private var showTrips = false
     @State private var autoDelay = MessagesStore.autoDelay
     @State private var evEnabled = EVSettings.enabled
     @State private var parkingEnabled = ParkingStore.enabled
@@ -58,6 +61,7 @@ struct FriendsView: View {
                 if !friends.incoming.isEmpty { incomingSection }
                 friendsSection
                 if !friends.outgoing.isEmpty { outgoingSection }
+                tripsSection
 
                 if let msg = friends.errorMessage ?? app.auth.errorMessage {
                     Text(msg).foregroundStyle(Theme.danger).font(.footnote)
@@ -88,8 +92,37 @@ struct FriendsView: View {
             .sheet(item: $invite) { target in
                 InviteFriendsView(place: target.place, preselected: target.friendId)
             }
+            .sheet(isPresented: $showMeetups) { MeetupsOverviewView().environment(app) }
+            .sheet(isPresented: $showGroupMeetup) { GroupMeetupView().environment(app) }
+            .sheet(isPresented: $showTrips) { TripsView().environment(app) }
         }
         .presentationDragIndicator(.visible)
+    }
+
+    /// Zugesagte und offene Treffen (Gruppen zählen einmal)
+    private var meetupCount: Int {
+        Set(app.meetups.meetups.filter { $0.isAccepted || $0.isPending }.map { $0.groupId ?? $0.id }).count
+    }
+
+    /// Treffen, Gruppen-Treffen und Fahrten – früher im „Unterwegs“-Fenster, jetzt am Ende des Profils (24.11.)
+    private var tripsSection: some View {
+        Section("Treffen & Fahrten") {
+            if meetupCount > 0 {
+                Button { showMeetups = true } label: {
+                    Label(meetupCount == 1 ? "1 Treffen" : "\(meetupCount) Treffen", systemImage: "calendar.badge.clock")
+                }
+                .accessibilityIdentifier("meetups-overview")
+            }
+            if !app.friendsOnMap.isEmpty {
+                Button { showGroupMeetup = true } label: { Label("Gruppen-Treffen planen", systemImage: "person.3.fill") }
+            }
+            Button { showTrips = true } label: {
+                Label(ConvoyFeed.shared.key != nil ? "Konvoi-Feed & Fahrten" : "Fahrten",
+                      systemImage: ConvoyFeed.shared.key != nil ? "car.2.fill" : "clock.arrow.circlepath")
+            }
+        }
+        .foregroundStyle(Theme.text)
+        .listRowBackground(Theme.panel)
     }
 
     /// „Hallo Luca“ statt „Profil“
@@ -266,9 +299,24 @@ struct FriendsView: View {
             }
             ForEach(friends.accepted) { row in
                 let hidden = friends.isHidden(row.friendId)
+                let onMap = app.friendsOnMapIncludingPassengers.first { $0.friend.friendId == row.friendId }
                 HStack {
                     FriendLabel(row: row)
                     Spacer()
+                    // Entfernung wie früher im „Unterwegs“-Fenster
+                    if let onMap, let here = app.location.lastLocation {
+                        Text(ActivityFormat.distance(onMap.position.coordinate.distance(to: here.coordinate)))
+                            .font(.footnote.weight(.semibold)).foregroundStyle(Theme.text)
+                    }
+                    if onMap != nil {
+                        // Auf der Karte zeigen (vorher über das „Unterwegs“-Fenster)
+                        Button {
+                            app.mapFocus = .init(friendId: row.friendId, showRoute: app.routes.friendRoutes[row.friendId] != nil)
+                            dismiss()
+                        } label: { Image(systemName: "mappin.and.ellipse").foregroundStyle(Theme.accent) }
+                        .buttonStyle(.borderless)
+                        .accessibilityLabel("Auf Karte anzeigen")
+                    }
                     if hidden {
                         Image(systemName: "eye.slash").foregroundStyle(Theme.muted)
                             .accessibilityLabel("Standort verborgen")

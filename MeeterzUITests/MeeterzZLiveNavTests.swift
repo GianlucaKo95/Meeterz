@@ -70,15 +70,12 @@ final class MeeterzZLiveNavTests: MeeterzTestBase {
 
         // Freund erscheint (Liste lädt alle 30 s)
         showChrome()
-        need(app.buttons["Freunde"], "freunde-knopf").tap()      // „Unterwegs“-Fenster bleibt für die Messung offen
+        need(app.buttons["Profil"], "profil-knopf").tap()      // Profil mit Freundesliste bleibt für die Messung offen
         pause(2)
-        if !app.buttons["Fertig"].exists {
-            // Diagnose: Tipp kam nicht an?
-            shot("unterwegs-nicht-offen-hittable-\(app.buttons["Freunde"].isHittable)")
-            app.buttons["Freunde"].tap(); pause(2)
-        }
-        shot("unterwegs-offen")
-        needPolling(app.staticTexts.containing(NSPredicate(format: "label CONTAINS '2 von 2 sichtbar'")).firstMatch, "beide-freunde-sichtbar", timeout: 90)
+        shot("profil-offen")
+        // Beide sichtbar: je Freund mit Standort ein „Auf Karte anzeigen“
+        needPolling(app.buttons.matching(NSPredicate(format: "label == 'Auf Karte anzeigen'")).element(boundBy: 1),
+                    "beide-freunde-sichtbar", timeout: 90)
         XCTAssertTrue(app.staticTexts["Bea Beta"].exists, "Freund B in der Liste")
         XCTAssertTrue(app.staticTexts["Cleo Gamma"].exists, "Freund C in der Liste")
         dismissSystemDialogs()
@@ -98,7 +95,7 @@ final class MeeterzZLiveNavTests: MeeterzTestBase {
         let after = distanceLabel()
         XCTAssertNotNil(before); XCTAssertNotNil(after)
         XCTAssertNotEqual(before, after, "Live-Position hat sich bewegt (\(before ?? "-") → \(after ?? "-"))")
-        app.buttons["Fertig"].tap()
+        app.navigationBars.firstMatch.swipeDown(velocity: .fast)
         pause(4)
         shot("karte-mit-nahem-freund")
         // Dasselbe auf der klassischen (Mapbox-)Karte: umschalten, bis der Knopf den Wechsel bestätigt

@@ -101,7 +101,7 @@ final class ManeuverGuidance {
         let estimates = CPTravelEstimates(distanceRemaining: distance, distanceRemainingToDisplay: distance, timeRemaining: time,
                                           routeDetails: [CPRouteDetail(batteryLevel: max(0, min(100, percent.rounded())))])
         template.update(estimates, for: session.trip,
-                        with: (progress.currentLegProgress.averageCongestionLevelRemainingOnLeg ?? .unknown).asCPTimeRemainingColor)
+                        with: (progress.averageCongestionLevelRemainingOnLeg ?? .unknown).asCPTimeRemainingColor)
     }
 
     /// Wie CarPlay es erwartet: unter 1 km in Metern (gerundet), darüber in km, ab 10 km ganze km

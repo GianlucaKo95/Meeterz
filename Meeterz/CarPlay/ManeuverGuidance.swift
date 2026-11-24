@@ -45,6 +45,16 @@ final class ManeuverGuidance {
                 DispatchQueue.main.async { MainActor.assumeIsolated { self?.fixManeuverDistance() } }
             }
             .store(in: &subscriptions)
+        if #available(iOS 27, *) {
+            // Nach Mapbox' eigener Aktualisierung der Ankunftskarte (gleicher Auslöser) – darum einen Takt später
+            core.navigation().routeProgress
+                .compactMap { $0?.routeProgress }
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] progress in
+                    DispatchQueue.main.async { MainActor.assumeIsolated { self?.addBatteryToEstimates(progress) } }
+                }
+                .store(in: &subscriptions)
+        }
         core.navigation().routeProgress
             .compactMap { $0?.routeProgress }
             .throttle(for: .seconds(1), scheduler: DispatchQueue.main, latest: true)
@@ -77,6 +87,21 @@ final class ManeuverGuidance {
         let formatted = Self.rounded(measurement)
         session.updateEstimates(CPTravelEstimates(distanceRemaining: formatted, timeRemaining: step.durationRemaining),
                                 for: maneuver)
+    }
+
+    /// Akkustand bei Ankunft in CarPlays Ankunftskarte (iOS 27, wie Apple Karten) statt als eigene Einblendung
+    @available(iOS 27, *)
+    private func addBatteryToEstimates(_ progress: RouteProgress) {
+        guard let percent = ChargeMonitor.shared.arrivalPercent, ChargeMonitor.shared.arrivalIsDestination,
+              let controller = navigationController,
+              let session = Mirror(reflecting: controller).descendant("carSession") as? CPNavigationSession,
+              let template = Mirror(reflecting: controller).descendant("mapTemplate") as? CPMapTemplate else { return }
+        let distance = Self.rounded(Measurement(value: progress.distanceRemaining, unit: UnitLength.meters))
+        let time = progress.durationRemaining > 0 ? max(progress.durationRemaining, 60) : progress.durationRemaining
+        let estimates = CPTravelEstimates(distanceRemaining: distance, distanceRemainingToDisplay: distance, timeRemaining: time,
+                                          routeDetails: [CPRouteDetail(batteryLevel: max(0, min(100, percent.rounded())))])
+        template.update(estimates, for: session.trip,
+                        with: (progress.currentLegProgress.averageCongestionLevelRemainingOnLeg ?? .unknown).asCPTimeRemainingColor)
     }
 
     /// Wie CarPlay es erwartet: unter 1 km in Metern (gerundet), darüber in km, ab 10 km ganze km

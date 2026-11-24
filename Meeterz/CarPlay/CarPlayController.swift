@@ -1601,7 +1601,10 @@ extension CarPlayController: CarPlayManagerDelegate {
     ) {
         MainActor.assumeIsolated {
             pauseAlerts()
-            if #available(iOS 27, *) { hidePreviewPanel() }   // Start über Mapbox' eigenen Weg: Fenster weg
+            if #available(iOS 27, *) {
+                hidePreviewPanel()   // Start über Mapbox' eigenen Weg: Fenster weg
+                installOptionsPanel(navigationViewController)
+            }
             navigationViewController.routeLineTracksTraversal = true
             guard let mapView = navigationViewController.navigationMapView?.mapView else { return }
             // Verkehr auf der Route wie auf dem iPhone: Mapbox schaltet ihn in CarPlay bei jedem Stil-Laden ab
@@ -1791,6 +1794,36 @@ extension CarPlayController: CarPlayManagerDelegate {
             })
         template.showPanel(panel) { ok, error in if !ok { Diag.log("CarPlay-Vorschaufenster fehlgeschlagen: \(error?.localizedDescription ?? "?")") } }
         previewPanelShown = true
+    }
+
+    /// „…“ auf der Ankunftskarte (wie Apple Karten): Stopp, Bescheid geben, Gefahr melden, Mitfahrer, Beenden
+    @available(iOS 27, *)
+    private func installOptionsPanel(_ controller: CarPlayNavigationViewController) {
+        guard let session = Mirror(reflecting: controller).descendant("carSession") as? CPNavigationSession else { return }
+        func item(_ text: String, _ detail: String?, _ symbol: String, _ action: @escaping () -> Void) -> CPMapPanelItem {
+            let item = CPListItem(text: text, detailText: detail, image: UIImage(systemName: symbol))
+            item.handler = { _, done in
+                (CarPlayController.shared.manager.interfaceController?.rootTemplate as? CPMapTemplate)?.hidePanel(completion: nil)
+                action(); done()
+            }
+            return CPMapPanelItem(listItem: item)
+        }
+        var items = [item(String(localized: "Stopp hinzufügen"), nil, "plus.circle.fill") { [weak self] in self?.showSearchHub() }]
+        if inviteDestination != nil, !AppModel.shared.friends.accepted.isEmpty {
+            items.append(item(String(localized: "Freunde & Konvoi"), String(localized: "Bescheid geben, einladen, Mitfahrer"),
+                              "person.2.fill") { [weak self] in self?.showInviteList() })
+        }
+        items.append(item(String(localized: "Gefahr melden"), String(localized: "Warnt andere Meeterz-Fahrer"),
+                          "exclamationmark.triangle.fill") { [weak self] in self?.showHazardReport() })
+        let end = CPTextButton(title: String(localized: "Route beenden"), textStyle: .cancel) { [weak self] _ in
+            (CarPlayController.shared.manager.interfaceController?.rootTemplate as? CPMapTemplate)?.hidePanel(completion: nil)
+            self?.endNavigationIfNeeded()
+        }
+        let progress = navigationProvider.mapboxNavigation.navigation().currentRouteProgress?.routeProgress
+        let estimates = CPTravelEstimates(distanceRemaining: ManeuverGuidance.rounded(Measurement(value: progress?.distanceRemaining ?? 0, unit: UnitLength.meters)),
+                                          timeRemaining: progress?.durationRemaining ?? 0)
+        session.optionsPanel = CPMapPanel(title: nil, sections: [CPMapPanelSection(title: nil, items: items)],
+                                          buttonConfiguration: CPMapPanelButtonConfiguration(primaryAction: end, secondaryButton: nil, travelEstimates: estimates))
     }
 
     @available(iOS 27, *)

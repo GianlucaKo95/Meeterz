@@ -28,6 +28,8 @@ final class ChargeMonitor {
     private(set) var lastEstimate: Double?
     /// Akkustand bei Ankunft am Ziel bzw. am nächsten Stopp (für die Live-Aktivität)
     private(set) var arrivalPercent: Double?
+    /// arrivalPercent gilt fürs Ziel (nicht für den nächsten Ladestopp)
+    private(set) var arrivalIsDestination = false
     private var lastLogged = ""
     private var profileKey = ""
     private var profile: ChargePlanner.Profile?
@@ -42,6 +44,7 @@ final class ChargeMonitor {
         lastEstimate = nil
         legMark = ("", 0)
         arrivalPercent = nil
+        arrivalIsDestination = false
         // 30-s-Tick mit adaptiver Drosselung in check(): nahe am nächsten Ladestopp
         // häufiger, weit entfernte Stopps deutlich seltener neu bewerten.
         timer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { _ in
@@ -131,7 +134,10 @@ final class ChargeMonitor {
         let carArrival = AppModel.shared.vehicle.liveRangeKm.flatMap { r in (live ?? now) > 1 ? now - restKm / (r / (live ?? now)) : nil }
         let line = "Akku-Prognose: jetzt \(Int(now.rounded())) % (\(live != nil ? "live" : "geschätzt")), \(last ? "Ziel" : "Stopp") \(Int(arrival.rounded())) %, Rest \(Int(restKm)) km, Modell \(String(format: "%.1f", modelPer100)) kWh/100 km" + (carArrival.map { ", nach Auto-Reichweite \(Int($0.rounded())) %" } ?? "")
         if line != lastLogged { lastLogged = line; Diag.log(line) }
-        CarPlayBatteryChip.shared.show(label: last ? String(localized: "Ziel") : String(localized: "Stopp"), percent: arrival, low: arrival < limit, live: live != nil)
+        arrivalIsDestination = last
+        // iOS 27: Ziel-Akkustand steht in CarPlays Ankunftskarte – die Einblendung nur noch für Stopps und als Warnung
+        if #available(iOS 27, *), last, arrival >= limit { CarPlayBatteryChip.shared.hide() }
+        else { CarPlayBatteryChip.shared.show(label: last ? String(localized: "Ziel") : String(localized: "Stopp"), percent: arrival, low: arrival < limit, live: live != nil) }
     }
 
     /// Abstand zum nächsten übernommenen Ladestopp bestimmt die Aktualisierungsfrequenz.

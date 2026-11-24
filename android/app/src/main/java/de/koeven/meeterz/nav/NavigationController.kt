@@ -63,6 +63,7 @@ object NavigationController : MapboxNavigationObserver {
     private var deferred: Pair<Int, Voice>? = null
     /** Abbiegespur: (Schritt der Spur, Ansage an der Kreuzung, –) */
     private var slipLane: Triple<Int, String, Int>? = null
+    private var deferredLate = false
     private var navigation: MapboxNavigation? = null
 
     fun init(context: Context) {
@@ -389,9 +390,10 @@ object NavigationController : MapboxNavigationObserver {
         }
         // Verschobene Autobahnansage bei 2 km sprechen
         deferred?.let { (stepIndex, voice) ->
+            val late = deferredLate
             val leg = MapboxRoute.legState(progress) ?: return@let
             if (leg.stepIndex != stepIndex) { deferred = null; return@let }
-            if (leg.distanceRemaining <= MotorwayTiming.FIRST_DISTANCE + 30) {
+            if (if (late) FinalTurn.ready(leg) else leg.distanceRemaining <= MotorwayTiming.FIRST_DISTANCE + 30) {
                 deferred = null
                 speak(voice, leg, isDeferred = true)
             }
@@ -408,7 +410,11 @@ object NavigationController : MapboxNavigationObserver {
     private fun speak(voice: Voice, leg: LegState, isDeferred: Boolean) {
         when (val r = announcer.process(voice, leg, isDeferred)) {
             is Announcer.Result.Skip -> Diag.log("Ansage ausgelassen (${r.reason}): ${voice.text}")
-            is Announcer.Result.Defer -> { deferred = leg.stepIndex to r.instruction; Diag.log("Ansage auf 2 km verschoben: ${voice.text}") }
+            is Announcer.Result.Defer -> { deferred = leg.stepIndex to r.instruction; deferredLate = false; Diag.log("Ansage auf 2 km verschoben: ${voice.text}") }
+            is Announcer.Result.Late -> {
+                deferred = leg.stepIndex to r.instruction; deferredLate = true
+                Diag.log("Letzte Ansage bis kurz vor die Abbiegung verschoben (${leg.distanceRemaining.toInt()} m): ${voice.text}")
+            }
             is Announcer.Result.Speak -> {
                 if (r.text != voice.text) Diag.log("Ansage angepasst: „${voice.text}“ → „${r.text}“")
                 speaker?.say(r.text)

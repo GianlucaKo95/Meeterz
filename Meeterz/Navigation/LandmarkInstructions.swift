@@ -347,6 +347,15 @@ enum FinalTurn {
         return short(direction: direction, from: text)
     }
 
+    /// Abseits der Autobahn vor einer Abbiegung noch zu weit weg für „Jetzt …“: Bedingung, ab der gesprochen wird
+    static func lateEnough(_ leg: RouteLegProgress) -> ((RouteStepProgress) -> Bool)? {
+        let onMotorway = (leg.currentStep.intersections ?? []).contains { $0.outletRoadClasses?.contains(.motorway) == true }
+        guard !onMotorway, let next = leg.upcomingStep, isTurn(next), !ready(leg.currentStepProgress) else { return nil }
+        return ready
+    }
+
+    static func ready(_ step: RouteStepProgress) -> Bool { step.distanceRemaining <= 40 || step.durationRemaining <= 3 }
+
     /// Abbiegen, auch „Am Ende der Straße …“ und „Rechts abbiegen, um auf … zu bleiben“
     static func isTurn(_ step: RouteStep) -> Bool {
         ThenInstructions.isTurn(step)

@@ -122,13 +122,18 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
     private var landmarkAnnounced: String?
 
     private func deferUntil2km(_ instruction: SpokenInstruction, stepIndex: Int) {
+        deferUntil(instruction, stepIndex: stepIndex) { $0.distanceRemaining <= MotorwayTiming.firstDistance + 30 }
+    }
+
+    /// Ansage zurückhalten, bis `ready` für den Abschnitt zutrifft
+    private func deferUntil(_ instruction: SpokenInstruction, stepIndex: Int, ready: @escaping (RouteStepProgress) -> Bool) {
         deferredSubscription = navigationProvider.mapboxNavigation.navigation().routeProgress
             .receive(on: DispatchQueue.main)
             .sink { [weak self] state in
                 MainActor.assumeIsolated {
                     guard let self, let leg = state?.routeProgress.currentLegProgress else { return }
                     guard leg.stepIndex == stepIndex else { self.deferredSubscription = nil; return }   // Schritt vorbei/neue Route
-                    guard leg.currentStepProgress.distanceRemaining <= MotorwayTiming.firstDistance + 30 else { return }
+                    guard ready(leg.currentStepProgress) else { return }
                     self.deferredSubscription = nil
                     self.speakingDeferred = true
                     self.speak(instruction, during: leg, locale: self.locale)
@@ -230,6 +235,15 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
             Diag.log("Abbiegespur: „\(instruction.text)“ → einordnen, Abbiegen an der Kreuzung")
             announce(side.prefix(1).uppercased() + side.dropFirst() + " einordnen.")
             turnAtIntersection(side: side, laneStepIndex: legProgress.stepIndex + 1)
+            return
+        }
+        // „Jetzt rechts abbiegen“ erst an der Abbiegung: Mapbox sagt die letzte Ansage je nach Tempo 89–190 m vorher –
+        // innerorts ist man da gerade erst auf der Abbiegespur, an der Kreuzung kam dann nichts mehr (Lütticher Str.,
+        // 23./24.11.). Wie Apple: rund 3 s bzw. 40 m vor der Abbiegung.
+        if position.last, !speakingDeferred, let ready = FinalTurn.lateEnough(legProgress) {
+            subject.send(VoiceInstructionEvents.DidSpeak(instruction: instruction))
+            Diag.log("Letzte Ansage bis kurz vor die Abbiegung verschoben (\(Int(legProgress.currentStepProgress.distanceRemaining)) m): \(instruction.text)")
+            deferUntil(instruction, stepIndex: legProgress.stepIndex, ready: ready)
             return
         }
         subject.send(VoiceInstructionEvents.WillSpeak(instruction: instruction))

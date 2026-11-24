@@ -240,6 +240,9 @@ object MotorwayPhrases {
 
 /** Letzte Ansage an der Abbiegung: nur „Jetzt rechts abbiegen“ */
 object FinalTurn {
+    fun ready(leg: LegState) = leg.distanceRemaining <= 40 || leg.durationRemaining <= 3
+    fun tooEarly(leg: LegState) = !leg.current.onMotorway && leg.upcoming?.let(::isTurn) == true && !ready(leg)
+
     fun apply(text: String, instruction: Voice, leg: LegState): String {
         val spoken = leg.current.voice
         val d = instruction.distanceAlongStep
@@ -456,6 +459,8 @@ class Announcer {
         data class Speak(val text: String) : Result
         /** Abbiegespur: jetzt „Rechts einordnen“, „Jetzt rechts abbiegen“ erst an der Kreuzung (Schritt laneStep) */
         data class SlipLane(val now: String, val atTurn: String, val laneStep: Int) : Result
+        /** Letzte Ansage erst kurz vor der Abbiegung (FinalTurn.ready) */
+        data class Late(val instruction: Voice) : Result
     }
 
     /** Abbiegung, deren erste Ansage schon „Am Ende der Straße …“ / „An der Ampel …“ war */
@@ -477,6 +482,9 @@ class Announcer {
         if (position.last) SlipLane.side(leg)?.let { side ->
             return Result.SlipLane(side.replaceFirstChar { it.uppercase() } + " einordnen.", "Jetzt $side abbiegen.", leg.stepIndex + 1)
         }
+        // „Jetzt rechts abbiegen“ erst an der Abbiegung (wie iOS): Mapbox sagt sie je nach Tempo 89–190 m vorher –
+        // innerorts ist man da gerade erst auf der Abbiegespur (Lütticher Str., 24.11.)
+        if (position.last && !deferred && FinalTurn.tooEarly(leg)) return Result.Late(instruction)
         val landmark = LandmarkInstructions.rewrite(instruction, leg,
             if (position.first) StepAnnouncements.LANDMARK_FIRST_DISTANCE else 800.0)
         if (landmark != null && position.first && !position.last) landmarkAnnounced = key

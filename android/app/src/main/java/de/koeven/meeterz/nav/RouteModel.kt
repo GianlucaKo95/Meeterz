@@ -91,6 +91,8 @@ data class LegState(
     val distanceRemaining: Double,
     /** Zuletzt passierte Kreuzung im aktuellen Abschnitt */
     val intersectionIndex: Int = 0,
+    /** Sekunden bis zum Ende des Abschnitts (Mapbox-Schätzung) */
+    val durationRemaining: Double = Double.MAX_VALUE,
 ) {
     val current get() = steps[stepIndex]
     val upcoming get() = steps.getOrNull(stepIndex + 1)

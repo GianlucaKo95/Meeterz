@@ -11,7 +11,8 @@ object MapboxRoute {
         val leg = legProgress.routeLeg ?: progress.navigationRoute.directionsRoute.legs()?.getOrNull(legProgress.legIndex) ?: return null
         val steps = leg.steps()?.map(::step) ?: return null
         if (stepProgress.stepIndex !in steps.indices) return null
-        return LegState(steps, stepProgress.stepIndex, stepProgress.distanceRemaining.toDouble(), stepProgress.intersectionIndex)
+        return LegState(steps, stepProgress.stepIndex, stepProgress.distanceRemaining.toDouble(), stepProgress.intersectionIndex,
+            stepProgress.durationRemaining)
     }
 
     fun step(s: LegStep): Step {

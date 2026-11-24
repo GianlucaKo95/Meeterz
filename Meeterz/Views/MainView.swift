@@ -686,6 +686,15 @@ struct BannerView: View {
     }
 }
 
+private extension View {
+    /// Blendet Bedienelemente aus: unsichtbar, nicht antippbar, für VoiceOver und Tests nicht vorhanden.
+    func chromeVisibility(hidden: Bool) -> some View {
+        self.opacity(hidden ? 0 : 1)
+            .allowsHitTesting(!hidden)
+            .accessibilityHidden(hidden)
+    }
+}
+
 struct DroppedPinMarker: View {
     var body: some View {
         Image(systemName: "mappin.circle.fill")

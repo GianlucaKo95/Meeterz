@@ -191,9 +191,17 @@ object RouteSuggestions {
         if (calendarEnabled) calendar(here.latitude, here.longitude)?.let { return it }
         if (frequentEnabled) {
             val spot = FrequentPlaces.likely(System.currentTimeMillis(), here.latitude, here.longitude) ?: return null
-            if (isDismissed(spot.id)) return null
-            val travel = Directions.duration(here.latitude, here.longitude, spot.lat, spot.lng) ?: return null
-            return Suggestion(spot.id, spot.name ?: tr("Häufiger Ort"), null, spot.lat, spot.lng, null, null, travel)
+            // Gelernter Ort = wo das Handy den Tag verbringt (bei der Arbeit am Schreibtisch im Gebäude). Ist es ein
+            // Favorit (Zuhause, Arbeit …), dessen Adresse ansteuern – wie iOS (24.11.)
+            val fav = AppState.favorites.items.value
+                .minByOrNull { ChargePlanner.distance(it.lat, it.lng, spot.lat, spot.lng) }
+                ?.takeIf { ChargePlanner.distance(it.lat, it.lng, spot.lat, spot.lng) < 300 }
+            val id = fav?.let { "favorite-${it.id}" } ?: spot.id
+            if (isDismissed(id)) return null
+            val lat = fav?.lat ?: spot.lat
+            val lng = fav?.lng ?: spot.lng
+            val travel = Directions.duration(here.latitude, here.longitude, lat, lng) ?: return null
+            return Suggestion(id, fav?.label ?: spot.name ?: tr("Häufiger Ort"), fav?.address, lat, lng, null, null, travel)
         }
         return null
     }

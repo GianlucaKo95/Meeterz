@@ -95,6 +95,8 @@ final class RouteSuggestions {
         if AppModel.shared.navigation.isNavigating { return current }
         if !force, Date().timeIntervalSince(computedAt) < 5 * 60 { return current }
         if let computing { return await computing.value }
+        // Beim Einsteigen (force) immer die jetzt schnellste Route mit aktueller Verkehrslage, keine bis zu 5 Min. alte
+        if force { routeCache.removeAll() }
         let task = Task { @MainActor in await self.compute() }
         computing = task
         let result = await task.value
@@ -262,10 +264,22 @@ final class RouteSuggestions {
     // MARK: Häufige Orte
 
     private func frequentSuggestion(from here: CLLocation) async -> Suggestion? {
-        guard let spot = FrequentPlaces.shared.likelyDestination(now: Date(), from: here.coordinate),
-              !isDismissed(spot.place) else { return nil }
-        guard let travel = await travelTime(to: spot.coordinate, from: here) else { return nil }
-        return Suggestion(place: spot.place, reason: .frequent, travelTime: travel)
+        guard let spot = FrequentPlaces.shared.likelyDestination(now: Date(), from: here.coordinate) else { return nil }
+        let place = Self.favoritePlace(near: spot.coordinate) ?? spot.place
+        guard !isDismissed(place) else { return nil }
+        guard let travel = await travelTime(to: place.coordinate, from: here) else { return nil }
+        return Suggestion(place: place, reason: .frequent, travelTime: travel)
+    }
+
+    /// Gelernte Orte liegen dort, wo das iPhone den Tag verbringt – bei der Arbeit z. B. mitten im Gebäude am
+    /// Schreibtisch. Ist das ein gespeicherter Favorit (Zuhause, Arbeit …), dessen Adresse ansteuern: Die Route zum
+    /// Sitzplatz führte über eine andere Straße zur Rückseite des Gebäudes (24.11.).
+    static func favoritePlace(near coordinate: CLLocationCoordinate2D) -> Place? {
+        let favorites = AppModel.shared.favorites
+        let all = [favorites.home, favorites.work].compactMap { $0 } + favorites.others
+        guard let fav = all.min(by: { $0.coordinate.distance(to: coordinate) < $1.coordinate.distance(to: coordinate) }),
+              fav.coordinate.distance(to: coordinate) < 300 else { return nil }
+        return Place(id: "favorite-\(fav.id.uuidString)", name: fav.label, address: fav.address, coordinate: fav.coordinate)
     }
 
     // MARK: Fahrzeit

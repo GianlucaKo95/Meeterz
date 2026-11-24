@@ -967,8 +967,8 @@ enum NavigationZoom {
 
     /// iPhone-Navigation (CarPlay: CarPlayController.configureCamera)
     @MainActor static func closer(_ map: NavigationMapView?) {
-        guard let source = map?.navigationCamera.viewportDataSource as? MobileViewportDataSource else { return }
-        orient(source)
+        guard let map, let source = map.navigationCamera.viewportDataSource as? MobileViewportDataSource else { return }
+        orient(source, map: map)
         var options = source.options
         options.followingCameraOptions.intersectionDensity.averageDistanceMultiplier = lookaheadMultiplier
         options.followingCameraOptions.pitchNearManeuver.triggerDistanceToManeuver = pitchTrigger

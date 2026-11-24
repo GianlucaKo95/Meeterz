@@ -61,6 +61,8 @@ object NavigationController : MapboxNavigationObserver {
     private var announcer = Announcer()
     /** Auf 2 km verschobene Autobahnansage (Abschnitt, Ansage) */
     private var deferred: Pair<Int, Voice>? = null
+    /** Abbiegespur: (Schritt der Spur, Ansage an der Kreuzung, –) */
+    private var slipLane: Triple<Int, String, Int>? = null
     private var navigation: MapboxNavigation? = null
 
     fun init(context: Context) {
@@ -376,6 +378,15 @@ object NavigationController : MapboxNavigationObserver {
         de.koeven.meeterz.data.HazardStore.check(progress)   // von Fahrern gemeldete Gefahren
         RightOfWaySigns.update(progress)
         if (progress.currentState == RouteProgressState.COMPLETE) stop()
+        // Abbiegespur: „Jetzt rechts abbiegen“ kurz vor der Kreuzung
+        slipLane?.let { (laneStep, text, _) ->
+            val leg = MapboxRoute.legState(progress) ?: return@let
+            if (leg.stepIndex > laneStep) { slipLane = null; return@let }
+            if (leg.stepIndex == laneStep && leg.distanceRemaining <= minOf(30.0, leg.current.distance * 0.6)) {
+                slipLane = null
+                speaker?.say(text)
+            }
+        }
         // Verschobene Autobahnansage bei 2 km sprechen
         deferred?.let { (stepIndex, voice) ->
             val leg = MapboxRoute.legState(progress) ?: return@let
@@ -401,6 +412,11 @@ object NavigationController : MapboxNavigationObserver {
             is Announcer.Result.Speak -> {
                 if (r.text != voice.text) Diag.log("Ansage angepasst: „${voice.text}“ → „${r.text}“")
                 speaker?.say(r.text)
+            }
+            is Announcer.Result.SlipLane -> {
+                Diag.log("Abbiegespur: „${voice.text}“ → einordnen, Abbiegen an der Kreuzung")
+                speaker?.say(r.now)
+                slipLane = Triple(r.laneStep, r.atTurn, 0)
             }
         }
     }

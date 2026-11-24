@@ -144,6 +144,19 @@ object ThenInstructions {
  * Letzter Schliff (wie iOS, 23.11.): „In 400 Metern In Richtung A 40 nach Rechts abbiegen“ → „In 400 Metern rechts
  * abbiegen Richtung A 40“.
  */
+/** Abbiegespur: kurzer Schritt auf die Spur, dann die eigentliche Abbiegung zur selben Seite (wie iOS SlipLane) */
+object SlipLane {
+    fun side(leg: LegState): String? {
+        if (java.util.Locale.getDefault().language != "de") return null
+        val lane = leg.upcoming ?: return null
+        val turn = leg.followOn ?: return null
+        if (lane.type !in listOf(ManeuverType.TURN, ManeuverType.CONTINUE, ManeuverType.END_OF_ROAD) || !ThenInstructions.isTurn(turn)
+            || lane.distance > ThenInstructions.MAX_GAP) return null
+        val side = ThenInstructions.side(lane.direction) ?: return null
+        return side.takeIf { it == ThenInstructions.side(turn.direction) }
+    }
+}
+
 object TurnPhrases {
     private val toward = Regex("""\b[Ii]n Richtung (.+?),? nach ([Ll]inks|[Rr]echts) abbiegen""")
     fun polish(text: String): String {
@@ -441,6 +454,8 @@ class Announcer {
         data class Skip(val reason: String) : Result
         data class Defer(val instruction: Voice) : Result
         data class Speak(val text: String) : Result
+        /** Abbiegespur: jetzt „Rechts einordnen“, „Jetzt rechts abbiegen“ erst an der Kreuzung (Schritt laneStep) */
+        data class SlipLane(val now: String, val atTurn: String, val laneStep: Int) : Result
     }
 
     /** Abbiegung, deren erste Ansage schon „Am Ende der Straße …“ / „An der Ampel …“ war */
@@ -457,6 +472,10 @@ class Announcer {
         val key = leg.upcoming?.let { "${leg.stepIndex}|${it.maneuverLat},${it.maneuverLng}" }
         if (!position.first && !position.last && (leg.current.distance < StepAnnouncements.SHORT_STEP || (key != null && key == landmarkAnnounced))) {
             return Result.Skip("schon angekündigt")
+        }
+        // Abbiegespur (wie iOS, 24.11.): „Jetzt rechts abbiegen“ kam schon beim Einfädeln, an der Kreuzung nichts mehr
+        if (position.last) SlipLane.side(leg)?.let { side ->
+            return Result.SlipLane(side.replaceFirstChar { it.uppercase() } + " einordnen.", "Jetzt $side abbiegen.", leg.stepIndex + 1)
         }
         val landmark = LandmarkInstructions.rewrite(instruction, leg,
             if (position.first) StepAnnouncements.LANDMARK_FIRST_DISTANCE else 800.0)

@@ -136,6 +136,22 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
                 }
             }
     }
+    /// „Jetzt rechts abbiegen“, sobald man auf der Abbiegespur kurz vor der Kreuzung ist
+    private var slipLaneSubscription: AnyCancellable?
+    private func turnAtIntersection(side: String, laneStepIndex: Int) {
+        slipLaneSubscription = navigationProvider.mapboxNavigation.navigation().routeProgress
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] state in
+                MainActor.assumeIsolated {
+                    guard let self, let leg = state?.routeProgress.currentLegProgress else { return }
+                    if leg.stepIndex > laneStepIndex { self.slipLaneSubscription = nil; return }   // schon abgebogen / neue Route
+                    guard leg.stepIndex == laneStepIndex,
+                          leg.currentStepProgress.distanceRemaining <= min(30, leg.currentStep.distance * 0.6) else { return }
+                    self.slipLaneSubscription = nil
+                    self.announce("Jetzt \(side) abbiegen.")
+                }
+            }
+    }
     private var playing: Item?
     private var lastEndedAt = Date.distantPast
 
@@ -206,6 +222,14 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
            legProgress.currentStep.distance < StepAnnouncements.shortStep || (maneuverKey != nil && maneuverKey == landmarkAnnounced) {
             Diag.log("Ansage ausgelassen (schon angekündigt): \(instruction.text)")
             subject.send(VoiceInstructionEvents.DidSpeak(instruction: instruction))
+            return
+        }
+        // Abbiegespur: beim Einfädeln nur „Rechts einordnen“, das „Jetzt rechts abbiegen“ an der Kreuzung selbst
+        if position.last, !speakingDeferred, let side = SlipLane.side(legProgress) {
+            subject.send(VoiceInstructionEvents.DidSpeak(instruction: instruction))
+            Diag.log("Abbiegespur: „\(instruction.text)“ → einordnen, Abbiegen an der Kreuzung")
+            announce(side.prefix(1).uppercased() + side.dropFirst() + " einordnen.")
+            turnAtIntersection(side: side, laneStepIndex: legProgress.stepIndex + 1)
             return
         }
         subject.send(VoiceInstructionEvents.WillSpeak(instruction: instruction))

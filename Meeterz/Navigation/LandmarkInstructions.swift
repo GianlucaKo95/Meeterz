@@ -178,6 +178,21 @@ enum ThenInstructions {
     }
 }
 
+/// Abbiegespur: Mapbox teilt eine Abbiegung mit eigener Abbiegespur in zwei Schritte – erst kurz auf die Spur,
+/// wenige Meter später die eigentliche Abbiegung zur selben Seite. „Jetzt rechts abbiegen“ kam dann schon beim
+/// Einfädeln in die Spur, an der Kreuzung selbst nichts mehr (24.11., Düsseldorf Lütticher/Brüsseler Straße).
+enum SlipLane {
+    /// Seite („rechts“/„links“), wenn der nächste Schritt so eine Abbiegespur ist
+    static func side(_ leg: RouteLegProgress) -> String? {
+        guard VoiceCatalog.language == "de", let lane = leg.upcomingStep, let turn = leg.followOnStep,
+              [.turn, .continue, .reachEnd].contains(lane.maneuverType), ThenInstructions.isTurn(turn),
+              lane.distance <= ThenInstructions.maxGap,
+              let side = ThenInstructions.side(lane.maneuverDirection),
+              side == ThenInstructions.side(turn.maneuverDirection) else { return nil }
+        return side
+    }
+}
+
 /// Letzter Schliff (23.11., A 40 Moers): Mapbox sagt „In 400 Metern In Richtung A 40 nach Rechts abbiegen“ –
 /// daraus wird „In 400 Metern rechts abbiegen Richtung A 40“.
 enum TurnPhrases {

@@ -282,6 +282,10 @@ object MotorwayTiming {
         data class Later(val instruction: Voice) : Decision
     }
 
+    /** Auf der Autobahn gab es für diesen Abschnitt schon eine Ansage um 2 km (von Mapbox oder auf 2 km verschoben) */
+    fun announcedAt2km(instruction: Voice, leg: LegState) =
+        instruction.distanceAlongStep < 1600 && leg.current.onMotorway && leg.current.voice.any { it.distanceAlongStep >= 1600 }
+
     fun decide(instruction: Voice, leg: LegState): Decision? {
         val next = leg.upcoming ?: return null
         if (instruction.distanceAlongStep <= DEFER_ABOVE || next.type == ManeuverType.ARRIVE || !leg.current.onMotorway) return null
@@ -478,6 +482,8 @@ class Announcer {
         if (!position.first && !position.last && (leg.current.distance < StepAnnouncements.SHORT_STEP || (key != null && key == landmarkAnnounced))) {
             return Result.Skip("schon angekündigt")
         }
+        // Autobahn: nach der Ansage bei 2 km nur noch die an der Ausfahrt (wie iOS, 24.11.)
+        if (!deferred && !position.last && MotorwayTiming.announcedAt2km(instruction, leg)) return Result.Skip("Autobahn, schon bei 2 km angesagt")
         // Abbiegespur (wie iOS, 24.11.): „Jetzt rechts abbiegen“ kam schon beim Einfädeln, an der Kreuzung nichts mehr
         if (position.last) SlipLane.side(leg)?.let { side ->
             return Result.SlipLane(side.replaceFirstChar { it.uppercase() } + " einordnen.", "Jetzt $side abbiegen.", leg.stepIndex + 1)

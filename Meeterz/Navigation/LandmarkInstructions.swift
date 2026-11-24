@@ -392,6 +392,14 @@ enum MotorwayTiming {
         case later(SpokenInstruction)
     }
 
+    /// Auf der Autobahn gab es für diesen Abschnitt schon eine Ansage um 2 km (von Mapbox oder auf 2 km verschoben)
+    static func announcedAt2km(_ instruction: SpokenInstruction, legProgress: RouteLegProgress) -> Bool {
+        let current = legProgress.currentStep
+        guard instruction.distanceAlongStep < 1600,
+              (current.intersections ?? []).contains(where: { $0.outletRoadClasses?.contains(.motorway) == true }) else { return false }
+        return current.instructionsSpokenAlongStep?.contains { $0.distanceAlongStep >= 1600 } == true
+    }
+
     static func decide(_ instruction: SpokenInstruction, legProgress: RouteLegProgress) -> Decision? {
         let current = legProgress.currentStep
         guard VoiceCatalog.language == "de", instruction.distanceAlongStep > deferAbove,

@@ -229,6 +229,12 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
             subject.send(VoiceInstructionEvents.DidSpeak(instruction: instruction))
             return
         }
+        // Autobahn: nach der Ansage bei 2 km nur noch die an der Ausfahrt – „In 800 Metern …“ dazwischen ist überflüssig (24.11.)
+        if !speakingDeferred, !position.last, MotorwayTiming.announcedAt2km(instruction, legProgress: legProgress) {
+            Diag.log("Ansage ausgelassen (Autobahn, schon bei 2 km angesagt): \(instruction.text)")
+            subject.send(VoiceInstructionEvents.DidSpeak(instruction: instruction))
+            return
+        }
         // Abbiegespur: beim Einfädeln nur „Rechts einordnen“, das „Jetzt rechts abbiegen“ an der Kreuzung selbst
         if position.last, !speakingDeferred, let side = SlipLane.side(legProgress) {
             subject.send(VoiceInstructionEvents.DidSpeak(instruction: instruction))

@@ -246,17 +246,18 @@ struct MainView: View {
             // Verkehrslage wie Apple Karten (auch freie Fahrt, Klassisch und Satellit): stockend orange, Stau rot
             VectorSource(id: TrafficLayer.sourceId)
                 .url(TrafficLayer.url)
-            LineLayer(id: TrafficLayer.layerId, source: TrafficLayer.sourceId)
-                .sourceLayer("traffic")
-                .filter(TrafficLayer.filter)
-                .visibility(app.navigation.isNavigating ? .none : .visible)   // mit Route nur der Verkehr auf ihr
-                .lineColor(TrafficLayer.color)
-                .lineWidth(TrafficLayer.width)
-                .lineOpacity(0.9)
-                .lineCap(.round)
-                .lineJoin(.round)
-                .lineEmissiveStrength(1)
-                .slot(.middle)
+            if !app.navigation.isNavigating {   // mit Route nur der Verkehr auf ihr (Routenlinie) – 24.11.
+                LineLayer(id: TrafficLayer.layerId, source: TrafficLayer.sourceId)
+                    .sourceLayer("traffic")
+                    .filter(TrafficLayer.filter)
+                    .lineColor(TrafficLayer.color)
+                    .lineWidth(TrafficLayer.width)
+                    .lineOpacity(0.9)
+                    .lineCap(.round)
+                    .lineJoin(.round)
+                    .lineEmissiveStrength(1)
+                    .slot(.middle)
+            }
 
             // Routen der Freunde: dunkle Umrandung, darüber knallige Farbe (die gezeigte Route etwas breiter)
             ForEvery(Array(app.routes.friendRoutes.values)) { route in

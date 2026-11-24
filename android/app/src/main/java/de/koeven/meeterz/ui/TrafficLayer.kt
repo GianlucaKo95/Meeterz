@@ -29,7 +29,11 @@ object TrafficLayer {
      * und der Gegenrichtung sahen aus, als stünde man selbst im Stau (wie iOS, 24.11.)
      */
     var routeActive = false
-        set { if (field != value) { field = value; maps.toList().forEach { m -> m.getStyle()?.let(::applyVisibility) } } }
+        set(value) {
+            if (field == value) return
+            field = value
+            maps.toList().forEach { m -> m.getStyle()?.let(::applyVisibility) }
+        }
 
     private fun applyVisibility(style: Style) {
         if (style.styleLayerExists(ID)) style.setStyleLayerProperty(ID, "visibility",

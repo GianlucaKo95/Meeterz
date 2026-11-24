@@ -26,12 +26,29 @@ enum TrafficLayer {
 
     private static var key: UInt8 = 0
     private final class Helper { var token: Cancelable? }
+    private final class WeakMap { weak var map: MapboxMap?; init(_ map: MapboxMap) { self.map = map } }
+    private static var maps: [WeakMap] = []
+
+    /// Mit aktiver Route nur noch der Verkehr auf der eigenen Route (zeigt die Routenlinie selbst) – Staus auf anderen
+    /// Straßen und der Gegenrichtung sahen aus, als stünde man selbst im Stau (24.11.). Ohne Route wieder überall.
+    static var routeActive = false {
+        didSet {
+            maps.removeAll { $0.map == nil }
+            for entry in maps { if let map = entry.map { applyVisibility(map) } }
+        }
+    }
+
+    private static func applyVisibility(_ map: MapboxMap) {
+        guard map.layerExists(withId: layerId) else { return }
+        try? map.setLayerProperty(for: layerId, property: "visibility", value: routeActive ? "none" : "visible")
+    }
 
     /// Für MapViews (Navigation, CarPlay, Dashboard): Ebene anlegen und nach jedem Stilwechsel (Tag/Nacht) neu
     static func install(on mapView: MapView) {
         guard objc_getAssociatedObject(mapView, &key) == nil, let map = mapView.mapboxMap else { return }
         let helper = Helper()
         objc_setAssociatedObject(mapView, &key, helper, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        maps.append(WeakMap(map))
         helper.token = map.onStyleLoaded.observe { [weak map] _ in
             MainActor.assumeIsolated { if let map { add(to: map) } }
         }
@@ -45,7 +62,7 @@ enum TrafficLayer {
                 source.url = url
                 try map.addSource(source)
             }
-            guard !map.layerExists(withId: layerId) else { return }
+            guard !map.layerExists(withId: layerId) else { applyVisibility(map); return }
             var layer = LineLayer(id: layerId, source: sourceId)
             layer.sourceLayer = "traffic"
             layer.filter = filter
@@ -62,6 +79,7 @@ enum TrafficLayer {
             } else {
                 try map.addLayer(layer)
             }
+            applyVisibility(map)
         } catch {
             Diag.log("Verkehrsebene konnte nicht hinzugefügt werden: \(error)")
         }

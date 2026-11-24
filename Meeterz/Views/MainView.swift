@@ -249,6 +249,7 @@ struct MainView: View {
             LineLayer(id: TrafficLayer.layerId, source: TrafficLayer.sourceId)
                 .sourceLayer("traffic")
                 .filter(TrafficLayer.filter)
+                .visibility(app.navigation.isNavigating ? .none : .visible)   // mit Route nur der Verkehr auf ihr
                 .lineColor(TrafficLayer.color)
                 .lineWidth(TrafficLayer.width)
                 .lineOpacity(0.9)

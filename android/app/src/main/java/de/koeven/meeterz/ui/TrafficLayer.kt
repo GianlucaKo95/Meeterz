@@ -22,16 +22,30 @@ import de.koeven.meeterz.Diag
  */
 object TrafficLayer {
     private const val ID = "meeterz-traffic"
+    private val maps = java.util.Collections.newSetFromMap(java.util.WeakHashMap<MapboxMap, Boolean>())
+
+    /**
+     * Mit aktiver Route nur noch der Verkehr auf der eigenen Route (zeigt die Routenlinie) – Staus auf anderen Straßen
+     * und der Gegenrichtung sahen aus, als stünde man selbst im Stau (wie iOS, 24.11.)
+     */
+    var routeActive = false
+        set { if (field != value) { field = value; maps.toList().forEach { m -> m.getStyle()?.let(::applyVisibility) } } }
+
+    private fun applyVisibility(style: Style) {
+        if (style.styleLayerExists(ID)) style.setStyleLayerProperty(ID, "visibility",
+            com.mapbox.bindgen.Value.valueOf(if (routeActive) "none" else "visible"))
+    }
 
     /** Ebene anlegen und nach jedem Stilwechsel neu; Rückgabe beendet das */
     fun install(map: MapboxMap): Cancelable {
+        maps.add(map)
         map.getStyle()?.let(::add)
         return map.subscribeStyleLoaded { map.getStyle(::add) }
     }
 
     fun add(style: Style) = runCatching {
         if (!style.styleSourceExists(ID)) style.addSource(vectorSource(ID) { url("mapbox://mapbox.mapbox-traffic-v1") })
-        if (style.styleLayerExists(ID)) return@runCatching
+        if (style.styleLayerExists(ID)) { applyVisibility(style); return@runCatching }
         val layer = lineLayer(ID, ID) {
             sourceLayer("traffic")
             filter(match {
@@ -58,6 +72,7 @@ object TrafficLayer {
         // Unter die eigene Routenlinie (die zeigt den Verkehr auf der Route selbst)
         val route = style.styleLayers.map { it.id }.firstOrNull { it.startsWith("mapbox-layerGroup") || it.contains("route-line") }
         if (route != null) style.addLayerBelow(layer, route) else style.addLayer(layer)
+        applyVisibility(style)
     }.onFailure { Diag.log("Verkehrsebene: ${it.message}") }
 
     /** Android Auto: Ebene auf der Auto-Karte */

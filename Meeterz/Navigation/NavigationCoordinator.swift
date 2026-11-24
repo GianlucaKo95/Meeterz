@@ -57,7 +57,9 @@ final class NavigationCoordinator: NSObject {
         var options: [Route] { [routes.mainRoute.route] + routes.alternativeRoutes.map(\.route) }
     }
 
-    private(set) var isNavigating = false
+    private(set) var isNavigating = false {
+        didSet { if isNavigating != oldValue { TrafficLayer.routeActive = isNavigating } }
+    }
     private(set) var isCalculating = false
     private(set) var destination: Place?
     private(set) var eta: Date?

@@ -5,6 +5,7 @@ import com.mapbox.common.MapboxOptions
 import com.mapbox.navigation.base.options.NavigationOptions
 import com.mapbox.navigation.core.lifecycle.MapboxNavigationApp
 import de.koeven.meeterz.nav.NavigationController
+import kotlinx.coroutines.launch
 
 class MeeterzApplication : Application() {
     override fun onCreate() {
@@ -31,5 +32,9 @@ class MeeterzApplication : Application() {
         de.koeven.meeterz.data.StoriesStore.init(this)
         de.koeven.meeterz.social.Passengers.load()
         de.koeven.meeterz.suggest.Parking.load()
+        // Mit aktiver Route nur der Verkehr auf ihr (wie iOS)
+        AppState.scope.launch(kotlinx.coroutines.Dispatchers.Main) {
+            NavigationController.guidance.collect { de.koeven.meeterz.ui.TrafficLayer.routeActive = it != null }
+        }
     }
 }

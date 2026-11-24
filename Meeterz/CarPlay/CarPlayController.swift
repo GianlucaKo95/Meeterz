@@ -457,11 +457,17 @@ final class CarPlayController: NSObject {
 
     /// Leiste und Kartenknöpfe nach ein paar Sekunden ausblenden – mit und ohne Route, Tippen holt sie zurück.
     /// (Standard bei CarPlay: Leiste blendet aus, Kartenknöpfe bleiben stehen.)
+    /// Nicht in der Routenvorschau: Dort sitzt „Zurück“ (Vorschlag ablehnen) in der Leiste – nach einem Tipp auf die
+    /// Karte war er weg (24.11.).
     private func autoHideButtons() {
-        for case let template as CPMapTemplate in manager.interfaceController?.templates ?? [] {
-            template.automaticallyHidesNavigationBar = true
-            template.hidesButtonsWithNavigationBar = true
-        }
+        for case let template as CPMapTemplate in manager.interfaceController?.templates ?? [] { Self.autoHide(template) }
+    }
+
+    /// Vorschau-Vorlage (eigene, mit „Zurück“) nie ausblenden, sonst Leiste und Knöpfe nach ein paar Sekunden weg
+    static func autoHide(_ template: CPMapTemplate) {
+        let hide = template.backButton == nil
+        template.automaticallyHidesNavigationBar = hide
+        template.hidesButtonsWithNavigationBar = hide
     }
 
     func refreshFriendsAfterPassengerChange() {
@@ -1355,6 +1361,11 @@ extension CarPlayController: CarPlayManagerDelegate {
         MainActor.assumeIsolated { userPanning = false; lastMapInteraction = Date() }
     }
 
+    /// Mapbox legt für die Routenvorschau eine eigene Vorlage an (CarPlay-Standard: Leiste blendet nach Tippen aus)
+    nonisolated func carPlayManager(_ carPlayManager: CarPlayManager, templateWillAppear template: CPTemplate, animated: Bool) {
+        MainActor.assumeIsolated { if let map = template as? CPMapTemplate { Self.autoHide(map) } }
+    }
+
     nonisolated func carPlayManager(_ carPlayManager: CarPlayManager, willPreview trip: CPTrip) -> CPTrip {
         MainActor.assumeIsolated {
             var shown = Self.withRouteOptions(Self.withBatteryForecast(Self.withPhoneLabels(trip, destination: pendingDestination, status: previewStatus, phone: previewPhone)))
@@ -1647,10 +1658,7 @@ extension CarPlayController: CarPlayManagerDelegate {
             // Mapbox baut für Kartenansicht, Navigation und nach dem Ende je eine neue Vorlage – hier kommt jede
             // vorbei, bevor sie angezeigt wird. Vorher wurde das Ausblenden nur in Rückrufen gesetzt, die vor dem
             // Anlegen der Vorlage kamen: „Knöpfe mit der Leiste ausblenden“ blieb aus, die Knöpfe standen immer.
-            if let map = template as? CPMapTemplate {
-                map.automaticallyHidesNavigationBar = true
-                map.hidesButtonsWithNavigationBar = true
-            }
+            if let map = template as? CPMapTemplate { Self.autoHide(map) }
             shownDetached = nil   // neue Vorlage: Ortungspfeil beim nächsten Takt neu abgleichen
             switch activity {
             case .browsing:

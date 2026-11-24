@@ -1811,7 +1811,7 @@ extension CarPlayController: CarPlayManagerDelegate {
             }
             sections.append(CPMapPanelSection(title: String(localized: "Routen"), items: routes))
         }
-        let estimates = CPTravelEstimates(distanceRemaining: Measurement(value: route?.distance ?? 0, unit: UnitLength.meters),
+        let estimates = CPTravelEstimates(distanceRemaining: ManeuverGuidance.rounded(Measurement(value: route?.distance ?? 0, unit: UnitLength.meters)),
                                           timeRemaining: route?.expectedTravelTime ?? 0)
         let startButton = CPTextButton(title: String(localized: "Starten"), textStyle: .confirm) { _ in start() }
         let panel = CPMapPanel(title: nil, sections: sections,
@@ -1838,7 +1838,7 @@ extension CarPlayController: CarPlayManagerDelegate {
         template.showTripPreviews(trips, selectedTrip: trips.first, textConfiguration: text)
         for (single, choice) in zip(trips, trip.routeChoices) {
             guard let route = Self.mainRoute(in: choice.userInfo) else { continue }
-            template.updateEstimates(CPTravelEstimates(distanceRemaining: Measurement(value: route.distance, unit: UnitLength.meters),
+            template.updateEstimates(CPTravelEstimates(distanceRemaining: ManeuverGuidance.rounded(Measurement(value: route.distance, unit: UnitLength.meters)),
                                                        timeRemaining: route.expectedTravelTime), for: single)
         }
         Diag.log("Routenvorschau: \(trips.count) Routen zum Blättern")

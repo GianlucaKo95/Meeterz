@@ -79,9 +79,11 @@ final class ManeuverGuidance {
                                 for: maneuver)
     }
 
-    /// Wie CarPlay es erwartet: unter 1 km in Metern (gerundet), darüber in km
-    private static func rounded(_ m: Measurement<UnitLength>) -> Measurement<UnitLength> {
+    /// Wie CarPlay es erwartet: unter 1 km in Metern (gerundet), darüber in km, ab 10 km ganze km
+    /// (auch für Vorschau und Restweg – dort stand „41.182 Meter“, Foto 24.11.)
+    static func rounded(_ m: Measurement<UnitLength>) -> Measurement<UnitLength> {
         let meters = m.converted(to: .meters).value
+        if meters >= 10_000 { return Measurement(value: (meters / 1_000).rounded(), unit: .kilometers) }
         if meters >= 1_000 { return Measurement(value: (meters / 100).rounded() / 10, unit: .kilometers) }
         let step: Double = meters > 300 ? 50 : (meters > 100 ? 25 : 10)
         return Measurement(value: (meters / step).rounded() * step, unit: .meters)

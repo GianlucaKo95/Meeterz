@@ -240,7 +240,8 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
         // „Jetzt rechts abbiegen“ erst an der Abbiegung: Mapbox sagt die letzte Ansage je nach Tempo 89–190 m vorher –
         // innerorts ist man da gerade erst auf der Abbiegespur, an der Kreuzung kam dann nichts mehr (Lütticher Str.,
         // 23./24.11.). Wie Apple: rund 3 s bzw. 40 m vor der Abbiegung.
-        if position.last, !speakingDeferred, let ready = FinalTurn.lateEnough(legProgress) {
+        if position.last, !speakingDeferred, !(legProgress.currentStep.maneuverType == .depart && position.first),
+           let ready = FinalTurn.lateEnough(legProgress) {
             subject.send(VoiceInstructionEvents.DidSpeak(instruction: instruction))
             Diag.log("Letzte Ansage bis kurz vor die Abbiegung verschoben (\(Int(legProgress.currentStepProgress.distanceRemaining)) m): \(instruction.text)")
             deferUntil(instruction, stepIndex: legProgress.stepIndex, ready: ready)

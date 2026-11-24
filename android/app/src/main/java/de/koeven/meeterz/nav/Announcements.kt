@@ -484,7 +484,9 @@ class Announcer {
         }
         // „Jetzt rechts abbiegen“ erst an der Abbiegung (wie iOS): Mapbox sagt sie je nach Tempo 89–190 m vorher –
         // innerorts ist man da gerade erst auf der Abbiegespur (Lütticher Str., 24.11.)
-        if (position.last && !deferred && FinalTurn.tooEarly(leg)) return Result.Late(instruction)
+        // Losfahr-Ansage („Auf X fahren. Dann rechts abbiegen“) nicht – die gehört an den Start
+        if (position.last && !deferred && !(leg.current.type == ManeuverType.DEPART && position.first) && FinalTurn.tooEarly(leg))
+            return Result.Late(instruction)
         val landmark = LandmarkInstructions.rewrite(instruction, leg,
             if (position.first) StepAnnouncements.LANDMARK_FIRST_DISTANCE else 800.0)
         if (landmark != null && position.first && !position.last) landmarkAnnounced = key

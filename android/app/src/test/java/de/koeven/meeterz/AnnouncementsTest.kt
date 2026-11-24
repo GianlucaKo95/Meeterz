@@ -124,7 +124,9 @@ class AnnouncementsTest {
         val leg = { remaining: Double -> LegState(steps, 0, remaining) }
         assertEquals(Announcer.Result.Speak("In 800 Metern links auf Waldstraße abbiegen."), a.process(steps[0].voice[0], leg(880.0)))
         assertTrue(a.process(steps[0].voice[1], leg(400.0)) is Announcer.Result.Skip)
-        assertEquals(Announcer.Result.Speak("Jetzt links abbiegen."), a.process(steps[0].voice[2], leg(90.0)))
+        // „Jetzt“ erst kurz vor der Abbiegung: bei 90 m zurückgehalten, bei 40 m gesprochen
+        assertEquals(Announcer.Result.Late(steps[0].voice[2]), a.process(steps[0].voice[2], leg(90.0)))
+        assertEquals(Announcer.Result.Speak("Jetzt links abbiegen."), a.process(steps[0].voice[2], leg(40.0), deferred = true))
     }
 
     @Test fun departIsNeverShortened() {

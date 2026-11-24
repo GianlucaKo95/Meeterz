@@ -76,7 +76,10 @@ final class CarPlayTimeline {
             h.view.isUserInteractionEnabled = false
             view.addSubview(h.view)
         }
-        h.view.frame = CGRect(x: safe.minX + 10, y: safe.maxY - size.height - 6, width: size.width, height: size.height)
+        // Ganz unten an den Rand: CarPlays sicherer Bereich endet unten über der Ankunftskarte (links daneben) – die
+        // Einblendung stand mitten im Bild (24.11.). Waagerecht liegt sie rechts der Karte, unten ist also frei.
+        h.view.frame = CGRect(x: safe.minX + 10, y: view.bounds.maxY - size.height - 8,
+                              width: size.width, height: size.height)
         host = h
         // Fahrzeugpfeil über die Einblendung schieben
         let extra = size.height + 12

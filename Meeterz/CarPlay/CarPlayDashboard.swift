@@ -566,6 +566,7 @@ final class CarPlayDashboard: NSObject, MKMapViewDelegate {
         nav.removeFromSuperview()
         nav.frame = host.bounds
         host.addSubview(nav)
+        CameraCatchUp.jump(nav)   // nicht dem Standort hinterherfahren (zurück aus Musik, 24.11.)
     }
 
     /// Derselbe Kartenstil wie die große Karte: dieselben Mapbox-Stile (Navigationskarte bzw. Satellit) und Tag/Nacht

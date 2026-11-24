@@ -32,6 +32,11 @@ final class CarPlaySceneDelegate: NSObject, CPTemplateApplicationSceneDelegate {
         }
     }
 
+    /// Zurück aus einer anderen App (z. B. Musik): Karte sofort auf den jetzigen Standort, statt hinterherzufahren
+    func sceneWillEnterForeground(_ scene: UIScene) {
+        MainActor.assumeIsolated { CarPlayController.shared.catchUpCamera() }
+    }
+
     /// Vom Dashboard geöffnet (meeterz://carplay/route): die große Ansicht ist jetzt vorn – Fahrt starten
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
         MainActor.assumeIsolated {
@@ -129,6 +134,13 @@ final class CarPlayController: NSObject {
 
     /// Tag oder Nacht der großen Karte – Mapbox wählt das nach Sonnenstand und dem Erscheinungsbild von CarPlay.
     /// Das Dashboard übernimmt es (sein eigenes Fenster meldet immer „dunkel“).
+    /// Im Hintergrund zeichnet iOS keine Karte – zurück im Vordergrund stand sie noch am alten Ort und fuhr dem
+    /// Standort sichtbar hinterher (24.11.). Darum ohne Animation auf den jetzigen Standort springen; die Kamera
+    /// folgt danach wie gewohnt. Nur wenn sie mir folgt (nicht, wenn man die Karte gerade verschoben hat).
+    func catchUpCamera() {
+        for map in [navMap, browseMap].compactMap({ $0 }) { CameraCatchUp.jump(map) }
+    }
+
     var mapStyleType: StyleType? { manager.carPlayMapViewController?.styleManager?.currentStyleType }
 
     /// Rand der Browse-Karte vor der Routenvorschau (danach wiederherstellen)
@@ -2027,4 +2039,18 @@ private final class ForecastBox: @unchecked Sendable {
     private var texts: [String: String] = [:]
     func set(_ t: [String: String]) { lock.lock(); texts = t; lock.unlock() }
     func get() -> [String: String] { lock.lock(); defer { lock.unlock() }; return texts }
+}
+
+
+/// Kamera ohne Animation auf den jetzigen Standort (nach einer Pause im Hintergrund)
+@MainActor
+enum CameraCatchUp {
+    static func jump(_ map: NavigationMapView) {
+        guard let here = AppModel.shared.location.lastLocation, here.horizontalAccuracy >= 0,
+              map.navigationCamera.currentCameraState == .following else { return }
+        let camera = map.mapView.mapboxMap.cameraState
+        let bearing = !MapPreferences.northUp && here.course >= 0 && here.speed > 2 ? here.course : camera.bearing
+        map.mapView.camera.cancelAnimations()
+        map.mapView.mapboxMap.setCamera(to: CameraOptions(center: here.coordinate, bearing: bearing))
+    }
 }

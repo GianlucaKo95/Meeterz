@@ -169,6 +169,12 @@ class GuidanceScreen(carContext: CarContext, private val carMap: MapboxCarMap) :
                 MapboxNavigationApp.current()?.registerRouteProgressObserver(pitchObserver)
                 val north = de.koeven.meeterz.ui.UiPreferences.northUp.value
                 carViewport(camera)?.run { followingBearingPropertyOverride(if (north) 0.0 else null); evaluate() }
+                // Zurück aus einer anderen App (z. B. Musik): sofort auf den jetzigen Standort, statt hinterherzufahren
+                // (Android Auto zeichnet im Hintergrund nicht – wie iOS, 24.11.)
+                AppState.lastLocation?.let { here ->
+                    carMap.carMapSurface?.mapSurface?.mapboxMap?.setCamera(com.mapbox.maps.CameraOptions.Builder()
+                        .center(com.mapbox.geojson.Point.fromLngLat(here.longitude, here.latitude)).build())
+                }
             }
             override fun onCreate(owner: LifecycleOwner) {
                 // Ausrichtung auch ohne Route (freie Fahrt) und sofort beim Umschalten am Handy – wie CarPlay

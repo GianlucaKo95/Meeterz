@@ -31,6 +31,17 @@ import com.mapbox.common.location.Location
  */
 class NavigationMapBinder(private val mapView: MapView) : MapboxNavigationObserver {
     companion object {
+        /**
+         * Norden oben (wie iOS): Kamera nicht drehen und den Pfeil in die Mitte statt an den unteren Rand des Bereichs –
+         * unten ist nur sinnvoll, wenn die Karte in Fahrtrichtung zeigt (24.11.)
+         */
+        fun applyOrientation(viewport: com.mapbox.navigation.ui.maps.camera.data.MapboxNavigationViewportDataSource) {
+            val north = UiPreferences.northUp.value
+            viewport.followingBearingPropertyOverride(if (north) 0.0 else null)
+            viewport.options.followingFrameOptions.focalPoint =
+                com.mapbox.navigation.ui.maps.camera.data.FollowingFrameOptions.FocalPoint(0.5, if (north) 0.5 else 1.0)
+        }
+
         const val MINIMUM_PITCH = 25.0
         const val PITCH_TRIGGER = 200.0
         private val keepThreeD = setOf("continue", "merge", "on ramp", "off ramp", "fork", "arrive")
@@ -183,7 +194,7 @@ class NavigationMapBinder(private val mapView: MapView) : MapboxNavigationObserv
         viewport.followingZoomPropertyOverride(maneuverZoom(progress, (de.koeven.meeterz.AppState.lastLocation?.speed ?: 0f).toDouble(),
             mapView.mapboxMap.cameraState.zoom))
         // Norden oben (Einstellung wie Apple Karten / iOS): Kamera nicht mit der Fahrtrichtung drehen
-        viewport.followingBearingPropertyOverride(if (UiPreferences.northUp.value) 0.0 else null)
+        applyOrientation(viewport)
         viewport.evaluate()
         routeLineApi.updateWithRouteProgress(progress) { value ->
             mapView.mapboxMap.style?.let { routeLineView.renderRouteLineUpdate(it, value) }

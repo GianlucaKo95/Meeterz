@@ -170,7 +170,12 @@ final class CarPlayController: NSObject {
         options.followingCameraOptions.defaultPitch = pitch
         // Norden oben: Mapbox darf die Kamera nicht mehr drehen, sie bleibt bei 0°
         options.followingCameraOptions.bearingUpdatesAllowed = !MapPreferences.northUp
-        if MapPreferences.northUp { current.followingCamera.bearing = 0 }
+        // … und der Pfeil in die Mitte statt ins untere Drittel
+        options.followingCameraOptions.paddingUpdatesAllowed = !MapPreferences.northUp
+        if MapPreferences.northUp, let map = navigationMapView {
+            current.followingCamera.bearing = 0
+            current.followingCamera.padding = NavigationZoom.centeredPadding(map)
+        }
         if navigating {
             // Mit Route: Mapbox neigt (flacher vor Abbiegungen) und rahmt den Zoom – außer der Fahrer hat selbst gezoomt
             options.followingCameraOptions.pitchUpdatesAllowed = true

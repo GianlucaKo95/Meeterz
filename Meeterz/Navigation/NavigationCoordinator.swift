@@ -594,8 +594,8 @@ final class NavigationCoordinator: NSObject {
     /// Kartenart während der iPhone-Navigation sofort übernehmen (vorher galt sie erst bei der nächsten Route)
     /// Ausrichtung (Norden / Fahrtrichtung oben) in der laufenden iPhone-Navigation sofort übernehmen
     func applyOrientation() {
-        guard let source = phoneMap?.navigationCamera.viewportDataSource as? MobileViewportDataSource else { return }
-        NavigationZoom.orient(source)
+        guard let map = phoneMap, let source = map.navigationCamera.viewportDataSource as? MobileViewportDataSource else { return }
+        NavigationZoom.orient(source, map: map)
     }
 
     func applyMapStyle() {
@@ -978,15 +978,24 @@ enum NavigationZoom {
     }
 
     /// Norden oben oder Fahrtrichtung oben (Einstellung wie in Apple Karten)
-    @MainActor static func orient(_ source: MobileViewportDataSource) {
+    @MainActor static func orient(_ source: MobileViewportDataSource, map: NavigationMapView) {
         var options = source.options
         options.followingCameraOptions.bearingUpdatesAllowed = !MapPreferences.northUp
+        options.followingCameraOptions.paddingUpdatesAllowed = !MapPreferences.northUp
         source.options = options
         if MapPreferences.northUp {
             var current = source.currentNavigationCameraOptions
             current.followingCamera.bearing = 0
+            current.followingCamera.padding = centeredPadding(map)
             source.currentNavigationCameraOptions = current
         }
+    }
+
+    /// Norden oben: Pfeil in die Mitte. Mapbox setzt ihn sonst ins untere Drittel – sinnvoll, wenn die Karte in
+    /// Fahrtrichtung zeigt, bei Norden oben aber nicht (24.11.)
+    @MainActor static func centeredPadding(_ map: NavigationMapView) -> UIEdgeInsets {
+        let s = map.mapView.safeAreaInsets, p = map.viewportPadding
+        return UIEdgeInsets(top: s.top + p.top, left: s.left + p.left, bottom: s.bottom + p.bottom, right: s.right + p.right)
     }
 
     // MARK: Neigung vor Abbiegungen

@@ -157,7 +157,7 @@ class GuidanceScreen(carContext: CarContext, private val carMap: MapboxCarMap) :
             viewport.followingZoomPropertyOverride(
                 NavigationMapBinder.maneuverZoom(progress, (AppState.lastLocation?.speed ?: 0f).toDouble(), zoom))
         }
-        viewport.followingBearingPropertyOverride(if (de.koeven.meeterz.ui.UiPreferences.northUp.value) 0.0 else null)
+        de.koeven.meeterz.ui.NavigationMapBinder.applyOrientation(viewport)
         viewport.evaluate()
     }
 
@@ -167,8 +167,7 @@ class GuidanceScreen(carContext: CarContext, private val carMap: MapboxCarMap) :
                 listOf(routeLine, location, camera, markers, friendRoutes, friends, sign, info).forEach(carMap::registerObserver)
                 carMap.setGestureHandler(camera.gestureHandler)
                 MapboxNavigationApp.current()?.registerRouteProgressObserver(pitchObserver)
-                val north = de.koeven.meeterz.ui.UiPreferences.northUp.value
-                carViewport(camera)?.run { followingBearingPropertyOverride(if (north) 0.0 else null); evaluate() }
+                carViewport(camera)?.run { de.koeven.meeterz.ui.NavigationMapBinder.applyOrientation(this); evaluate() }
                 // Zurück aus einer anderen App (z. B. Musik): sofort auf den jetzigen Standort, statt hinterherzufahren
                 // (Android Auto zeichnet im Hintergrund nicht – wie iOS, 24.11.)
                 AppState.lastLocation?.let { here ->
@@ -179,8 +178,8 @@ class GuidanceScreen(carContext: CarContext, private val carMap: MapboxCarMap) :
             override fun onCreate(owner: LifecycleOwner) {
                 // Ausrichtung auch ohne Route (freie Fahrt) und sofort beim Umschalten am Handy – wie CarPlay
                 lifecycleScope.launch {
-                    de.koeven.meeterz.ui.UiPreferences.northUp.collect { north ->
-                        carViewport(camera)?.run { followingBearingPropertyOverride(if (north) 0.0 else null); evaluate() }
+                    de.koeven.meeterz.ui.UiPreferences.northUp.collect { _ ->
+                        carViewport(camera)?.run { de.koeven.meeterz.ui.NavigationMapBinder.applyOrientation(this); evaluate() }
                     }
                 }
             }

@@ -1,5 +1,6 @@
 package de.koeven.meeterz.suggest
 
+import de.koeven.meeterz.nav.PlaceSearch
 import de.koeven.meeterz.tr
 import android.Manifest
 import android.content.Context
@@ -186,6 +187,8 @@ object RouteSuggestions {
 
     private fun isDismissed(id: String) = (dismissed[id] ?: 0) > System.currentTimeMillis()
 
+    private val poiCache = mutableMapOf<String, PlaceSearch.Place?>()
+
     private suspend fun compute(): Suggestion? {
         val here = AppState.lastLocation ?: return null
         if (calendarEnabled) calendar(here.latitude, here.longitude)?.let { return it }
@@ -198,10 +201,13 @@ object RouteSuggestions {
                 ?.takeIf { ChargePlanner.distance(it.lat, it.lng, spot.lat, spot.lng) < 300 }
             val id = fav?.let { "favorite-${it.id}" } ?: spot.id
             if (isDismissed(id)) return null
-            val lat = fav?.lat ?: spot.lat
-            val lng = fav?.lng ?: spot.lng
+            // Kein Favorit: Geschäft, Fitnessstudio … am Ort ansteuern statt des Aufenthaltsorts (wie iOS), einmal je Ort
+            val poi = if (fav == null) poiCache.getOrPut(spot.id) { PlaceSearch.poiNear(spot.lat, spot.lng) } else null
+            val lat = fav?.lat ?: poi?.lat ?: spot.lat
+            val lng = fav?.lng ?: poi?.lng ?: spot.lng
             val travel = Directions.duration(here.latitude, here.longitude, lat, lng) ?: return null
-            return Suggestion(id, fav?.label ?: spot.name ?: tr("Häufiger Ort"), fav?.address, lat, lng, null, null, travel)
+            return Suggestion(id, fav?.label ?: poi?.name ?: spot.name ?: tr("Häufiger Ort"), fav?.address ?: poi?.address,
+                lat, lng, null, null, travel)
         }
         return null
     }

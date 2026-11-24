@@ -233,6 +233,12 @@ object PlaceSearch {
 
     private fun distance(a: Double, b: Double, c: Double, d: Double) = de.koeven.meeterz.ev.ChargePlanner.distance(a, b, c, d)
 
+    /** Geschäft, Fitnessstudio … direkt am Punkt (≤ 80 m), für gelernte Orte (wie iOS MKLocalPointsOfInterestRequest) */
+    suspend fun poiNear(lat: Double, lng: Double): Place? =
+        request("reverse", null, null, null, 5) { parameter("longitude", lng); parameter("latitude", lat); parameter("types", "poi") }
+            .filter { distance(lat, lng, it.lat, it.lng) <= 80 }
+            .minByOrNull { distance(lat, lng, it.lat, it.lng) }
+
     private suspend fun request(path: String, query: String?, nearLat: Double?, nearLng: Double?, limit: Int,
                                 extra: io.ktor.client.request.HttpRequestBuilder.() -> Unit = {}): List<Place> {
         return runCatching {

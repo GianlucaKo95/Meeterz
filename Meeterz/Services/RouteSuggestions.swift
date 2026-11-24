@@ -1,6 +1,7 @@
 import Foundation
 import CoreLocation
 import EventKit
+import MapKit
 import MapboxDirections
 import MapboxNavigationCore
 import Turf
@@ -265,7 +266,8 @@ final class RouteSuggestions {
 
     private func frequentSuggestion(from here: CLLocation) async -> Suggestion? {
         guard let spot = FrequentPlaces.shared.likelyDestination(now: Date(), from: here.coordinate) else { return nil }
-        let place = Self.favoritePlace(near: spot.coordinate) ?? spot.place
+        var place = Self.favoritePlace(near: spot.coordinate) ?? spot.place
+        if place.id == spot.place.id, let poi = await poi(near: spot) { place = poi }
         guard !isDismissed(place) else { return nil }
         guard let travel = await travelTime(to: place.coordinate, from: here) else { return nil }
         return Suggestion(place: place, reason: .frequent, travelTime: travel)
@@ -280,6 +282,28 @@ final class RouteSuggestions {
         guard let fav = all.min(by: { $0.coordinate.distance(to: coordinate) < $1.coordinate.distance(to: coordinate) }),
               fav.coordinate.distance(to: coordinate) < 300 else { return nil }
         return Place(id: "favorite-\(fav.id.uuidString)", name: fav.label, address: fav.address, coordinate: fav.coordinate)
+    }
+
+    /// Kein Favorit, aber ein Geschäft, Fitnessstudio … am gelernten Ort: dieses ansteuern (Name, Eingang/Adresse)
+    /// statt des Aufenthaltsorts. Einmal je Ort nachgeschlagen; die ID bleibt die des Orts (Ablehnen gilt weiter).
+    private var poiCache: [String: Place?] = [:]
+
+    private func poi(near spot: FrequentPlaces.Spot) async -> Place? {
+        if let cached = poiCache[spot.place.id] { return cached }
+        let request = MKLocalPointsOfInterestRequest(center: spot.coordinate, radius: 80)
+        let items = (try? await MKLocalSearch(request: request).start().mapItems) ?? []
+        let here = CLLocation(latitude: spot.coordinate.latitude, longitude: spot.coordinate.longitude)
+        let place = items.filter { $0.name != nil }
+            .min { CLLocation(latitude: $0.coordinate.latitude, longitude: $0.coordinate.longitude).distance(from: here)
+                 < CLLocation(latitude: $1.coordinate.latitude, longitude: $1.coordinate.longitude).distance(from: here) }
+            .map { item -> Place in
+                let address: String?
+                if #available(iOS 26.0, *) { address = item.address?.fullAddress } else { address = item.placemark.title }
+                return Place(id: spot.place.id, name: item.name ?? spot.place.name,
+                             address: address?.replacingOccurrences(of: "\n", with: ", "), coordinate: item.coordinate)
+            }
+        poiCache[spot.place.id] = place
+        return place
     }
 
     // MARK: Fahrzeit

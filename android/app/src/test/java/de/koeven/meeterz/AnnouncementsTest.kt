@@ -136,7 +136,9 @@ class AnnouncementsTest {
             Step(ManeuverType.ARRIVE),
         )
         val r = Announcer().process(steps[0].voice[0], LegState(steps, 0, 55.0))
-        assertEquals(Announcer.Result.Speak("Auf Waldstraße Richtung Südwesten fahren. Dann Links abbiegen, um auf Waldstraße zu bleiben."), r)
+        // Text bleibt, an der Abbiegung kommt noch „Jetzt links abbiegen.“
+        assertEquals(Announcer.Result.SlipLane("Auf Waldstraße Richtung Südwesten fahren. Dann Links abbiegen, um auf Waldstraße zu bleiben.",
+            "Jetzt links abbiegen.", 0), r)
     }
 
     @Test fun parsesSignDestinations() {

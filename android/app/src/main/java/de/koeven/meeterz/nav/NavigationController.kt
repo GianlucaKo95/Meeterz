@@ -420,7 +420,7 @@ object NavigationController : MapboxNavigationObserver {
                 speaker?.say(r.text)
             }
             is Announcer.Result.SlipLane -> {
-                Diag.log("Abbiegespur: „${voice.text}“ → einordnen, Abbiegen an der Kreuzung")
+                Diag.log("Ansage jetzt: „${r.now}“, an der Abbiegung: „${r.atTurn}“")
                 speaker?.say(r.now)
                 slipLane = Triple(r.laneStep, r.atTurn, 0)
             }

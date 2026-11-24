@@ -284,6 +284,13 @@ final class MeeterzSpeechSynthesizer: NSObject, SpeechSynthesizing {
         text = FinalTurn.apply(to: text, instruction: instruction, legProgress: legProgress)
         text = TurnPhrases.polish(text)
         if text != instruction.text { Diag.log("Ansage angepasst: „\(instruction.text)“ → „\(text)“") }
+        // Losfahren mit gleich folgender Abbiegung („… Dann, in 100 Metern, rechts auf Lütticher Straße abbiegen“): Mapbox
+        // sagt für so kurze Stücke nur diese eine Ansage, an der Abbiegung kam nichts mehr (24.11.)
+        if position.first, position.last, legProgress.currentStep.maneuverType == .depart,
+           FinalTurn.lateEnough(legProgress) != nil, let next = legProgress.upcomingStep,
+           let direction = LandmarkInstructions.directionText(next.maneuverDirection) {
+            turnAtIntersection(side: direction, laneStepIndex: legProgress.stepIndex)
+        }
 
         // Eine neue Abbiegeansage ersetzt eine wartende oder noch nicht hörbare. Eine schon hörbare läuft zu Ende,
         // die neue folgt direkt danach – vorher brach z. B. die erste Ansage nach Start oder Neuberechnung mittendrin ab,

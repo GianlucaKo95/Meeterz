@@ -507,6 +507,10 @@ class Announcer {
         if (!position.first) leg.upcoming?.let { text = StepAnnouncements.withoutStreet(text, it.names.firstOrNull(), it.codes.firstOrNull()) }
         text = FinalTurn.apply(text, instruction, leg)
         text = TurnPhrases.polish(text)
+        // Losfahren mit gleich folgender Abbiegung: Mapbox sagt für kurze Stücke nur diese eine Ansage – an der
+        // Abbiegung selbst noch „Jetzt rechts abbiegen“ (wie iOS, 24.11.)
+        if (position.first && position.last && leg.current.type == ManeuverType.DEPART && FinalTurn.tooEarly(leg))
+            LandmarkInstructions.directionText(leg.upcoming?.direction)?.let { return Result.SlipLane(text, "Jetzt $it abbiegen.", leg.stepIndex) }
         return Result.Speak(text)
     }
 }

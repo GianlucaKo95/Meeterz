@@ -53,7 +53,7 @@ struct MainView: View {
     }
 
     /// Aufgeteilt, sonst schafft der Compiler die Typprüfung nicht mehr in der Zeit
-    var body: some View { cameraHandlers(mainBody) }
+    var body: some View { cameraHandlers(sheets(mainBody)) }
 
     private var mainBody: some View {
         @Bindable var navigation = app.navigation
@@ -108,6 +108,19 @@ struct MainView: View {
         .onChange(of: app.banner) { _, new in if new != nil { setChrome(hidden: false) } }
         .onChange(of: plannedMeetup?.id) { _, new in if new != nil { setChrome(hidden: false) } }
         .onChange(of: navigation.isNavigating) { _, _ in setChrome(hidden: false) }
+        .overlay {
+            if navigation.isCalculating {
+                ProgressView(String(localized: "Route wird berechnet …"))
+                    .padding(20)
+                    .background(RoundedRectangle(cornerRadius: 16).fill(Theme.panel))
+            }
+        }
+        .task { await app.startSession() }
+    }
+
+    private func sheets<Content: View>(_ content: Content) -> some View {
+        @Bindable var navigation = app.navigation
+        return content
         .confirmationDialog("Inkognito", isPresented: $showIncognito, titleVisibility: .visible) {
             Button("15 Minuten") { Task { await app.startIncognito(for: 15 * 60) } }
             Button("1 Stunde") { Task { await app.startIncognito(for: 60 * 60) } }
@@ -135,14 +148,6 @@ struct MainView: View {
         .sheet(isPresented: $showSearch) { SearchView() }
         .sheet(item: $plannedMeetup) { MeetupPlannerView(candidate: $0) }
         .sheet(item: $navigation.preview) { RoutePreviewView(preview: $0) }
-        .overlay {
-            if navigation.isCalculating {
-                ProgressView(String(localized: "Route wird berechnet …"))
-                    .padding(20)
-                    .background(RoundedRectangle(cornerRadius: 16).fill(Theme.panel))
-            }
-        }
-        .task { await app.startSession() }
     }
 
     private func cameraHandlers<Content: View>(_ content: Content) -> some View {
@@ -155,7 +160,7 @@ struct MainView: View {
             guard !flyover, let focus, let target = focusViewport(focus) else { return }
             withViewportAnimation(.easeOut(duration: 0.8)) { viewport = target }
         }
-        .onChange(of: navigation.isNavigating) { _, active in if active { app.mapFocus = nil } }
+        .onChange(of: app.navigation.isNavigating) { _, active in if active { app.mapFocus = nil } }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { app.mapFocus = nil }
             if phase == .active, !flyover, viewport.followPuck != nil {

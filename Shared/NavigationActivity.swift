@@ -38,6 +38,8 @@ enum ActivityFormat {
             let rounded = meters < 100 ? (meters / 10).rounded() * 10 : (meters / 50).rounded() * 50
             return String(localized: "\(Int(max(rounded, 0))) m")
         }
+        // Ab 10 km ganze Kilometer („41 km“ statt „41,2 km“) – überall gleich (24.11.)
+        if meters >= 10_000 { return (meters / 1000).formatted(.number.precision(.fractionLength(0))) + " km" }
         return (meters / 1000).formatted(.number.precision(.fractionLength(1))) + " km"
     }
 

@@ -908,13 +908,14 @@ private fun minutes(seconds: Double): String {
     return if (m < 60) tr("%lld Min", m) else tr("%lld Std %lld Min", m / 60, m % 60)
 }
 
-/** Wie ActivityFormat.distance auf iOS: unter 100 m auf 10 m, unter 1 km auf 50 m gerundet */
+/** Wie ActivityFormat.distance auf iOS: unter 100 m auf 10 m, unter 1 km auf 50 m, bis 10 km auf 0,1 km, darüber ganze km */
 fun km(meters: Double): String {
     if (meters < 1000) {
         val rounded = if (meters < 100) Math.round(meters / 10) * 10 else Math.round(meters / 50) * 50
         return "${maxOf(rounded, 0)} m"
     }
-    return String.format(java.util.Locale.GERMANY, "%.1f km", meters / 1000)
+    if (meters >= 10_000) return "${Math.round(meters / 1000)} km"
+    return String.format(java.util.Locale.getDefault(), "%.1f km", meters / 1000)
 }
 
 internal fun clockAt(at: java.time.Instant): String = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(at.toEpochMilli()))

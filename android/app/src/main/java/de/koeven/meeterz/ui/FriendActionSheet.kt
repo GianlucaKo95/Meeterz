@@ -174,7 +174,4 @@ private fun SheetButton(label: String, icon: ImageVector, onClick: () -> Unit) {
 }
 
 /** „350 m“ / „12 km“ (wie iOS ActivityFormat.distance) */
-internal fun distanceText(meters: Double): String =
-    if (meters < 1000) "${(Math.round(meters / 10) * 10)} m"
-    else if (meters < 10_000) String.format(java.util.Locale.getDefault(), "%.1f km", meters / 1000)
-    else "${Math.round(meters / 1000)} km"
+internal fun distanceText(meters: Double): String = km(meters)   // eine Rundung überall

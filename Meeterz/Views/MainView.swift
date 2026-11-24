@@ -55,7 +55,7 @@ struct MainView: View {
     /// Aufgeteilt, sonst schafft der Compiler die Typprüfung nicht mehr in der Zeit
     var body: some View { cameraHandlers(sheets(mainBody)) }
 
-    private var mainBody: some View {
+    @ViewBuilder private var mainBody: some View {
         @Bindable var navigation = app.navigation
 
         ZStack(alignment: .top) {

@@ -52,7 +52,10 @@ struct MainView: View {
             : .followPuck(zoom: 13 + Double(zoomSteps), bearing: northUp ? .constant(0) : .heading, pitch: 0)
     }
 
-    var body: some View {
+    /// Aufgeteilt, sonst schafft der Compiler die Typprüfung nicht mehr in der Zeit
+    var body: some View { cameraHandlers(mainBody) }
+
+    private var mainBody: some View {
         @Bindable var navigation = app.navigation
 
         ZStack(alignment: .top) {
@@ -140,6 +143,10 @@ struct MainView: View {
             }
         }
         .task { await app.startSession() }
+    }
+
+    private func cameraHandlers<Content: View>(_ content: Content) -> some View {
+        content
         .onAppear { viewport = followViewport }
         // Weggeschoben bleibt die Karte, wo sie ist – zurück zum Standort nur über den Ortungspfeil (wie in CarPlay).
         // Vorher sprang sie nach 10 s von selbst zurück; ebenso beim Zoomen (+/−), beim 2D/3D-Wechsel und beim

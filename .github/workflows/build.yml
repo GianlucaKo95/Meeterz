@@ -27,7 +27,7 @@ on:
 # Testläufe (nächtlich oder mit ui_tests) und reine Compile-Checks getrennt: ein Compile-Check oder ein
 # verspäteter Nachtlauf bricht keinen laufenden UI-Testlauf mehr ab
 concurrency:
-  group: build-${{ github.ref }}-${{ (github.event_name == 'schedule' || inputs.ui_tests || inputs.store_screenshots) && 'tests' || 'compile' }}
+  group: build-${{ github.ref }}-${{ (github.event_name == 'schedule' || inputs.ui_tests || inputs.store_screenshots) && 'tests' || 'compile' }}-${{ inputs.kino && 'kino' || '' }}
   cancel-in-progress: ${{ github.event_name != 'schedule' }}
 
 permissions:

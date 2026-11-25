@@ -52,6 +52,47 @@ enum M3U {
     }
 }
 
+/// Drosselung wie Couchpotato (RequestGate): ≥ 2,5 s Abstand, höchstens 40 Anfragen je Stunde, nach einer Sperre
+/// des Anbieters (401/403/404/429/509) 15 Min. Ruhe. Liste höchstens einmal je Stunde. Überlebt Neustarts.
+@MainActor
+enum KinoGate {
+    private static let d = UserDefaults.standard
+    static let minGap: TimeInterval = 2.5
+    static let maxPerHour = 40
+    static let cooldown: TimeInterval = 15 * 60
+    static let listGap: TimeInterval = 3600
+
+    /// nil = darf, sonst der Grund
+    static func check(list: Bool = false) -> String? {
+        let now = Date()
+        let blocked = Date(timeIntervalSince1970: d.double(forKey: "kino.blocked"))
+        if now < blocked { return "Anbieter-Sperre – Pause bis \(ActivityFormat.time(blocked))" }
+        if list, let last = d.object(forKey: "kino.listAt") as? Double, now.timeIntervalSince1970 - last < listGap {
+            return "Liste erst wieder ab \(ActivityFormat.time(Date(timeIntervalSince1970: last + listGap)))"
+        }
+        let recent = requests.filter { now.timeIntervalSince($0) < 3600 }
+        if recent.count >= maxPerHour { return "Zu viele Anfragen in der letzten Stunde" }
+        if let last = recent.max(), now.timeIntervalSince(last) < minGap { return "Kurz warten" }
+        return nil
+    }
+
+    static func record(list: Bool = false) {
+        let now = Date()
+        d.set((requests.filter { now.timeIntervalSince($0) < 3600 } + [now]).map(\.timeIntervalSince1970), forKey: "kino.requests")
+        if list { d.set(now.timeIntervalSince1970, forKey: "kino.listAt") }
+    }
+
+    /// Antwortcode prüfen: Sperre des Anbieters → ganz in Ruhe lassen
+    static func answer(_ code: Int) -> Bool {
+        guard [401, 403, 404, 429, 509].contains(code) else { return true }
+        d.set(Date().addingTimeInterval(cooldown).timeIntervalSince1970, forKey: "kino.blocked")
+        Diag.log("Kino: Anbieter antwortet \(code) – 15 Min. Pause")
+        return false
+    }
+
+    private static var requests: [Date] { (d.array(forKey: "kino.requests") as? [Double] ?? []).map(Date.init(timeIntervalSince1970:)) }
+}
+
 @MainActor
 final class KinoStore: ObservableObject {
     static let shared = KinoStore()
@@ -115,11 +156,16 @@ final class KinoStore: ObservableObject {
     func reload() async {
         UserDefaults.standard.set(link, forKey: "kino.link")
         guard let url = URL(string: link.trimmingCharacters(in: .whitespaces)) else { status = "Link prüfen"; return }
+        if let reason = KinoGate.check(list: true) { status = reason; return }
+        KinoGate.record(list: true)
         status = "Lädt …"
         do {
             var request = URLRequest(url: url, timeoutInterval: 120)
             request.setValue("VLC/3.0", forHTTPHeaderField: "User-Agent")   // manche Anbieter sperren unbekannte Player
-            let (data, _) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard KinoGate.answer((response as? HTTPURLResponse)?.statusCode ?? 200) else {
+                status = "Anbieter sperrt gerade – 15 Min. Pause"; return
+            }
             try data.write(to: file, options: .completeFileProtectionUntilFirstUserAuthentication)
             await parse(data)
         } catch { status = "Fehler: \(error.localizedDescription)" }
@@ -156,6 +202,13 @@ final class KinoPlayer {
     func play(_ channel: KinoChannel) {
         guard Self.allowed, let url = M3U.playable(channel.url),
               let host = CarPlayController.shared.manager.carPlayMapViewController?.view else { return }
+        if let reason = KinoGate.check() {
+            Diag.log("Kino: \(reason)")
+            CarPlayUI.shared.present(CPAlertTemplate(titleVariants: [reason], actions: [
+                CPAlertAction(title: "OK", style: .default) { _ in CarPlayUI.shared.dismiss(animated: true) }]), animated: true)
+            return
+        }
+        KinoGate.record()
         stop(refresh: false)
         let item = AVPlayerItem(asset: AVURLAsset(url: url, options: ["AVURLAssetHTTPHeaderFieldsKey": ["User-Agent": "VLC/3.0"]]))
         let player = AVPlayer(playerItem: item)

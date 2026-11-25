@@ -86,6 +86,9 @@ final class ChargingSession {
                 hiddenOnPhone = false
                 chosenByUser = false
                 setTarget(target(here: AppModel.shared.location.lastLocation?.coordinate))
+                #if KINO
+                CarPlayController.shared.refreshVoiceButton()   // Kino-Knopf erscheint
+                #endif
                 Diag.log("Laden erkannt: \(Int(soc)) % → Ziel \(Int(targetPercent)) %" + (AppModel.shared.vehicle.carChargeTarget.map { " (Auto: \(Int($0)) %)" } ?? ""))
             } else if !chosenByUser {
                 // Ladeziel des Autos kann später ankommen oder im Auto geändert werden
@@ -112,6 +115,9 @@ final class ChargingSession {
         active = false
         powerKW = 0
         CarPlayChargingOverlay.shared.hide()
+        #if KINO
+        KinoPlayer.shared.stop()   // sofort, nicht erst beim nächsten Prüftakt
+        #endif
         Diag.log("Laden beendet bei \(Int(reportedPercent)) %")
     }
 

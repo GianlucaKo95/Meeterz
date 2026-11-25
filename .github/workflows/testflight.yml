@@ -11,6 +11,10 @@ on:
         description: "Mit CarPlay-Entitlement bauen (von Apple freigegeben)"
         type: boolean
         default: true
+      kino:
+        description: "Kino (Video beim Laden) – NUR für interne Tester, nie externen Gruppen zuweisen"
+        type: boolean
+        default: false
 
 concurrency:
   group: testflight
@@ -39,6 +43,7 @@ jobs:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           CI_SUPABASE_REF: jgtkyxlzroajtxboqgcn
           WITH_CARPLAY: ${{ inputs.carplay && '1' || '0' }}
+          WITH_KINO: ${{ inputs.kino && '1' || '0' }}
         run: ./ci/testflight.sh
 
       - name: Bericht veröffentlichen

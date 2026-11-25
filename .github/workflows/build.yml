@@ -15,6 +15,10 @@ on:
         description: "Auch Smoke- und UI-Tests laufen lassen (dauert ca. 15 Min. länger)"
         type: boolean
         default: false
+      kino:
+        description: "Mit Kino-Teil (nur interne Builds) kompilieren"
+        type: boolean
+        default: false
       store_screenshots:
         description: "Auf einem iPhone Pro Max laufen lassen (Screenshots in 6,9 Zoll für den App Store)"
         type: boolean
@@ -56,6 +60,7 @@ jobs:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           MAPBOX_PUBLIC_TOKEN: ${{ secrets.MAPBOX_PUBLIC_TOKEN }}
           PREFER_MAX: ${{ inputs.store_screenshots && '1' || '0' }}
+          WITH_KINO: ${{ inputs.kino && '1' || '0' }}
           # Nachts immer mit Tests, auf Knopfdruck nur, wenn angehakt (oder für Screenshots)
           RUN_TESTS: ${{ (github.event_name == 'schedule' || inputs.ui_tests || inputs.store_screenshots) && '1' || '0' }}
         run: ./ci/build.sh

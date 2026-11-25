@@ -1046,12 +1046,19 @@ final class CarPlayController: NSObject {
         return CPBarButton(image: image) { _ in MapPreferences.setNorthUp(!MapPreferences.northUp) }   // setzt die Knöpfe neu
     }
 
+    private func browsingLeadingButtons() -> [CPBarButton] {
+        #if KINO
+        if let kino = KinoTemplates.button() { return [orientationButton(), kino] }
+        #endif
+        return [orientationButton()]
+    }
+
     /// Knöpfe nach einem Wechsel (auch vom iPhone aus) neu setzen – CarPlay-Knöpfe lassen sich nicht ändern
     func refreshVoiceButton() {
         guard isConnected, let template = manager.interfaceController?.rootTemplate as? CPMapTemplate else { return }
         switch manager.currentActivity {
         case .navigating: template.leadingNavigationBarButtons = [voiceButton(), orientationButton()]
-        case .browsing: template.leadingNavigationBarButtons = [orientationButton()]
+        case .browsing: template.leadingNavigationBarButtons = browsingLeadingButtons()
         default: break
         }
     }
@@ -1689,7 +1696,7 @@ extension CarPlayController: CarPlayManagerDelegate {
             // Start gab es dort praktisch nie eine Auswahl („Keine alternativen Routen“); schnellere Routen bieten wir
             // ohnehin per Hinweis an.
             switch activity {
-            case .browsing: return [orientationButton()]
+            case .browsing: return browsingLeadingButtons()
             case .navigating: return [voiceButton(), orientationButton()]
             default: return nil
             }

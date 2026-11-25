@@ -724,6 +724,9 @@ struct FriendsView: View {
             .buttonStyle(.borderless)
         }
         .listRowBackground(Theme.panel)
+        #if KINO
+        KinoSettingsSection().listRowBackground(Theme.panel)
+        #endif
         #if DEBUG
         Section {
             Toggle("Fahrten simulieren (Test)", isOn: $simulate)

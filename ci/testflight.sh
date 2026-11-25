@@ -41,7 +41,9 @@ ENT="Meeterz/Meeterz.entitlements"
 sed -i '' "s#DEIN-PROJEKT#${CI_SUPABASE_REF}#; s#DEIN_PUBLISHABLE_KEY#${SUPABASE_ANON_KEY}#; s#pk.DEIN_MAPBOX_PUBLIC_TOKEN#${MAPBOX_PUBLIC_TOKEN}#; s#DEINE_TEAM_ID#${APPLE_TEAM_ID}#; s#MEETERZ_PUSH_ENV = development#MEETERZ_PUSH_ENV = production#" Config.xcconfig
 # Modus A (Test-Login) entfernen, Modus B/C setzen
 sed -i '' '/^MEETERZ_FLAGS = DEV_LOGIN/d; /^MEETERZ_ENTITLEMENTS =/d; /^MEETERZ_ENTITLEMENTS\[sdk/d' Config.xcconfig
-printf "\nMEETERZ_FLAGS =\nMEETERZ_ENTITLEMENTS = %s\n" "$ENT" >> Config.xcconfig
+FLAGS=""
+[ "$WITH_KINO" = "1" ] && FLAGS="KINO" && log "!! Kino-Build: nur interne Tester"
+printf "\nMEETERZ_FLAGS = %s\nMEETERZ_ENTITLEMENTS = %s\n" "$FLAGS" "$ENT" >> Config.xcconfig
 grep -q "DEV_LOGIN" Config.xcconfig && { log "!! DEV_LOGIN ist noch aktiv"; exit 21; }
 log "Entitlements: $ENT"
 

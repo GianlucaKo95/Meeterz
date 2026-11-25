@@ -42,7 +42,7 @@ sed -i '' "s#DEIN-PROJEKT#${CI_SUPABASE_REF}#; s#DEIN_PUBLISHABLE_KEY#${SUPABASE
 # Modus A (Test-Login) entfernen, Modus B/C setzen
 sed -i '' '/^MEETERZ_FLAGS = DEV_LOGIN/d; /^MEETERZ_ENTITLEMENTS =/d; /^MEETERZ_ENTITLEMENTS\[sdk/d' Config.xcconfig
 FLAGS=""
-[ "$WITH_KINO" = "1" ] && FLAGS="KINO" && log "!! Kino-Build: nur interne Tester"
+[ "$WITH_KINO" = "1" ] && { FLAGS="KINO"; ./ci/kino.sh || exit 30; log "!! Kino-Build: nur interne Tester (ATS offen)"; }
 printf "\nMEETERZ_FLAGS = %s\nMEETERZ_ENTITLEMENTS = %s\n" "$FLAGS" "$ENT" >> Config.xcconfig
 grep -q "DEV_LOGIN" Config.xcconfig && { log "!! DEV_LOGIN ist noch aktiv"; exit 21; }
 log "Entitlements: $ENT"

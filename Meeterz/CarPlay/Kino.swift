@@ -96,6 +96,16 @@ final class KinoStore: ObservableObject {
 
     func isFavorite(_ channel: KinoChannel) -> Bool { favorites.contains { $0.url == channel.url } }
 
+    /// Namen, die mit dem Suchwort beginnen, zuerst
+    func search(_ query: String, limit: Int) async -> [KinoChannel] {
+        let list = channels
+        return await Task.detached {
+            let hits = list.filter { $0.name.localizedCaseInsensitiveContains(query) }
+            let starts = hits.filter { $0.name.lowercased().hasPrefix(query.lowercased()) }
+            return Array((starts + hits.filter { !$0.name.lowercased().hasPrefix(query.lowercased()) }).prefix(limit))
+        }.value
+    }
+
     /// Beim Start aus dem Zwischenspeicher (ohne Netz)
     func loadCached() {
         guard channels.isEmpty, let data = try? Data(contentsOf: file) else { return }
@@ -228,7 +238,14 @@ enum KinoTemplates {
     static func open() {
         let store = KinoStore.shared
         store.loadCached()
-        var sections: [CPListSection] = []
+        let search = CPListItem(text: "Suchen", detailText: nil, image: UIImage(systemName: "magnifyingglass"))
+        search.handler = { _, done in
+            let t = CPSearchTemplate()
+            t.delegate = KinoSearch.shared
+            CarPlayUI.shared.push(t, animated: true)
+            done()
+        }
+        var sections: [CPListSection] = [CPListSection(items: [search])]
         if !store.favorites.isEmpty {
             sections.append(CPListSection(items: store.favorites.map(item), header: "Favoriten", sectionIndexTitle: nil))
         }
@@ -252,7 +269,7 @@ enum KinoTemplates {
         }
     }
 
-    private static func item(_ channel: KinoChannel) -> CPListItem {
+    static func item(_ channel: KinoChannel) -> CPListItem {
         let i = CPListItem(text: channel.name, detailText: nil)
         i.handler = { _, done in
             KinoPlayer.shared.play(channel)
@@ -272,6 +289,32 @@ enum KinoTemplates {
             page.append(more)
         }
         CarPlayUI.shared.push(CPListTemplate(title: title, sections: leading + [CPListSection(items: page)]), animated: true)
+    }
+}
+
+/// Suche über alle Sender und Filme (Tastatur im Stand, sonst Diktat)
+final class KinoSearch: NSObject, CPSearchTemplateDelegate {
+    static let shared = KinoSearch()
+    private var task: Task<Void, Never>?
+
+    func searchTemplate(_ searchTemplate: CPSearchTemplate, updatedSearchText searchText: String,
+                        completionHandler: @escaping ([CPListItem]) -> Void) {
+        task?.cancel()
+        let query = searchText.trimmingCharacters(in: .whitespaces)
+        guard query.count >= 2 else { completionHandler([]); return }
+        task = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled else { return }
+            let found = await KinoStore.shared.search(query, limit: CPListTemplate.maximumItemCount)
+            guard !Task.isCancelled else { return }
+            completionHandler(found.map(KinoTemplates.item))
+        }
+    }
+
+    func searchTemplate(_ searchTemplate: CPSearchTemplate, selectedResult item: CPListItem,
+                        completionHandler: @escaping () -> Void) {
+        MainActor.assumeIsolated { item.handler?(item) { } }
+        completionHandler()
     }
 }
 
@@ -303,9 +346,27 @@ struct KinoSettingsSection: View {
 /// Kategorien sortieren (ziehen) und ausblenden; antippen → Sender als Favorit markieren
 private struct KinoGroupsView: View {
     @ObservedObject private var store = KinoStore.shared
+    @State private var query = ""
+    @State private var results: [KinoChannel] = []
 
     var body: some View {
         List {
+            if !query.isEmpty {
+                Section("Treffer") {
+                    ForEach(results, id: \.url) { channel in
+                        Button { store.toggleFavorite(channel) } label: {
+                            HStack {
+                                VStack(alignment: .leading) {
+                                    Text(channel.name).foregroundStyle(.primary)
+                                    Text(channel.group).font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: store.isFavorite(channel) ? "star.fill" : "star").foregroundStyle(.yellow)
+                            }
+                        }
+                    }
+                }
+            }
             if !store.favorites.isEmpty {
                 Section("Favoriten") {
                     ForEach(store.favorites, id: \.url) { Text($0.name) }
@@ -332,6 +393,11 @@ private struct KinoGroupsView: View {
             } header: { Text("Kategorien") } footer: { Text("Auge: in CarPlay zeigen/ausblenden. Bearbeiten: Reihenfolge ziehen.") }
         }
         .navigationTitle("Kino")
+        .searchable(text: $query, prompt: "Sender oder Film")
+        .task(id: query) {
+            try? await Task.sleep(for: .milliseconds(250))
+            results = query.count < 2 ? [] : await store.search(query, limit: 100)
+        }
         .toolbar {
             Button(store.hidden.isEmpty ? "Alle aus" : "Alle an") {
                 store.hidden = store.hidden.isEmpty ? Set(store.allGroups) : []

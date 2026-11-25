@@ -63,10 +63,38 @@ final class KinoStore: ObservableObject {
 
     private var file: URL { FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("kino.m3u") }
 
-    var groups: [String] {
-        var seen = Set<String>()
-        return channels.compactMap { seen.insert($0.group).inserted ? $0.group : nil }
+    @Published var hidden: Set<String> = Set(UserDefaults.standard.stringArray(forKey: "kino.hidden") ?? []) {
+        didSet { UserDefaults.standard.set(Array(hidden), forKey: "kino.hidden") }
     }
+    @Published var order: [String] = UserDefaults.standard.stringArray(forKey: "kino.order") ?? [] {
+        didSet { UserDefaults.standard.set(order, forKey: "kino.order") }
+    }
+    @Published var favorites: [KinoChannel] =
+        (UserDefaults.standard.data(forKey: "kino.favorites")).flatMap { try? JSONDecoder().decode([KinoChannel].self, from: $0) } ?? [] {
+        didSet { UserDefaults.standard.set(try? JSONEncoder().encode(favorites), forKey: "kino.favorites") }
+    }
+
+    /// Alle Gruppen in eigener Reihenfolge (neue hinten an)
+    var allGroups: [String] {
+        var seen = Set<String>()
+        let inList = channels.compactMap { seen.insert($0.group).inserted ? $0.group : nil }
+        return order.filter(seen.contains) + inList.filter { !order.contains($0) }
+    }
+
+    /// Für CarPlay: ohne ausgeblendete
+    var groups: [String] { allGroups.filter { !hidden.contains($0) } }
+
+    func move(from: IndexSet, to: Int) {
+        var list = allGroups
+        list.move(fromOffsets: from, toOffset: to)
+        order = list
+    }
+
+    func toggleFavorite(_ channel: KinoChannel) {
+        if let i = favorites.firstIndex(where: { $0.url == channel.url }) { favorites.remove(at: i) } else { favorites.append(channel) }
+    }
+
+    func isFavorite(_ channel: KinoChannel) -> Bool { favorites.contains { $0.url == channel.url } }
 
     /// Beim Start aus dem Zwischenspeicher (ohne Netz)
     func loadCached() {
@@ -201,6 +229,9 @@ enum KinoTemplates {
         let store = KinoStore.shared
         store.loadCached()
         var sections: [CPListSection] = []
+        if !store.favorites.isEmpty {
+            sections.append(CPListSection(items: store.favorites.map(item), header: "Favoriten", sectionIndexTitle: nil))
+        }
         if !store.recent.isEmpty {
             sections.append(CPListSection(items: store.recent.map(item), header: "Zuletzt", sectionIndexTitle: nil))
         }
@@ -259,10 +290,75 @@ struct KinoSettingsSection: View {
                 Text(store.status).font(.footnote).foregroundStyle(.secondary)
             }
             .buttonStyle(.borderless)
+            if !store.channels.isEmpty {
+                NavigationLink("Kategorien & Favoriten") { KinoGroupsView() }
+            }
         } header: { Text("Kino (nur intern)") } footer: {
             Text("Läuft in CarPlay nur, solange das Auto lädt und steht. Netflix & Co. bleiben wegen Kopierschutz schwarz.")
         }
         .onAppear { store.loadCached() }
+    }
+}
+
+/// Kategorien sortieren (ziehen) und ausblenden; antippen → Sender als Favorit markieren
+private struct KinoGroupsView: View {
+    @ObservedObject private var store = KinoStore.shared
+
+    var body: some View {
+        List {
+            if !store.favorites.isEmpty {
+                Section("Favoriten") {
+                    ForEach(store.favorites, id: \.url) { Text($0.name) }
+                        .onDelete { store.favorites.remove(atOffsets: $0) }
+                        .onMove { store.favorites.move(fromOffsets: $0, toOffset: $1) }
+                }
+            }
+            Section {
+                ForEach(store.allGroups, id: \.self) { group in
+                    HStack {
+                        Button {
+                            if store.hidden.contains(group) { store.hidden.remove(group) } else { store.hidden.insert(group) }
+                        } label: {
+                            Image(systemName: store.hidden.contains(group) ? "eye.slash" : "eye")
+                                .foregroundStyle(store.hidden.contains(group) ? Color.secondary : Color.accentColor)
+                        }
+                        .buttonStyle(.borderless)
+                        NavigationLink { KinoChannelsView(group: group) } label: {
+                            Text(group).foregroundStyle(store.hidden.contains(group) ? .secondary : .primary)
+                        }
+                    }
+                }
+                .onMove(perform: store.move)
+            } header: { Text("Kategorien") } footer: { Text("Auge: in CarPlay zeigen/ausblenden. Bearbeiten: Reihenfolge ziehen.") }
+        }
+        .navigationTitle("Kino")
+        .toolbar {
+            Button(store.hidden.isEmpty ? "Alle aus" : "Alle an") {
+                store.hidden = store.hidden.isEmpty ? Set(store.allGroups) : []
+            }
+            EditButton()
+        }
+    }
+}
+
+private struct KinoChannelsView: View {
+    let group: String
+    @ObservedObject private var store = KinoStore.shared
+    @State private var query = ""
+
+    var body: some View {
+        let list = store.channels.filter { $0.group == group && (query.isEmpty || $0.name.localizedCaseInsensitiveContains(query)) }
+        List(list.prefix(500), id: \.url) { channel in
+            Button { store.toggleFavorite(channel) } label: {
+                HStack {
+                    Text(channel.name).foregroundStyle(.primary)
+                    Spacer()
+                    Image(systemName: store.isFavorite(channel) ? "star.fill" : "star").foregroundStyle(.yellow)
+                }
+            }
+        }
+        .searchable(text: $query)
+        .navigationTitle(group)
     }
 }
 #endif

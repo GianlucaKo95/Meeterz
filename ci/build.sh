@@ -43,6 +43,7 @@ SB_KEY="${SUPABASE_ANON_KEY:-ci-platzhalter}"
 MB_PK="${MAPBOX_PUBLIC_TOKEN:-pk.ci-platzhalter}"
 sed -i '' "s#DEIN-PROJEKT#${SB_REF}#; s#DEIN_PUBLISHABLE_KEY#${SB_KEY}#; s#pk.DEIN_MAPBOX_PUBLIC_TOKEN#${MB_PK}#; s#DEINE_TEAM_ID##" Config.xcconfig
 [ "${WITH_KINO:-0}" = "1" ] && sed -i '' 's/^MEETERZ_FLAGS = DEV_LOGIN$/MEETERZ_FLAGS = DEV_LOGIN KINO/' Config.xcconfig
+log "$(grep '^MEETERZ_FLAGS' Config.xcconfig)"
 log "Konfiguration: Supabase=${SB_REF}, Schlüssel gesetzt=$([ -n "$SUPABASE_ANON_KEY" ] && echo ja || echo nein), Mapbox-Token gesetzt=$([ -n "$MAPBOX_PUBLIC_TOKEN" ] && echo ja || echo nein)"
 xcodegen generate 2>&1 | tee -a "$REPORT"
 [ -d Meeterz.xcodeproj ] || { log "!! xcodegen hat kein Projekt erzeugt"; exit 12; }

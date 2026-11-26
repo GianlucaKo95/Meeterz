@@ -325,8 +325,7 @@ final class NavigationCoordinator: NSObject {
         guard var buttons = controller.floatingButtons, !buttons.isEmpty,
               let camera = controller.navigationMapView?.navigationCamera else { return }
         let button = UIButton(type: .system)
-        button.tintColor = .label
-        button.backgroundColor = .systemBackground
+        MeeterzNavigationLook.style(button)
         button.layer.cornerRadius = 25
         button.layer.shadowOpacity = 0.25
         button.layer.shadowRadius = 4
@@ -368,8 +367,7 @@ final class NavigationCoordinator: NSObject {
         func make(_ symbol: String, _ label: String, _ action: @escaping () -> Void) -> UIButton {
             let button = UIButton(type: .system)
             button.setImage(UIImage(systemName: symbol), for: .normal)
-            button.tintColor = .label
-            button.backgroundColor = .systemBackground
+            MeeterzNavigationLook.style(button)
             button.layer.cornerRadius = 25
             button.layer.shadowOpacity = 0.25
             button.layer.shadowRadius = 4
@@ -413,8 +411,7 @@ final class NavigationCoordinator: NSObject {
             button.accessibilityValue = mode.title
         }
         refresh()
-        button.tintColor = .label
-        button.backgroundColor = .systemBackground
+        MeeterzNavigationLook.style(button)
         button.layer.cornerRadius = 25
         button.layer.shadowOpacity = 0.25
         button.layer.shadowRadius = 4
@@ -553,6 +550,9 @@ final class NavigationCoordinator: NSObject {
         if kind == .gas {
             let prices = await FuelPrices.prices(for: result.prefix(10).map(\.place.coordinate))
             for (i, p) in prices.enumerated() { result[i].price = p }
+            // Mapbox führt auch Mineralöl-Händler und Lager als Tankstelle („Gephy Vertriebs- und Lagergesellschaft“,
+            // 26.11.). Öffentliche Tankstellen melden Preise – ohne Preis und mit Firmennamen fliegt der Treffer raus.
+            result.removeAll { $0.price == nil && SearchService.looksLikeCompany($0.place.name) }
         }
         return result
     }

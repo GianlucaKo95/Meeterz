@@ -177,6 +177,13 @@ enum SearchService {
         return try await search(kind.fallbackQuery, near: near)
     }
 
+    /// Firmen-/Lagername statt Tankstelle (Händler, Spedition …)
+    static func looksLikeCompany(_ name: String) -> Bool {
+        let n = name.lowercased()
+        return ["gesellschaft", "vertrieb", "lager", "handel", "spedition", "logistik", "service gmbh", "mineralöl", "heizöl"]
+            .contains { n.contains($0) }
+    }
+
     /// Passendes Symbol zur Ortsart (Mapbox „maki“-Symbole bzw. Kategorien)
     static func symbol(type: String?, maki: String?, categories: [String]) -> String {
         let key = ([maki ?? ""] + categories).joined(separator: " ").lowercased()

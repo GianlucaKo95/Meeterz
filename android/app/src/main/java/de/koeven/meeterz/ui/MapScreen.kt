@@ -108,6 +108,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
+import com.mapbox.maps.plugin.logo.logo
+import com.mapbox.maps.plugin.attribution.attribution
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -495,8 +501,19 @@ fun MapScreen() {
                 dismissButton = { TextButton(onClick = { parkedMenu = false; de.koeven.meeterz.suggest.Parking.clear() }) { Text(tr("Parkplatz vergessen")) } },
             )
         }
+        val bottomCardsHeight = remember { mutableIntStateOf(0) }
+        val chargingCardHeight = remember { mutableIntStateOf(0) }
         val charging by ChargingSession.view.collectAsState()
-        charging?.let { ChargingCard(it, Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp)) }   // unten wie iOS (23.11.)
+        charging?.let { ChargingCard(it, Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp).bottomCard(chargingCardHeight)) }   // unten wie iOS (23.11.)
+        // Mapbox-Logo und ⓘ müssen sichtbar bleiben (Nutzungsbedingungen) – über die Karten unten heben (wie iOS)
+        val navBar = WindowInsets.navigationBars.getBottom(androidx.compose.ui.platform.LocalDensity.current)
+        val extra = with(androidx.compose.ui.platform.LocalDensity.current) { 16.dp.toPx() }
+        LaunchedEffect(bottomCardsHeight.intValue, chargingCardHeight.intValue, navBar) {
+            val cards = maxOf(bottomCardsHeight.intValue, chargingCardHeight.intValue + extra.toInt())
+            val margin = if (cards > 0) (cards + navBar + extra) else extra / 2
+            mapView.logo.marginBottom = margin
+            mapView.attribution.marginBottom = margin
+        }
 
         val g = guidance
         planCandidate?.let { CandidatePlanDialog(it, onClose = { planCandidate = null }) }
@@ -615,7 +632,7 @@ fun MapScreen() {
                 }
             }
             if (planning) CircularProgressIndicator(Modifier.align(Alignment.Center))
-            if (preview == null && query.isEmpty()) Column(Modifier.align(Alignment.BottomCenter).navigationBarsPadding()) {
+            if (preview == null && query.isEmpty()) Column(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().bottomCard(bottomCardsHeight)) {
                 droppedPin?.let { pin ->
                     PinCard(pin, onNavigate = { droppedPin = null; planTo(pin.name, pin.address, pin.lat, pin.lng) },
                         onRemove = { droppedPin = null })
@@ -1616,3 +1633,10 @@ internal fun followMe(viewport: com.mapbox.maps.plugin.viewport.ViewportPlugin, 
                      else com.mapbox.maps.plugin.viewport.data.FollowPuckViewportStateBearing.Constant(0.0))
             .pitch(if (map3d) 45.0 else 0.0)
             .build())
+
+/** Höhe einer Karte am unteren Rand melden (0, sobald sie verschwindet) – für Mapbox-Logo/ⓘ darüber */
+@Composable
+private fun Modifier.bottomCard(height: androidx.compose.runtime.MutableIntState): Modifier {
+    DisposableEffect(Unit) { onDispose { height.intValue = 0 } }
+    return this.then(Modifier.onSizeChanged { height.intValue = it.height })
+}

@@ -245,7 +245,15 @@ final class MeeterzUITests: MeeterzTestBase {
         need(app.navigationBars["Navigationsstimme"], "stimme-ansicht")
         need(app.staticTexts["Automatisch"], "stimme-automatisch")
         shot("navigationsstimme")
-        app.navigationBars["Navigationsstimme"].buttons.firstMatch.tap()
+        // Zurück: jeden zweiten Lauf blieb der Tipp wirkungslos (Seite schob noch ein) – gezielt den Zurück-Knopf,
+        // erst wenn er antippbar ist, und einmal nachfassen
+        let bar = app.navigationBars["Navigationsstimme"]
+        let back = bar.buttons["Sprachansagen"].exists ? bar.buttons["Sprachansagen"] : bar.buttons.element(boundBy: 0)
+        for _ in 0..<2 where !app.navigationBars["Sprachansagen"].exists {
+            _ = back.waitForExistence(timeout: 3)
+            if back.isHittable { back.tap() }
+            _ = app.navigationBars["Sprachansagen"].waitForExistence(timeout: 4)
+        }
         need(app.navigationBars["Sprachansagen"], "zurueck-sprachansagen")
         app.navigationBars["Sprachansagen"].buttons.firstMatch.tap()
         need(app.navigationBars["Einstellungen"], "zurueck-einstellungen")

@@ -206,8 +206,8 @@ final class MeeterzStoreShots: MeeterzTestBase {
         let firstFriend = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", sc.friends[0].name)).firstMatch
         if !firstFriend.waitForExistence(timeout: 90) { shot("FEHLT-freunde-auf-karte") }
         pause(15)    // Routen und Kartenkacheln laden
-        // Hinweis „Nur bei offener App sichtbar“ (Simulator hat keine „Immer“-Freigabe) ausblenden
-        for label in ["Hinweis ausblenden", "Hinweis schließen"] {
+        // Hinweise ausblenden
+        for label in ["Hinweis schließen"] {
             let x = app.buttons[L(label)]
             if x.exists { x.tap(); pause(1) }
         }

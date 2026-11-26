@@ -227,8 +227,16 @@ object PlaceSearch {
         if (category == Category.GAS) {
             val prices = de.koeven.meeterz.data.FuelPrices.prices(result.take(10).map { it.place.lat to it.place.lng })
             result = result.mapIndexed { i, s -> if (i < prices.size) s.copy(price = prices[i]) else s }
+                // Händler/Lager, die Mapbox als Tankstelle führt: ohne Preis und mit Firmennamen raus (wie iOS, 26.11.)
+                .filterNot { it.price == null && looksLikeCompany(it.place.name) }
         }
         return result
+    }
+
+    /** Firmen-/Lagername statt Tankstelle (Händler, Spedition …) */
+    fun looksLikeCompany(name: String): Boolean {
+        val n = name.lowercase()
+        return listOf("gesellschaft", "vertrieb", "lager", "handel", "spedition", "logistik", "service gmbh", "mineralöl", "heizöl").any { it in n }
     }
 
     private fun distance(a: Double, b: Double, c: Double, d: Double) = de.koeven.meeterz.ev.ChargePlanner.distance(a, b, c, d)

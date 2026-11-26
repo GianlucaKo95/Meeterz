@@ -28,6 +28,9 @@ struct MainView: View {
     @State private var chromeHidden = false
     /// Per langem Druck auf die Karte gesetzter Pin
     @State private var droppedPin: Place?
+    /// Höhe der Karten unten (Pin, Laden, Treffen …) – Mapbox-Logo/ⓘ sitzen darüber
+    @State private var bottomCardsHeight: CGFloat = 0
+    private var ornamentMargins: CGPoint { CGPoint(x: 8, y: bottomCardsHeight > 1 ? bottomCardsHeight + 16 : 8) }
     /// Der „Pin“ ist ein angetippter POI: kein roter Pin auf dem Symbol, „Schließen“ statt „Entfernen“ (22.11.)
     @State private var pinIsPoi = false
     @State private var showStoryComposer = false
@@ -70,10 +73,8 @@ struct MainView: View {
             VStack(spacing: 10) {
                 topBar
                 HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        SharingPill { showIncognito = true }
-                        BackgroundHint()
-                    }
+                    // Hinweis „Immer erlauben“ steckt jetzt in der Pille (vorher eigene Karte darunter, 26.11.)
+                    SharingPill { showIncognito = true }
                     Spacer()
                     mapControls
                 }
@@ -88,6 +89,7 @@ struct MainView: View {
 
             VStack(spacing: 10) {
                 Spacer()
+                VStack(spacing: 10) {
                 if let pin = droppedPin, !poiResolving {
                     PinCard(pin: pin, details: poiInfo, isPoi: pinIsPoi) {
                         droppedPin = nil
@@ -99,6 +101,9 @@ struct MainView: View {
                 if ChargingSession.shared.active, !ChargingSession.shared.hiddenOnPhone {
                     ChargingCard()
                 }
+                }
+                // Mapbox-Logo und ⓘ müssen sichtbar bleiben (Nutzungsbedingungen) – über die Karten heben
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { bottomCardsHeight = $0 }
             }
             .padding(.horizontal, 12)
             .padding(.bottom, 8)
@@ -401,7 +406,9 @@ struct MainView: View {
                   : .standardSatellite(lightPreset: colorScheme == .light ? .day : .night))
         // Kein Kompass: Die Ausrichtung schaltet der Ortungspfeil (Norden oben ↔ Fahrtrichtung). Der Kompass
         // nordete nur kurz ein, dann drehte die Kamera wieder mit (23.11.)
-        .ornamentOptions(OrnamentOptions(compass: CompassViewOptions(visibility: .hidden)))
+        .ornamentOptions(OrnamentOptions(compass: CompassViewOptions(visibility: .hidden),
+                                         logo: LogoViewOptions(margins: ornamentMargins),
+                                         attributionButton: AttributionButtonOptions(margins: ornamentMargins)))
         .ignoresSafeArea()
     }
 
@@ -555,7 +562,7 @@ struct FriendMarker: View {
                 Avatar(initials: friend.initials, color: FriendPalette.color(for: friend.friendId), size: 40, faded: stale, userId: friend.friendId)
                     .overlay(Circle().stroke(FriendPalette.color(for: friend.friendId), lineWidth: 2).padding(-2))
                 Text("\(friend.displayName) · \(Format.age(position.age))")
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .font(.system(.caption, design: .rounded).weight(.semibold))
                     .padding(.horizontal, 8).padding(.vertical, 4)
                     .background(Capsule().fill(Theme.panel))
             }
@@ -566,36 +573,6 @@ struct FriendMarker: View {
 }
 
 // MARK: - Teilen-Status
-
-/// Hinweis, solange der Standort nur „beim Verwenden“ freigegeben ist: Freunde sehen dich sonst nur bei offener App.
-struct BackgroundHint: View {
-    @Environment(AppModel.self) private var app
-    @AppStorage("hint.always.dismissed") private var dismissed = false
-
-    var body: some View {
-        if app.location.authorization == .authorizedWhenInUse, !dismissed {
-            HStack(spacing: 8) {
-                Button { Task { _ = await Permissions.ask(.always) } } label: {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Nur bei offener App sichtbar").font(.system(size: 13, weight: .semibold, design: .rounded))
-                        Text("Tippen: Standort „Immer“ erlauben").font(.system(size: 11, design: .rounded)).foregroundStyle(Theme.muted)
-                    }
-                    .multilineTextAlignment(.leading)
-                }
-                .accessibilityLabel("Standort Immer erlauben")
-                Button { dismissed = true } label: {
-                    Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.muted)
-                }
-                .accessibilityLabel("Hinweis ausblenden")
-            }
-            .foregroundStyle(Theme.text)
-            .padding(.horizontal, 12).padding(.vertical, 8)
-            .background(RoundedRectangle(cornerRadius: 12).fill(Theme.panel))
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.stroke, lineWidth: 1))
-            .frame(maxWidth: 230, alignment: .leading)
-        }
-    }
-}
 
 struct SharingPill: View {
     @Environment(AppModel.self) private var app
@@ -614,7 +591,14 @@ struct SharingPill: View {
         let incognito = profile?.isIncognito ?? false
         let sharing = profile?.isSharingNow ?? false
         // Tippen öffnet die Teilen-Optionen direkt auf der Karte (Dauer, Pausieren, Inkognito beenden)
+        // Simulator/Store-Bilder haben nie „Immer“ – dort kein Warnzeichen
+        let onlyOpenApp = app.location.authorization == .authorizedWhenInUse && !UserDefaults.standard.bool(forKey: "dev.simulate")
         Menu {
+            if onlyOpenApp {
+                Section("Freunde sehen dich nur bei offener App") {
+                    Button("Standort „Immer“ erlauben", systemImage: "location.fill") { Task { _ = await Permissions.ask(.always) } }
+                }
+            }
             if incognito {
                 Button("Inkognito beenden", systemImage: "eye") { Task { await app.stopIncognito() } }
             } else {
@@ -641,12 +625,16 @@ struct SharingPill: View {
         } label: {
             HStack(spacing: 8) {
                 if incognito {
-                    Image(systemName: "eye.slash.fill").font(.system(size: 11, weight: .semibold))
+                    Image(systemName: "eye.slash.fill").font(.caption.weight(.semibold))
                 } else {
                     Circle().fill(sharing ? Theme.accent : Theme.muted).frame(width: 8, height: 8)
                 }
                 Text(label(profile))
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .font(.system(.footnote, design: .rounded).weight(.semibold))
+                if onlyOpenApp, sharing, !incognito {
+                    Image(systemName: "exclamationmark.circle.fill").foregroundStyle(Theme.go)
+                        .accessibilityLabel("Nur bei offener App sichtbar")
+                }
             }
             .foregroundStyle(incognito || sharing ? Theme.accent : Theme.muted)
             .padding(.horizontal, 12).padding(.vertical, 8)

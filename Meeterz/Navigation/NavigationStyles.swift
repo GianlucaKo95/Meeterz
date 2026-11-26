@@ -34,6 +34,15 @@ enum MeeterzNavigationLook {
     static let muted = Theme.UI.muted
     static let accent = Theme.UI.accent
 
+    /// Eigene Knöpfe (Route, Ansagen, Suche, Gefahr, Ausrichtung) wie Mapbox' FloatingButton im App-Look –
+    /// vorher schwarz/weiß (Systemfarben), nur der Nachrichten-Knopf war petrol (26.11.)
+    static func style(_ button: UIButton) {
+        button.tintColor = accent
+        button.backgroundColor = panel
+        button.layer.borderWidth = 1
+        button.layer.borderColor = stroke.resolvedColor(with: button.traitCollection).cgColor
+    }
+
     static func apply() {
         for idiom in [UIUserInterfaceIdiom.phone, .pad] {
             let t = UITraitCollection(userInterfaceIdiom: idiom)
@@ -79,10 +88,17 @@ final class MeeterzStandardNightStyle: StandardNightStyle {
 
 enum NavigationStyles {
     /// iPhone: folgt dem Umschalter auf der Karte, Banner und Knöpfe im Meeterz-Look
-    static func phone() -> [MapboxNavigationUIKit.Style] {
-        (UserDefaults.standard.object(forKey: "map.satellite") as? Bool ?? true)
-            ? [MeeterzSatelliteNightStyle(), MeeterzSatelliteDayStyle()]
-            : [MeeterzStandardNightStyle(), MeeterzStandardDayStyle()]
+    /// Karte folgt „Darstellung“: Dunkel → immer Nachtkarte, Hell → immer Tageskarte, System → nach Tageszeit.
+    /// Vorher wechselte Mapbox nach Uhrzeit – tagsüber helle Karte unter dunklen Bannern (26.11.)
+    @MainActor static func phone() -> [MapboxNavigationUIKit.Style] {
+        let satellite = UserDefaults.standard.object(forKey: "map.satellite") as? Bool ?? true
+        let night: MapboxNavigationUIKit.Style = satellite ? MeeterzSatelliteNightStyle() : MeeterzStandardNightStyle()
+        let day: MapboxNavigationUIKit.Style = satellite ? MeeterzSatelliteDayStyle() : MeeterzStandardDayStyle()
+        switch AppAppearance.current {
+        case .dark: return [night]
+        case .light: return [day]
+        case .system: return [night, day]
+        }
     }
 
     /// CarPlay: wird nur in den iPhone-Einstellungen festgelegt

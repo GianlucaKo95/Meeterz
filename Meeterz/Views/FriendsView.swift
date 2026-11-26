@@ -746,6 +746,7 @@ struct FriendsView: View {
                 }
             }
             Button("Konto löschen", role: .destructive) { confirmDelete = true }
+                .foregroundStyle(Theme.danger)   // Liste färbt sonst alles in Textfarbe
         }
         .listRowBackground(Theme.panel)
     }
